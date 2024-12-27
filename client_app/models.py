@@ -90,6 +90,12 @@ class LookupSystemicAgent(models.Model):
     def __str__(self):
         return self.systemic_agent_name
 
+class LookupUnits(models.Model):
+    unit = models.CharField(max_length=255)
+    unit_abbreviation = models.CharField(max_length=255)
+    def __str__(self):
+        return self.unit_abbreviation
+
 class LookupDoseUnits(models.Model):
     unit = models.CharField(max_length=255)
     unit_abbreviation = models.CharField(max_length=255)
@@ -198,10 +204,18 @@ class DICOMSeries(models.Model):
 
 class DICOMStudyFiles(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    file_name = models.TextField()
+    file_name = models.TextField(null=True, blank=True)
     upload_timestamp = models.DateTimeField(auto_now_add=True)
-    number_of_files = models.IntegerField()
+    number_of_files = models.IntegerField(null=True, blank=True)
     file_size = models.DecimalField(max_digits=10, decimal_places=2)
+
+class DICOMTagInformation(models.Model):
+    dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
+    tag = models.CharField(max_length=255)
+    tag_name = models.CharField(max_length=255)
+    tag_value = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 # Clinical Data Models
@@ -210,11 +224,11 @@ class Diagnosis(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(LookupICDCode, on_delete=models.PROTECT)
-    diagnosis_date = models.DateField()
+    diagnosis_date = models.DateField(null=True, blank=True)
     presentation_type = models.ForeignKey(LookupPresentation, on_delete=models.PROTECT)
     cancer_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT)
     cancer_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT)
-    diagnostic_modality = models.CharField(max_length=100)
+    diagnostic_modality = models.CharField(max_length=100,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -224,21 +238,22 @@ class Diagnosis(models.Model):
 class Outcome(models.Model):
     chavi_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    date_outcome_assessed = models.DateField()
-    outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.CASCADE)
+    date_outcome_assessed = models.DateField(null=True, blank=True)
+    outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class Lesion(models.Model):
     chavi_lesion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    date_lesion_assessed = models.DateField()
-    lesion_site = models.ForeignKey(LookupFMACode, on_delete=models.CASCADE)
-    lesion_type = models.ForeignKey(LookupLesionType, on_delete=models.CASCADE)
-    lesion_laterality = models.ForeignKey(LookupLaterality, on_delete=models.CASCADE)
+    date_lesion_assessed = models.DateField(null=True, blank=True)
+    lesion_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT)
+    lesion_type = models.ForeignKey(LookupLesionType, on_delete=models.PROTECT)
+    lesion_laterality = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT)
     lesion_size_x_axis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     lesion_size_y_axis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     lesion_size_z_axis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    lesion_size_unit = models.ForeignKey(LookupUnits, on_delete=models.PROTECT, null=True, blank=True)
     lesion_volume = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -246,7 +261,7 @@ class Lesion(models.Model):
 class LesionResponse(models.Model):
     chavi_lesion_response_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     lesion = models.ForeignKey(Lesion, on_delete=models.CASCADE)
-    lesion_response_date = models.DateField()
+    lesion_response_date = models.DateField(null=True, blank=True)
     lesion_response = models.ForeignKey(LookupResponseType, on_delete=models.CASCADE)
     residual_lesion_size_x_axis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     residual_lesion_size_y_axis = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -258,22 +273,22 @@ class LesionResponse(models.Model):
 class Pathology(models.Model):
     chavi_pathology_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    date_pathology = models.DateField()
-    specimen_type = models.CharField(max_length=255)
+    date_pathology = models.DateField(null=True, blank=True)
+    specimen_type = models.CharField(max_length=500,null=True, blank=True)
     tumor_site = models.ForeignKey(LookupFMACode, on_delete=models.CASCADE)
     tumor_side = models.ForeignKey(LookupLaterality, on_delete=models.CASCADE)
-    histological_type = models.CharField(max_length=255)
-    histological_subtype = models.CharField(max_length=255)
-    histological_grade = models.CharField(max_length=50)
-    histological_grading_schema = models.CharField(max_length=255)
+    histological_type = models.CharField(max_length=500,null=True, blank=True)
+    histological_subtype = models.CharField(max_length=500,null=True, blank=True)
+    histological_grade = models.CharField(max_length=50,null=True, blank=True)
+    histological_grading_schema = models.CharField(max_length=255,null=True, blank=True)
     greatest_tumor_size = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     greatest_dimension_of_tumor = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     additional_tumor_dimension_1 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     additional_tumor_dimension_2 = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    tumor_focality = models.CharField(max_length=50)
-    lymphatic_vascular_invasion = models.CharField(max_length=255)
-    perineural_invasion = models.CharField(max_length=255)
-    dermal_lymphatic_vascular_invasion = models.CharField(max_length=255)
+    tumor_focality = models.CharField(max_length=50,null=True, blank=True)
+    lymphatic_vascular_invasion = models.CharField(max_length=255,null=True, blank=True)
+    perineural_invasion = models.CharField(max_length=255,null=True, blank=True)
+    dermal_lymphatic_vascular_invasion = models.CharField(max_length=255,null=True, blank=True)
     count_lymph_nodes_in_specimen = models.BigIntegerField(null=True, blank=True)
     count_lymph_nodes_uninvolved = models.BigIntegerField(null=True, blank=True)
     count_lymph_nodes_macroscopic = models.BigIntegerField(null=True, blank=True)
@@ -285,42 +300,42 @@ class Pathology(models.Model):
 class Immunohistochemistry(models.Model):
     chavi_ihc_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(Pathology, on_delete=models.CASCADE)
-    date_ihc = models.DateField()
+    date_ihc = models.DateField(null=True, blank=True)
     protein_name = models.ForeignKey(LookupUniProt, on_delete=models.CASCADE)
-    ihc_result = models.CharField(max_length=255)
+    ihc_result = models.CharField(max_length=255,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class Cytogenetics(models.Model):
     chavi_cytogenetics_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(Pathology, on_delete=models.CASCADE)
-    date_cytogenetics = models.DateField()
-    gene = models.ForeignKey(LookupCosmic, on_delete=models.CASCADE)
-    cytogenetic_result = models.TextField()
+    date_cytogenetics = models.DateField(null=True, blank=True)
+    gene = models.ForeignKey(LookupCosmic, on_delete=models.PROTECT)
+    cytogenetic_result = models.CharField(max_length=255,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class SomaticGenomicAlterations(models.Model):
     chavi_somatic_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(Pathology, on_delete=models.CASCADE)
-    date_test = models.DateField()
-    cosmic_gene_name = models.ForeignKey(LookupCosmic, on_delete=models.CASCADE)
-    reference_sequence = models.CharField(max_length=255)
-    protein_modification = models.CharField(max_length=255)
-    variant_type = models.CharField(max_length=50)
+    date_test = models.DateField(null=True, blank=True)
+    cosmic_gene_name = models.ForeignKey(LookupCosmic, on_delete=models.PROTECT)
+    reference_sequence = models.CharField(max_length=255,null=True, blank=True)
+    protein_modification = models.CharField(max_length=255,null=True, blank=True)
+    variant_type = models.CharField(max_length=255,null=True, blank=True)
     allele_frequency = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     read_depth = models.IntegerField(null=True, blank=True)
-    clinical_significance = models.CharField(max_length=50)
+    clinical_significance = models.CharField(max_length=50,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class Treatment(models.Model):
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    treatment_start_date = models.DateField()
+    treatment_start_date = models.DateField(null=True, blank=True)
     treatment_end_date = models.DateField(null=True, blank=True)
-    treatment_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.CASCADE)
-    treatment_intent = models.ForeignKey(LookupTreatmentIntent, on_delete=models.CASCADE)
+    treatment_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT)
+    treatment_intent = models.ForeignKey(LookupTreatmentIntent, on_delete=models.PROTECT)
     treatment = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -328,29 +343,30 @@ class Treatment(models.Model):
 class Radiotherapy(models.Model):
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     treatment = models.ForeignKey('Treatment', on_delete=models.CASCADE)
-    radiotherapy_modality = models.CharField(max_length=255)
+    radiotherapy_modality = models.CharField(max_length=255,null=True, blank=True)
     total_dose = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_fractions = models.BigIntegerField(null=True, blank=True)
-    radiotherapy_type = models.CharField(max_length=255)
+    radiotherapy_type = models.CharField(max_length=255,null=True, blank=True)
     radiotherapy_sequence = models.ForeignKey('LookupTreatmentSequence', on_delete=models.PROTECT)
-    radiotherapy_technique = models.CharField(max_length=255)
+    radiotherapy_technique = models.CharField(max_length=255,null=True, blank=True)
     fractions_per_day = models.BigIntegerField(null=True, blank=True)
     radiotherapy_site = models.ForeignKey('LookupFMACode', on_delete=models.PROTECT)
     radiotherapy_side = models.ForeignKey('LookupLaterality', on_delete=models.PROTECT)
-    treatment_volume = models.CharField(max_length=255)
+    treatment_volume = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class Surgery(models.Model):
     chavi_surgery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE)
-    surgery_date = models.DateField()
-    surgery_site = models.ForeignKey(LookupFMACode, on_delete=models.CASCADE)
+    surgery_date = models.DateField(null=True, blank=True)
+    surgery_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT)
+    surgery_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT,null=True, blank=True)
     surgery_type = models.CharField(max_length=255)
-    nodal_dissection = models.BooleanField()
-    type_nodal_dissection = models.CharField(max_length=255)
-    reconstruction = models.BooleanField()
-    type_reconstruction = models.CharField(max_length=255)
+    nodal_assessment = models.BooleanField(null=True, blank=True)  
+    nodal_assessment_type = models.CharField(max_length=255,null=True, blank=True) 
+    reconstruction = models.BooleanField(null=True, blank=True)
+    type_reconstruction = models.CharField(max_length=255,null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -368,8 +384,8 @@ class ConcomitantMedications(models.Model):
 class SystemicTherapy(models.Model):
     chavi_systemic_therapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE)
-    type_systemic_therapy = models.CharField(max_length=255)
-    systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.CASCADE)
+    type_systemic_therapy = models.CharField(max_length=255,null=True, blank=True)
+    systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -377,7 +393,7 @@ class SystemicTherapySchedule(models.Model):
     chavi_systemic_therapy_schedule_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     systemic_therapy = models.ForeignKey('SystemicTherapy', on_delete=models.CASCADE)
     systemic_therapy_agent_route = models.ForeignKey('LookupDrugRoute', on_delete=models.PROTECT)
-    systemic_therapy_agent_start_date = models.DateField()
+    systemic_therapy_agent_start_date = models.DateField(null=True, blank=True)
     systemic_therapy_agent_end_date = models.DateField(null=True, blank=True)
     systemic_therapy_agent = models.ForeignKey('LookupSystemicAgent', on_delete=models.PROTECT)
     systemic_therapy_dose_planned = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -390,16 +406,32 @@ class AdverseEffects(models.Model):
     chavi_adverse_effects_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey('Diagnosis', on_delete=models.CASCADE)
     treatment = models.ForeignKey('Treatment', on_delete=models.CASCADE, null=True, blank=True)
-    ctcae_grade = models.ForeignKey('LookupCTCAEGrade', on_delete=models.PROTECT, null=True, blank=True)
+    ctcae_grade_lookup = models.ForeignKey('LookupCTCAEGrade', on_delete=models.PROTECT,null=True, blank=True)
     adverse_effect_type = models.CharField(max_length=255)
     adverse_effect_grade = models.BigIntegerField()
-    adverse_effect_start_date = models.DateField()
+    adverse_effect_start_date = models.DateField(null=True, blank=True)
     adverse_effect_end_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        unique_together = ('adverse_effect_type', 'adverse_effect_grade')
+
+    def save(self, *args, **kwargs):
+        if self.ctcae_grade_lookup:
+            # Automatically set type and grade from the lookup
+            self.adverse_effect_type = self.ctcae_grade_lookup.ctcae_term
+            self.adverse_effect_grade = self.ctcae_grade_lookup.ctcae_grade
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.ctcae_grade_lookup:
+            # Ensure the type and grade match the lookup
+            if (self.adverse_effect_type != self.ctcae_grade_lookup.ctcae_term or 
+                self.adverse_effect_grade != self.ctcae_grade_lookup.ctcae_grade):
+                raise ValidationError(
+                    'Adverse effect type and grade must match the selected CTCAE grade lookup'
+                )
 
 class ProInstrument(models.Model):
     pro_instrument = models.CharField(max_length=255, unique=True)
@@ -436,8 +468,8 @@ class PatientReportedOutcome(models.Model):
     instrument = models.ForeignKey(ProInstrument, on_delete=models.CASCADE)
     domain = models.ForeignKey(ProDomain, on_delete=models.CASCADE)
     question = models.ForeignKey(ProQuestion, on_delete=models.CASCADE)
-    pro_date = models.DateField()
-    pro_answer = models.TextField()
+    pro_date = models.DateField(null=True, blank=True)
+    pro_answer = models.TextField(null=True, blank=True)
     pro_score = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -459,8 +491,8 @@ class PatientOutcome(models.Model):
 class Comorbidity(models.Model):
     chavi_comorbidity_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    comorbidity_type = models.ForeignKey(LookupICDCode, on_delete=models.CASCADE)
-    date_of_comorbidity_diagnosis = models.DateField()
+    comorbidity_type = models.ForeignKey(LookupICDCode, on_delete=models.PROTECT)
+    date_of_comorbidity_diagnosis = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -469,16 +501,16 @@ class StageInformation(models.Model):
     chavi_stage_information_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey('Diagnosis', on_delete=models.CASCADE)
     staging_system = models.ForeignKey('LookupStagingSystem', on_delete=models.PROTECT)
-    stage_type = models.CharField(max_length=255)
+    stage_type = models.CharField(max_length=255, null=True, blank=True)
     t_stage_prefix = models.CharField(max_length=255, null=True, blank=True)
-    t_stage = models.CharField(max_length=255)
+    t_stage = models.CharField(max_length=255, null=True, blank=True)
     t_stage_suffix = models.CharField(max_length=255, null=True, blank=True)
     n_stage_prefix = models.CharField(max_length=255, null=True, blank=True)
-    n_stage = models.CharField(max_length=255)
+    n_stage = models.CharField(max_length=255, null=True, blank=True)
     n_stage_suffix = models.CharField(max_length=255, null=True, blank=True)
     m_stage_prefix = models.CharField(max_length=255, null=True, blank=True)
-    m_stage_suffix = models.CharField(max_length=255)
-    overall_stage = models.CharField(max_length=255)
+    m_stage_suffix = models.CharField(max_length=255, null=True, blank=True)
+    overall_stage = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
