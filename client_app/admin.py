@@ -1,17 +1,16 @@
 from django.contrib import admin
 from .models import *
 
-class PatientProjectInline(admin.TabularInline):
-    model = PatientProject
-    extra = 1  # Number of empty forms to display by default
-    verbose_name = "Project"
-    verbose_name_plural = "Projects"
+# Register your models here.
+
+
 
 class DiagnosisDICOMStudyInline(admin.TabularInline):
     model = DiagnosisDICOMStudy
     extra = 1  # Number of empty forms to display by default
     verbose_name = "DICOM Study"
     verbose_name_plural = "DICOM Studies"
+
 
 @admin.register(Diagnosis)
 class DiagnosisAdmin(admin.ModelAdmin):
@@ -27,6 +26,16 @@ class DiagnosisAdmin(admin.ModelAdmin):
             'fields': ('presentation_type', 'cancer_site', 'cancer_side', 'diagnostic_modality')
         }),
     )
+
+
+
+class PatientProjectInline(admin.TabularInline):
+    model = PatientProject
+    extra = 1  # Number of empty forms to display by default
+    verbose_name = "Project"
+    verbose_name_plural = "Projects"
+
+
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
     inlines = [PatientProjectInline]
@@ -39,6 +48,20 @@ class PatientAdmin(admin.ModelAdmin):
         }),
         ('Consent Information', {
             'fields': ('chavi_consent', 'date_chavi_consent')
+        }),
+    )
+
+
+@admin.register(Center)
+class CenterAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('Center Information', {
+            'fields': ('chavi_center_id','center_name')
+
+        }),
+        ('Center Address', {
+            'fields': ('center_address', 'center_city', 'center_state', 'center_country')
+
         }),
     )
 
