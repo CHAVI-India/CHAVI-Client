@@ -253,7 +253,7 @@ class Patient(models.Model):
         return self.patient_id
 
     class Meta:
-        verbose_name_plural = "Patients",
+        verbose_name_plural = "Patients"
         db_table="patient"
 
 # Project Model
@@ -396,7 +396,7 @@ class Diagnosis(models.Model):
         return f"{self.patient.patient_id} - {self.diagnosis_date}"
 
     class Meta:
-        verbose_name_plural="Diagnoses",
+        verbose_name_plural="Diagnoses"
         db_table = 'diagnosis'    
 
 class Outcome(models.Model):
@@ -483,7 +483,7 @@ class Lesion(models.Model):
         return f"Lesion {self.chavi_lesion_id}"
 
     class Meta:
-        verbose_name_plural = "Lesions",
+        verbose_name_plural = "Lesions"
         db_table="lesion"
 
 class LesionResponse(models.Model):
@@ -538,7 +538,7 @@ class LesionResponse(models.Model):
         return f"Lesion Response {self.chavi_lesion_response_id}"
 
     class Meta:
-        verbose_name_plural="Lesion Responses",
+        verbose_name_plural="Lesion Responses"
         db_table="lesion_response"
 
 class Pathology(models.Model):
@@ -677,7 +677,7 @@ class Pathology(models.Model):
         return f"{self.pathology.patient.patient_id} - {self.pathology.histological_type}"
 
     class Meta:
-        verbose_name_plural = "Pathology",
+        verbose_name_plural = "Pathology"
         db_table="pathology"    
 
 class Immunohistochemistry(models.Model):
@@ -743,7 +743,7 @@ class Cytogenetics(models.Model):
         return f"{self.cytogenetics.chavi_cytogenetics_id}"
     
     class Meta:
-        verbose_name_plural="Cytogenetics",
+        verbose_name_plural="Cytogenetics"
         db_table="cytogenetics"
 
 class SomaticGenomicAlterations(models.Model):
@@ -806,7 +806,7 @@ class SomaticGenomicAlterations(models.Model):
         return f"{self.somatic_genomic_alterations.chavi_somatic_genomic_id}"
     
     class Meta:
-        verbose_name_plural="Somatic Genomic Alterations",
+        verbose_name_plural="Somatic Genomic Alterations"
         db_table="somatic_genomic_alterations"
 
 class Treatment(models.Model):
@@ -849,7 +849,7 @@ class Treatment(models.Model):
     def __str__ (self):
         return f"{self.treatment.chavi_treatment_id}"
     class Meta:
-        verbose_name_plural="Treatments",
+        verbose_name_plural="Treatments"
         db_table="treatment"
 
 class Radiotherapy(models.Model):
@@ -920,7 +920,7 @@ class Radiotherapy(models.Model):
     def __str__ (self):
         return f"{self.radiotherapy.chavi_radiotherapy_id}"
     class Meta:
-        verbose_name_plural="Radiotherapy",
+        verbose_name_plural="Radiotherapy"
         db_table="radiotherapy"
 
 class Surgery(models.Model):
@@ -979,7 +979,7 @@ class Surgery(models.Model):
     def __str__ (self):
         return f"{self.surgery.chavi_surgery_id}"
     class Meta:
-        verbose_name_plural="Surgery",
+        verbose_name_plural="Surgery"
         db_table="surgery"
 
 class ConcomitantMedications(models.Model):
@@ -1019,7 +1019,7 @@ class ConcomitantMedications(models.Model):
     def __str__ (self):
         return f"{self.concomitant_medications.chavi_medication_id}"
     class Meta:
-        verbose_name_plural="ConcomitantMedications",
+        verbose_name_plural="ConcomitantMedications"
         db_table="concomitant_medications"
 
 class SystemicTherapy(models.Model):
@@ -1037,7 +1037,7 @@ class SystemicTherapy(models.Model):
         return f"{self.systemic_therapy.chavi_systemic_therapy_id}"
 
     class Meta:
-        verbose_name_plural="Systemic Therapies",
+        verbose_name_plural="Systemic Therapies"
         db_table="systemic_therapy"
 
 class SystemicTherapySchedule(models.Model):
@@ -1092,7 +1092,7 @@ class SystemicTherapySchedule(models.Model):
     def __str__ (self):
         return f"{self.systemic_therapy_schedule.chavi_systemic_therapy_schedule_id}"
     class Meta:
-        verbose_name_plural="Systematic Therapy Schedules",
+        verbose_name_plural="Systematic Therapy Schedules"
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(models.Model):
@@ -1159,7 +1159,7 @@ class AdverseEffects(models.Model):
     def __str__(self):
         return f"{self.adverse_effect_type} - {self.adverse_effect_grade}"
     class Meta:
-        verbose_name_plural="Adverse Effects",
+        verbose_name_plural="Adverse Effects"
         db_table="adverse_effects"   
 
 class ProInstrument(models.Model):
@@ -1171,7 +1171,7 @@ class ProInstrument(models.Model):
         return self.pro_instrument
 
     class Meta:
-        verbose_name_plural="PRO Instruments",
+        verbose_name_plural="PRO Instruments"
         db_table="pro_instrument"
 
 class ProDomain(models.Model):
@@ -1251,7 +1251,7 @@ class PatientReportedOutcome(models.Model):
         return f"{self.patient.patient_id} - {self.patient_reported_outcome.chavi_pro_id}"
 
     class Meta:
-        verbose_name_plural="Patient Reported Outcomes",
+        verbose_name_plural="Patient Reported Outcomes"
         db_table="patient_reported_outcome"    
 
 class PatientOutcome(models.Model):
@@ -1308,7 +1308,7 @@ class Comorbidity(models.Model):
         return f"{self.patient.patient_id} - {self.comorbidity_type.chavi_comorbidity_id}"
 
     class Meta:
-        verbose_name_plural="Comorbidities",
+        verbose_name_plural="Comorbidities"
         db_table="comorbidity"
 
 class StageInformation(models.Model):
@@ -1390,7 +1390,7 @@ class StageInformation(models.Model):
         return self.chavi_stage_information_id
 
     class Meta:
-        verbose_name_plural="Stage Informations",
+        verbose_name_plural="Stage Informations"
         db_table='stage_information'    
     
 
