@@ -149,15 +149,20 @@ class LookupStagingSystem(models.Model):
 # Center Model
 class Center(models.Model):
     chavi_center_id = models.CharField(max_length=255, unique=True)
-    center_address = models.TextField()
-    center_city = models.TextField()
-    center_state = models.TextField()
-    center_country = models.TextField()
+    center_name = models.CharField(max_length=255,null=True,blank=True)
+    center_address = models.TextField(null=True,blank=True)
+    center_city = models.TextField(null=True,blank=True)
+    center_state = models.TextField(null=True,blank=True)
+    center_country = models.TextField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.chavi_center_id
+        return self.center_name
+
+    class Meta:
+       verbose_name_plural = "Centers"
+       db_table="center"
 
 # Core Patient Models
 class Patient(models.Model):
@@ -178,7 +183,10 @@ class Patient(models.Model):
 # Project Model
 class Project(models.Model):
     chavi_project_id = models.CharField(max_length=255, unique=True)
-    start_date = models.DateField()
+    project_name = models.CharField(max_length=255,null=True, blank = True)
+    start_date = models.DateField(null=True, blank=True)
+    project_irb_approval = models.BooleanField(null=True,blank=True)
+    project_irb_approval_number = models.CharField(max_length=255,null=True,blank=True)
     completion_date = models.DateField(null=True, blank=True)
     description = models.TextField()
     license = models.CharField(max_length=255)
@@ -187,7 +195,7 @@ class Project(models.Model):
     patients = models.ManyToManyField(Patient, through='PatientProject',related_name='Projects')
 
     def __str__(self):
-        return self.chavi_project_id
+        return self.project_name
 
     class Meta:
         verbose_name_plural = "Projects"
@@ -732,7 +740,6 @@ class DiagnosisProject(models.Model):
             )
         ]
 
-
 class DICOMStudyProject(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -758,7 +765,6 @@ class RadiotherapyDICOMStudy(models.Model):
                 name='unique_radiotherapy_dicom_study'
             )
         ]
-
 
 class OutcomeDICOMStudy(models.Model):
     outcome = models.ForeignKey(Outcome, on_delete=models.CASCADE)
