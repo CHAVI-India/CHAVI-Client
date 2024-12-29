@@ -143,19 +143,56 @@ class LookupStagingSystem(models.Model):
     def __str__(self):
         return f"{self.staging_system} v{self.staging_system_version}"
 
+class LookupDiagnosticModality(models.Model):
+    diagnostic_modality = models.CharField(max_length=255)
+    def __str__(self):   
+        return self.diagnostic_modality
+    verbose_name_plural= "Diagnostic Modalities"
+    db_table = 'lookup_diagnostic_modality'
 
 
 
 # Center Model
 class Center(models.Model):
-    chavi_center_id = models.CharField(max_length=255, unique=True)
-    center_name = models.CharField(max_length=255,null=True,blank=True)
-    center_address = models.TextField(null=True,blank=True)
-    center_city = models.TextField(null=True,blank=True)
-    center_state = models.TextField(null=True,blank=True)
-    center_country = models.TextField(null=True,blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    chavi_center_id = models.CharField(
+        max_length=255, 
+        unique=True,
+        help_text="A unique identifier for the medical center. This will be provided to you and will be consistent for your center."
+    )
+    center_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="The official name of the medical center or healthcare facility. Example: 'Mayo Clinic Rochester' or 'Memorial Sloan Kettering Cancer Center'. This field is optional."
+    )
+    center_address = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The complete street address of the medical center. Should include building number, street name, and any additional address details like suite or floor number. Example: '1216 Second Street SW'. This field is optional."
+    )
+    center_city = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The city where the medical center is located. Should be written in full without abbreviations. Example: 'Rochester' or 'New York City'. This field is optional."
+    )
+    center_state = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The state or province where the medical center is located. For US locations, use the full state name or standard two-letter abbreviation. For international locations, use appropriate regional divisions. Example: 'Minnesota' or 'MN'. This field is optional."
+    )
+    center_country = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The country where the medical center is located. Use the full country name, not abbreviations. Example: 'United States' or 'Canada'. This field is optional."
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="The timestamp when this center record was first created. This field is automatically set and cannot be modified."
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="The timestamp when this center record was last updated. This field is automatically updated whenever the record is modified."
+    )
 
     def __str__(self):
         return self.center_name
@@ -166,13 +203,43 @@ class Center(models.Model):
 
 # Core Patient Models
 class Patient(models.Model):
-    center = models.ForeignKey(Center, on_delete=models.PROTECT, related_name='patients')
-    patient_id = models.CharField(max_length=255, unique=True)
-    gender = models.CharField(max_length=50)
-    date_of_birth = models.DateField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    center = models.ForeignKey(
+        Center, 
+        on_delete=models.PROTECT, 
+        related_name='patients',
+        help_text="The medical center where this patient is being treated. This field links to a registered healthcare facility in our system. This is a required field and cannot be changed once set."
+    )
+    chavi_consent = models.BooleanField(
+        null=True,
+        blank=True,
+        default=False,
+        help_text="Indicates whether the patient has provided consent for their data to be used in the CHAVI project. This field is required and must be set to True for the patient's data to be included in the project."
+    )
+    date_chavi_consent = models.DateField(
+        null=True,
+        blank=True,
+        help_text="The date when the patient provided consent for their data to be used in the CHAVI project. This field is required if chavi_consent is True." 
+    )
+    patient_id = models.CharField(
+        max_length=255, 
+        unique=True,
+        help_text="A unique identifier for the patient. This should be your institution's medical record number or another consistent identifier used by your center. This must be unique across all patients and cannot be changed once set. For example: 'MRN123456' or 'PAT-2023-001'."
+    )
+    gender = models.CharField(
+        max_length=50,
+        help_text="The patient's gender as recorded in their medical record. This should be entered exactly as it appears in your medical record system. For example: 'Male', 'Female', 'Non-Binary', etc."
+    )
+    date_of_birth = models.DateField(
+        help_text="The patient's date of birth in DD-MM-YYYY format. For example: '15-07-1990'. This should match the date of birth in their medical record."
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="The date and time when this patient record was first created in the system. This field is automatically set and cannot be modified."
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="The date and time when this patient record was last updated. This field is automatically updated whenever any information in the record is modified."
+    )
     def __str__(self):
         return self.patient_id
 
@@ -182,14 +249,55 @@ class Patient(models.Model):
 
 # Project Model
 class Project(models.Model):
-    chavi_project_id = models.CharField(max_length=255, unique=True)
-    project_name = models.CharField(max_length=255,null=True, blank = True)
-    start_date = models.DateField(null=True, blank=True)
-    project_irb_approval = models.BooleanField(null=True,blank=True)
-    project_irb_approval_number = models.CharField(max_length=255,null=True,blank=True)
-    completion_date = models.DateField(null=True, blank=True)
-    description = models.TextField()
-    license = models.CharField(max_length=255)
+    chavi_project_id = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text="A unique identifier for the project."
+    )
+    project_name = models.CharField(
+        max_length=900,
+        null=True, 
+        blank=True,
+        help_text="The descriptive name of the project. This should be a clear, recognizable title. Example: 'Breast Cancer Imaging Study 2023'"
+    )
+    project_abbreviation = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="The abbreviation for the project."
+    )
+    start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="The date when this project officially began. Format: DD-MM-YYYY. Example: '01-01-2023'"
+    )
+    project_irb_approval = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Indicate whether this project has received IRB (Institutional Review Board) approval. Check the box for Yes, leave unchecked for No."
+    )
+    project_irb_approval_number = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="If IRB approval was received, enter the IRB protocol number here. This can typically be found on your IRB approval letter. Example: 'IRB-2023-123'"
+    )
+    completion_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="The date when this project was or is expected to be completed. Format: DD-MM-YYYY. Example: '31-12-2024'"
+    )
+    description = models.TextField(
+        null= True,
+        blank=True,
+        help_text="A detailed description of the project's purpose, goals, and methods. This should be comprehensive enough for others to understand what the project is about."
+    )
+    license = models.CharField(
+        null=True,
+        blank=True,
+        max_length=255,
+        help_text="The type of license under which this project's data is shared. Example: 'MIT', 'Apache 2.0', 'CC BY 4.0'"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     patients = models.ManyToManyField(Patient, through='PatientProject',related_name='Projects')
@@ -204,11 +312,27 @@ class Project(models.Model):
 
 # DICOM Related Models
 class DICOMStudy(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    frame_of_reference_uid = models.CharField(max_length=255)
-    sop_instance_uid = models.CharField(max_length=255, unique=True)
-    modality = models.CharField(max_length=50)
-    study_date = models.DateField()
+    patient = models.ForeignKey(
+        Patient, 
+        on_delete=models.CASCADE,
+        help_text="Reference to the patient that this imaging study belongs to. When a patient record is deleted, all associated imaging studies will also be deleted."
+    )
+    frame_of_reference_uid = models.CharField(
+        max_length=255,
+        help_text="A unique identifier that helps link different imaging series and studies together that were taken in the same physical space and time reference. Think of this like a coordinate system - images with the same frame of reference UID were taken in the same 'space and time'."
+    )
+    sop_instance_uid = models.CharField(
+        max_length=255, 
+        unique=True,
+        help_text="A globally unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same SOP Instance UID. This helps prevent any confusion between different studies."
+    )
+    modality = models.CharField(
+        max_length=50,
+        help_text="The type of imaging equipment used, such as CT (Computed Tomography), MRI (Magnetic Resonance Imaging), X-Ray, Ultrasound, etc. This tells us what kind of imaging study this is."
+    )
+    study_date = models.DateField(
+        help_text="The date when this imaging study was performed. This is recorded as YYYY-MM-DD format (for example: 2023-12-25)."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -241,14 +365,21 @@ class DICOMTagInformation(models.Model):
 # Clinical Data Models
 
 class Diagnosis(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
+    help_text="Select the patient")
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    diagnosis = models.ForeignKey(LookupICDCode, on_delete=models.PROTECT)
-    diagnosis_date = models.DateField(null=True, blank=True)
-    presentation_type = models.ForeignKey(LookupPresentation, on_delete=models.PROTECT)
-    cancer_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT)
-    cancer_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT)
-    diagnostic_modality = models.CharField(max_length=100,null=True, blank=True)
+    diagnosis = models.ForeignKey(LookupICDCode, on_delete=models.PROTECT,
+    help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
+    diagnosis_date = models.DateField(null=True, blank=True,
+    help_text="Select the data at which the diagnosis was made. This can be a date when the patient came to the hospital for the first time or when a pathological proof was obtained")
+    presentation_type = models.ForeignKey(LookupPresentation, on_delete=models.PROTECT,
+    help_text="Select the type of presentation. This can be a new presentation or a recurrence or a metastasis.")
+    cancer_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT,
+    help_text="Select the cancer site. This can be a site where the cancer was first diagnosed or a site where the cancer was recurred or metastasized.")
+    cancer_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT,
+    help_text="Select the side at which the cancer was present.")
+    diagnostic_modality = models.CharField(max_length=255,null=True, blank=True,
+    help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
