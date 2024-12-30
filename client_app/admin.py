@@ -5,31 +5,24 @@ from .models import *
 
 #region pathologyform
 
-class PathologyInline(admin.StackedInline):
-    model = Pathology
-    extra = 1  # Number of empty forms to display by default
-    verbose_name = "Pathology"
-    verbose_name_plural = "Pathologies"
-
 @admin.register(Pathology)
 class PathologyAdmin(admin.ModelAdmin):
     list_display = ['diagnosis','date_pathology']
     list_filter=['date_pathology']
     search_fields = ['diagnosis__patient__patient_id']
-    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Pathology Information', {
-            'fields':("date_pathology",'specimen_type','tumor_site','tumor_side','greatest_tumor_size','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2')
+            'fields':('diagnosis',"date_pathology",'specimen_type','tumor_site','tumor_side','greatest_tumor_size','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2')
         }),
         ('Tumor Characteristics', {
             'fields': ('histological_type','histological_subtype','histological_grade','histological_grading_schema',"tumor_focality",'lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion')
         }),
+        ('Nodal Metastases',{
+            'fields': ('count_lymph_nodes_in_specimen','count_lymph_nodes_macroscopic','count_lymph_nodes_micrometastasis','count_lymph_node_isolated_tumor_cells','count_lymph_nodes_uninvolved')
+
+        }),
     )
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "diagnosis":
-            kwargs["queryset"] = Diagnosis.objects.all()
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 #endregion
 
@@ -43,7 +36,7 @@ class DiagnosisDICOMStudyInline(admin.TabularInline):
 
 @admin.register(Diagnosis)
 class DiagnosisAdmin(admin.ModelAdmin):
-    inlines = [DiagnosisDICOMStudyInline, PathologyInline]
+    inlines = [DiagnosisDICOMStudyInline]
     list_display = ['patient', 'diagnosis_date']
     search_fields = ['patient__patient_id']
     list_filter = ['diagnosis_date', 'cancer_site']
@@ -131,4 +124,14 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ['chavi_project_id', 'project_name', 'start_date', 'completion_date']
     search_fields = ['chavi_project_id', 'project_name']
     list_filter = ['project_irb_approval', 'start_date']
+#endregion
+
+#region dicomstudy
+
+@admin.register(DICOMStudy)
+class DICOMStudyAdmin(admin.ModelAdmin):
+    list_display = ['patient', 'modality']
+    search_fields = ['patient',]
+    list_filter = ['study_date']
+
 #endregion

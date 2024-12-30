@@ -324,6 +324,7 @@ class DICOMStudy(models.Model):
     patient = models.ForeignKey(
         Patient, 
         on_delete=models.CASCADE,
+        related_name='patient',
         help_text="Reference to the patient that this imaging study belongs to. When a patient record is deleted, all associated imaging studies will also be deleted."
     )
     frame_of_reference_uid = models.CharField(
