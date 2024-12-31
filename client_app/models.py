@@ -232,14 +232,22 @@ class Patient(models.Model):
     patient_id = models.CharField(
         max_length=255, 
         unique=True,
-        help_text="A unique identifier for the patient. This should be your institution's medical record number or another consistent identifier used by your center. This must be unique across all patients and cannot be changed once set. For example: 'MRN123456' or 'PAT-2023-001'."
+        help_text="This should be your institution's medical record number or another consistent identifier used by your center."
     )
+    class Gender(models.TextChoices):
+        Male = 'Male',
+        Female = 'Female',
+        Transgender = 'Transgender',
+        Non_Binary = 'Non-Binary'
+
     gender = models.CharField(
-        max_length=50,
-        help_text="The patient's gender as recorded in their medical record. This should be entered exactly as it appears in your medical record system. For example: 'Male', 'Female', 'Non-Binary', etc."
+        max_length=20,
+        choices=Gender.choices,
+        default=Gender.Female,
+        help_text="The patient's gender"
     )
     date_of_birth = models.DateField(
-        help_text="The patient's date of birth in DD-MM-YYYY format. For example: '15-07-1990'. This should match the date of birth in their medical record."
+        help_text="The patient's date of birth in DD-MM-YYYY format."
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -327,14 +335,11 @@ class DICOMStudy(models.Model):
         related_name='patient',
         help_text="Reference to the patient that this imaging study belongs to. When a patient record is deleted, all associated imaging studies will also be deleted."
     )
-    frame_of_reference_uid = models.CharField(
+    study_instance_uid= models.CharField(
         max_length=255,
-        help_text="A unique identifier that helps link different imaging series and studies together that were taken in the same physical space and time reference. Think of this like a coordinate system - images with the same frame of reference UID were taken in the same 'space and time'."
-    )
-    sop_instance_uid = models.CharField(
-        max_length=255, 
-        unique=True,
-        help_text="A globally unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same SOP Instance UID. This helps prevent any confusion between different studies."
+        null=True,
+        blank=True,
+        help_text="A unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same Study Instance UID. This helps prevent any confusion between different studies."
     )
     modality = models.CharField(
         max_length=50,
@@ -349,15 +354,20 @@ class DICOMStudy(models.Model):
     def __str__(self):
         return self.sop_instance_uid
 
+    class Meta:
+        verbose_name_plural = "DICOM Studies"
+
 class DICOMSeries(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     sop_instance_uid = models.CharField(max_length=255, unique=True)
+    series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
     frame_of_reference_uid = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class DICOMStudyFiles(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+    sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
     file_name = models.TextField(null=True, blank=True)
     upload_timestamp = models.DateTimeField(auto_now_add=True)
     number_of_files = models.IntegerField(null=True, blank=True)
@@ -412,7 +422,7 @@ class Outcome(models.Model):
         return f"{self.diagnosis.patient.patient_id} - {self.date_outcome_assessed}"
     
     class Meta:
-        verbose_name_plural="Outcomes",
+        verbose_name_plural="Outcomes"
         db_table = 'outcome'
 
 class Lesion(models.Model):
@@ -1278,7 +1288,7 @@ class PatientOutcome(models.Model):
         return f"{self.patient.patient_id} - {self.patient_outcome.chavi_pt_outcome_id}"
 
     class Meta:
-        verbose_name_plural="Patient Outcomes",
+        verbose_name_plural="Patient Outcomes"
         db_table="patient_outcome"
 
 class Comorbidity(models.Model):
@@ -1402,6 +1412,8 @@ class PatientProject(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "Project for Patient"
+        verbose_name_plural= "Projects for Patient"
         constraints = [
             models.UniqueConstraint(
                 fields=['patient', 'project'],
@@ -1415,6 +1427,8 @@ class DiagnosisDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="DICOM study for Diagnosis"
+        verbose_name_plural="DICOM studies for Diagnosis"
         constraints = [
             models.UniqueConstraint(
                 fields=['diagnosis', 'dicom_study'],
@@ -1428,6 +1442,8 @@ class LesionDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="DICOM study for Lesion"
+        verbose_name_plural="DICOM studies for Lesion"
         constraints = [
             models.UniqueConstraint(
                 fields=['lesion', 'dicom_study'],
@@ -1441,6 +1457,8 @@ class LesionResponseDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="DICOM study for Lesion Response"
+        verbose_name_plural="DICOM studies for Lesion Response"
         constraints = [
             models.UniqueConstraint(
                 fields=['lesion_response', 'dicom_study'],
@@ -1454,6 +1472,8 @@ class DiagnosisProject(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="Project for Diagnosis"
+        verbose_name_plural="Projects for Diagnosis"
         constraints = [
             models.UniqueConstraint(
                 fields=['diagnosis', 'project'],
@@ -1467,6 +1487,8 @@ class DICOMStudyProject(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="Project for DICOM Study"
+        verbose_name_plural="Projects for DICOM Study"
         constraints = [
             models.UniqueConstraint(
                 fields=['dicom_study', 'project'],
@@ -1480,6 +1502,8 @@ class RadiotherapyDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="DICOM Study for Radiotherapy"
+        verbose_name_plural="DICOM Studies for Radiotherapy"
         constraints = [
             models.UniqueConstraint(
                 fields=['radiotherapy', 'dicom_study'],
@@ -1493,6 +1517,8 @@ class OutcomeDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name="DICOM Study for Outcome"
+        verbose_name_plural="DICOM Studies for Outcome"
         constraints = [
             models.UniqueConstraint(
                 fields=['outcome', 'dicom_study'],
