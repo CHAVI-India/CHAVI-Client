@@ -1,4 +1,5 @@
 from django.db import models
+from solo.models import SingletonModel
 import uuid
 
 # Lookup Models
@@ -160,20 +161,11 @@ class LookupSystemicTherapyType(models.Model):
         verbose_name_plural = "Systemic Therapy Types"
         db_table = 'lookup_systemic_therapy_type'
 
+# Center Model configuration - singleton model using Solo
 
-# Center Model
-class Center(models.Model):
-    chavi_center_id = models.CharField(
-        max_length=255, 
-        unique=True,
-        help_text="A unique identifier for the medical center. This will be provided to you and will be consistent for your center."
-    )
-    center_name = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="The official name of the medical center or healthcare facility. Example: 'Mayo Clinic Rochester' or 'Memorial Sloan Kettering Cancer Center'. This field is optional."
-    )
+class SiteConfiguration(SingletonModel):
+    chavi_center_id = models.CharField(max_length=255,default="Site ID")
+    center_name = models.CharField(max_length=255, default="Your Hospital")
     center_address = models.TextField(
         null=True,
         blank=True,
@@ -194,30 +186,19 @@ class Center(models.Model):
         blank=True,
         help_text="The country where the medical center is located. Use the full country name, not abbreviations. Example: 'United States' or 'Canada'. This field is optional."
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="The timestamp when this center record was first created. This field is automatically set and cannot be modified."
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="The timestamp when this center record was last updated. This field is automatically updated whenever the record is modified."
-    )
 
     def __str__(self):
         return self.center_name
-
     class Meta:
-       verbose_name_plural = "Centers"
-       db_table="center"
+        verbose_name = "Site Configuration"
 
 # Core Patient Models
 class Patient(models.Model):
-    center = models.ForeignKey(
-        Center, 
-        on_delete=models.PROTECT, 
-        related_name='patients',
-        help_text="The medical center where this patient is being treated. This field links to a registered healthcare facility in our system. This is a required field and cannot be changed once set."
-    )
+    center = models.ForeignKey(SiteConfiguration, 
+    on_delete=models.CASCADE, 
+    null=True, blank=True,
+    default=1,
+    related_name="center")
     chavi_consent = models.BooleanField(
         null=True,
         blank=True,

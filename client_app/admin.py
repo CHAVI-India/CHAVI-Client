@@ -1,4 +1,5 @@
 from django.contrib import admin
+from solo.admin import SingletonModelAdmin
 from .models import *
 
 #region inlinetables
@@ -42,12 +43,13 @@ class PatientAdmin (admin.ModelAdmin):
     inlines = [PatientProjectInline]
     fieldsets = (
         ('Demographics',{
-            'fields': ['patient_id',('gender','date_of_birth')]
+            'fields': ['patient_id',('gender','date_of_birth','center')]
         }),
         ('CHAVI Consent',{
             'fields': [('chavi_consent','date_chavi_consent')]
         }),
     )
+    readonly_fields = ('center',)
 
 class DiagnosisAdmin (admin.ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
@@ -77,7 +79,7 @@ class LesionResponseAdmin (admin.ModelAdmin):
 
 
 # Register your models here.
-
+admin.site.register(SiteConfiguration,SingletonModelAdmin)
 admin.site.register(Patient,PatientAdmin)
 admin.site.register(Comorbidity)
 admin.site.register(Diagnosis,DiagnosisAdmin)
