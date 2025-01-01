@@ -102,8 +102,8 @@ class PatientAdmin (ModelAdmin):
 class DiagnosisAdmin (ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     search_fields = ['patient']
-    list_filter = ['diagnosis','diagnostic_modality','cancer_site','cancer_side']
-    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
+    list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
+    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__side_description']
     fieldsets = (
         ('Diagnosis',{
             'fields': ['patient',('diagnosis','diagnosis_date','diagnostic_modality')]
@@ -119,8 +119,8 @@ class DiagnosisAdmin (ModelAdmin):
 class PathologyAdmin (ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
     search_fields = ['diagnosis__patient_id']
-    list_filter = ['diagnosis','tumor_site','tumor_side','histological_type']
-    list_display = ['diagnosis','date_pathology','tumor_site','tumor_side','histological_type','lymph_nodes_in_specimen']
+    list_filter = ['diagnosis','tumor_site__label','tumor_side__side_description','histological_type']
+    list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__side_description','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
             'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),'tumor_focality']
@@ -137,7 +137,8 @@ class PathologyAdmin (ModelAdmin):
 @admin.register(StageInformation)
 class StageInformationAdmin (ModelAdmin):
     search = ['diagnosis__patient_id']
-    list_display = ['diagnosis__patient','staging_system','stage_type','overall_stage']
+    list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
+    list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','t_stage_composite','n_stage_composite','m_stage_composite','overall_stage']
     fieldsets = (
         ('Stage Information',{
             'fields' : ['diagnosis',('staging_system','stage_type')] 
@@ -161,7 +162,8 @@ class StageInformationAdmin (ModelAdmin):
 
 @admin.register(Comorbidity)
 class ComorbidityAdmin (ModelAdmin):
-    pass
+    list_display = ['patient','comorbidity_type','created_at']
+    list_filter = ['comorbidity_type__icd_description','created_at']
 
 
 ## Create the Lesion Form Class

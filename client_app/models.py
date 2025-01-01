@@ -145,23 +145,6 @@ class LookupStagingSystem(models.Model):
     def __str__(self):
         return f"{self.staging_system} v{self.staging_system_version}"
 
-class LookupDiagnosticModality(models.Model):
-    diagnostic_modality = models.CharField(max_length=255)
-    def __str__(self):   
-        return self.diagnostic_modality
-    verbose_name_plural= "Diagnostic Modalities"
-    db_table = 'lookup_diagnostic_modality'
-
-class LookupSystemicTherapyType(models.Model):
-    systemic_therapy_type = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.systemic_therapy_type
-
-    class Meta:
-        verbose_name_plural = "Systemic Therapy Types"
-        db_table = 'lookup_systemic_therapy_type'
-
 class LookupAJCCStagePrefix(models.Model):
     key = models.CharField(max_length=2)
     description = models.CharField(max_length=255)
@@ -183,6 +166,24 @@ class LookupAJCCStageDescriptor (models.Model):
 
     def __str__(self):
         return f"{self.key}({self.description})"
+
+class LookupDiagnosticModality(models.Model):
+    diagnostic_modality = models.CharField(max_length=255)
+    def __str__(self):   
+        return self.diagnostic_modality
+    verbose_name_plural= "Diagnostic Modalities"
+    db_table = 'lookup_diagnostic_modality'
+
+class LookupSystemicTherapyType(models.Model):
+    systemic_therapy_type = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.systemic_therapy_type
+
+    class Meta:
+        verbose_name_plural = "Systemic Therapy Types"
+        db_table = 'lookup_systemic_therapy_type'
+
 
 
 # Center Model configuration - singleton model using Solo
