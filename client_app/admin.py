@@ -1,43 +1,77 @@
 from django.contrib import admin
 from solo.admin import SingletonModelAdmin
 from .models import *
+from unfold.admin import ModelAdmin, TabularInline, StackedInline
+from unfold.contrib.inlines.admin import NonrelatedTabularInline
+from unfold.contrib.forms.widgets import ArrayWidget, WysiwygWidget
 
 #region inlinetables
 
 # Define inlines for Many to Many relations
-class PatientProjectInline(admin.TabularInline):
+class PatientProjectInline(TabularInline):
     model = PatientProject
     extra = 1
 
-class DiagnosisDICOMStudyInline(admin.TabularInline):
+class DiagnosisDICOMStudyInline(TabularInline):
     model = DiagnosisDICOMStudy
     extra = 1
 
-class LesionDICOMStudyInline(admin.TabularInline):
+class LesionDICOMStudyInline(TabularInline):
     model = LesionDICOMStudy
     extra = 1
 
-class LesionResponseDICOMStudyInline(admin.TabularInline):
+class LesionResponseDICOMStudyInline(TabularInline):
     model = LesionResponseDICOMStudy
     extra = 1
 
-class DiagnosisProjectInline(admin.TabularInline):
+class DiagnosisProjectInline(TabularInline):
     model = DiagnosisProject
     extra = 1
 
-class RadiotherapyDICOMStudyInline(admin.TabularInline):
+class RadiotherapyDICOMStudyInline(TabularInline):
     model = RadiotherapyDICOMStudy
     extra = 1
 
-class OutcomeDICOMStudyInline(admin.TabularInline):
+class OutcomeDICOMStudyInline(TabularInline):
     model = OutcomeDICOMStudy
+    extra = 1
+
+class DICOMStudyProjectInline(TabularInline):
+    model = DICOMStudyProject
     extra = 1
 
 #endregion
 
 #region Inlines for Foreign Key relations.
 
+class SystemicTherapyScheduleInline(StackedInline):
+    model = SystemicTherapySchedule
+    extra = 1
+    fieldsets = (
+        ('Schedule',{
+            'fields': [('systemic_therapy_agent_start_date','systemic_therapy_agent_end_date')]
 
+        }),
+        ('Medication',{
+            'fields': [('systemic_therapy_agent_route','systemic_therapy_agent'),('systemic_therapy_dose_planned','systemic_therapy_dose_administered','systemic_therapy_dose_units')]
+        }),
+
+    )   
+
+class ImmunohistochemistryInline(StackedInline):
+    model = Immunohistochemistry
+    extra = 1
+    tab = True
+
+class CytogeneticsInline(StackedInline):
+    model = Cytogenetics
+    extra = 1
+    tab = True
+
+class SomaticGenomicAlterationsInline(StackedInline):
+    model = SomaticGenomicAlterations
+    extra = 1
+    tab = True
 
 #endregion
 
@@ -46,8 +80,8 @@ class OutcomeDICOMStudyInline(admin.TabularInline):
 # Add Model classes
 
 ## Create the Patient Form Class
-
-class PatientAdmin (admin.ModelAdmin):
+@admin.register(Patient)
+class PatientAdmin (ModelAdmin):
     inlines = [PatientProjectInline]
     fieldsets = (
         ('Demographics',{
@@ -60,8 +94,8 @@ class PatientAdmin (admin.ModelAdmin):
     readonly_fields = ('center',)
 
 ## Create the Diagnosis Form Class
-
-class DiagnosisAdmin (admin.ModelAdmin):
+@admin.register(Diagnosis)
+class DiagnosisAdmin (ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     fieldsets = (
         ('Diagnosis',{
@@ -72,19 +106,66 @@ class DiagnosisAdmin (admin.ModelAdmin):
         }),    
     )
 
-## Create the Lesion Form Class
 
-class LesionAdmin (admin.ModelAdmin):
+## Create the Pathology Form Class
+@admin.register(Pathology)
+class PathologyAdmin (ModelAdmin):
+    inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
+    fieldsets = (
+        ('Pathology',{
+            'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),'tumor_focality']
+        }),
+        ('Histology',{
+            'fields': [('histological_type','histological_subtype'),('histological_grade','histological_grading_schema'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion')]
+        }),
+        ('Nodes',{
+            'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
+        }),
+    )
+
+## Create the Stage Information Form Class
+@admin.register(StageInformation)
+class StageInformationAdmin (ModelAdmin):
+    fieldsets = (
+        ('Stage Information',{
+            'fields' : ['diagnosis',('staging_system','stage_type')] 
+        }),
+        ('AJCC T Stage',{
+            'fields' : [('t_stage_prefix','t_stage','t_stage_suffix')]
+        }),
+        ('AJCC N Stage',{
+            'fields' : [('n_stage_prefix','n_stage','n_stage_suffix')]
+        }),
+        ('AJCC M Stage',{
+            'fields' : [('m_stage_prefix','m_stage','m_stage_suffix')]
+        }),
+        ('Overall Stage',{
+            'fields' : ['overall_stage']
+        }),
+    )
+
+
+## Create the Comorbidity Form
+
+@admin.register(Comorbidity)
+class ComorbidityAdmin (ModelAdmin):
+    pass
+
+
+## Create the Lesion Form Class
+@admin.register(Lesion)
+class LesionAdmin (ModelAdmin):
     inlines = [LesionDICOMStudyInline]
 
 ## Create the Lesion Response Form Class
-
-class LesionResponseAdmin (admin.ModelAdmin):
+@admin.register(LesionResponse)
+class LesionResponseAdmin (ModelAdmin):
     inlines = [LesionResponseDICOMStudyInline]
 
-## Create the Radiotherapy Form Clas
+## Create the Radiotherapy Form Class
 
-class RadiotherapyAdmin (admin.ModelAdmin):
+@admin.register(Radiotherapy)
+class RadiotherapyAdmin (ModelAdmin):
     inlines=[RadiotherapyDICOMStudyInline]
     fieldsets = (
         ('Radiotherapy',{
@@ -95,25 +176,116 @@ class RadiotherapyAdmin (admin.ModelAdmin):
         }),
     )        
 
+## Create the Surgery Form Class
+@admin.register(Surgery)
+class SurgeryAdmin (ModelAdmin):
+    fieldsets = (
+        ('Surgery', {
+            'fields':['diagnosis','surgery_date']
+        }),
+        ('Description',{
+            'fields':['surgery_site',('surgery_side','surgery_type'),('nodal_assessment','nodal_assessment_type')]
+        }),
+        ('Reconstruction',{
+            'fields':['reconstruction','type_reconstruction']
+        }),
+    )
 
+## Create the Systemic Therapy Form Class
+@admin.register(SystemicTherapy)
+class SystemicTherapyAdmin (ModelAdmin):
+    inlines = [SystemicTherapyScheduleInline]
+    fieldsets = (
+        ('Systemic Therapy',{
+            'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
+        }),
+        ('Description',{
+            'fields':[('systemic_therapy_type','systemic_therapy_sequence'),('systemic_therapy_regimen','cycles_delivered')]
+        }),
+    )
+
+## Create the ConcomitantMedications Form Class
+@admin.register(ConcomitantMedications)
+class ConcomitantMedicationsAdmin (ModelAdmin):
+    pass
+
+
+## Create the Adverse Effects form class
+@admin.register(AdverseEffects)
+class AdverseEffectsAdmin (ModelAdmin):
+    pass
+
+
+## Create the Patient Outcomes form class
+
+@admin.register(PatientOutcome)
+class PatientOutcomeAdmin (ModelAdmin):
+    fieldsets = (
+        ('Patient Outcome',{
+            'fields':['patient',('patient_status','date_of_death')]
+        }),
+        ('Description',{
+            'fields':[('primary_cause_of_death','secondary_cause_of_death','tertiary_cause_of_death')]
+        }),
+    )
+
+## Create the Outcome Form Class
+@admin.register(Outcome)
+class OutcomeAdmin (ModelAdmin):
+    fieldsets = (
+        ('Diagnosis',{
+            'fields':[('diagnosis')]
+        }),
+        ('Description',{
+            'fields':[('outcome_type','date_outcome_assessed')]
+        }),
+    )
 
 #endregion
+
+## Create the Patient Reported Outcome Form Class
+@admin.register(PatientReportedOutcome)
+class PatientReportedOutcomeAdmin (ModelAdmin):
+    fieldsets = (
+        ('Patient',{
+            'fields':[('patient','pro_date')]
+        }),
+        ('PRO Data',{
+            'fields':[('instrument','domain'),'question',('pro_answer','pro_score')]
+        }),
+    )
+
+
+
+## Create the DICOM Study form Class
+@admin.register(DICOMStudy)
+class DICOMStudyAdmin (ModelAdmin):
+    fieldsets = (
+        ('Patient',{
+            'fields':[('patient','study_date')]
+        }),
+        ('Study Data',{
+            'fields':[('study_instance_uid','modality')]
+        }),
+    )
+
+
+
+## Create the Project form Class
+@admin.register(Project)
+class ProjectAdmin(ModelAdmin):
+    inlines = [DICOMStudyProjectInline]
+    fieldsets = (
+        ('Project',{
+            'fields':[('chavi_project_id','project_name','project_abbreviation'),'description','license']
+        }),
+        ('Dates',{
+            'fields':[('start_date','completion_date'),('project_irb_approval','project_irb_approval_number')]
+        }),
+    )
+
+
 
 
 # Register your models here.
 admin.site.register(SiteConfiguration,SingletonModelAdmin)
-admin.site.register(Patient,PatientAdmin)
-admin.site.register(Comorbidity)
-admin.site.register(Diagnosis,DiagnosisAdmin)
-admin.site.register(Pathology)
-admin.site.register(StageInformation)
-admin.site.register(Lesion, LesionAdmin)
-admin.site.register(LesionResponse,LesionResponseAdmin)
-admin.site.register(Radiotherapy,RadiotherapyAdmin)
-admin.site.register(Surgery)
-admin.site.register(SystemicTherapy)
-admin.site.register(PatientOutcome)
-admin.site.register(Outcome)
-admin.site.register(AdverseEffects)
-admin.site.register(PatientReportedOutcome)
-admin.site.register(DICOMStudy)

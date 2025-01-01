@@ -223,11 +223,15 @@ class Patient(models.Model):
 
     gender = models.CharField(
         max_length=20,
+        null=True,
+        blank=True,
         choices=Gender.choices,
         default=Gender.Female,
         help_text="The patient's gender"
     )
     date_of_birth = models.DateField(
+        null=True,
+        blank=True,
         help_text="The patient's date of birth in DD-MM-YYYY format."
     )
     created_at = models.DateTimeField(
@@ -394,8 +398,10 @@ class Diagnosis(models.Model):
 class Outcome(models.Model):
     chavi_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    date_outcome_assessed = models.DateField(null=True, blank=True)
-    outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.PROTECT)
+    date_outcome_assessed = models.DateField(null=True, blank=True,
+    help_text = "Date this Outcome was assessed or documented or confirmed.")
+    outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.PROTECT,
+    help_text = "Select the Type of Outcome. If you wish to add another outcome then please create another instance of the form.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -403,7 +409,8 @@ class Outcome(models.Model):
         return f"{self.diagnosis.patient.patient_id} - {self.date_outcome_assessed}"
     
     class Meta:
-        verbose_name_plural="Outcomes"
+        verbose_name = "Outcome for Cancer"
+        verbose_name_plural="Outcomes for Cancer"
         db_table = 'outcome'
 
 class Lesion(models.Model):
@@ -585,13 +592,6 @@ class Pathology(models.Model):
         blank=True,
         help_text="The system used to determine the histological grade (e.g., 'Nottingham', 'Gleason', 'WHO')"
     )
-    greatest_tumor_size = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        null=True, 
-        blank=True,
-        help_text="The largest dimension of the tumor measured in centimeters"
-    )
     greatest_dimension_of_tumor = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -637,27 +637,32 @@ class Pathology(models.Model):
         blank=True,
         help_text="Presence or absence of tumor cells within dermal lymphatic vessels"
     )
-    count_lymph_nodes_in_specimen = models.BigIntegerField(
+    lymph_nodes_removed = models.BooleanField(
+        null=True, 
+        blank=True,
+        help_text="Whether lymph nodes were removed in the specimen"
+    )
+    lymph_nodes_in_specimen = models.BigIntegerField(
         null=True, 
         blank=True,
         help_text="Total number of lymph nodes found in the specimen"
     )
-    count_lymph_nodes_uninvolved = models.BigIntegerField(
+    number_of_uninvolved_nodes = models.BigIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes without any tumor involvement"
     )
-    count_lymph_nodes_macroscopic = models.BigIntegerField(
+    number_of_nodes_with_macrometastases = models.BigIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with visible tumor deposits"
     )
-    count_lymph_nodes_micrometastasis = models.BigIntegerField(
+    number_of_nodes_with_micrometastases = models.BigIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with microscopic tumor deposits (0.2-2.0mm)"
     )
-    count_lymph_node_isolated_tumor_cells = models.BigIntegerField(
+    number_of_nodes_with_isolated_tumor_cells = models.BigIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with isolated tumor cells (<0.2mm)"
@@ -801,7 +806,7 @@ class SomaticGenomicAlterations(models.Model):
         verbose_name_plural="Somatic Genomic Alterations"
         db_table="somatic_genomic_alterations"
 
-class Treatment(models.Model):
+class OtherTreatment(models.Model):
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -812,6 +817,16 @@ class Treatment(models.Model):
         max_length=255,
         help_text="Enter the name or description of the treatment"
     )
+    treatment_start_date = models.DateField(
+        null = True,
+        blank = True,
+        help_text = "Start date of Treatment"
+    )
+    treatment_end_date = models.DateField(
+        null = True,
+        blank = True,
+        help_text = "End date of Treatment"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="The timestamp when this treatment record was created (automatically set)"
@@ -821,8 +836,9 @@ class Treatment(models.Model):
     def __str__ (self):
         return f"{self.treatment.chavi_treatment_id}"
     class Meta:
-        verbose_name_plural="Treatments"
-        db_table="treatment"
+        verbose_name = "Other Treatment"
+        verbose_name_plural="Other Treatments"
+        db_table="other_treatment"
 
 class Radiotherapy(models.Model):
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1091,7 +1107,8 @@ class SystemicTherapySchedule(models.Model):
     def __str__ (self):
         return f"{self.systemic_therapy_schedule.chavi_systemic_therapy_schedule_id}"
     class Meta:
-        verbose_name_plural="Systematic Therapy Administration Schedules"
+        verbose_name="Medication Detail"
+        verbose_name_plural="Medication Details"
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(models.Model):
@@ -1100,13 +1117,6 @@ class AdverseEffects(models.Model):
         'Diagnosis', 
         on_delete=models.CASCADE,
         help_text="Select the diagnosis this adverse effect is associated with"
-    )
-    treatment = models.ForeignKey(
-        'Treatment', 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True,
-        help_text="Select the treatment that caused this adverse effect, if applicable"
     )
     ctcae_grade_lookup = models.ForeignKey(
         'LookupCTCAEGrade', 
@@ -1369,6 +1379,12 @@ class StageInformation(models.Model):
         null=True, 
         blank=True,
         help_text="Enter any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)"
+    )
+    m_stage = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True,
+        help_text="Enter the M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')"
     )
     m_stage_suffix = models.CharField(
         max_length=255, 
