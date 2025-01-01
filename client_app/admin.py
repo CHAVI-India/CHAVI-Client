@@ -35,9 +35,17 @@ class OutcomeDICOMStudyInline(admin.TabularInline):
 
 #endregion
 
-# region modelclasses
+#region Inlines for Foreign Key relations.
+
+
+
+#endregion
+
+#region modelclasses
 
 # Add Model classes
+
+## Create the Patient Form Class
 
 class PatientAdmin (admin.ModelAdmin):
     inlines = [PatientProjectInline]
@@ -51,6 +59,8 @@ class PatientAdmin (admin.ModelAdmin):
     )
     readonly_fields = ('center',)
 
+## Create the Diagnosis Form Class
+
 class DiagnosisAdmin (admin.ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     fieldsets = (
@@ -62,16 +72,28 @@ class DiagnosisAdmin (admin.ModelAdmin):
         }),    
     )
 
+## Create the Lesion Form Class
+
 class LesionAdmin (admin.ModelAdmin):
     inlines = [LesionDICOMStudyInline]
+
+## Create the Lesion Response Form Class
 
 class LesionResponseAdmin (admin.ModelAdmin):
     inlines = [LesionResponseDICOMStudyInline]
 
+## Create the Radiotherapy Form Clas
 
-
-
-
+class RadiotherapyAdmin (admin.ModelAdmin):
+    inlines=[RadiotherapyDICOMStudyInline]
+    fieldsets = (
+        ('Radiotherapy',{
+            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side'),'treatment_volume']
+        }),
+        ('Description',{
+            'fields': ['radiotherapy_modality','radiotherapy_type',('total_dose','total_fractions','fractions_per_day')]
+        }),
+    )        
 
 
 
@@ -85,9 +107,11 @@ admin.site.register(Comorbidity)
 admin.site.register(Diagnosis,DiagnosisAdmin)
 admin.site.register(Pathology)
 admin.site.register(StageInformation)
-admin.site.register(Treatment)
 admin.site.register(Lesion, LesionAdmin)
 admin.site.register(LesionResponse,LesionResponseAdmin)
+admin.site.register(Radiotherapy,RadiotherapyAdmin)
+admin.site.register(Surgery)
+admin.site.register(SystemicTherapy)
 admin.site.register(PatientOutcome)
 admin.site.register(Outcome)
 admin.site.register(AdverseEffects)

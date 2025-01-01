@@ -808,26 +808,6 @@ class Treatment(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the diagnosis that this treatment is associated with"
     )
-    treatment_start_date = models.DateField(
-        null=True, 
-        blank=True,
-        help_text="Enter the date when the treatment was started (format: YYYY-MM-DD)"
-    )
-    treatment_end_date = models.DateField(
-        null=True, 
-        blank=True,
-        help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
-    )
-    treatment_sequence = models.ForeignKey(
-        LookupTreatmentSequence, 
-        on_delete=models.PROTECT,
-        help_text="Select the sequence of this treatment (e.g., 'First Line', 'Second Line', 'Adjuvant')"
-    )
-    treatment_intent = models.ForeignKey(
-        LookupTreatmentIntent, 
-        on_delete=models.PROTECT,
-        help_text="Select the intended purpose of this treatment (e.g., 'Curative', 'Palliative', 'Supportive Care')"
-    )
     treatment = models.CharField(
         max_length=255,
         help_text="Enter the name or description of the treatment"
@@ -846,11 +826,11 @@ class Treatment(models.Model):
 
 class Radiotherapy(models.Model):
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    treatment = models.ForeignKey(
-        'Treatment', 
+    diagnosis = models.ForeignKey(
+        Diagnosis, 
         on_delete=models.CASCADE,
-        help_text="Select the treatment that this radiotherapy is associated with"
-    )
+        help_text="Select the diagnosis that this treatment is associated with"
+    )    
     radiotherapy_modality = models.CharField(
         max_length=255,
         null=True, 
@@ -906,22 +886,33 @@ class Radiotherapy(models.Model):
         blank=True,
         help_text="Enter a description of the area being treated, including any specific targeting information or boundaries"
     )
+    radiotherapy_start_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the treatment was started (format: YYYY-MM-DD)"
+    )
+    radiotherapy_end_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
         return f"{self.radiotherapy.chavi_radiotherapy_id}"
     class Meta:
-        verbose_name_plural="Radiotherapy"
+        verbose_name = "Radiotherapy Course"
+        verbose_name_plural="Radiotherapy Courses"
         db_table="radiotherapy"
 
 class Surgery(models.Model):
     chavi_surgery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    treatment = models.ForeignKey(
-        Treatment, 
+    diagnosis = models.ForeignKey(
+        Diagnosis, 
         on_delete=models.CASCADE,
-        help_text="Select the treatment that this surgery is associated with"
-    )
+        help_text="Select the diagnosis that this treatment is associated with"
+    )    
     surgery_date = models.DateField(
         null=True, 
         blank=True,
@@ -976,11 +967,11 @@ class Surgery(models.Model):
 
 class ConcomitantMedications(models.Model):
     chavi_medication_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    treatment = models.ForeignKey(
-        Treatment, 
+    diagnosis = models.ForeignKey(
+        Diagnosis, 
         on_delete=models.CASCADE,
-        help_text="Select the treatment that this medication is associated with"
-    )
+        help_text="Select the diagnosis that this treatment is associated with"
+    )    
     medication_name = models.CharField(
         max_length=255,
         help_text="Enter the name of the medication as it appears in the medical record"
@@ -1016,13 +1007,27 @@ class ConcomitantMedications(models.Model):
 
 class SystemicTherapy(models.Model):
     chavi_systemic_therapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE,
-    help_text="Select the treatment record for this systemic therapy")
+    diagnosis = models.ForeignKey(
+        Diagnosis, 
+        on_delete=models.CASCADE,
+        help_text="Select the diagnosis that this treatment is associated with"
+    )    
     systemic_therapy_type = models.ForeignKey(LookupSystemicTherapyType, on_delete=models.PROTECT,null=True, blank=True,
     help_text = "Select the type of systemic therapy.")
     systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT,
     help_text="Select the sequence for the systemic therapy")
     systemic_therapy_regimen = models.CharField(max_length=255, null=True, blank=True,help_text="Please enter the name of the systemic therapy regimen if there is a multi-drug or named regimen being used.")
+    systemic_therapy_start_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the treatment was started (format: YYYY-MM-DD)"
+    )
+    systemic_therapy_end_date = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
+    )    
+    cycles_delivered = models.BigIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1030,7 +1035,8 @@ class SystemicTherapy(models.Model):
         return f"{self.systemic_therapy.chavi_systemic_therapy_id}"
 
     class Meta:
-        verbose_name_plural="Systemic Therapies"
+        verbose_name= "Systemic Therapy Course"
+        verbose_name_plural="Systemic Therapy Courses"
         db_table="systemic_therapy"
 
 class SystemicTherapySchedule(models.Model):
@@ -1053,7 +1059,7 @@ class SystemicTherapySchedule(models.Model):
     systemic_therapy_agent_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this specific medication was stopped (format: YYYY-MM-DD)"
+        help_text="Enter the date when this specific medication was stopped (format: YYYY-MM-DD)."
     )
     systemic_therapy_agent = models.ForeignKey(
         'LookupSystemicAgent', 
@@ -1085,7 +1091,7 @@ class SystemicTherapySchedule(models.Model):
     def __str__ (self):
         return f"{self.systemic_therapy_schedule.chavi_systemic_therapy_schedule_id}"
     class Meta:
-        verbose_name_plural="Systematic Therapy Schedules"
+        verbose_name_plural="Systematic Therapy Administration Schedules"
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(models.Model):
