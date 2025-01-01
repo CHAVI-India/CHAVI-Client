@@ -3,6 +3,7 @@ from solo.admin import SingletonModelAdmin
 from .models import *
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.contrib.inlines.admin import NonrelatedTabularInline
+from unfold.contrib.filters.admin import RangeDateFilter
 from unfold.contrib.forms.widgets import ArrayWidget, WysiwygWidget
 
 #region inlinetables
@@ -223,7 +224,14 @@ class OtherTreatmentAdmin (ModelAdmin):
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ModelAdmin):
-    pass
+    fieldsets = (
+        ('Adverse Effects',{
+            'fields':['diagnosis',('adverse_effect_start_date','adverse_effect_end_date')]
+        }),
+        ('Description',{
+            'fields':[('ctcae_grade_lookup','adverse_effect_type','adverse_effect_grade')]
+        }),
+    )
 
 
 ## Create the Patient Outcomes form class

@@ -232,7 +232,7 @@ class Patient(models.Model):
     date_of_birth = models.DateField(
         null=True,
         blank=True,
-        help_text="The patient's date of birth in DD-MM-YYYY format."
+        help_text="The patient's date of birth in YYYY-MM-DD format."
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -271,7 +271,7 @@ class Project(models.Model):
     start_date = models.DateField(
         null=True,
         blank=True,
-        help_text="The date when this project officially began. Format: DD-MM-YYYY. Example: '01-01-2023'"
+        help_text="The date when this project officially began. Format: YYYY-MM-DD. Example: '01-01-2023'"
     )
     project_irb_approval = models.BooleanField(
         null=True,
@@ -287,7 +287,7 @@ class Project(models.Model):
     completion_date = models.DateField(
         null=True,
         blank=True,
-        help_text="The date when this project was or is expected to be completed. Format: DD-MM-YYYY. Example: '31-12-2024'"
+        help_text="The date when this project was or is expected to be completed. Format: YYYY-MM-DD. Example: '31-12-2024'"
     )
     description = models.TextField(
         null= True,
@@ -1129,7 +1129,9 @@ class AdverseEffects(models.Model):
         max_length=255,
         help_text="Enter the type or name of the adverse effect"
     )
-    adverse_effect_grade = models.BigIntegerField(
+    adverse_effect_grade = models.PositiveIntegerField(
+        null = True,
+        blank = True,
         help_text="Enter the severity grade of the adverse effect (typically 1-5, where 5 is most severe)"
     )
     adverse_effect_start_date = models.DateField(
