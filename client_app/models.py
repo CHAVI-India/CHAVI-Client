@@ -409,8 +409,8 @@ class Outcome(models.Model):
         return f"{self.diagnosis.patient.patient_id} - {self.date_outcome_assessed}"
     
     class Meta:
-        verbose_name = "Outcome for Cancer"
-        verbose_name_plural="Outcomes for Cancer"
+        verbose_name = "Cancer Outcome"
+        verbose_name_plural="Cancer Outcomes"
         db_table = 'outcome'
 
 class Lesion(models.Model):

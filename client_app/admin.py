@@ -210,6 +210,16 @@ class ConcomitantMedicationsAdmin (ModelAdmin):
     pass
 
 
+## Create the Other Treatment Form Class
+@admin.register(OtherTreatment)
+class OtherTreatmentAdmin (ModelAdmin):
+    fieldsets = (
+        ('Description',{
+            'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment']
+        }),
+    )
+
+
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ModelAdmin):
