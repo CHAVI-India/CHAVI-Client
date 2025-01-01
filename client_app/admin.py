@@ -84,6 +84,9 @@ class SomaticGenomicAlterationsInline(StackedInline):
 @admin.register(Patient)
 class PatientAdmin (ModelAdmin):
     inlines = [PatientProjectInline]
+    list_filter = ['gender','chavi_consent','created_at']
+    search_fields =[ 'patient_id']
+    list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
     fieldsets = (
         ('Demographics',{
             'fields': ['patient_id',('gender','date_of_birth','center')]
@@ -98,6 +101,9 @@ class PatientAdmin (ModelAdmin):
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
+    search_fields = ['patient']
+    list_filter = ['diagnosis','diagnostic_modality','cancer_site','cancer_side']
+    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
     fieldsets = (
         ('Diagnosis',{
             'fields': ['patient',('diagnosis','diagnosis_date','diagnostic_modality')]
@@ -112,6 +118,9 @@ class DiagnosisAdmin (ModelAdmin):
 @admin.register(Pathology)
 class PathologyAdmin (ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
+    search_fields = ['diagnosis__patient_id']
+    list_filter = ['diagnosis','tumor_site','tumor_side','histological_type']
+    list_display = ['diagnosis','date_pathology','tumor_site','tumor_side','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
             'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),'tumor_focality']
@@ -127,6 +136,8 @@ class PathologyAdmin (ModelAdmin):
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
 class StageInformationAdmin (ModelAdmin):
+    search = ['diagnosis__patient_id']
+    list_display = ['diagnosis__patient','staging_system','stage_type','overall_stage']
     fieldsets = (
         ('Stage Information',{
             'fields' : ['diagnosis',('staging_system','stage_type')] 
@@ -228,6 +239,7 @@ class OtherTreatmentAdmin (ModelAdmin):
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ModelAdmin):
+    list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup', 'adverse_effect_grade']
     fieldsets = (
         ('Adverse Effects',{
             'fields':['diagnosis',('adverse_effect_start_date','adverse_effect_end_date')]
