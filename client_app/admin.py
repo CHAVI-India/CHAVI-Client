@@ -103,7 +103,7 @@ class DiagnosisAdmin (ModelAdmin):
             'fields': ['patient',('diagnosis','diagnosis_date','diagnostic_modality')]
         }),
         ('Presentation',{
-            "fields": ['presentation_type','cancer_site','cancer_side']
+            "fields": [('presentation_type','cancer_site','cancer_side')]
         }),    
     )
 
