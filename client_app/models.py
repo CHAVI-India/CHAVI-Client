@@ -1022,6 +1022,7 @@ class SystemicTherapy(models.Model):
     help_text = "Select the type of systemic therapy.")
     systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT,
     help_text="Select the sequence for the systemic therapy")
+    systemic_therapy_regimen = models.CharField(max_length=255, null=True, blank=True,help_text="Please enter the name of the systemic therapy regimen if there is a multi-drug or named regimen being used.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
