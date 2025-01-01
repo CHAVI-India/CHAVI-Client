@@ -1331,11 +1331,30 @@ class Comorbidity(models.Model):
         db_table="comorbidity"
 
 ## AJCC choices will be defined here.
-stage_prefix = models.TextChoices("stage_prefix","yp,p,c,r")
-stage_suffix = models.TextChoices("stage_suffix",'a,b,c,d')
-t_stage_choices = models.TextChoices("t_stage_choices","Tx,Tis,T0,T1,T2,T3,T4")
-n_stage_choices = models.TextChoices("n_stage_choices","Nx,N0,N1,N2,N3")
-m_stage_choices = models.TextChoices("m_stage_choices","Mx,M0,M1,M2")
+
+class LookupAJCCStagePrefix(models.Model):
+    key = models.CharField(max_length=2)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+class LookupAJCCStageSuffix(models.Model):
+    key = models.CharField(max_length=2)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
+class LookupAJCCStageDescriptor (models.Model):
+    key = models.CharField(max_length=2)
+    stage_type = models.CharField(max_length = 10)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
+
+
 class StageInformation(models.Model):
     chavi_stage_information_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1354,25 +1373,28 @@ class StageInformation(models.Model):
         blank=True,
         help_text="Enter the type of staging (e.g., 'Clinical', 'Pathological', 'Post-therapy')"
     )
-    t_stage_prefix = models.CharField(
-        max_length=255, 
+    t_stage_prefix = models.ForeignKey(
+        'LookupAJCCStagePrefix',
+        on_delete=models.PROTECT,
+        related_name='t_stage_prefix',
         null=True, 
         blank=True,
-        choices = stage_prefix,
-        help_text="Enter any prefix modifiers for the T stage (e.g., 'c' for clinical, 'p' for pathological)"
+        help_text="Select the prefix modifiers for the T stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
-    t_stage = models.CharField(
-        max_length=255, 
+    t_stage = models.ForeignKey(
+        'LookupAJCCStageDescriptor',
+        on_delete=models.PROTECT,
+        related_name = 't_stage',
         null=True, 
         blank=True,
-        choices = t_stage_choices,
-        help_text="Enter the T stage describing the primary tumor (e.g., 'T1', 'T2', 'T3', 'T4')"
+        help_text="Select the T stage describing the primary tumor (e.g., 'T1', 'T2', 'T3', 'T4')"
     )
-    t_stage_suffix = models.CharField(
-        max_length=255, 
+    t_stage_suffix = models.ForeignKey(
+        'LookupAJCCStageSuffix',
+        on_delete=models.PROTECT,
+        related_name='t_stage_suffix',             
         null=True, 
         blank=True,
-        choices = stage_suffix,
         help_text="Enter any suffix modifiers for the T stage (e.g., 'a', 'b', 'c')"
     )
     t_stage_composite = models.GeneratedField(
@@ -1383,26 +1405,29 @@ class StageInformation(models.Model):
         help_text="The composite T stage, including any prefixes or suffixes",
         db_persist = True
     )
-    n_stage_prefix = models.CharField(
-        max_length=255, 
+    n_stage_prefix = models.ForeignKey(
+        'LookupAJCCStagePrefix',
+        on_delete=models.PROTECT,
+        related_name='n_stage_prefix',        
         null=True, 
-        blank=True,
-        choices = stage_prefix,    
-        help_text="Enter any prefix modifiers for the N stage (e.g., 'c' for clinical, 'p' for pathological)"
+        blank=True,   
+        help_text="Select any prefix modifiers for the N stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
-    n_stage = models.CharField(
-        max_length=255, 
+    n_stage = models.ForeignKey(
+        'LookupAJCCStageDescriptor',
+        on_delete=models.PROTECT,
+        related_name='n_stage',
         null=True, 
         blank=True,
-        choices = n_stage_choices,
         help_text="Enter the N stage describing lymph node involvement (e.g., 'N0', 'N1', 'N2', 'N3')"
     )
-    n_stage_suffix = models.CharField(
-        max_length=255, 
+    n_stage_suffix = models.ForeignKey(
+        'LookupAJCCStageSuffix',
+        on_delete=models.PROTECT,
+        related_name='n_stage_suffix',         
         null=True, 
-        blank=True,
-        choices = stage_suffix,
-        help_text="Enter any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')"
+        blank=True,  
+        help_text="Select any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')"
     )
     n_stage_composite = models.GeneratedField(
         expression = Concat('n_stage_prefix','n_stage','n_stage_suffix'),
@@ -1412,25 +1437,28 @@ class StageInformation(models.Model):
         help_text="The composite N stage, including any prefixes or suffixes",
         db_persist = True
     )    
-    m_stage_prefix = models.CharField(
-        max_length=255, 
+    m_stage_prefix = models.ForeignKey(
+        'LookupAJCCStagePrefix',
+        on_delete=models.PROTECT,
+        related_name='m_stage_prefix',        
         null=True, 
-        blank=True,
-        choices = stage_prefix,        
-        help_text="Enter any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)"
+        blank=True,        
+        help_text="Select any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
-    m_stage = models.CharField(
-        max_length=255, 
+    m_stage = models.ForeignKey(
+        'LookupAJCCStageDescriptor',
+        on_delete=models.PROTECT,
+        related_name = 'm_stage',
         null=True, 
         blank=True,
-        choices = m_stage_choices,
         help_text="Enter the M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')"
     )
-    m_stage_suffix = models.CharField(
-        max_length=255, 
+    m_stage_suffix = models.ForeignKey(
+        'LookupAJCCStageSuffix',
+        related_name='m_stage_suffix',        
+        on_delete=models.PROTECT,
         null=True, 
-        blank=True,
-        choices = stage_suffix,
+        blank=True,  
         help_text="Enter any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')"
     )
     m_stage_composite = models.GeneratedField(
