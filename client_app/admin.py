@@ -208,7 +208,11 @@ class SystemicTherapyAdmin (ModelAdmin):
 ## Create the ConcomitantMedications Form Class
 @admin.register(ConcomitantMedications)
 class ConcomitantMedicationsAdmin (ModelAdmin):
-    pass
+    fieldsets = (
+        ('Concomitant Medications',{
+            'fields':['diagnosis',('medication_name','medication_route'),('medication_dose','medication_dose_units'),('date_medication_start_date', 'date_medication_end_date')]
+        }),
+    )
 
 
 ## Create the Other Treatment Form Class

@@ -999,6 +999,13 @@ class ConcomitantMedications(models.Model):
         blank=True,
         help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
     )
+    medication_dose_units = models.ForeignKey(
+        LookupDoseUnits,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the units for the medication dose (e.g., mg, mL, etc.)"
+    )
     date_medication_start_date = models.DateField(
         help_text="Enter the date when the medication was started (format: YYYY-MM-DD)"
     )
