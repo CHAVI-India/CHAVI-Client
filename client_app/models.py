@@ -162,6 +162,29 @@ class LookupSystemicTherapyType(models.Model):
         verbose_name_plural = "Systemic Therapy Types"
         db_table = 'lookup_systemic_therapy_type'
 
+class LookupAJCCStagePrefix(models.Model):
+    key = models.CharField(max_length=2)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
+class LookupAJCCStageSuffix(models.Model):
+    key = models.CharField(max_length=2)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
+class LookupAJCCStageDescriptor (models.Model):
+    key = models.CharField(max_length=2)
+    stage_type = models.CharField(max_length = 10)
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
+
 # Center Model configuration - singleton model using Solo
 
 class SiteConfiguration(SingletonModel):
@@ -1329,31 +1352,6 @@ class Comorbidity(models.Model):
     class Meta:
         verbose_name_plural="Comorbidities"
         db_table="comorbidity"
-
-## AJCC choices will be defined here.
-
-class LookupAJCCStagePrefix(models.Model):
-    key = models.CharField(max_length=2)
-    description = models.CharField(max_length=255)
-
-    def __str__(self):
-        return f"{self.key}({self.description})"
-class LookupAJCCStageSuffix(models.Model):
-    key = models.CharField(max_length=2)
-    description = models.CharField(max_length=255)
-
-    def __str__(self):
-        return f"{self.key}({self.description})"
-
-class LookupAJCCStageDescriptor (models.Model):
-    key = models.CharField(max_length=2)
-    stage_type = models.CharField(max_length = 10)
-    description = models.CharField(max_length=255)
-
-    def __str__(self):
-        return f"{self.key}({self.description})"
-
-
 
 class StageInformation(models.Model):
     chavi_stage_information_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
