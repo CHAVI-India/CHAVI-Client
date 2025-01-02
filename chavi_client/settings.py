@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'solo',
+    'django_extensions',
     'client_app',
 ]
 
