@@ -175,6 +175,7 @@ class LesionAdmin (ModelAdmin):
 @admin.register(LesionResponse)
 class LesionResponseAdmin (ModelAdmin):
     inlines = [LesionResponseDICOMStudyInline]
+    list_display = ['lesion__diagnosis__patient', 'lesion_response', 'lesion_response_date','created_at']
 
 ## Create the Radiotherapy Form Class
 
