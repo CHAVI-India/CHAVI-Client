@@ -8,4 +8,13 @@ The database schema in the client application mimics the central CHAVI server da
 
 ## How to Install
 
-TBD ...
+First of all ensure that you have the latest version of Python 3 installed in your computer. Please see the official documentation available at https://www.python.org/downloads/ for system specific instructions. If you are using a Linux based system then this may be available in your repository.
+
+Please clone the git repository in your computer. Laowing command.
+
+```
+git clone https://gitlab.com/drsantam/chavi_client.git
+```
+
+
+After the repository 
