@@ -1,7 +1,9 @@
 from django.core.management.base import BaseCommand
+from faker import Faker
 
 class Command(BaseCommand):
     help = "Create Fake Data"
 
     def handle(self, *args, **kwargs):
-        print("Read to Create Fake Data !")
+        fake = Faker()
+        print (fake.name())
