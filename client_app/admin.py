@@ -33,6 +33,15 @@ class RadiotherapyDICOMStudyInline(TabularInline):
     model = RadiotherapyDICOMStudy
     extra = 1
 
+class SurgeryDICOMStudyInline(TabularInline):
+    model = SurgeryDICOMStudy
+    extra = 1
+
+class SystemicTherapyDICOMStudyInline(TabularInline):
+    model = SystemicTherapyDICOMStudy
+    extra = 1
+
+
 class OutcomeDICOMStudyInline(TabularInline):
     model = OutcomeDICOMStudy
     extra = 1
@@ -57,7 +66,8 @@ class SystemicTherapyScheduleInline(StackedInline):
             'fields': [('systemic_therapy_agent_route','systemic_therapy_agent'),('systemic_therapy_dose_planned','systemic_therapy_dose_administered','systemic_therapy_dose_units')]
         }),
 
-    )   
+    )
+    tab = True   
 
 class ImmunohistochemistryInline(StackedInline):
     model = Immunohistochemistry
@@ -73,6 +83,22 @@ class SomaticGenomicAlterationsInline(StackedInline):
     model = SomaticGenomicAlterations
     extra = 1
     tab = True
+
+class RadiotherapyVolumeInline(StackedInline):
+    model = RadiotherapyVolume
+    extra = 1
+    fieldsets = (
+        ('Volume Description',{
+            'fields': [('volume_name','volume_type'),('volume_dose_prescribed','radiation_dose_units','volume_fractions'),('volume_radiotherapy_start_date','volume_radiotherapy_end_date')]
+        }),
+    )
+    tab=True
+
+class RadiotherapyDoseVolumeDataInline(TabularInline):
+    model = RadiotherapyDoseVolumeData
+    extra = 1
+    tab = True
+
 
 #endregion
 
@@ -180,19 +206,20 @@ class LesionResponseAdmin (ModelAdmin):
 
 @admin.register(Radiotherapy)
 class RadiotherapyAdmin (ModelAdmin):
-    inlines=[RadiotherapyDICOMStudyInline]
+    inlines=[RadiotherapyVolumeInline,RadiotherapyDICOMStudyInline,RadiotherapyDoseVolumeDataInline]
     fieldsets = (
         ('Radiotherapy',{
-            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side'),'treatment_volume']
+            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side')]
         }),
         ('Description',{
-            'fields': ['radiotherapy_modality','radiotherapy_type',('total_dose','total_fractions','fractions_per_day')]
+            'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('total_fractions','fractions_per_day')]
         }),
     )        
 
 ## Create the Surgery Form Class
 @admin.register(Surgery)
 class SurgeryAdmin (ModelAdmin):
+    inlines = [SurgeryDICOMStudyInline]
     fieldsets = (
         ('Surgery', {
             'fields':['diagnosis','surgery_date']
@@ -208,7 +235,7 @@ class SurgeryAdmin (ModelAdmin):
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
 class SystemicTherapyAdmin (ModelAdmin):
-    inlines = [SystemicTherapyScheduleInline]
+    inlines = [SystemicTherapyScheduleInline,SystemicTherapyDICOMStudyInline]
     fieldsets = (
         ('Systemic Therapy',{
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]

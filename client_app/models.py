@@ -3,6 +3,38 @@ from django.db.models.functions import Substr, Concat
 from solo.models import SingletonModel
 import uuid
 
+# Center Model configuration - singleton model using Solo
+
+class SiteConfiguration(SingletonModel):
+    chavi_center_id = models.CharField(max_length=255,default="Site ID")
+    center_name = models.CharField(max_length=255, default="Your Hospital")
+    center_address = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The complete street address of the medical center. Should include building number, street name, and any additional address details like suite or floor number. Example: '1216 Second Street SW'. This field is optional."
+    )
+    center_city = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The city where the medical center is located. Should be written in full without abbreviations. Example: 'Rochester' or 'New York City'. This field is optional."
+    )
+    center_state = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The state or province where the medical center is located. For US locations, use the full state name or standard two-letter abbreviation. For international locations, use appropriate regional divisions. Example: 'Minnesota' or 'MN'. This field is optional."
+    )
+    center_country = models.TextField(
+        null=True,
+        blank=True,
+        help_text="The country where the medical center is located. Use the full country name, not abbreviations. Example: 'United States' or 'Canada'. This field is optional."
+    )
+
+    def __str__(self):
+        return self.center_name
+    class Meta:
+        verbose_name = "Site Configuration"
+
+
 # Lookup Models
 
 class LookupLaterality(models.Model):
@@ -184,38 +216,18 @@ class LookupSystemicTherapyType(models.Model):
         verbose_name_plural = "Systemic Therapy Types"
         db_table = 'lookup_systemic_therapy_type'
 
+class LookupRadiotherapyVolumeType(models.Model):
+    radiotherapy_volume_type = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__ (self):
+        return self.radiotherapy_volume_type
 
-# Center Model configuration - singleton model using Solo
-
-class SiteConfiguration(SingletonModel):
-    chavi_center_id = models.CharField(max_length=255,default="Site ID")
-    center_name = models.CharField(max_length=255, default="Your Hospital")
-    center_address = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The complete street address of the medical center. Should include building number, street name, and any additional address details like suite or floor number. Example: '1216 Second Street SW'. This field is optional."
-    )
-    center_city = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The city where the medical center is located. Should be written in full without abbreviations. Example: 'Rochester' or 'New York City'. This field is optional."
-    )
-    center_state = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The state or province where the medical center is located. For US locations, use the full state name or standard two-letter abbreviation. For international locations, use appropriate regional divisions. Example: 'Minnesota' or 'MN'. This field is optional."
-    )
-    center_country = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The country where the medical center is located. Use the full country name, not abbreviations. Example: 'United States' or 'Canada'. This field is optional."
-    )
-
-    def __str__(self):
-        return self.center_name
     class Meta:
-        verbose_name = "Site Configuration"
+        verbose_name_plural = "Radiotherapy Volume Types"
+        db_table = 'lookup_radiotherapy_volume_type'
+
 
 # Core Patient Models
 class Patient(models.Model):
@@ -890,6 +902,13 @@ class Radiotherapy(models.Model):
         blank=True,
         help_text="Enter the total number of treatment sessions (fractions) planned for the complete course of radiotherapy"
     )
+    radiation_dose_units = models.ForeignKey(
+        LookupUnits,
+        on_delete = models.PROTECT,
+        null=True, 
+        blank=True,
+        help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
+    )
     radiotherapy_type = models.CharField(
         max_length=255,
         null=True, 
@@ -910,6 +929,7 @@ class Radiotherapy(models.Model):
     fractions_per_day = models.BigIntegerField(
         null=True, 
         blank=True,
+        default = 1,
         help_text="Enter the number of treatment sessions (fractions) delivered per day"
     )
     radiotherapy_site = models.ForeignKey(
@@ -922,10 +942,11 @@ class Radiotherapy(models.Model):
         on_delete=models.PROTECT,
         help_text="Select which side of the body is being treated (e.g., 'Left', 'Right', 'Bilateral')"
     )
-    treatment_volume = models.TextField(
+    radiotherapy_machine = models.CharField(
+        max_length=255,
         null=True, 
         blank=True,
-        help_text="Enter a description of the area being treated, including any specific targeting information or boundaries"
+        help_text="Enter the name or model of the radiation therapy machine used"
     )
     radiotherapy_start_date = models.DateField(
         null=True, 
@@ -946,6 +967,140 @@ class Radiotherapy(models.Model):
         verbose_name = "Radiotherapy Course"
         verbose_name_plural="Radiotherapy Courses"
         db_table="radiotherapy"
+
+class RadiotherapyVolume(models.Model):
+    radiotherapy = models.ForeignKey(
+        'Radiotherapy',
+        on_delete=models.CASCADE,
+        help_text="Select the radiotherapy course that this volume is associated with"
+    )
+    volume_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank= True,        
+        help_text="Enter a name or description for this volume"
+    )
+    volume_type = models.ForeignKey(
+        'LookupRadiotherapyVolumeType',
+        null=True,
+        blank= True,        
+        on_delete = models.PROTECT,
+        help_text="Select the type of volume (e.g., PTV, CTV, OAR)"
+    )
+    volume_dose_prescribed = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,           
+        null=True,
+        blank= True,
+        help_text="Enter the prescribed dose for this volume in Gray (Gy)",
+    )
+    radiation_dose_units = models.ForeignKey(
+        'LookupUnits',
+        on_delete = models.PROTECT,
+        null=True, 
+        blank=True,
+        help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
+    )    
+    volume_fractions = models.PositiveIntegerField(      
+        null=True,
+        blank=True,
+        help_text="Enter the number of fractions for this volume"
+    )
+    volume_radiotherapy_start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Enter the start date for this volume (format: YYYY-MM-DD)"
+    )
+    volume_radiotherapy_end_date = models.DateField(    
+        null=True,
+        blank=True,
+        help_text="Enter the end date for this volume (format: YYYY-MM-DD)"     
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.radiotherapy} - {self.volume_name}"
+
+    class Meta:
+        verbose_name_plural = "Radiotherapy Volumes"
+        db_table = "radiotherapy_volume"    
+
+class RadiotherapyDoseVolumeData(models.Model):
+    radiotherapy = models.ForeignKey(
+        Radiotherapy,
+        on_delete=models.CASCADE,
+        help_text="Select the radiotherapy session that this dose volume data is associated with"
+    )
+    volume_name = models.CharField(
+        max_length=255,
+        help_text="Enter a name for this dose volume data"
+    )
+    volume_type = models.ForeignKey(
+        LookupRadiotherapyVolumeType,
+        on_delete=models.PROTECT,
+        help_text="Select the type of volume (e.g., 'CTV', 'PTV')"
+    )
+    absolute_volume = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Enter the absolute volume in cubic centimeters (cc)"
+    )
+    relative_volume = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,      
+        blank=True,     
+        help_text="Enter the relative volume as a percentage (%)"
+    )
+    volume_units = models.ForeignKey(
+        LookupUnits,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name = 'volume_units',
+        help_text="Select the units for the volume (e.g., 'cc', '%')"
+    )
+    absolute_dose = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Enter the absolute dose in Gray (Gy) or cGy"
+    )
+    relative_dose = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Enter the relative dose as a percentage (%)"
+    )
+    volume_dose_prescribed = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Enter the dose prescribed to this volume in Gray (Gy) or cGy"
+    )
+    radiation_dose_units = models.ForeignKey(
+        LookupUnits,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name = "radiation_dose_units",
+        help_text="Select the units for the dose (e.g., 'Gy', 'cGy', '%')"
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__ (self):
+        return f"{self.radiotherapy}-{self.volume_name}"
+    class Meta:
+        verbose_name = "Radiotherapy Dose Volume"
+        verbose_name_plural="Radiotherapy Dose Volumes"
+        db_table="radiotherapy_dose_volumes"
 
 class Surgery(models.Model):
     chavi_surgery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1582,12 +1737,42 @@ class RadiotherapyDICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name="DICOM Study for Radiotherapy"
-        verbose_name_plural="DICOM Studies for Radiotherapy"
+        verbose_name="DICOM Study for Radiotherapy Course"
+        verbose_name_plural="DICOM Studies for Radiotherapy Courses"
         constraints = [
             models.UniqueConstraint(
                 fields=['radiotherapy', 'dicom_study'],
                 name='unique_radiotherapy_dicom_study'
+            )
+        ]
+
+class SystemicTherapyDICOMStudy(models.Model):
+    systemic_therapy = models.ForeignKey(SystemicTherapy, on_delete=models.CASCADE)
+    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name="DICOM Study for Systemic Therapy Course"
+        verbose_name_plural="DICOM Studies for Systemic Therapy Courses"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['systemic_therapy', 'dicom_study'],
+                name='unique_chemotherapy_dicom_study'
+            )
+        ]
+
+class SurgeryDICOMStudy(models.Model) :
+    surgery = models.ForeignKey(Surgery, on_delete=models.CASCADE)
+    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta: 
+        verbose_name = "DICOM Study for Surgery"
+        verbose_name_plural = "DICOM Studies for Surgery"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['surgery', 'dicom_study'],
+                name='unique_surgery_dicom_study'
             )
         ]
 
