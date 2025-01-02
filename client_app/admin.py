@@ -138,7 +138,7 @@ class PathologyAdmin (ModelAdmin):
 class StageInformationAdmin (ModelAdmin):
     search = ['diagnosis__patient_id']
     list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
-    list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','t_stage_composite','n_stage_composite','m_stage_composite','overall_stage']
+    list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','overall_stage']
     fieldsets = (
         ('Stage Information',{
             'fields' : ['diagnosis',('staging_system','stage_type')] 

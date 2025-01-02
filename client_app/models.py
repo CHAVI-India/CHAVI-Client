@@ -696,7 +696,7 @@ class Pathology(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.pathology.patient.patient_id} - {self.pathology.histological_type}"
+        return f"{self.diagnosis} - {self.histological_type}"
 
     class Meta:
         verbose_name_plural = "Pathology"
@@ -1396,14 +1396,14 @@ class StageInformation(models.Model):
         blank=True,
         help_text="Enter any suffix modifiers for the T stage (e.g., 'a', 'b', 'c')"
     )
-    t_stage_composite = models.GeneratedField(
-        expression = Concat('t_stage_prefix','t_stage','t_stage_suffix'),
-        output_field=models.CharField(max_length=255),
-        null=True,
-        blank=True,
-        help_text="The composite T stage, including any prefixes or suffixes",
-        db_persist = True
-    )
+    # t_stage_composite = models.GeneratedField(
+    #     expression = Concat('t_stage_prefix','t_stage','t_stage_suffix'),
+    #     output_field=models.CharField(max_length=255),
+    #     null=True,
+    #     blank=True,
+    #     help_text="The composite T stage, including any prefixes or suffixes",
+    #     db_persist = True
+    # )
     n_stage_prefix = models.ForeignKey(
         'LookupAJCCStagePrefix',
         on_delete=models.PROTECT,
@@ -1428,14 +1428,14 @@ class StageInformation(models.Model):
         blank=True,  
         help_text="Select any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')"
     )
-    n_stage_composite = models.GeneratedField(
-        expression = Concat('n_stage_prefix','n_stage','n_stage_suffix'),
-        output_field=models.CharField(max_length=255),
-        null=True,
-        blank=True,
-        help_text="The composite N stage, including any prefixes or suffixes",
-        db_persist = True
-    )    
+    # n_stage_composite = models.GeneratedField(
+    #     expression = Concat('n_stage_prefix','n_stage','n_stage_suffix'),
+    #     output_field=models.CharField(max_length=255),
+    #     null=True,
+    #     blank=True,
+    #     help_text="The composite N stage, including any prefixes or suffixes",
+    #     db_persist = True
+    # )    
     m_stage_prefix = models.ForeignKey(
         'LookupAJCCStagePrefix',
         on_delete=models.PROTECT,
@@ -1460,14 +1460,14 @@ class StageInformation(models.Model):
         blank=True,  
         help_text="Enter any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')"
     )
-    m_stage_composite = models.GeneratedField(
-        expression = Concat('m_stage_prefix','m_stage','m_stage_suffix'),
-        output_field=models.CharField(max_length=255),
-        null=True,
-        blank=True,
-        help_text="The composite M stage, including any prefixes or suffixes",
-        db_persist = True
-    )    
+    # m_stage_composite = models.GeneratedField(
+    #     expression = Concat('m_stage_prefix','m_stage','m_stage_suffix'),
+    #     output_field=models.CharField(max_length=255),
+    #     null=True,
+    #     blank=True,
+    #     help_text="The composite M stage, including any prefixes or suffixes",
+    #     db_persist = True
+    # )    
     overall_stage = models.CharField(
         max_length=255, 
         null=True, 
