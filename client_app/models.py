@@ -176,6 +176,7 @@ class LookupStagingSystem(models.Model):
 
     def __str__(self):
         return f"{self.staging_system} v{self.staging_system_version}"
+
 class AJCCAbstract(models.Model):
     key = models.CharField(max_length=255)
     description = models.CharField(max_length=255)
@@ -201,6 +202,7 @@ class LookupAJCCTStageDescriptor (AJCCAbstract):
 class LookupAJCCNStageDescriptor (AJCCAbstract):
     def __str__(self):
         return f"{self.key}({self.description})"
+
 class LookupAJCCMStageDescriptor (AJCCAbstract):
     def __str__(self):
         return f"{self.key}({self.description})"
@@ -358,6 +360,21 @@ class Project(models.Model):
         verbose_name_plural = "Projects"
         db_table="project"
 
+
+# File upload Model
+
+class PatientDicomFile(models.Model):
+    patient = models.ForeignKey(
+        'Patient',
+        on_delete=models.CASCADE,
+        related_name='patient_dicom_files',
+    )
+    file = models.FileField(
+        upload_to='patient_dicom_files/',
+        help_text="The DICOM file associated with the patient. This file should contain the medical imaging data for the patient."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 # DICOM Related Models
 class DICOMStudy(models.Model):
