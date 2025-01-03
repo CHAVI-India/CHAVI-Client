@@ -123,6 +123,17 @@ class PatientAdmin (ModelAdmin):
     )
     readonly_fields = ('center',)
 
+@admin.register(PatientDicomFile)
+class PatientDicomFileAdmin (ModelAdmin):
+    list_filter = ['patient','created_at']
+    search_fields =[ 'patient__patient_id']
+    list_display = ['patient','file','created_at']
+    fieldsets = (
+        ('Patient DICOM File',{
+            'fields': ['patient','file']  
+        }),
+    )
+
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ModelAdmin):

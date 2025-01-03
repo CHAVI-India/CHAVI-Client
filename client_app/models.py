@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models.functions import Substr, Concat
 from solo.models import SingletonModel
+from django.core.validators import FileExtensionValidator
 import uuid
 
 # Center Model configuration - singleton model using Solo
@@ -371,7 +372,8 @@ class PatientDicomFile(models.Model):
     )
     file = models.FileField(
         upload_to='patient_dicom_files/',
-        help_text="The DICOM file associated with the patient. This file should contain the medical imaging data for the patient."
+        validators=[FileExtensionValidator(allowed_extensions=["zip"])],
+        help_text="Please upload a single zip file having the DICOM studies for a single patients. You can choose to upload multiple studies at the same time."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
