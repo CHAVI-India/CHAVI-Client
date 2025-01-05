@@ -407,6 +407,7 @@ class PatientDicomFile(models.Model):
 
 # DICOM Related Models
 class DICOMStudy(models.Model):
+    ''' This is a table that stores information on the different DICOM studies that the patient has undergone. '''
     patient = models.ForeignKey(
         Patient, 
         on_delete=models.CASCADE,
@@ -435,34 +436,36 @@ class DICOMStudy(models.Model):
     class Meta:
         verbose_name_plural = "DICOM Studies"
 
-class DICOMSeries(models.Model):
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    sop_instance_uid = models.CharField(max_length=255, unique=True)
-    series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-    frame_of_reference_uid = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+# This is a series of tables which will be needed for the Server database configuration.
+# class DICOMSeries(models.Model):
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     sop_instance_uid = models.CharField(max_length=255, unique=True)
+#     series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
+#     frame_of_reference_uid = models.CharField(max_length=255)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
 
-class DICOMStudyFiles(models.Model):
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-    file_name = models.TextField(null=True, blank=True)
-    upload_timestamp = models.DateTimeField(auto_now_add=True)
-    number_of_files = models.IntegerField(null=True, blank=True)
-    file_size = models.DecimalField(max_digits=10, decimal_places=2)
+# class DICOMStudyFiles(models.Model):
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
+#     file_name = models.TextField(null=True, blank=True)
+#     upload_timestamp = models.DateTimeField(auto_now_add=True)
+#     number_of_files = models.IntegerField(null=True, blank=True)
+#     file_size = models.DecimalField(max_digits=10, decimal_places=2)
 
-class DICOMTagInformation(models.Model):
-    dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
-    tag = models.CharField(max_length=255)
-    tag_name = models.CharField(max_length=255)
-    tag_value = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+# class DICOMTagInformation(models.Model):
+#     dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
+#     tag = models.CharField(max_length=255)
+#     tag_name = models.CharField(max_length=255)
+#     tag_value = models.TextField()
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
 
 
 # Clinical Data Models
 
 class Diagnosis(models.Model):
+    ''' This is a table which stores the diagnosis of the patient. The diagnosis is a key table which will have links to treatment and pathology.'''
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Select the patient")
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -489,6 +492,7 @@ class Diagnosis(models.Model):
         db_table = 'diagnosis'    
 
 class Outcome(models.Model):
+    '''This table stores information related to the outcome of the cancer treatment for the disease. Note that the patient outcome table is separate.'''
     chavi_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
     date_outcome_assessed = models.DateField(null=True, blank=True,
@@ -507,6 +511,7 @@ class Outcome(models.Model):
         db_table = 'outcome'
 
 class Lesion(models.Model):
+    ''' This table has information on the lesions / tumors that the patient has. Allows users to record information on the gross disease, nodal disease or distant metastases.'''
     chavi_lesion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -579,6 +584,8 @@ class Lesion(models.Model):
         db_table="lesion"
 
 class LesionResponse(models.Model):
+    ''' This table will store information related to the response that the Lesion has.'''
+
     chavi_lesion_response_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     lesion = models.ForeignKey(
         Lesion, 
@@ -634,6 +641,8 @@ class LesionResponse(models.Model):
         db_table="lesion_response"
 
 class Pathology(models.Model):
+    ''' This a table which stores the pathology information related to a diagnosis.'''
+
     chavi_pathology_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -771,6 +780,8 @@ class Pathology(models.Model):
         db_table="pathology"    
 
 class Immunohistochemistry(models.Model):
+    ''' This is a table storing data on the Immunohistochemistry test results for the pathology.'''
+
     chavi_ihc_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
         Pathology, 
@@ -804,6 +815,8 @@ class Immunohistochemistry(models.Model):
         db_table="immunohistochemistry"
 
 class Cytogenetics(models.Model):
+    ''' This is a table which will store the cytogenetics test results for each pathology report.'''
+
     chavi_cytogenetics_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
         Pathology, 
@@ -837,6 +850,7 @@ class Cytogenetics(models.Model):
         db_table="cytogenetics"
 
 class SomaticGenomicAlterations(models.Model):
+    ''' This model represents somatic genomic alterations found in a pathology report.'''
     chavi_somatic_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
         Pathology, 
@@ -900,6 +914,7 @@ class SomaticGenomicAlterations(models.Model):
         db_table="somatic_genomic_alterations"
 
 class OtherTreatment(models.Model):
+    ''' The table will store information on other treatments that the patient undergoes'''
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -934,6 +949,7 @@ class OtherTreatment(models.Model):
         db_table="other_treatment"
 
 class Radiotherapy(models.Model):
+    '''This table will record the radiotherapy course details for the patient's diagnosis.'''
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -1025,6 +1041,7 @@ class Radiotherapy(models.Model):
         db_table="radiotherapy"
 
 class RadiotherapyVolume(models.Model):
+    ''' This table will record the volumes treated as a part of the radiotherapy course.'''
     radiotherapy = models.ForeignKey(
         'Radiotherapy',
         on_delete=models.CASCADE,
@@ -1083,6 +1100,7 @@ class RadiotherapyVolume(models.Model):
         db_table = "radiotherapy_volume"    
 
 class RadiotherapyDoseVolumeData(models.Model):
+    ''' This is a table which stores the radiotherapy dose volume data for the patients'''
     radiotherapy = models.ForeignKey(
         Radiotherapy,
         on_delete=models.CASCADE,
@@ -1159,6 +1177,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         db_table="radiotherapy_dose_volumes"
 
 class Surgery(models.Model):
+    ''' This is a table of surgery type that the patient will undergo'''
     chavi_surgery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -1218,6 +1237,7 @@ class Surgery(models.Model):
         db_table="surgery"
 
 class ConcomitantMedications(models.Model):
+    '''This is a table of the concomitant medications that the patient may receive.'''
     chavi_medication_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -1265,6 +1285,8 @@ class ConcomitantMedications(models.Model):
         db_table="concomitant_medications"
 
 class SystemicTherapy(models.Model):
+    ''' This is a systemic therapy table which has details of the systemic therapy given to the patient'''
+
     chavi_systemic_therapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         Diagnosis, 
@@ -1299,6 +1321,8 @@ class SystemicTherapy(models.Model):
         db_table="systemic_therapy"
 
 class SystemicTherapySchedule(models.Model):
+    '''This table stores the systemic therapy drug schedule for the patients'''
+
     chavi_systemic_therapy_schedule_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     systemic_therapy = models.ForeignKey(
         'SystemicTherapy', 
@@ -1355,6 +1379,8 @@ class SystemicTherapySchedule(models.Model):
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(models.Model):
+    '''This model represents adverse effects that may occur during treatment.'''
+
     chavi_adverse_effects_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         'Diagnosis', 
@@ -1417,6 +1443,7 @@ class AdverseEffects(models.Model):
         db_table="adverse_effects"   
 
 class ProInstrument(models.Model):
+    '''This is a table which stores information on the patient reported outcome instruments.'''
     pro_instrument = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1429,6 +1456,7 @@ class ProInstrument(models.Model):
         db_table="pro_instrument"
 
 class ProDomain(models.Model):
+    '''This is a table which stores information on the patient reported outcome domains.'''
     instrument = models.ForeignKey(ProInstrument, on_delete=models.CASCADE)
     pro_domain = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1446,6 +1474,7 @@ class ProDomain(models.Model):
         return f"{self.instrument.pro_instrument} - {self.pro_domain}"
 
 class ProQuestion(models.Model):
+    '''This is a table which stores information on the patient reported outcome questions.'''
     domain = models.ForeignKey(ProDomain, on_delete=models.CASCADE)
     pro_question = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1460,6 +1489,7 @@ class ProQuestion(models.Model):
         ]
 
 class PatientReportedOutcome(models.Model):
+    ''' This is the table which will store information on the patient-reported outcomes'''
     chavi_pro_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(
         Patient, 
@@ -1509,6 +1539,7 @@ class PatientReportedOutcome(models.Model):
         db_table="patient_reported_outcome"    
 
 class PatientOutcome(models.Model):
+    ''' This is the table which will store information on the outcome of the patients'''
     chavi_pt_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
     patient_status = models.ForeignKey('LookupOutcome', on_delete=models.PROTECT,
@@ -1535,6 +1566,7 @@ class PatientOutcome(models.Model):
         db_table="patient_outcome"
 
 class Comorbidity(models.Model):
+    ''' This is a table for recording the Comorbidities of the patients'''
     chavi_comorbidity_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(
         Patient, 
@@ -1566,6 +1598,7 @@ class Comorbidity(models.Model):
         db_table="comorbidity"
 
 class StageInformation(models.Model):
+    ''' This is the table which will store information on the stage of the disease.'''
     chavi_stage_information_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
         'Diagnosis', 
