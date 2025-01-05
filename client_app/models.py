@@ -7,6 +7,7 @@ import uuid
 # Center Model configuration - singleton model using Solo
 
 class SiteConfiguration(SingletonModel):
+    '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
     chavi_center_id = models.CharField(max_length=255,default="Site ID")
     center_name = models.CharField(max_length=255, default="Your Hospital")
     center_address = models.TextField(
@@ -39,6 +40,7 @@ class SiteConfiguration(SingletonModel):
 # Lookup Models
 
 class LookupLaterality(models.Model):
+    '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
     icd_laterality_code = models.CharField(max_length=20)
     side_description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -48,6 +50,7 @@ class LookupLaterality(models.Model):
         return self.side_description
 
 class LookupICDCode(models.Model):
+    '''This is a lookup table with ICD 11 codes for the diagnosis.'''
     icd_version = models.DecimalField(max_digits=5, decimal_places=2)
     icd_code = models.CharField(max_length=255)
     icd_description = models.CharField(max_length=255)
@@ -58,6 +61,7 @@ class LookupICDCode(models.Model):
         return f"{self.icd_code} - {self.icd_description}"
 
 class LookupFMACode(models.Model):
+    '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
     fmaid = models.DecimalField(max_digits=10, decimal_places=2)
     label = models.CharField(max_length=255)
     preferred_name = models.CharField(max_length=255)
@@ -68,24 +72,28 @@ class LookupFMACode(models.Model):
         return self.preferred_name
 
 class LookupPresentation(models.Model):
+    '''This is a lookup for presentation type.'''
     presentation_type = models.CharField(max_length=255)
 
     def __str__(self):
         return self.presentation_type
 
 class LookupOutcomeType(models.Model):
+    '''This is a lookup table where outcome type like local recurrence, nodal recurrence etc are recorded.'''
     outcome_type = models.CharField(max_length=255)
 
     def __str__(self):
         return self.outcome_type
 
 class LookupLesionType(models.Model):
+    '''This is a lookup table where lesion location type is recorded e.g. local, nodal, distant '''
     lesion_location_type = models.CharField(max_length=255)
 
     def __str__(self):
         return self.lesion_location_type
 
 class LookupResponseType(models.Model):
+    '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
     response_type = models.CharField(max_length=255)
     response_measurement_criteria = models.CharField(max_length=255)
 
@@ -93,6 +101,7 @@ class LookupResponseType(models.Model):
         return self.response_type
 
 class LookupUniProt(models.Model):
+    '''This is a lookup table from the UniProt Database for Protein Names.'''
     protein_name = models.CharField(max_length=500)
     uniprot_id = models.CharField(max_length=255, unique=True)
 
@@ -100,6 +109,7 @@ class LookupUniProt(models.Model):
         return self.protein_name
 
 class LookupCosmic(models.Model):
+    '''This is a lookup table from the Cosmic Database for Gene Names.'''
     cosmic_gene_id = models.CharField(max_length=255, unique=True)
     cosmic_gene_name = models.CharField(max_length=500)
 
@@ -107,18 +117,21 @@ class LookupCosmic(models.Model):
         return self.cosmic_gene_name
 
 class LookupTreatmentIntent(models.Model):
+    '''This is a lookup table for Treatment Intent.'''
     treatment_intent = models.CharField(max_length=255)
 
     def __str__(self):
         return self.treatment_intent
 
 class LookupTreatmentSequence(models.Model):
+    '''This is a lookup table for Treatment Sequence.'''
     treatment_sequence = models.CharField(max_length=255)
 
     def __str__(self):
         return self.treatment_sequence
 
 class LookupSystemicAgent(models.Model):
+    '''This is a lookup table for Systemic Agents.'''
     systemic_agent_name = models.CharField(max_length=255)
     systemic_agent_type = models.CharField(max_length=255)
 
@@ -126,12 +139,14 @@ class LookupSystemicAgent(models.Model):
         return self.systemic_agent_name
 
 class LookupUnits(models.Model):
+    '''This is a lookup table for units of measurement for use in the database'''
     unit = models.CharField(max_length=255)
     unit_abbreviation = models.CharField(max_length=255)
     def __str__(self):
         return self.unit_abbreviation
 
 class LookupDoseUnits(models.Model):
+    '''This is a lookup table specifically created for recording types of units for drug doses.'''
     unit = models.CharField(max_length=255)
     unit_abbreviation = models.CharField(max_length=255)
 
@@ -139,12 +154,14 @@ class LookupDoseUnits(models.Model):
         return self.unit_abbreviation
 
 class LookupDrugRoute(models.Model):
+    '''This is a lookup table for drug routes.'''
     route = models.CharField(max_length=255)
 
     def __str__(self):
         return self.route
 
 class LookupCTCAEGrade(models.Model):
+    '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
     ctcae_id = models.CharField(max_length=255, unique=True)
     ctcae_term = models.CharField(max_length=255)
     definition = models.TextField()
@@ -164,12 +181,14 @@ class LookupCTCAEGrade(models.Model):
         ]
 
 class LookupOutcome(models.Model):
+    '''This is a lookup table for outcomes types.'''
     outcome = models.CharField(max_length=255)
 
     def __str__(self):
         return self.outcome
 
 class LookupStagingSystem(models.Model):
+    '''This is a lookup table for staging systems.'''
     staging_system = models.CharField(max_length=255)
     staging_system_version = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -179,6 +198,7 @@ class LookupStagingSystem(models.Model):
         return f"{self.staging_system} v{self.staging_system_version}"
 
 class AJCCAbstract(models.Model):
+    '''This is an abstract base class for AJCC lookup tables.'''
     key = models.CharField(max_length=255)
     description = models.CharField(max_length=255)
 
@@ -188,31 +208,33 @@ class AJCCAbstract(models.Model):
         abstract = True
 
 class LookupAJCCStagePrefix(AJCCAbstract):
+    '''This is a lookup table for AJCC stage prefixes.'''
     def __str__(self):
         return f"{self.key}({self.description})"
         
 class LookupAJCCStageSuffix(AJCCAbstract):
+    '''This is a lookup table for AJCC stage suffixes.'''
 
     def __str__(self):
         return f"{self.key}({self.description})"
 
 class LookupAJCCTStageDescriptor (AJCCAbstract):
+    ''' This is a lookup table for AJJC T stage descriptors.'''
     def __str__(self):
         return f"{self.key}({self.description})"
 
 class LookupAJCCNStageDescriptor (AJCCAbstract):
+    ''' This is a lookup table for AJJC N stage descriptors.'''
     def __str__(self):
         return f"{self.key}({self.description})"
 
 class LookupAJCCMStageDescriptor (AJCCAbstract):
+    ''' This is a lookup table for AJJC M stage descriptors.'''
     def __str__(self):
         return f"{self.key}({self.description})"
 
-
-
-
-
 class LookupDiagnosticModality(models.Model):
+    ''' This is a lookup table for the diagnostic modality'''
     diagnostic_modality = models.CharField(max_length=255)
     def __str__(self):   
         return self.diagnostic_modality
@@ -220,6 +242,7 @@ class LookupDiagnosticModality(models.Model):
     db_table = 'lookup_diagnostic_modality'
 
 class LookupSystemicTherapyType(models.Model):
+    ''' This is a lookup table for the type of Systemic Therapy'''
     systemic_therapy_type = models.CharField(max_length=255)
 
     def __str__(self):
@@ -230,6 +253,7 @@ class LookupSystemicTherapyType(models.Model):
         db_table = 'lookup_systemic_therapy_type'
 
 class LookupRadiotherapyVolumeType(models.Model):
+    ''' This is a lookup table for the type of Radiotherapy Volume'''
     radiotherapy_volume_type = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -244,6 +268,7 @@ class LookupRadiotherapyVolumeType(models.Model):
 
 # Core Patient Models
 class Patient(models.Model):
+    ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
     center = models.ForeignKey(SiteConfiguration, 
     on_delete=models.CASCADE, 
     null=True, blank=True,
@@ -301,6 +326,7 @@ class Patient(models.Model):
 
 # Project Model
 class Project(models.Model):
+    ''' This is a table which will contain the details of the Projects in which the data will be collected.'''
     chavi_project_id = models.CharField(
         max_length=255,
         unique=True,
@@ -365,6 +391,7 @@ class Project(models.Model):
 # File upload Model
 
 class PatientDicomFile(models.Model):
+    ''' This is a model for storing DICOM files for a patient. Uploading of the zip files is supported. A single zip file containing multiple DICOM studies is allowed.'''
     patient = models.ForeignKey(
         'Patient',
         on_delete=models.CASCADE,
