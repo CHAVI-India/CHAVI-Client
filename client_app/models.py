@@ -1615,7 +1615,6 @@ class StageInformation(models.Model):
     m_stage = models.ForeignKey(
         'LookupAJCCMStageDescriptor',
         on_delete=models.PROTECT,
-        related_name = 'm_stage',
         null=True, 
         blank=True,
         help_text="Enter the M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')"

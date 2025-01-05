@@ -1,52 +1,49 @@
 from django.contrib import admin
 from solo.admin import SingletonModelAdmin
 from .models import *
-from unfold.admin import ModelAdmin, TabularInline, StackedInline
-from unfold.contrib.inlines.admin import NonrelatedTabularInline
-from unfold.contrib.filters.admin import RangeDateFilter
-from unfold.contrib.forms.widgets import ArrayWidget, WysiwygWidget
+
 
 #region inlinetables
 
 # Define inlines for Many to Many relations
-class PatientProjectInline(TabularInline):
+class PatientProjectInline(admin.TabularInline):
     model = PatientProject
     extra = 1
 
-class DiagnosisDICOMStudyInline(TabularInline):
+class DiagnosisDICOMStudyInline(admin.TabularInline):
     model = DiagnosisDICOMStudy
     extra = 1
 
-class LesionDICOMStudyInline(TabularInline):
+class LesionDICOMStudyInline(admin.TabularInline):
     model = LesionDICOMStudy
     extra = 1
 
-class LesionResponseDICOMStudyInline(TabularInline):
+class LesionResponseDICOMStudyInline(admin.TabularInline):
     model = LesionResponseDICOMStudy
     extra = 1
 
-class DiagnosisProjectInline(TabularInline):
+class DiagnosisProjectInline(admin.TabularInline):
     model = DiagnosisProject
     extra = 1
 
-class RadiotherapyDICOMStudyInline(TabularInline):
+class RadiotherapyDICOMStudyInline(admin.TabularInline):
     model = RadiotherapyDICOMStudy
     extra = 1
 
-class SurgeryDICOMStudyInline(TabularInline):
+class SurgeryDICOMStudyInline(admin.TabularInline):
     model = SurgeryDICOMStudy
     extra = 1
 
-class SystemicTherapyDICOMStudyInline(TabularInline):
+class SystemicTherapyDICOMStudyInline(admin.TabularInline):
     model = SystemicTherapyDICOMStudy
     extra = 1
 
 
-class OutcomeDICOMStudyInline(TabularInline):
+class OutcomeDICOMStudyInline(admin.TabularInline):
     model = OutcomeDICOMStudy
     extra = 1
 
-class DICOMStudyProjectInline(TabularInline):
+class DICOMStudyProjectInline(admin.TabularInline):
     model = DICOMStudyProject
     extra = 1
 
@@ -54,7 +51,7 @@ class DICOMStudyProjectInline(TabularInline):
 
 #region Inlines for Foreign Key relations.
 
-class SystemicTherapyScheduleInline(StackedInline):
+class SystemicTherapyScheduleInline(admin.StackedInline):
     model = SystemicTherapySchedule
     extra = 1
     fieldsets = (
@@ -69,22 +66,22 @@ class SystemicTherapyScheduleInline(StackedInline):
     )
     tab = True   
 
-class ImmunohistochemistryInline(StackedInline):
+class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
     extra = 1
     tab = True
 
-class CytogeneticsInline(StackedInline):
+class CytogeneticsInline(admin.StackedInline):
     model = Cytogenetics
     extra = 1
     tab = True
 
-class SomaticGenomicAlterationsInline(StackedInline):
+class SomaticGenomicAlterationsInline(admin.StackedInline):
     model = SomaticGenomicAlterations
     extra = 1
     tab = True
 
-class RadiotherapyVolumeInline(StackedInline):
+class RadiotherapyVolumeInline(admin.StackedInline):
     model = RadiotherapyVolume
     extra = 1
     fieldsets = (
@@ -94,7 +91,7 @@ class RadiotherapyVolumeInline(StackedInline):
     )
     tab=True
 
-class RadiotherapyDoseVolumeDataInline(TabularInline):
+class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
     model = RadiotherapyDoseVolumeData
     extra = 1
     tab = True
@@ -108,7 +105,7 @@ class RadiotherapyDoseVolumeDataInline(TabularInline):
 
 ## Create the Patient Form Class
 @admin.register(Patient)
-class PatientAdmin (ModelAdmin):
+class PatientAdmin (admin.ModelAdmin):
     inlines = [PatientProjectInline]
     list_filter = ['gender','chavi_consent','created_at']
     search_fields =[ 'patient_id']
@@ -124,7 +121,7 @@ class PatientAdmin (ModelAdmin):
     readonly_fields = ('center',)
 
 @admin.register(PatientDicomFile)
-class PatientDicomFileAdmin (ModelAdmin):
+class PatientDicomFileAdmin (admin.ModelAdmin):
     list_filter = ['patient','created_at']
     search_fields =[ 'patient__patient_id']
     list_display = ['patient','file','created_at']
@@ -136,7 +133,7 @@ class PatientDicomFileAdmin (ModelAdmin):
 
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
-class DiagnosisAdmin (ModelAdmin):
+class DiagnosisAdmin (admin.ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     search_fields = ['patient']
     list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
@@ -153,7 +150,7 @@ class DiagnosisAdmin (ModelAdmin):
 
 ## Create the Pathology Form Class
 @admin.register(Pathology)
-class PathologyAdmin (ModelAdmin):
+class PathologyAdmin (admin.ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
     search_fields = ['diagnosis__patient_id']
     list_filter = ['diagnosis','tumor_site__label','tumor_side__side_description','histological_type']
@@ -172,7 +169,7 @@ class PathologyAdmin (ModelAdmin):
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
-class StageInformationAdmin (ModelAdmin):
+class StageInformationAdmin (admin.ModelAdmin):
     search = ['diagnosis__patient_id']
     list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
     list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','overall_stage']
@@ -198,25 +195,25 @@ class StageInformationAdmin (ModelAdmin):
 ## Create the Comorbidity Form
 
 @admin.register(Comorbidity)
-class ComorbidityAdmin (ModelAdmin):
+class ComorbidityAdmin (admin.ModelAdmin):
     list_display = ['patient','comorbidity_type','created_at']
     list_filter = ['comorbidity_type__icd_description','created_at']
 
 
 ## Create the Lesion Form Class
 @admin.register(Lesion)
-class LesionAdmin (ModelAdmin):
+class LesionAdmin (admin.ModelAdmin):
     inlines = [LesionDICOMStudyInline]
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
-class LesionResponseAdmin (ModelAdmin):
+class LesionResponseAdmin (admin.ModelAdmin):
     inlines = [LesionResponseDICOMStudyInline]
 
 ## Create the Radiotherapy Form Class
 
 @admin.register(Radiotherapy)
-class RadiotherapyAdmin (ModelAdmin):
+class RadiotherapyAdmin (admin.ModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDICOMStudyInline,RadiotherapyDoseVolumeDataInline]
     fieldsets = (
         ('Radiotherapy',{
@@ -229,7 +226,7 @@ class RadiotherapyAdmin (ModelAdmin):
 
 ## Create the Surgery Form Class
 @admin.register(Surgery)
-class SurgeryAdmin (ModelAdmin):
+class SurgeryAdmin (admin.ModelAdmin):
     inlines = [SurgeryDICOMStudyInline]
     fieldsets = (
         ('Surgery', {
@@ -245,7 +242,7 @@ class SurgeryAdmin (ModelAdmin):
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
-class SystemicTherapyAdmin (ModelAdmin):
+class SystemicTherapyAdmin (admin.ModelAdmin):
     inlines = [SystemicTherapyScheduleInline,SystemicTherapyDICOMStudyInline]
     fieldsets = (
         ('Systemic Therapy',{
@@ -258,7 +255,7 @@ class SystemicTherapyAdmin (ModelAdmin):
 
 ## Create the ConcomitantMedications Form Class
 @admin.register(ConcomitantMedications)
-class ConcomitantMedicationsAdmin (ModelAdmin):
+class ConcomitantMedicationsAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Concomitant Medications',{
             'fields':['diagnosis',('medication_name','medication_route'),('medication_dose','medication_dose_units'),('date_medication_start_date', 'date_medication_end_date')]
@@ -268,7 +265,7 @@ class ConcomitantMedicationsAdmin (ModelAdmin):
 
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
-class OtherTreatmentAdmin (ModelAdmin):
+class OtherTreatmentAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Description',{
             'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment']
@@ -278,7 +275,7 @@ class OtherTreatmentAdmin (ModelAdmin):
 
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
-class AdverseEffectsAdmin (ModelAdmin):
+class AdverseEffectsAdmin (admin.ModelAdmin):
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup', 'adverse_effect_grade']
     fieldsets = (
         ('Adverse Effects',{
@@ -293,7 +290,7 @@ class AdverseEffectsAdmin (ModelAdmin):
 ## Create the Patient Outcomes form class
 
 @admin.register(PatientOutcome)
-class PatientOutcomeAdmin (ModelAdmin):
+class PatientOutcomeAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Patient Outcome',{
             'fields':['patient',('patient_status','date_of_death')]
@@ -305,7 +302,7 @@ class PatientOutcomeAdmin (ModelAdmin):
 
 ## Create the Outcome Form Class
 @admin.register(Outcome)
-class OutcomeAdmin (ModelAdmin):
+class OutcomeAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Diagnosis',{
             'fields':[('diagnosis')]
@@ -319,7 +316,7 @@ class OutcomeAdmin (ModelAdmin):
 
 ## Create the Patient Reported Outcome Form Class
 @admin.register(PatientReportedOutcome)
-class PatientReportedOutcomeAdmin (ModelAdmin):
+class PatientReportedOutcomeAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Patient',{
             'fields':[('patient','pro_date')]
@@ -333,7 +330,7 @@ class PatientReportedOutcomeAdmin (ModelAdmin):
 
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
-class DICOMStudyAdmin (ModelAdmin):
+class DICOMStudyAdmin (admin.ModelAdmin):
     fieldsets = (
         ('Patient',{
             'fields':[('patient','study_date')]
@@ -347,7 +344,7 @@ class DICOMStudyAdmin (ModelAdmin):
 
 ## Create the Project form Class
 @admin.register(Project)
-class ProjectAdmin(ModelAdmin):
+class ProjectAdmin(admin.ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     fieldsets = (
         ('Project',{
