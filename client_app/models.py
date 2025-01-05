@@ -400,13 +400,7 @@ class PatientDicomFile(models.Model):
         upload_to='dicom_files',
         validators=[FileExtensionValidator(allowed_extensions=["zip"])],
         help_text="Please upload a single zip file having the DICOM studies for a single patients. You can choose to upload multiple studies at the same time."
-    )
-    processing_directory = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text='Path to the directory containing extracted DICOM files'
-    )    
+    ) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

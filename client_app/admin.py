@@ -1,6 +1,79 @@
 from django.contrib import admin
 from solo.admin import SingletonModelAdmin
 from .models import *
+from pathlib import Path
+import tempfile
+import zipfile
+from pydicom import dcmread
+from django.contrib import messages
+from django.conf import settings
+
+@admin.action(description = "Extract and Process DICOM File and extract metadata")
+def process_dicom(modeladmin, request, queryset):
+    # Function to sanitize paths
+    def sanitize(path):
+        return path.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+    
+    for obj in queryset:
+        # If the file is not there there raise an error.
+        if not obj.file:
+            messages.error(request, f"No file found for {obj.patient.patient_id}")
+            continue
+
+        # Create the temporary directory where the files will be processed.    
+        temp_dir = Path(tempfile.TemporaryDirectory().name)
+        # Extract Patient ID from the queryset for the object
+        patient_id = obj.patient.patient_id
+        # Keep the sanitized patient_id for future paths. 
+        patient_path = sanitize(patient_id)
+        save_path = Path(settings.MEDIA_ROOT) / patient_path
+        save_path.mkdir(exist_ok=True, parents=True)
+        try:
+            # First we will extract all the files from the zip file
+            with zipfile.ZipFile(obj.file.path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            
+            messages.success(request,f"Successfully extracted zip file for {obj.patient.patient_id}.")
+            # Next we will process each DICOM file and extract the metadata
+
+            dicom_files = [files for files in temp_dir.glob('**/*') if files.is_file()]
+
+            for file in dicom_files:
+                try:
+                    # Read the DICOM Dataset
+                    ds = dcmread(file)
+                    # Get the Study Instance UID. We will use this to create folder paths.
+                    study_instance_uid = ds.StudyInstanceUID
+                    # Get the SOP Instance UID. This will become the filename.
+                    sop_instance_uid = ds.SOPInstanceUID
+                    # Ensure paths are sanitized for future use.
+                    folder_path = sanitize(study_instance_uid)
+                    file_path = sanitize(sop_instance_uid)
+
+                    # Overwrite the patient ID with the patient ID. 
+                    # This will ensure all DICOM files of a patient from different sources will have the same ID and help de-identification and linkage.
+                    ds.PatientID = patient_id
+
+                    # Create the directory structure
+
+                    study_dir = Path(save_path) / folder_path
+                    study_dir.mkdir(exist_ok=True, parents=True)
+                    # Save the DICOM file
+                    ds.save_as(study_dir / f"{file_path}.dcm")
+
+                except Exception as e:
+                    messages.error(request, f"Error processing DICOM file {file.name} for {obj.patient.patient_id}: {str(e)}")
+                    continue
+            
+            messages.success(request,f" Processed DICOM Data for {obj.patient.patient_id}.")
+
+
+        except zipfile.BadZipFile:
+            messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
+            continue
+
+
+
 
 
 #region inlinetables
@@ -122,14 +195,19 @@ class PatientAdmin (admin.ModelAdmin):
 
 @admin.register(PatientDicomFile)
 class PatientDicomFileAdmin (admin.ModelAdmin):
-    list_filter = ['patient','created_at']
     search_fields =[ 'patient__patient_id']
-    list_display = ['patient','file','created_at']
+    list_display = ['patient','file','created_at','updated_at']
     fieldsets = (
         ('Patient DICOM File',{
             'fields': ['patient','file']  
         }),
     )
+    actions = [
+        process_dicom
+    ]
+
+
+
 
         
 ## Create the Diagnosis Form Class
