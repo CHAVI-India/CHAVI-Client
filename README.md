@@ -26,21 +26,22 @@ pip install requirements.txt
 
 This will pull and install all the required packages. Note you may need to have an IT administrator to help you with the package installs. Additionally you may find that in Windows system Folder Access Policies prevent the script from running. In these cases please contact your IT Administrator for appropriate privileges. 
 
-After the installation is completed then you should perform the following steps
+After the installation is completed then you should perform the following steps:  
 
 A. Create the database. Note the application is developed using a SQLite database but can accept other database engines too. 
+
 ```
 python manage.py migrate
 ```
 
-B. Create a superuser. 
+B. Create a superuser. This superuser can be a local administrator. 
 
 ```
 python manage.py  createsuperuser
 ```
 This will take you through a wizard where you will be asked to setup an username, provide your email address and set a password. Please ensure that this password is a long and complex password for security.
 
-C. Start the server 
+C. Start the server to start the application. The server will allow users from the LAN to access the client application.
 
 ```
 python manage.py runserver
