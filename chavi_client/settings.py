@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'solo',
     'django_extensions',
     'client_app',
+    'django_cleanup.apps.CleanupConfig',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +138,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # https://github.com/maykinmedia/django-admin-index?tab=readme-ov-file#readme
 
 ADMIN_INDEX_SHOW_REMAINING_APPS = False
+
+# Add Media file root
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'

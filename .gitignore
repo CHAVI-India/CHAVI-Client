@@ -5,7 +5,8 @@
 __pycache__
 db.sqlite3
 media
-patient_dicom_files/
+dicom_files/
+dicom_processing_folder/
 
 
 # Backup files # 

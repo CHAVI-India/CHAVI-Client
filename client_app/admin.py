@@ -131,6 +131,7 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
         }),
     )
 
+        
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (admin.ModelAdmin):

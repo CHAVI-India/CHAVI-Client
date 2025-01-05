@@ -1,0 +1,26 @@
+# file_path_generator.py
+from pathlib import Path
+import re
+from django.conf import settings
+
+
+def sanitize_id(patient_id):
+    """
+    Remove special characters from patient ID and replace with underscore.
+    """
+    sanitized = re.sub(r'[^a-zA-Z0-9]', '_', str(patient_id))
+    sanitized = re.sub(r'_+', '_', sanitized)
+    return sanitized
+
+
+def get_processing_dir_path(patient_id):
+    """
+    Generate the path for patient's processing directory.
+    """
+    clean_id = sanitize_id(patient_id)
+    
+    # Create the processing directory if it doesn't exist
+    processing_path = Path(settings.MEDIA_ROOT) / 'dicom_processing_folder' / clean_id
+    processing_path.mkdir(parents=True, exist_ok=True)
+    
+    return f'dicom_processing_folder/{clean_id}'

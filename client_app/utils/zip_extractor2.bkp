@@ -1,0 +1,50 @@
+import zipfile
+import tempfile
+import shutil
+from pathlib import Path
+from django.conf import settings
+from pydicom import dcmread
+
+def extract_and_process_dicom(zip_file_path, extract_to_path, patient_id):
+    """
+    Extract zip file to a temporary directory, process DICOM files, and save to final location.
+    Args:
+        zip_file_path: Relative path to the zip file from MEDIA_ROOT
+        extract_to_path: Relative path to final extraction directory from MEDIA_ROOT
+        patient_id: Patient ID to be used in DICOM files
+    """
+    # Convert paths to Path objects
+    full_zip_path = Path(settings.MEDIA_ROOT) / zip_file_path
+    final_path = Path(settings.MEDIA_ROOT) / extract_to_path
+
+    # Create a temporary directory for initial extraction
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        
+        # Extract zip file to temporary directory
+        with zipfile.ZipFile(full_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_path)
+
+        # Process all files in temporary directory
+        files = list(temp_path.glob("**/*.*"))
+        
+        for file in files:
+            if file.is_file():
+                try:
+                    ds = dcmread(file)
+                    # Modify the DICOM file Patient ID tag
+                    ds.PatientID = patient_id
+                    
+                    # Get study ID and SOP Instance UID
+                    study_id = ds.StudyInstanceUID.replace('.', '_')
+                    sop_id = ds.SOPInstanceUID.replace('.', '_')
+                    
+                    # Create study directory in final location
+                    study_dir = final_path / study_id
+                    study_dir.mkdir(exist_ok=True, parents=True)
+                    
+                    # Save the modified DICOM file
+                    ds.save_as(study_dir / f"{sop_id}.dcm")
+                except Exception as e:
+                    # Skip non-DICOM files or corrupted files
+                    continue
