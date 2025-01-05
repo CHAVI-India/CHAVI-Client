@@ -8,8 +8,17 @@ from pydicom import dcmread
 from django.contrib import messages
 from django.conf import settings
 
+
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
 def process_dicom(modeladmin, request, queryset):
+    '''
+    This custom admin action is there to do the following :
+    1. Unzip the uploaded zipped file into the temporary directory.
+    2. From the directory take all DICOM files and change the Patient ID tag to match that of the patient ID in the query set. This ensures that the de-identification process will produce the same ID even if the patient has undergone imaging at different centers. 
+    3. Extract the SOP Instance UID and Study Instance UID and then create save the files inside a folder inside the Media directory. The folder is specific for each patient. Thus all studies for a given patient will be stored in the same folder. 
+    4. The created folder structure will thus look like this Patient_id > StudyInstanceUID > SOPInstanceUID.dcm
+    5. Delete the temporary directory where the files were processed.
+    '''
     # Function to sanitize paths
     def sanitize(path):
         return path.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
