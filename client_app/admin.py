@@ -64,22 +64,22 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
         }),
 
     )
-    tab = True   
+       
 
 class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
     extra = 1
-    tab = True
+    
 
 class CytogeneticsInline(admin.StackedInline):
     model = Cytogenetics
     extra = 1
-    tab = True
+    
 
 class SomaticGenomicAlterationsInline(admin.StackedInline):
     model = SomaticGenomicAlterations
     extra = 1
-    tab = True
+    
 
 class RadiotherapyVolumeInline(admin.StackedInline):
     model = RadiotherapyVolume
@@ -94,7 +94,7 @@ class RadiotherapyVolumeInline(admin.StackedInline):
 class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
     model = RadiotherapyDoseVolumeData
     extra = 1
-    tab = True
+    
 
 
 #endregion
