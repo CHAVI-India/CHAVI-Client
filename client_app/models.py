@@ -416,22 +416,27 @@ class DICOMStudy(models.Model):
     )
     study_instance_uid= models.CharField(
         max_length=255,
+        unique = True,
         null=True,
         blank=True,
         help_text="A unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same Study Instance UID. This helps prevent any confusion between different studies."
     )
-    modality = models.CharField(
-        max_length=50,
-        help_text="The type of imaging equipment used, such as CT (Computed Tomography), MRI (Magnetic Resonance Imaging), X-Ray, Ultrasound, etc. This tells us what kind of imaging study this is."
-    )
     study_date = models.DateField(
+        null = True,
+        blank = True,
         help_text="The date when this imaging study was performed. This is recorded as YYYY-MM-DD format (for example: 2023-12-25)."
+    )
+    study_description = models.CharField(
+        max_length = 255,
+        null = True,
+        blank = True, 
+        help_text = "Description of the study Provided in the DICOM Data"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.sop_instance_uid
+        return f"{self.patient.patient_id}:{self.modality}-{self.study_date}-{self.study_description}"
 
     class Meta:
         verbose_name_plural = "DICOM Studies"

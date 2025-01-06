@@ -7,7 +7,6 @@ import zipfile
 from pydicom import dcmread
 from django.contrib import messages
 from django.conf import settings
-from datetime import datetime
 from django.utils import timezone
 
 
@@ -40,9 +39,9 @@ def process_dicom(modeladmin, request, queryset):
         save_path = Path(settings.MEDIA_ROOT) / patient_path
         save_path.mkdir(exist_ok=True, parents=True)
 
-        study_uids = set()
-        study_descriptions = set()  # Dict of sets for descriptions
-        study_dates = set()  # Dict of sets for dates
+        study_uid = set()
+        modality = set()
+        study_description = set()
 
         try:
             # First we will extract all the files from the zip file
@@ -60,23 +59,14 @@ def process_dicom(modeladmin, request, queryset):
                     ds = dcmread(file)
                     # Get the Study Instance UID. We will use this to create folder paths.
                     study_instance_uid = ds.StudyInstanceUID
-                    
-                    # Collect study description
-                    if hasattr(ds, 'StudyDescription'):
-                        study_descriptions.add(ds.StudyDescription)
-
-
-                    # Collect study date using datetime.strptime
-                    if hasattr(ds, 'StudyDate') and ds.StudyDate:
-                        try:
-                            study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
-                            study_dates.add(study_date)
-                        except ValueError as e:
-                            messages.warning(request, f"Invalid date format in DICOM file {file.name}: {str(e)}")
-                    
-
                     # Get the SOP Instance UID. This will become the filename.
                     sop_instance_uid = ds.SOPInstanceUID
+
+                    # Get the modality 
+                    image_modality = ds.Modality if hasattr(ds,'Modality') else None
+
+                    # Get the Image description
+                    image_study_description = ds.StudyDescription if hasattr(ds,'StudyDescription') else None
 
                     # Ensure paths are sanitized for future use.
                     folder_path = sanitize(study_instance_uid)
@@ -94,22 +84,27 @@ def process_dicom(modeladmin, request, queryset):
                     ds.save_as(study_dir / f"{file_path}.dcm")
 
                     # Add Study Instance UID, Modality and Study Description to sets prepared previously.
-                    study_uids.add(study_instance_uid)
-
+                    study_uid.add(study_instance_uid)
+                    if image_modality:
+                        modality.add(image_modality)
+                    if image_study_description:
+                        study_description.add(image_study_description)
 
                 except Exception as e:
                     messages.error(request, f"Error processing DICOM file {file.name} for {obj.patient.patient_id}: {str(e)}")
                     continue
             
             #  Processing Study UID into the DICOMStudy Table
-            for uid in study_uids:
+
+            for uid in study_uid:
                 try: 
-                    DICOMStudy.objects.update_or_create(
-                        patient=obj.patient,
-                        study_instance_uid=uid,
-                        defaults={
-                            'study_description': next(iter(study_descriptions)) if study_descriptions else None,
-                            'study_date': next(iter(study_dates)) if study_dates else None,
+                    DICOMStudy.objects.get_or_create(
+                        patient = obj.pateint,
+                        study_instance_uid = uid,
+                        defaults = {
+                            'created_at': timezone.now(),
+                            'modality': next(iter(image_modality)) if image_modality else None,
+                            'study_description': next(iter(study_description)) if image_modality else None,
                         }
                     )
                     messages.success(request,f"Added DICOM study UID {uid} Data for {obj.patient.patient_id}")
@@ -120,7 +115,6 @@ def process_dicom(modeladmin, request, queryset):
         except zipfile.BadZipFile:
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
             continue
-
 
 
 
@@ -465,7 +459,7 @@ class DICOMStudyAdmin (admin.ModelAdmin):
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','modality','study_description')]
+            'fields':[('study_instance_uid','modality')]
         }),
     )
 
