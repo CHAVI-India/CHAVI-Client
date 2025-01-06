@@ -436,7 +436,7 @@ class DICOMStudy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient.patient_id}:{self.modality}-{self.study_date}-{self.study_description}"
+        return f"{self.patient.patient_id}:{self.study_date}-{self.study_description}"
 
     class Meta:
         verbose_name_plural = "DICOM Studies"

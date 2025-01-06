@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.conf import settings
 from datetime import datetime
 from django.utils import timezone
+import shutil
 
 
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
@@ -49,7 +50,6 @@ def process_dicom(modeladmin, request, queryset):
             with zipfile.ZipFile(obj.file.path, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
             
-            messages.success(request,f"Successfully extracted zip file for {obj.patient.patient_id}.")
             # Next we will process each DICOM file and extract the metadata
 
             dicom_files = [files for files in temp_dir.glob('**/*') if files.is_file()]
@@ -99,7 +99,7 @@ def process_dicom(modeladmin, request, queryset):
 
                 except Exception as e:
                     messages.error(request, f"Error processing DICOM file {file.name} for {obj.patient.patient_id}: {str(e)}")
-                    continue
+                    continue        
             
             #  Processing Study UID into the DICOMStudy Table
             for uid in study_uids:
@@ -116,6 +116,14 @@ def process_dicom(modeladmin, request, queryset):
                 except Exception as e:
                     messages.error(request,f"Error adding DICOM data for Study")   
 
+            # Convert the folder to zip format.
+
+            try:
+                shutil.make_archive(base_name=f"{save_path}", format = 'zip', root_dir = save_path)
+                messages.success(request, f"Successfully converted folder to zip for {obj.patient.patient_id}")
+                shutil.rmtree(save_path)
+            except Exception as e:
+                messages.error(request, f"Error converting folder to zip for {obj.patient.patient_id}: {str(e)}")
 
         except zipfile.BadZipFile:
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
@@ -465,7 +473,7 @@ class DICOMStudyAdmin (admin.ModelAdmin):
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','modality','study_description')]
+            'fields':[('study_instance_uid','study_description')]
         }),
     )
 
