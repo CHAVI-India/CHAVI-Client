@@ -144,14 +144,20 @@ class PatientProjectInline(admin.TabularInline):
 class DiagnosisDICOMStudyInline(admin.TabularInline):
     model = DiagnosisDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']
 
 class LesionDICOMStudyInline(admin.TabularInline):
     model = LesionDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 class LesionResponseDICOMStudyInline(admin.TabularInline):
     model = LesionResponseDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 class DiagnosisProjectInline(admin.TabularInline):
     model = DiagnosisProject
@@ -160,23 +166,33 @@ class DiagnosisProjectInline(admin.TabularInline):
 class RadiotherapyDICOMStudyInline(admin.TabularInline):
     model = RadiotherapyDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 class SurgeryDICOMStudyInline(admin.TabularInline):
     model = SurgeryDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 class SystemicTherapyDICOMStudyInline(admin.TabularInline):
     model = SystemicTherapyDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 
 class OutcomeDICOMStudyInline(admin.TabularInline):
     model = OutcomeDICOMStudy
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 class DICOMStudyProjectInline(admin.TabularInline):
     model = DICOMStudyProject
     extra = 1
+    search_fields = ['dicom_study']
+    autocomplete_fields = ['dicom_study']    
 
 #endregion
 
@@ -283,6 +299,8 @@ class DiagnosisAdmin (admin.ModelAdmin):
             "fields": [('presentation_type','cancer_site','cancer_side')]
         }),    
     )
+
+
 
 
 ## Create the Pathology Form Class
@@ -468,6 +486,8 @@ class PatientReportedOutcomeAdmin (admin.ModelAdmin):
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin (admin.ModelAdmin):
+    search_fields = ['patient__patient_id']
+    autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{
             'fields':[('patient','study_date')]
