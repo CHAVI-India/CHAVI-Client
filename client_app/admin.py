@@ -280,10 +280,6 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
         process_dicom
     ]
 
-
-
-
-        
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (admin.ModelAdmin):
@@ -299,8 +295,6 @@ class DiagnosisAdmin (admin.ModelAdmin):
             "fields": [('presentation_type','cancer_site','cancer_side')]
         }),    
     )
-
-
 
 
 ## Create the Pathology Form Class
