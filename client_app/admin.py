@@ -285,6 +285,7 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
 class DiagnosisAdmin (admin.ModelAdmin):
     inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     search_fields = ['patient']
+    autocomplete_fields = ['patient']
     list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__side_description']
     fieldsets = (
@@ -301,6 +302,7 @@ class DiagnosisAdmin (admin.ModelAdmin):
 @admin.register(Pathology)
 class PathologyAdmin (admin.ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
+    autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__patient_id']
     list_filter = ['diagnosis','tumor_site__label','tumor_side__side_description','histological_type']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__side_description','histological_type','lymph_nodes_in_specimen']
@@ -320,6 +322,7 @@ class PathologyAdmin (admin.ModelAdmin):
 @admin.register(StageInformation)
 class StageInformationAdmin (admin.ModelAdmin):
     search = ['diagnosis__patient_id']
+    autocomplete_fields = ['diagnosis']
     list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
     list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','overall_stage']
     fieldsets = (
@@ -345,6 +348,7 @@ class StageInformationAdmin (admin.ModelAdmin):
 
 @admin.register(Comorbidity)
 class ComorbidityAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['patient']
     list_display = ['patient','comorbidity_type','created_at']
     list_filter = ['comorbidity_type__icd_description','created_at']
 
@@ -353,17 +357,21 @@ class ComorbidityAdmin (admin.ModelAdmin):
 @admin.register(Lesion)
 class LesionAdmin (admin.ModelAdmin):
     inlines = [LesionDICOMStudyInline]
+    search_fields = ['diagnosis','lesion_site','lesion_type']
+    autocomplete_fields = ['diagnosis']
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
 class LesionResponseAdmin (admin.ModelAdmin):
     inlines = [LesionResponseDICOMStudyInline]
+    autocomplete_fields = ['lesion']
 
 ## Create the Radiotherapy Form Class
 
 @admin.register(Radiotherapy)
 class RadiotherapyAdmin (admin.ModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDICOMStudyInline,RadiotherapyDoseVolumeDataInline]
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Radiotherapy',{
             'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side')]
@@ -377,6 +385,7 @@ class RadiotherapyAdmin (admin.ModelAdmin):
 @admin.register(Surgery)
 class SurgeryAdmin (admin.ModelAdmin):
     inlines = [SurgeryDICOMStudyInline]
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Surgery', {
             'fields':['diagnosis','surgery_date']
@@ -393,6 +402,7 @@ class SurgeryAdmin (admin.ModelAdmin):
 @admin.register(SystemicTherapy)
 class SystemicTherapyAdmin (admin.ModelAdmin):
     inlines = [SystemicTherapyScheduleInline,SystemicTherapyDICOMStudyInline]
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Systemic Therapy',{
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
@@ -405,6 +415,7 @@ class SystemicTherapyAdmin (admin.ModelAdmin):
 ## Create the ConcomitantMedications Form Class
 @admin.register(ConcomitantMedications)
 class ConcomitantMedicationsAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Concomitant Medications',{
             'fields':['diagnosis',('medication_name','medication_route'),('medication_dose','medication_dose_units'),('date_medication_start_date', 'date_medication_end_date')]
@@ -415,6 +426,7 @@ class ConcomitantMedicationsAdmin (admin.ModelAdmin):
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
 class OtherTreatmentAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Description',{
             'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment']
@@ -425,6 +437,7 @@ class OtherTreatmentAdmin (admin.ModelAdmin):
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['diagnosis']
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup', 'adverse_effect_grade']
     fieldsets = (
         ('Adverse Effects',{
@@ -440,6 +453,7 @@ class AdverseEffectsAdmin (admin.ModelAdmin):
 
 @admin.register(PatientOutcome)
 class PatientOutcomeAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient Outcome',{
             'fields':['patient',('patient_status','date_of_death')]
@@ -452,6 +466,7 @@ class PatientOutcomeAdmin (admin.ModelAdmin):
 ## Create the Outcome Form Class
 @admin.register(Outcome)
 class OutcomeAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Diagnosis',{
             'fields':[('diagnosis')]
@@ -466,6 +481,7 @@ class OutcomeAdmin (admin.ModelAdmin):
 ## Create the Patient Reported Outcome Form Class
 @admin.register(PatientReportedOutcome)
 class PatientReportedOutcomeAdmin (admin.ModelAdmin):
+    autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{
             'fields':[('patient','pro_date')]
