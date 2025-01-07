@@ -265,64 +265,6 @@ class LookupRadiotherapyVolumeType(models.Model):
         db_table = 'lookup_radiotherapy_volume_type'
 
 
-# Core Patient Models
-class Patient(models.Model):
-    ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
-    center = models.ForeignKey(SiteConfiguration, 
-    on_delete=models.CASCADE, 
-    null=True, blank=True,
-    default=1,
-    related_name="center")
-    chavi_consent = models.BooleanField(
-        null=True,
-        blank=True,
-        default=False,
-        help_text="Indicates whether the patient has provided consent for their data to be used in the CHAVI project. This field is required and must be set to True for the patient's data to be included in the project."
-    )
-    date_chavi_consent = models.DateField(
-        null=True,
-        blank=True,
-        help_text="The date when the patient provided consent for their data to be used in the CHAVI project. This field is required if chavi_consent is True." 
-    )
-    patient_id = models.CharField(
-        max_length=255, 
-        unique=True,
-        help_text="This should be your institution's medical record number or another consistent identifier used by your center."
-    )
-    class Gender(models.TextChoices):
-        Male = 'Male',
-        Female = 'Female',
-        Transgender = 'Transgender',
-        Non_Binary = 'Non-Binary'
-
-    gender = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        choices=Gender.choices,
-        default=Gender.Female,
-        help_text="The patient's gender"
-    )
-    date_of_birth = models.DateField(
-        null=True,
-        blank=True,
-        help_text="The patient's date of birth in YYYY-MM-DD format."
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="The date and time when this patient record was first created in the system. This field is automatically set and cannot be modified."
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="The date and time when this patient record was last updated. This field is automatically updated whenever any information in the record is modified."
-    )
-    def __str__(self):
-        return self.patient_id
-
-    class Meta:
-        verbose_name_plural = "Patients"
-        db_table="patient"
-
 # Project Model
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected.'''
@@ -377,14 +319,77 @@ class Project(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    patients = models.ManyToManyField(Patient, through='PatientProject',related_name='Projects')
-
     def __str__(self):
         return self.project_name
 
     class Meta:
         verbose_name_plural = "Projects"
         db_table="project"
+
+
+
+# Core Patient Models
+class Patient(models.Model):
+    ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
+    center = models.ForeignKey(SiteConfiguration, 
+    on_delete=models.CASCADE, 
+    null=True, blank=True,
+    default=1,
+    related_name="center")
+    chavi_consent = models.BooleanField(
+        null=True,
+        blank=True,
+        default=False,
+        help_text="Indicates whether the patient has provided consent for their data to be used in the CHAVI project. This field is required and must be set to True for the patient's data to be included in the project."
+    )
+    date_chavi_consent = models.DateField(
+        null=True,
+        blank=True,
+        help_text="The date when the patient provided consent for their data to be used in the CHAVI project. This field is required if chavi_consent is True." 
+    )
+    patient_id = models.CharField(
+        max_length=255, 
+        unique=True,
+        help_text="This should be your institution's medical record number or another consistent identifier used by your center."
+    )
+    class Gender(models.TextChoices):
+        Male = 'Male',
+        Female = 'Female',
+        Transgender = 'Transgender',
+        Non_Binary = 'Non-Binary'
+
+    gender = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        choices=Gender.choices,
+        default=Gender.Female,
+        help_text="The patient's gender"
+    )
+    date_of_birth = models.DateField(
+        null=True,
+        blank=True,
+        help_text="The patient's date of birth in YYYY-MM-DD format."
+    )
+    patient_project = models.ManyToManyField(
+        'Project',
+        related_name="patient_project",
+        help_text="The project(s) that the patient is enrolled in."
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="The date and time when this patient record was first created in the system. This field is automatically set and cannot be modified."
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="The date and time when this patient record was last updated. This field is automatically updated whenever any information in the record is modified."
+    )
+    def __str__(self):
+        return self.patient_id
+
+    class Meta:
+        verbose_name_plural = "Patients"
+        db_table="patient"
 
 
 # File upload Model
@@ -432,6 +437,7 @@ class DICOMStudy(models.Model):
         blank = True, 
         help_text = "Description of the study Provided in the DICOM Data"
     )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -441,30 +447,7 @@ class DICOMStudy(models.Model):
     class Meta:
         verbose_name_plural = "DICOM Studies"
 
-# This is a series of tables which will be needed for the Server database configuration.
-# class DICOMSeries(models.Model):
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     sop_instance_uid = models.CharField(max_length=255, unique=True)
-#     series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-#     frame_of_reference_uid = models.CharField(max_length=255)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
 
-# class DICOMStudyFiles(models.Model):
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-#     file_name = models.TextField(null=True, blank=True)
-#     upload_timestamp = models.DateTimeField(auto_now_add=True)
-#     number_of_files = models.IntegerField(null=True, blank=True)
-#     file_size = models.DecimalField(max_digits=10, decimal_places=2)
-
-# class DICOMTagInformation(models.Model):
-#     dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
-#     tag = models.CharField(max_length=255)
-#     tag_name = models.CharField(max_length=255)
-#     tag_value = models.TextField()
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
 
 
 # Clinical Data Models
@@ -486,6 +469,8 @@ class Diagnosis(models.Model):
     help_text="Select the side at which the cancer was present.")
     diagnostic_modality = models.CharField(max_length=255,null=True, blank=True,
     help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
+    diagnosis_dicom_study = models.ManyToManyField('DICOMStudy',help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
+    diagnosis_project = models.ManyToManyField('Project',help_text="Select the project that was used to diagnose the cancer. You can select multiple projects.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -504,6 +489,7 @@ class Outcome(models.Model):
     help_text = "Date this Outcome was assessed or documented or confirmed.")
     outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.PROTECT,
     help_text = "Select the Type of Outcome. If you wish to add another outcome then please create another instance of the form.")
+    outcome_dicom_study = models.ManyToManyField('DICOMStudy',related_name = "outcome_dicom_study",help_text = "Select all DICOM Studies for this Disease Outcome")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -578,6 +564,7 @@ class Lesion(models.Model):
         blank=True,
         help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
     )
+    lesion_dicom_study = models.ManyToManyField('DICOMStudy',related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -634,6 +621,11 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         help_text="The total volume (size in three dimensions) of any remaining lesion after treatment"
+    )
+    lesion_response_dicom_study = models.ManyToManyField(
+        'DICOMStudy',
+        related_name = 'lesion_response_dicom_study', 
+        help_text="The DICOM study associated with the lesion response"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1035,6 +1027,12 @@ class Radiotherapy(models.Model):
         blank=True,
         help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
     )
+    radiotherapy_dicom_study = models.ManyToManyField(
+        'DICOMStudy',
+        related_name = 'radiotherapy_dicom_studies',
+        blank=True,
+        help_text="Select the DICOM studies associated with this radiotherapy course"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1232,6 +1230,12 @@ class Surgery(models.Model):
         blank=True,
         help_text="If reconstruction was performed, specify the type (e.g., 'Implant-Based', 'Autologous Tissue', 'DIEP Flap')"
     )
+    surgery_dicom_study = models.ManyToManyField(
+        'DICOMStudy',
+        related_name = 'surgery_dicom_studies',
+        blank=True,
+        help_text="Select the DICOM studies associated with this surgical procedure"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1314,6 +1318,12 @@ class SystemicTherapy(models.Model):
         help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
     )    
     cycles_delivered = models.BigIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
+    systemic_therapy_dicom_study = models.ManyToManyField(
+        'DICOMStudy',
+        related_name = 'systemic_therapy_dicom_studies',
+        blank=True,
+        help_text="Select the DICOM studies associated with this systemic therapy course"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1709,81 +1719,7 @@ class StageInformation(models.Model):
         db_table='stage_information'    
     
 
-# Junction Tables
-class PatientProject(models.Model):
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        verbose_name = "Project for Patient"
-        verbose_name_plural= "Projects for Patient"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['patient', 'project'],
-                name='unique_patient_project'
-            )
-        ]
-
-class DiagnosisDICOMStudy(models.Model):
-    diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM study for Diagnosis"
-        verbose_name_plural="DICOM studies for Diagnosis"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['diagnosis', 'dicom_study'],
-                name='unique_diagnosis_dicom_study'
-            )
-        ]
-
-class LesionDICOMStudy(models.Model):
-    lesion = models.ForeignKey(Lesion, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM study for Lesion"
-        verbose_name_plural="DICOM studies for Lesion"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['lesion', 'dicom_study'],
-                name='unique_lesion_dicom_study'
-            )
-        ]
-
-class LesionResponseDICOMStudy(models.Model):
-    lesion_response = models.ForeignKey(LesionResponse, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM study for Lesion Response"
-        verbose_name_plural="DICOM studies for Lesion Response"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['lesion_response', 'dicom_study'],
-                name='unique_lesion_response_dicom_study'
-            )
-        ]
-
-class DiagnosisProject(models.Model):
-    diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="Project for Diagnosis"
-        verbose_name_plural="Projects for Diagnosis"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['diagnosis', 'project'],
-                name='unique_diagnosis_project'
-            )
-        ]
 
 class DICOMStudyProject(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
@@ -1800,68 +1736,165 @@ class DICOMStudyProject(models.Model):
             )
         ]
 
-class RadiotherapyDICOMStudy(models.Model):
-    radiotherapy = models.ForeignKey(Radiotherapy, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM Study for Radiotherapy Course"
-        verbose_name_plural="DICOM Studies for Radiotherapy Courses"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['radiotherapy', 'dicom_study'],
-                name='unique_radiotherapy_dicom_study'
-            )
-        ]
-
-class SystemicTherapyDICOMStudy(models.Model):
-    systemic_therapy = models.ForeignKey(SystemicTherapy, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM Study for Systemic Therapy Course"
-        verbose_name_plural="DICOM Studies for Systemic Therapy Courses"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['systemic_therapy', 'dicom_study'],
-                name='unique_chemotherapy_dicom_study'
-            )
-        ]
-
-class SurgeryDICOMStudy(models.Model) :
-    surgery = models.ForeignKey(Surgery, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta: 
-        verbose_name = "DICOM Study for Surgery"
-        verbose_name_plural = "DICOM Studies for Surgery"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['surgery', 'dicom_study'],
-                name='unique_surgery_dicom_study'
-            )
-        ]
-
-class OutcomeDICOMStudy(models.Model):
-    outcome = models.ForeignKey(Outcome, on_delete=models.CASCADE)
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name="DICOM Study for Outcome"
-        verbose_name_plural="DICOM Studies for Outcome"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['outcome', 'dicom_study'],
-                name='unique_outcome_dicom_study'
-            )
-        ]    
 
 
+# class OutcomeDICOMStudy(models.Model):
+#     outcome = models.ForeignKey(Outcome, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
 
+#     class Meta:
+#         verbose_name="DICOM Study for Outcome"
+#         verbose_name_plural="DICOM Studies for Outcome"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['outcome', 'dicom_study'],
+#                 name='unique_outcome_dicom_study'
+#             )
+#         ]    
 
+# Junction Tables
+# class PatientProject(models.Model):
+#     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+#     project = models.ForeignKey(Project, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
 
+#     class Meta:
+#         verbose_name = "Project for Patient"
+#         verbose_name_plural= "Projects for Patient"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['patient', 'project'],
+#                 name='unique_patient_project'
+#             )
+#         ]
 
+# This is a series of tables which will be needed for the Server database configuration.
+# class DICOMSeries(models.Model):
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     sop_instance_uid = models.CharField(max_length=255, unique=True)
+#     series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
+#     frame_of_reference_uid = models.CharField(max_length=255)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+# class DICOMStudyFiles(models.Model):
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
+#     file_name = models.TextField(null=True, blank=True)
+#     upload_timestamp = models.DateTimeField(auto_now_add=True)
+#     number_of_files = models.IntegerField(null=True, blank=True)
+#     file_size = models.DecimalField(max_digits=10, decimal_places=2)
+
+# class DICOMTagInformation(models.Model):
+#     dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
+#     tag = models.CharField(max_length=255)
+#     tag_name = models.CharField(max_length=255)
+#     tag_value = models.TextField()
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+# class DiagnosisDICOMStudy(models.Model):
+#     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name="DICOM study for Diagnosis"
+#         verbose_name_plural="DICOM studies for Diagnosis"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['diagnosis', 'dicom_study'],
+#                 name='unique_diagnosis_dicom_study'
+#             )
+#         ]
+
+# class LesionDICOMStudy(models.Model):
+#     lesion = models.ForeignKey(Lesion, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+    # class Meta:
+    #     verbose_name="DICOM study for Lesion"
+    #     verbose_name_plural="DICOM studies for Lesion"
+    #     constraints = [
+    #         models.UniqueConstraint(
+    #             fields=['lesion', 'dicom_study'],
+    #             name='unique_lesion_dicom_study'
+    #         )
+    #     ]
+
+# class LesionResponseDICOMStudy(models.Model):
+#     lesion_response = models.ForeignKey(LesionResponse, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name="DICOM study for Lesion Response"
+#         verbose_name_plural="DICOM studies for Lesion Response"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['lesion_response', 'dicom_study'],
+#                 name='unique_lesion_response_dicom_study'
+#             )
+#         ]
+
+# class DiagnosisProject(models.Model):
+#     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
+#     project = models.ForeignKey(Project, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name="Project for Diagnosis"
+#         verbose_name_plural="Projects for Diagnosis"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['diagnosis', 'project'],
+#                 name='unique_diagnosis_project'
+#             )
+#         ]
+
+# class RadiotherapyDICOMStudy(models.Model):
+#     radiotherapy = models.ForeignKey(Radiotherapy, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name="DICOM Study for Radiotherapy Course"
+#         verbose_name_plural="DICOM Studies for Radiotherapy Courses"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['radiotherapy', 'dicom_study'],
+#                 name='unique_radiotherapy_dicom_study'
+#             )
+#         ]
+
+# class SystemicTherapyDICOMStudy(models.Model):
+#     systemic_therapy = models.ForeignKey(SystemicTherapy, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name="DICOM Study for Systemic Therapy Course"
+#         verbose_name_plural="DICOM Studies for Systemic Therapy Courses"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['systemic_therapy', 'dicom_study'],
+#                 name='unique_chemotherapy_dicom_study'
+#             )
+#         ]
+
+# class SurgeryDICOMStudy(models.Model) :
+#     surgery = models.ForeignKey(Surgery, on_delete=models.CASCADE)
+#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta: 
+#         verbose_name = "DICOM Study for Surgery"
+#         verbose_name_plural = "DICOM Studies for Surgery"
+#         constraints = [
+#             models.UniqueConstraint(
+#                 fields=['surgery', 'dicom_study'],
+#                 name='unique_surgery_dicom_study'
+#             )
+#         ]

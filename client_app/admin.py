@@ -129,65 +129,63 @@ def process_dicom(modeladmin, request, queryset):
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
             continue
 
+#region inlinetables for many to many relations
 
-
-
-
-
-#region inlinetables
+#region comments
 
 # Define inlines for Many to Many relations
-class PatientProjectInline(admin.TabularInline):
-    model = PatientProject
-    extra = 1
+# class PatientProjectInline(admin.TabularInline):
+#     model = PatientProject
+#     extra = 1
 
-class DiagnosisDICOMStudyInline(admin.TabularInline):
-    model = DiagnosisDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']
+# class DiagnosisDICOMStudyInline(admin.TabularInline):
+#     model = DiagnosisDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']
 
-class LesionDICOMStudyInline(admin.TabularInline):
-    model = LesionDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class LesionDICOMStudyInline(admin.TabularInline):
+#     model = LesionDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
-class LesionResponseDICOMStudyInline(admin.TabularInline):
-    model = LesionResponseDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class LesionResponseDICOMStudyInline(admin.TabularInline):
+#     model = LesionResponseDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
-class DiagnosisProjectInline(admin.TabularInline):
-    model = DiagnosisProject
-    extra = 1
+# class DiagnosisProjectInline(admin.TabularInline):
+#     model = DiagnosisProject
+#     extra = 1
 
-class RadiotherapyDICOMStudyInline(admin.TabularInline):
-    model = RadiotherapyDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class RadiotherapyDICOMStudyInline(admin.TabularInline):
+#     model = RadiotherapyDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
-class SurgeryDICOMStudyInline(admin.TabularInline):
-    model = SurgeryDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class SurgeryDICOMStudyInline(admin.TabularInline):
+#     model = SurgeryDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
-class SystemicTherapyDICOMStudyInline(admin.TabularInline):
-    model = SystemicTherapyDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class SystemicTherapyDICOMStudyInline(admin.TabularInline):
+#     model = SystemicTherapyDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
 
-class OutcomeDICOMStudyInline(admin.TabularInline):
-    model = OutcomeDICOMStudy
-    extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+# class OutcomeDICOMStudyInline(admin.TabularInline):
+#     model = OutcomeDICOMStudy
+#     extra = 1
+#     search_fields = ['dicom_study']
+#     autocomplete_fields = ['dicom_study']    
 
+#endregion
 class DICOMStudyProjectInline(admin.TabularInline):
     model = DICOMStudyProject
     extra = 1
@@ -253,16 +251,20 @@ class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
 ## Create the Patient Form Class
 @admin.register(Patient)
 class PatientAdmin (admin.ModelAdmin):
-    inlines = [PatientProjectInline]
+    #inlines = [PatientProjectInline]
     list_filter = ['gender','chavi_consent','created_at']
     search_fields =[ 'patient_id']
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
+    filter_horizontal = ['patient_project']
     fieldsets = (
         ('Demographics',{
             'fields': ['patient_id',('gender','date_of_birth','center')]
         }),
         ('CHAVI Consent',{
             'fields': [('chavi_consent','date_chavi_consent')]
+        }),
+        ('Projects',{
+            'fields': ['patient_project']
         }),
     )
     readonly_fields = ('center',)
@@ -283,7 +285,6 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (admin.ModelAdmin):
-    inlines = [DiagnosisDICOMStudyInline,DiagnosisProjectInline]
     search_fields = ['patient']
     autocomplete_fields = ['patient']
     list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
@@ -294,7 +295,13 @@ class DiagnosisAdmin (admin.ModelAdmin):
         }),
         ('Presentation',{
             "fields": [('presentation_type','cancer_site','cancer_side')]
-        }),    
+        }),
+        ('DICOM Studies',{
+            'fields': ['diagnosis_dicom_study']
+        }),
+        ('Projects',{
+            'fields': ['diagnosis_project']
+        }),
     )
 
 
@@ -356,21 +363,20 @@ class ComorbidityAdmin (admin.ModelAdmin):
 ## Create the Lesion Form Class
 @admin.register(Lesion)
 class LesionAdmin (admin.ModelAdmin):
-    inlines = [LesionDICOMStudyInline]
     search_fields = ['diagnosis','lesion_site','lesion_type']
     autocomplete_fields = ['diagnosis']
+    
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
 class LesionResponseAdmin (admin.ModelAdmin):
-    inlines = [LesionResponseDICOMStudyInline]
     autocomplete_fields = ['lesion']
 
 ## Create the Radiotherapy Form Class
 
 @admin.register(Radiotherapy)
 class RadiotherapyAdmin (admin.ModelAdmin):
-    inlines=[RadiotherapyVolumeInline,RadiotherapyDICOMStudyInline,RadiotherapyDoseVolumeDataInline]
+    inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Radiotherapy',{
@@ -379,12 +385,15 @@ class RadiotherapyAdmin (admin.ModelAdmin):
         ('Description',{
             'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('total_fractions','fractions_per_day')]
         }),
-    )        
+        ('DICOM Studies',{
+            'fields': ['radiotherapy_dicom_study']
+        }),
+    )
+ 
 
 ## Create the Surgery Form Class
 @admin.register(Surgery)
 class SurgeryAdmin (admin.ModelAdmin):
-    inlines = [SurgeryDICOMStudyInline]
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Surgery', {
@@ -396,13 +405,18 @@ class SurgeryAdmin (admin.ModelAdmin):
         ('Reconstruction',{
             'fields':['reconstruction','type_reconstruction']
         }),
+        ('DICOM Studies',{
+            'fields': ['surgery_dicom_study']
+        }),        
     )
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
 class SystemicTherapyAdmin (admin.ModelAdmin):
-    inlines = [SystemicTherapyScheduleInline,SystemicTherapyDICOMStudyInline]
+    inlines = [SystemicTherapyScheduleInline]
     autocomplete_fields = ['diagnosis']
+    search_fields = ['diagnosis__diagnosis']
+    filter_horizontal =['systemic_therapy_dicom_study']
     fieldsets = (
         ('Systemic Therapy',{
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
@@ -410,6 +424,9 @@ class SystemicTherapyAdmin (admin.ModelAdmin):
         ('Description',{
             'fields':[('systemic_therapy_type','systemic_therapy_sequence'),('systemic_therapy_regimen','cycles_delivered')]
         }),
+        ('DICOM Studies',{
+            'fields': ['systemic_therapy_dicom_study']
+        }),        
     )
 
 ## Create the ConcomitantMedications Form Class
@@ -467,12 +484,17 @@ class PatientOutcomeAdmin (admin.ModelAdmin):
 @admin.register(Outcome)
 class OutcomeAdmin (admin.ModelAdmin):
     autocomplete_fields = ['diagnosis']
+    search_fields = ['diagnosis__diagnosis']
+    filter_horizontal = ['outcome_dicom_study']
     fieldsets = (
         ('Diagnosis',{
             'fields':[('diagnosis')]
         }),
         ('Description',{
             'fields':[('outcome_type','date_outcome_assessed')]
+        }),
+        ('Dicom Studies',{
+            'fields':[('outcome_dicom_study')]
         }),
     )
 
@@ -491,8 +513,6 @@ class PatientReportedOutcomeAdmin (admin.ModelAdmin):
         }),
     )
 
-
-
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin (admin.ModelAdmin):
@@ -506,8 +526,6 @@ class DICOMStudyAdmin (admin.ModelAdmin):
             'fields':[('study_instance_uid','study_description')]
         }),
     )
-
-
 
 ## Create the Project form Class
 @admin.register(Project)
