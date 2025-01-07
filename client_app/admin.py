@@ -10,6 +10,7 @@ from django.conf import settings
 from datetime import datetime
 from django.utils import timezone
 import shutil
+from smart_selects.db_fields import ChainedManyToManyField
 
 
 @admin.action(description = "Extract and Process DICOM File and extract metadata")

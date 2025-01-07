@@ -143,3 +143,4 @@ ADMIN_INDEX_SHOW_REMAINING_APPS = False
 # Add Media file root
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
+
