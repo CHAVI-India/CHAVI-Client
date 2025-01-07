@@ -287,6 +287,7 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
 class DiagnosisAdmin (admin.ModelAdmin):
     search_fields = ['patient']
     autocomplete_fields = ['patient']
+    filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
     list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__side_description']
     fieldsets = (
@@ -365,12 +366,14 @@ class ComorbidityAdmin (admin.ModelAdmin):
 class LesionAdmin (admin.ModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
     autocomplete_fields = ['diagnosis']
-    
+    filter_horizontal = ['lesion_dicom_study']
+
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
 class LesionResponseAdmin (admin.ModelAdmin):
     autocomplete_fields = ['lesion']
+    filter_horizontal = ['lesion_response_dicom_study']
 
 ## Create the Radiotherapy Form Class
 
@@ -378,6 +381,7 @@ class LesionResponseAdmin (admin.ModelAdmin):
 class RadiotherapyAdmin (admin.ModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
     autocomplete_fields = ['diagnosis']
+    filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
             'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side')]
@@ -395,6 +399,7 @@ class RadiotherapyAdmin (admin.ModelAdmin):
 @admin.register(Surgery)
 class SurgeryAdmin (admin.ModelAdmin):
     autocomplete_fields = ['diagnosis']
+    filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
             'fields':['diagnosis','surgery_date']
