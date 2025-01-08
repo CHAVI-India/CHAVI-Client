@@ -40,7 +40,7 @@ class SiteConfiguration(SingletonModel):
 
 class LookupLaterality(models.Model):
     '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
-    icd_laterality_code = models.CharField(max_length=20)
+    code = models.CharField(max_length=50,primary_key=True)
     side_description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -50,8 +50,8 @@ class LookupLaterality(models.Model):
 
 class LookupICDCode(models.Model):
     '''This is a lookup table with ICD 11 codes for the diagnosis.'''
+    code = models.CharField(max_length=50,primary_key=True)
     icd_version = models.DecimalField(max_digits=5, decimal_places=2)
-    icd_code = models.CharField(max_length=255)
     icd_description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -61,7 +61,7 @@ class LookupICDCode(models.Model):
 
 class LookupFMACode(models.Model):
     '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
-    fmaid = models.DecimalField(max_digits=10, decimal_places=2)
+    code = models.CharField(max_length=50,primary_key=True)
     label = models.CharField(max_length=255)
     preferred_name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -72,6 +72,7 @@ class LookupFMACode(models.Model):
 
 class LookupPresentation(models.Model):
     '''This is a lookup for presentation type.'''
+    code = models.CharField(max_length=50,primary_key=True)
     presentation_type = models.CharField(max_length=255)
 
     def __str__(self):
@@ -79,6 +80,7 @@ class LookupPresentation(models.Model):
 
 class LookupOutcomeType(models.Model):
     '''This is a lookup table where outcome type like local recurrence, nodal recurrence etc are recorded.'''
+    code = models.CharField(max_length=50,primary_key=True)    
     outcome_type = models.CharField(max_length=255)
 
     def __str__(self):
@@ -86,6 +88,7 @@ class LookupOutcomeType(models.Model):
 
 class LookupLesionType(models.Model):
     '''This is a lookup table where lesion location type is recorded e.g. local, nodal, distant '''
+    code = models.CharField(max_length=50,primary_key=True)    
     lesion_location_type = models.CharField(max_length=255)
 
     def __str__(self):
@@ -93,6 +96,7 @@ class LookupLesionType(models.Model):
 
 class LookupResponseType(models.Model):
     '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
+    code = models.CharField(max_length=50,primary_key=True)    
     response_type = models.CharField(max_length=255)
     response_measurement_criteria = models.CharField(max_length=255)
 
@@ -101,15 +105,15 @@ class LookupResponseType(models.Model):
 
 class LookupUniProt(models.Model):
     '''This is a lookup table from the UniProt Database for Protein Names.'''
+    code = models.CharField(max_length=50,primary_key=True)
     protein_name = models.CharField(max_length=500)
-    uniprot_id = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.protein_name
 
 class LookupCosmic(models.Model):
     '''This is a lookup table from the Cosmic Database for Gene Names.'''
-    cosmic_gene_id = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=50,primary_key=True)
     cosmic_gene_name = models.CharField(max_length=500)
 
     def __str__(self):
@@ -117,6 +121,7 @@ class LookupCosmic(models.Model):
 
 class LookupTreatmentIntent(models.Model):
     '''This is a lookup table for Treatment Intent.'''
+    code = models.CharField(max_length=50,primary_key=True)
     treatment_intent = models.CharField(max_length=255)
 
     def __str__(self):
@@ -124,6 +129,7 @@ class LookupTreatmentIntent(models.Model):
 
 class LookupTreatmentSequence(models.Model):
     '''This is a lookup table for Treatment Sequence.'''
+    code = models.CharField(max_length=50,primary_key=True)
     treatment_sequence = models.CharField(max_length=255)
 
     def __str__(self):
@@ -131,6 +137,7 @@ class LookupTreatmentSequence(models.Model):
 
 class LookupSystemicAgent(models.Model):
     '''This is a lookup table for Systemic Agents.'''
+    code = models.CharField(max_length=50,primary_key=True)
     systemic_agent_name = models.CharField(max_length=255)
     systemic_agent_type = models.CharField(max_length=255)
 
@@ -139,6 +146,7 @@ class LookupSystemicAgent(models.Model):
 
 class LookupUnits(models.Model):
     '''This is a lookup table for units of measurement for use in the database'''
+    code = models.CharField(max_length=50,primary_key=True)
     unit = models.CharField(max_length=255)
     unit_abbreviation = models.CharField(max_length=255)
     def __str__(self):
@@ -146,6 +154,7 @@ class LookupUnits(models.Model):
 
 class LookupDoseUnits(models.Model):
     '''This is a lookup table specifically created for recording types of units for drug doses.'''
+    code = models.CharField(max_length=50,primary_key=True)
     unit = models.CharField(max_length=255)
     unit_abbreviation = models.CharField(max_length=255)
 
@@ -154,6 +163,7 @@ class LookupDoseUnits(models.Model):
 
 class LookupDrugRoute(models.Model):
     '''This is a lookup table for drug routes.'''
+    code = models.CharField(max_length=50,primary_key=True)
     route = models.CharField(max_length=255)
 
     def __str__(self):
@@ -161,7 +171,7 @@ class LookupDrugRoute(models.Model):
 
 class LookupCTCAEGrade(models.Model):
     '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
-    ctcae_id = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=50,primary_key=True)
     ctcae_term = models.CharField(max_length=255)
     definition = models.TextField()
     meddra_code = models.CharField(max_length=255)
@@ -181,6 +191,7 @@ class LookupCTCAEGrade(models.Model):
 
 class LookupOutcome(models.Model):
     '''This is a lookup table for outcomes types.'''
+    code = models.CharField(max_length=50,primary_key=True)
     outcome = models.CharField(max_length=255)
 
     def __str__(self):
@@ -188,6 +199,7 @@ class LookupOutcome(models.Model):
 
 class LookupStagingSystem(models.Model):
     '''This is a lookup table for staging systems.'''
+    code = models.CharField(max_length=50,primary_key=True)
     staging_system = models.CharField(max_length=255)
     staging_system_version = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -242,6 +254,7 @@ class LookupDiagnosticModality(models.Model):
 
 class LookupSystemicTherapyType(models.Model):
     ''' This is a lookup table for the type of Systemic Therapy'''
+    code = models.CharField(max_length=50,primary_key=True)
     systemic_therapy_type = models.CharField(max_length=255)
 
     def __str__(self):
@@ -253,6 +266,7 @@ class LookupSystemicTherapyType(models.Model):
 
 class LookupRadiotherapyVolumeType(models.Model):
     ''' This is a lookup table for the type of Radiotherapy Volume'''
+    code = models.CharField(max_length=50,primary_key=True)
     radiotherapy_volume_type = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
