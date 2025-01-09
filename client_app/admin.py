@@ -289,8 +289,8 @@ class DiagnosisAdmin (admin.ModelAdmin):
     search_fields = ['patient']
     autocomplete_fields = ['patient']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
-    list_filter = ['diagnosis__icd_description','diagnostic_modality','cancer_site__label','cancer_side__side_description']
-    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__side_description']
+    list_filter = ['diagnosis__label','diagnostic_modality','cancer_site__label','cancer_side__label']
+    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__label']
     fieldsets = (
         ('Diagnosis',{
             'fields': ['patient',('diagnosis','diagnosis_date','diagnostic_modality')]
@@ -313,8 +313,8 @@ class PathologyAdmin (admin.ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__patient_id']
-    list_filter = ['diagnosis','tumor_site__label','tumor_side__side_description','histological_type']
-    list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__side_description','histological_type','lymph_nodes_in_specimen']
+    list_filter = ['diagnosis','tumor_site__label','tumor_side__label','histological_type']
+    list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
             'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),'tumor_focality']
@@ -359,7 +359,7 @@ class StageInformationAdmin (admin.ModelAdmin):
 class ComorbidityAdmin (admin.ModelAdmin):
     autocomplete_fields = ['patient']
     list_display = ['patient','comorbidity_type','created_at']
-    list_filter = ['comorbidity_type__icd_description','created_at']
+    list_filter = ['comorbidity_type__label','created_at']
 
 
 ## Create the Lesion Form Class

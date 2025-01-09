@@ -41,34 +41,33 @@ class SiteConfiguration(SingletonModel):
 class LookupLaterality(models.Model):
     '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
     code = models.CharField(max_length=50,primary_key=True)
-    side_description = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.side_description
+        return self.label
 
 class LookupICDCode(models.Model):
     '''This is a lookup table with ICD 11 codes for the diagnosis.'''
     code = models.CharField(max_length=50,primary_key=True)
     icd_version = models.DecimalField(max_digits=5, decimal_places=2)
-    icd_description = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.icd_code} - {self.icd_description}"
+        return f"{self.code} - {self.label}"
 
 class LookupFMACode(models.Model):
     '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
     code = models.CharField(max_length=50,primary_key=True)
     label = models.CharField(max_length=255)
-    preferred_name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.preferred_name
+        return self.label
 
 class LookupPresentation(models.Model):
     '''This is a lookup for presentation type.'''
@@ -152,14 +151,6 @@ class LookupUnits(models.Model):
     def __str__(self):
         return self.unit_abbreviation
 
-class LookupDoseUnits(models.Model):
-    '''This is a lookup table specifically created for recording types of units for drug doses.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    unit = models.CharField(max_length=255)
-    unit_abbreviation = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.unit_abbreviation
 
 class LookupDrugRoute(models.Model):
     '''This is a lookup table for drug routes.'''
@@ -490,7 +481,7 @@ class Diagnosis(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient.patient_id} - {self.diagnosis__icd_description} - {self.diagnosis_date}"
+        return f"{self.patient.patient_id} - {self.diagnosis__label} - {self.diagnosis_date}"
 
     class Meta:
         verbose_name_plural="Diagnoses"
@@ -567,6 +558,7 @@ class Lesion(models.Model):
     )
     lesion_size_unit = models.ForeignKey(
         LookupUnits, 
+        related_name='lesion_size_unit',
         on_delete=models.PROTECT, 
         null=True, 
         blank=True,
@@ -988,6 +980,7 @@ class Radiotherapy(models.Model):
     )
     radiation_dose_units = models.ForeignKey(
         LookupUnits,
+        related_name= 'radiation_course_dose_units',
         on_delete = models.PROTECT,
         null=True, 
         blank=True,
@@ -1087,6 +1080,7 @@ class RadiotherapyVolume(models.Model):
     radiation_dose_units = models.ForeignKey(
         'LookupUnits',
         on_delete = models.PROTECT,
+        related_name= 'radiotherapy_volume_dose_units',
         null=True, 
         blank=True,
         help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
@@ -1150,8 +1144,8 @@ class RadiotherapyDoseVolumeData(models.Model):
         LookupUnits,
         on_delete=models.PROTECT,
         null=True,
+        related_name='volume_units',
         blank=True,
-        related_name = 'volume_units',
         help_text="Select the units for the volume (e.g., 'cc', '%')"
     )
     absolute_dose = models.DecimalField(
@@ -1278,8 +1272,9 @@ class ConcomitantMedications(models.Model):
         help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
     )
     medication_dose_units = models.ForeignKey(
-        LookupDoseUnits,
+        LookupUnits,
         on_delete=models.PROTECT,
+        related_name='medication_dose_units',
         null=True,
         blank=True,
         help_text="Select the units for the medication dose (e.g., mg, mL, etc.)"
@@ -1391,8 +1386,11 @@ class SystemicTherapySchedule(models.Model):
         help_text="Enter the actual dose of medication that was administered (numerical value only)"
     )
     systemic_therapy_dose_units = models.ForeignKey(
-        'LookupDoseUnits', 
+        'LookupUnits', 
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name= 'systemic_therapy_dose_units',
         help_text="Select the units used for the dose (e.g., mg, mg/m², mg/kg)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
