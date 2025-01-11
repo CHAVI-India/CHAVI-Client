@@ -445,12 +445,22 @@ class DICOMStudy(models.Model):
         blank = True, 
         help_text = "Description of the study Provided in the DICOM Data"
     )
-
+    series_descriptions = models.TextField(
+        null = True,
+        blank = True,
+        help_text = "Description of the series in the study. This is a text field that can store multiple series descriptions, separated by commas."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient.patient_id} {self.study_description} (Date: {self.study_date})"
+        return (
+            f'{self.patient.patient_id} {self.study_date} \n'
+            f'Study: {self.study_description} \n'
+            f'Series: {self.series_descriptions}'
+        )
+        
+        #f"{self.patient.patient_id} {self.study_description} {self.series_descriptions} (Date: {self.study_date})"
 
     class Meta:
         verbose_name_plural = "DICOM Studies"
@@ -465,7 +475,7 @@ class Diagnosis(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Select the patient")
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    diagnosis = models.ForeignKey(LookupICDCode, on_delete=models.PROTECT,
+    diagnosis = models.ForeignKey('LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
     help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
     diagnosis_date = models.DateField(null=True, blank=True,
     help_text="Select the data at which the diagnosis was made. This can be a date when the patient came to the hospital for the first time or when a pathological proof was obtained")
@@ -1601,7 +1611,7 @@ class Comorbidity(models.Model):
         help_text="Select the patient who has this comorbidity"
     )
     comorbidity_type = models.ForeignKey(
-        LookupICDCode, 
+        'LookupICDCode', 
         on_delete=models.PROTECT,
         help_text="Select the ICD code that best describes this comorbidity"
     )

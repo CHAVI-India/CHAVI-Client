@@ -43,8 +43,9 @@ def process_dicom(modeladmin, request, queryset):
         save_path.mkdir(exist_ok=True, parents=True)
 
         study_uids = set()
-        study_descriptions = set()  # Dict of sets for descriptions
-        study_dates = set()  # Dict of sets for dates
+        study_descriptions = {}  # Dict of sets for descriptions
+        study_dates = {}  # Dict of sets for dates
+        series_descriptions = {}  # Dict of sets for series descriptions
 
         try:
             # First we will extract all the files from the zip file
@@ -62,20 +63,27 @@ def process_dicom(modeladmin, request, queryset):
                     # Get the Study Instance UID. We will use this to create folder paths.
                     study_instance_uid = ds.StudyInstanceUID
                     
-                    # Collect study description
+                    # Collect study description with corresponding UID
                     if hasattr(ds, 'StudyDescription'):
-                        study_descriptions.add(ds.StudyDescription)
+                        study_descriptions[study_instance_uid] = ds.StudyDescription
 
 
-                    # Collect study date using datetime.strptime
+                    # Collect study date with corresponding UID
                     if hasattr(ds, 'StudyDate') and ds.StudyDate:
                         try:
                             study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
-                            study_dates.add(study_date)
+                            study_dates[study_instance_uid] = study_date
                         except ValueError as e:
-                            messages.warning(request, f"Invalid date format in DICOM file {file.name}: {str(e)}")
-                    
+                            messages.warning(request, f"Invalid date format in DICOM file {file.name}: {str(e)}")                    
 
+                    # Collect series descriptions
+                    if hasattr(ds, 'SeriesDescription'):
+                        # Initialize a set for this study if it doesn't exist
+                        if study_instance_uid not in series_descriptions:
+                            series_descriptions[study_instance_uid] = set()
+                        # Add the series description to the set
+                        series_descriptions[study_instance_uid].add(ds.SeriesDescription)                    
+                    
                     # Get the SOP Instance UID. This will become the filename.
                     sop_instance_uid = ds.SOPInstanceUID
 
@@ -105,12 +113,16 @@ def process_dicom(modeladmin, request, queryset):
             #  Processing Study UID into the DICOMStudy Table
             for uid in study_uids:
                 try: 
+                    # Convert set of series descriptions to comma-separated string
+                    series_desc_string = ', '.join(sorted(series_descriptions.get(uid, []))) if uid in series_descriptions else ''
+                    
                     DICOMStudy.objects.update_or_create(
                         patient=obj.patient,
                         study_instance_uid=uid,
                         defaults={
-                            'study_description': next(iter(study_descriptions)) if study_descriptions else None,
-                            'study_date': next(iter(study_dates)) if study_dates else None,
+                            'study_description': study_descriptions.get(uid),
+                            'study_date': study_dates.get(uid),
+                            'series_descriptions': series_desc_string,  # Add the new field
                         }
                     )
                     messages.success(request,f"Added DICOM study UID {uid} Data for {obj.patient.patient_id}")
@@ -529,7 +541,7 @@ class DICOMStudyAdmin (admin.ModelAdmin):
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','study_description')]
+            'fields':[('study_instance_uid','study_description','series_descriptions')]
         }),
     )
 
