@@ -97,7 +97,7 @@ class LookupResponseType(models.Model):
     '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
     code = models.CharField(max_length=50,primary_key=True)    
     response_type = models.CharField(max_length=255)
-    response_measurement_criteria = models.CharField(max_length=255)
+
 
     def __str__(self):
         return self.response_type
@@ -105,18 +105,24 @@ class LookupResponseType(models.Model):
 class LookupUniProt(models.Model):
     '''This is a lookup table from the UniProt Database for Protein Names.'''
     code = models.CharField(max_length=50,primary_key=True)
-    protein_name = models.CharField(max_length=500)
+    gene_name = models.CharField(max_length=500,null=True)
+    uniport_id = models.CharField(max_length=500,null=True)
+    protein_name = models.CharField(max_length=500,null=True)
+    all_gene_names = models.CharField(max_length=500,null=True)
+
 
     def __str__(self):
-        return self.protein_name
+        return f'{self.gene_name}-{self.protein_name}'
 
 class LookupCosmic(models.Model):
     '''This is a lookup table from the Cosmic Database for Gene Names.'''
     code = models.CharField(max_length=50,primary_key=True)
-    cosmic_gene_name = models.CharField(max_length=500)
+    gene_name = models.CharField(max_length=500,null = True)
+    gene_description = models.CharField(max_length=500,null = True)
+    gene_aliases = models.CharField(max_length=500,null = True)
 
     def __str__(self):
-        return self.cosmic_gene_name
+        return f"{self.gene_name} - {self.gene_description}"
 
 class LookupTreatmentIntent(models.Model):
     '''This is a lookup table for Treatment Intent.'''
@@ -138,7 +144,6 @@ class LookupSystemicAgent(models.Model):
     '''This is a lookup table for Systemic Agents.'''
     code = models.CharField(max_length=50,primary_key=True)
     systemic_agent_name = models.CharField(max_length=255)
-    systemic_agent_type = models.CharField(max_length=255)
 
     def __str__(self):
         return self.systemic_agent_name
@@ -150,7 +155,6 @@ class LookupUnits(models.Model):
     unit_abbreviation = models.CharField(max_length=255)
     def __str__(self):
         return self.unit_abbreviation
-
 
 class LookupDrugRoute(models.Model):
     '''This is a lookup table for drug routes.'''
@@ -164,11 +168,9 @@ class LookupCTCAEGrade(models.Model):
     '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
     code = models.CharField(max_length=50,primary_key=True)
     ctcae_term = models.CharField(max_length=255)
-    definition = models.TextField()
     meddra_code = models.CharField(max_length=255)
-    meddra_soc = models.CharField(max_length=255)
     ctcae_grade = models.BigIntegerField()
-    ctcae_grade_description = models.TextField()
+    description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -190,7 +192,7 @@ class LookupOutcome(models.Model):
 
 class LookupStagingSystem(models.Model):
     '''This is a lookup table for staging systems.'''
-    code = models.CharField(max_length=50,primary_key=True)
+    code = models.AutoField(primary_key=True)
     staging_system = models.CharField(max_length=255)
     staging_system_version = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
