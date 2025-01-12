@@ -13,7 +13,7 @@ def import_csv_data(apps, schema_editor):
     url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/d61d4f5519eb6924737bbb592195d3a82ee8710b/lookup_datasets/laterality.csv?inline=false'
 
     df = pd.read_csv(url)
-
+    df = df.drop_duplicates(subset=['code'], keep='first')       
         
     # Create objects in bulk for better performance
     objects_to_create = [

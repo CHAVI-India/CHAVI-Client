@@ -11,6 +11,7 @@ def import_csv_data(apps, schema_editor):
     url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/main/lookup_datasets/disease_outcome.csv?inline=false'
 
     df = pd.read_csv(url)
+    df = df.drop_duplicates(subset=['code'], keep='first')        
     
     # Create objects in bulk for better performance
     objects_to_create = [
