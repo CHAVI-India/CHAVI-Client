@@ -2,31 +2,29 @@
 import csv
 from django.db import migrations
 from pathlib import Path
+import pandas as pd
 
 def import_csv_data(apps, schema_editor):
     # Get the model
     LookupLaterality = apps.get_model('client_app', 'LookupLaterality')
     
-    # Path to your CSV file
-    # Assuming the CSV is in a 'data' directory in your Django project root
-    csv_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'laterality.csv'
-    
     # Read CSV and create objects
-    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
+
+    url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/d61d4f5519eb6924737bbb592195d3a82ee8710b/lookup_datasets/laterality.csv?inline=false'
+
+    df = pd.read_csv(url)
+
         
-        # Create objects in bulk for better performance
-        objects_to_create = []
-        for row in reader:
-            objects_to_create.append(
-                LookupLaterality(
-                    code=row['code'],
-                    label=row['label']
-                )
-            )
+    # Create objects in bulk for better performance
+    objects_to_create = [
+        LookupLaterality(
+            code=row['code'],
+            label=row['label']
+        ) for _, row in df.iterrows()
+    ]
         
         # Bulk create all objects
-        LookupLaterality.objects.bulk_create(objects_to_create)  
+    LookupLaterality.objects.bulk_create(objects_to_create)  
 
 
 def reverse_migration(apps, schema_editor):
