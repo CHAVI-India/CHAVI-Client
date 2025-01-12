@@ -35,7 +35,6 @@ class SiteConfiguration(SingletonModel):
     class Meta:
         verbose_name = "Site Configuration"
 
-
 # Lookup Models
 
 class LookupLaterality(models.Model):
@@ -274,7 +273,6 @@ class LookupRadiotherapyVolumeType(models.Model):
         verbose_name_plural = "Radiotherapy Volume Types"
         db_table = 'lookup_radiotherapy_volume_type'
 
-
 # Project Model
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected.'''
@@ -335,8 +333,6 @@ class Project(models.Model):
     class Meta:
         verbose_name_plural = "Projects"
         db_table="project"
-
-
 
 # Core Patient Models
 class Patient(models.Model):
@@ -402,9 +398,7 @@ class Patient(models.Model):
         verbose_name_plural = "Patients"
         db_table="patient"
 
-
 # File upload Model
-
 class PatientDicomFile(models.Model):
     ''' This is a model for storing DICOM files for a patient. Uploading of the zip files is supported. A single zip file containing multiple DICOM studies is allowed.'''
     patient = models.ForeignKey(
@@ -419,7 +413,6 @@ class PatientDicomFile(models.Model):
     ) 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
 
 # DICOM Related Models
 class DICOMStudy(models.Model):
@@ -469,7 +462,6 @@ class DICOMStudy(models.Model):
         verbose_name_plural = "DICOM Studies"
 
 # Clinical Data Models
-
 class Diagnosis(models.Model):
     ''' This is a table which stores the diagnosis of the patient. The diagnosis is a key table which will have links to treatment and pathology.'''
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
@@ -1740,9 +1732,6 @@ class StageInformation(models.Model):
         verbose_name_plural="Stage Informations"
         db_table='stage_information'    
     
-
-
-
 class DICOMStudyProject(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
