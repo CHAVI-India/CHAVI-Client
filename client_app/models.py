@@ -239,6 +239,11 @@ class LookupAJCCMStageDescriptor (AJCCAbstract):
     def __str__(self):
         return f"{self.key}({self.description})"
 
+class LookupStageDescriptor (AJCCAbstract):
+    ''' This is a lookup table for AJJC stage descriptors.'''
+    def __str__(self):
+        return f"{self.key}({self.description})"
+
 class LookupDiagnosticModality(models.Model):
     ''' This is a lookup table for the diagnostic modality'''
     diagnostic_modality = models.CharField(max_length=255)
@@ -272,6 +277,7 @@ class LookupRadiotherapyVolumeType(models.Model):
     class Meta:
         verbose_name_plural = "Radiotherapy Volume Types"
         db_table = 'lookup_radiotherapy_volume_type'
+
 
 # Project Model
 class Project(models.Model):
@@ -1716,8 +1722,10 @@ class StageInformation(models.Model):
         blank=True,  
         help_text="Enter any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')"
     ) 
-    overall_stage = models.CharField(
-        max_length=255, 
+    overall_stage = models.ForeignKey(
+        'LookupStageDescriptor',
+        on_delete=models.PROTECT,
+        related_name= 'overall_stage',
         null=True, 
         blank=True,
         help_text="Enter the overall stage grouping (e.g., 'Stage I', 'Stage II', 'Stage III', 'Stage IV')"
