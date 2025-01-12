@@ -211,6 +211,7 @@ class DICOMStudyProjectInline(admin.TabularInline):
 
 class SystemicTherapyScheduleInline(admin.StackedInline):
     model = SystemicTherapySchedule
+    autocomplete_fields = ['systemic_therapy_agent']
     extra = 1
     fieldsets = (
         ('Schedule',{
@@ -295,11 +296,19 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
         process_dicom
     ]
 
+@admin.register(LookupICDCode)
+class LookupICDCodeAdmin (admin.ModelAdmin):
+    search_fields = ['code','label']
+
+@admin.register(LookupFMACode)
+class LookupFMACodeAdmin (admin.ModelAdmin):
+    search_fields = ['code','label']
+
 ## Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (admin.ModelAdmin):
     search_fields = ['patient']
-    autocomplete_fields = ['patient']
+    autocomplete_fields = ['patient','diagnosis','cancer_site']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
     list_filter = ['diagnosis__label','diagnostic_modality','cancer_site__label','cancer_side__label']
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__label']
@@ -323,7 +332,7 @@ class DiagnosisAdmin (admin.ModelAdmin):
 @admin.register(Pathology)
 class PathologyAdmin (admin.ModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','tumor_site']
     search_fields = ['diagnosis__patient_id']
     list_filter = ['diagnosis','tumor_site__label','tumor_side__label','histological_type']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
@@ -369,7 +378,7 @@ class StageInformationAdmin (admin.ModelAdmin):
 
 @admin.register(Comorbidity)
 class ComorbidityAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['patient']
+    autocomplete_fields = ['patient','comorbidity_type']
     list_display = ['patient','comorbidity_type','created_at']
     list_filter = ['comorbidity_type__label','created_at']
 
@@ -393,7 +402,7 @@ class LesionResponseAdmin (admin.ModelAdmin):
 @admin.register(Radiotherapy)
 class RadiotherapyAdmin (admin.ModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','radiotherapy_site']
     filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
@@ -411,7 +420,7 @@ class RadiotherapyAdmin (admin.ModelAdmin):
 ## Create the Surgery Form Class
 @admin.register(Surgery)
 class SurgeryAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','surgery_site']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
@@ -427,6 +436,10 @@ class SurgeryAdmin (admin.ModelAdmin):
             'fields': ['surgery_dicom_study']
         }),        
     )
+
+@admin.register(LookupSystemicAgent)
+class LookupSystemicAgentAdmin (admin.ModelAdmin):
+    search_fields = ['systemic_agent_name']
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
@@ -468,11 +481,14 @@ class OtherTreatmentAdmin (admin.ModelAdmin):
         }),
     )
 
+@admin.register(LookupCTCAEGrade)
+class LookupCTCAEGradeAdmin (admin.ModelAdmin):
+    search_fields = ['ctcae_term','ctcae_grade']
 
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup', 'adverse_effect_grade']
     fieldsets = (
         ('Adverse Effects',{
