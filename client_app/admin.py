@@ -10,7 +10,8 @@ from django.conf import settings
 from datetime import datetime
 from django.utils import timezone
 import shutil
-from smart_selects.db_fields import ChainedManyToManyField
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
@@ -262,14 +263,19 @@ class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
 
 # Add Model classes
 
-## Create the Patient Form Class
+## Create the Patient Form Class along with the export import configuration
+class PatientResource(resources.ModelResource):
+    class Meta:
+        model = Patient
+
 @admin.register(Patient)
-class PatientAdmin (admin.ModelAdmin):
+class PatientAdmin (ImportExportModelAdmin):
     #inlines = [PatientProjectInline]
     list_filter = ['gender','chavi_consent','created_at']
     search_fields =[ 'patient_id']
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
     filter_horizontal = ['patient_project']
+    resource_classes = [PatientResource]
     fieldsets = (
         ('Demographics',{
             'fields': ['patient_id',('gender','date_of_birth','center')]

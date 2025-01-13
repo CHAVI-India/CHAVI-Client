@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'client_app',
     'django_cleanup.apps.CleanupConfig',
+    'import_export',
 ]
 
 MIDDLEWARE = [

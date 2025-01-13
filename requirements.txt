@@ -1,8 +1,10 @@
 asgiref==3.8.1
+diff-match-patch==20241021
 Django==5.1.4
 django-admin-index==4.0.0
 django-cleanup==9.0.0
 django-extensions==3.2.3
+django-import-export==4.3.3
 django-ordered-model==3.7.4
 django-smart-selects==1.7.2
 django-solo==2.4.0
@@ -15,5 +17,6 @@ python-dateutil==2.9.0.post0
 pytz==2024.2
 six==1.17.0
 sqlparse==0.5.3
+tablib==3.7.0
 typing_extensions==4.12.2
 tzdata==2024.2
