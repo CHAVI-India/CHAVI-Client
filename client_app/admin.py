@@ -322,8 +322,13 @@ class LookupFMACodeAdmin (admin.ModelAdmin):
     search_fields = ['code','label']
 
 ## Create the Diagnosis Form Class
+class DiagnosisResource(resources.ModelResource):
+    class Meta:
+        model = Diagnosis
+
+
 @admin.register(Diagnosis)
-class DiagnosisAdmin (admin.ModelAdmin):
+class DiagnosisAdmin (ImportExportModelAdmin):
     search_fields = ['patient']
     autocomplete_fields = ['patient','diagnosis','cancer_site']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
@@ -331,7 +336,7 @@ class DiagnosisAdmin (admin.ModelAdmin):
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__label']
     fieldsets = (
         ('Diagnosis',{
-            'fields': ['patient',('diagnosis','diagnosis_date','diagnostic_modality')]
+            'fields': ['patient','diagnosis',('diagnosis_date','diagnostic_modality')]
         }),
         ('Presentation',{
             "fields": [('presentation_type','cancer_site','cancer_side')]
@@ -343,15 +348,20 @@ class DiagnosisAdmin (admin.ModelAdmin):
             'fields': ['diagnosis_project']
         }),
     )
+    resource_classes = [DiagnosisResource]
 
 
 ## Create the Pathology Form Class
+class PathologyResource(resources.ModelResource):
+    class Meta:
+        model = Pathology
+
 @admin.register(Pathology)
-class PathologyAdmin (admin.ModelAdmin):
+class PathologyAdmin (ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
     autocomplete_fields = ['diagnosis','tumor_site']
     search_fields = ['diagnosis__patient_id']
-    list_filter = ['diagnosis','tumor_site__label','tumor_side__label','histological_type']
+    list_filter = ['date_pathology','tumor_side__label']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
@@ -364,6 +374,7 @@ class PathologyAdmin (admin.ModelAdmin):
             'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
         }),
     )
+    resource_classes = [PathologyResource]
 
 @admin.register(LookupStageDescriptor)
 class LookupStageDescriptorAdmin(admin.ModelAdmin):

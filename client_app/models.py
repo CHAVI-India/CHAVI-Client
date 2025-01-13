@@ -483,7 +483,7 @@ class Diagnosis(models.Model):
     help_text="Select the cancer site. This can be a site where the cancer was first diagnosed or a site where the cancer was recurred or metastasized.")
     cancer_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT,
     help_text="Select the side at which the cancer was present.")
-    diagnostic_modality = models.CharField(max_length=255,null=True, blank=True,
+    diagnostic_modality = models.ForeignKey('LookupDiagnosticModality',on_delete=models.PROTECT,null=True, blank=True,
     help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
     diagnosis_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
     diagnosis_project = models.ManyToManyField('Project', blank = True, help_text="Select the project that was used to diagnose the cancer. You can select multiple projects.")
