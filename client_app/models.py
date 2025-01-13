@@ -581,6 +581,14 @@ class Lesion(models.Model):
         blank=True,
         help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
     )
+    lesion_volume_unit = models.ForeignKey(
+        LookupUnits, 
+        related_name='lesion_volume_unit',
+        on_delete=models.PROTECT, 
+        null=True, 
+        blank=True,
+        help_text="The unit of measurement used for the lesion volume (e.g., 'cubic millimeters', 'cubic centimeters')"
+    )
     lesion_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -226,18 +226,29 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
     )
        
 
+@admin.register(LookupUniProt)
+class LookupUniProtAdmin(admin.ModelAdmin):
+    search_fields = ['protein_name']
+
+@admin.register(LookupCosmic)
+class LookupCosmicAdmin(admin.ModelAdmin):
+    search_fields = ['gene_name']
+
 class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
+    autocomplete_fields =['protein_name']
     extra = 1
     
 
 class CytogeneticsInline(admin.StackedInline):
     model = Cytogenetics
+    autocomplete_fields =['gene']
     extra = 1
     
 
 class SomaticGenomicAlterationsInline(admin.StackedInline):
     model = SomaticGenomicAlterations
+    autocomplete_fields = ['cosmic_gene_name']
     extra = 1
     
 
@@ -354,11 +365,15 @@ class PathologyAdmin (admin.ModelAdmin):
         }),
     )
 
+@admin.register(LookupStageDescriptor)
+class LookupStageDescriptorAdmin(admin.ModelAdmin):
+    search_fields = ['description']
+
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
 class StageInformationAdmin (admin.ModelAdmin):
     search = ['diagnosis__patient_id']
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','overall_stage']
     list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
     list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','overall_stage']
     fieldsets = (
@@ -393,8 +408,20 @@ class ComorbidityAdmin (admin.ModelAdmin):
 @admin.register(Lesion)
 class LesionAdmin (admin.ModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','lesion_site']
     filter_horizontal = ['lesion_dicom_study']
+    fieldsets = (
+        ('Lesion', {
+            'fields' : [('diagnosis','date_lesion_assessed'),('lesion_site','lesion_laterality')]
+        }),
+        ('Dimensions', {
+            'fields' : [('lesion_size_x_axis', 'lesion_size_y_axis', 'lesion_size_z_axis','lesion_size_unit'), ('lesion_volume','lesion_volume_unit')]
+
+        }),
+        ('DICOM Studies', {
+            'fields' : ['lesion_dicom_study']
+        })
+    )   
 
 
 ## Create the Lesion Response Form Class
