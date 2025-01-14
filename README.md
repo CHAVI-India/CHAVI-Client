@@ -28,10 +28,16 @@ This will pull and install all the required packages. Note you may need to have 
 
 After the installation is completed then you should perform the following steps:  
 
-A. Create the database. Note the application is developed using a SQLite database but can accept other database engines too. 
+Step 1. Create the database. Note the application is developed using a SQLite database but can accept other database engines too. Note that we will be pulling in all the lookup table data also in the same command. 
 
 ```
 python manage.py migrate
+```
+
+Step 2. We use the Django admin index app to ensure that links for the forms are presented in a logical order. In order to replicate this please pull data from the fixture using the command.
+
+```
+python manage.py loaddata fixtures/admin_index.json
 ```
 
 B. Create a superuser. This superuser can be a local administrator. 
