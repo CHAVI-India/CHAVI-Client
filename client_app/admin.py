@@ -229,10 +229,13 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
 @admin.register(LookupUniProt)
 class LookupUniProtAdmin(admin.ModelAdmin):
     search_fields = ['protein_name']
+    readonly_fields = ['code','gene_name','protein_name','all_gene_names','uniport_id']
+
 
 @admin.register(LookupCosmic)
 class LookupCosmicAdmin(admin.ModelAdmin):
     search_fields = ['gene_name']
+    readonly_fields = ['code','gene_name','gene_description','gene_aliases']
 
 class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
@@ -316,10 +319,12 @@ class PatientDicomFileAdmin (admin.ModelAdmin):
 @admin.register(LookupICDCode)
 class LookupICDCodeAdmin (admin.ModelAdmin):
     search_fields = ['code','label']
+    readonly_fields = ['code','label','icd_version']
 
 @admin.register(LookupFMACode)
 class LookupFMACodeAdmin (admin.ModelAdmin):
     search_fields = ['code','label']
+    readonly_fields = ['code','label']
 
 ## Create the Diagnosis Form Class
 class DiagnosisResource(resources.ModelResource):
@@ -379,6 +384,7 @@ class PathologyAdmin (ImportExportModelAdmin):
 @admin.register(LookupStageDescriptor)
 class LookupStageDescriptorAdmin(admin.ModelAdmin):
     search_fields = ['description']
+    readonly_fields = ['key','description']
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
@@ -484,6 +490,7 @@ class SurgeryAdmin (admin.ModelAdmin):
 @admin.register(LookupSystemicAgent)
 class LookupSystemicAgentAdmin (admin.ModelAdmin):
     search_fields = ['systemic_agent_name']
+    readonly_fields = ['code','systemic_agent_name']
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
@@ -528,6 +535,7 @@ class OtherTreatmentAdmin (admin.ModelAdmin):
 @admin.register(LookupCTCAEGrade)
 class LookupCTCAEGradeAdmin (admin.ModelAdmin):
     search_fields = ['ctcae_term','ctcae_grade']
+    readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
 
 ## Create the Adverse Effects form class
 @admin.register(AdverseEffects)
