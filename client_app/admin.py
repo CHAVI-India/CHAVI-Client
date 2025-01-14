@@ -292,7 +292,7 @@ class PatientAdmin (ImportExportModelAdmin):
     resource_classes = [PatientResource]
     fieldsets = (
         ('Demographics',{
-            'fields': ['patient_id',('gender','date_of_birth','center')]
+            'fields': ['patient_id',('gender','center'),('date_of_birth','date_of_registration')]
         }),
         ('CHAVI Consent',{
             'fields': [('chavi_consent','date_chavi_consent')]
@@ -603,6 +603,7 @@ class PatientReportedOutcomeAdmin (admin.ModelAdmin):
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin (admin.ModelAdmin):
     search_fields = ['patient__patient_id']
+    list_display = ['patient','study_date','study_description','series_descriptions']
     autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{

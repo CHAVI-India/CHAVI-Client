@@ -383,6 +383,11 @@ class Patient(models.Model):
         blank=True,
         help_text="The patient's date of birth in YYYY-MM-DD format."
     )
+    date_of_registration = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of registration in hospital."
+    )
     patient_project = models.ManyToManyField(
         'Project',
         blank = True, 
