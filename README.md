@@ -28,32 +28,37 @@ This will pull and install all the required packages. Note you may need to have 
 
 After the installation is completed then you should perform the following steps:  
 
-Step 1. Create the database. Note the application is developed using a SQLite database but can accept other database engines too. Note that we will be pulling in all the lookup table data also in the same command. 
+### Database Setup
+Create the database. Note the application is developed using a SQLite database but can accept other database engines too. Note that we will be pulling in all the lookup table data also in the same command. 
 
 ```
 python manage.py migrate
 ```
 
-Step 2. We use the Django admin index app to ensure that links for the forms are presented in a logical order. In order to replicate this please pull data from the fixture using the command.
+### Setup the Admin Site Properly
+We use the Django admin index app to ensure that links for the forms are presented in a logical order. In order to replicate this please pull data from the fixture using the command.
 
 ```
 python manage.py loaddata fixtures/admin_index.json
 ```
 
-B. Create a superuser. This superuser can be a local administrator. 
+### Create a Superuser
+Create a superuser. This superuser can be a local administrator.
 
 ```
 python manage.py  createsuperuser
 ```
 This will take you through a wizard where you will be asked to setup an username, provide your email address and set a password. Please ensure that this password is a long and complex password for security.
 
-C. Start the server to start the application. The server will allow users from the LAN to access the client application.
+### Start the server
+
+Start the server to start the application. The server will allow users from the LAN to access the client application. By default the application will be available on port 8000.
 
 ```
 python manage.py runserver
 ```
 
-After the server starts at the designated port on the localhost please access the server using the appropriate localhost port. Enter your superuser username and password to access the admin site. 
+After the server starts at the designated port on the localhost please access the server using the appropriate localhost port. Enter your superuser username and password to access the admin site. The path to the admin site is http://localhost:8000/admin
 
 ## Post Installation
 
