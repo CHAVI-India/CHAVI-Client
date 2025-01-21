@@ -17,8 +17,8 @@ def import_csv_data(apps, schema_editor):
         # Create objects in bulk for better performance
         objects_to_create = [
             LookupStageDescriptor(
-                key=row['key'],
-                description = row['description'] 
+                code=row['key'],
+                label = row['description'] 
             ) for _, row in df.iterrows()
         ]
         
@@ -41,7 +41,7 @@ def reverse_migration(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client_app', '0029_alter_stageinformation_overall_stage'),
+        ('client_app', '0027_lookup_radiotherapy_volume_type'),
     ]
 
     operations = [

@@ -145,60 +145,6 @@ def process_dicom(modeladmin, request, queryset):
 
 #region inlinetables for many to many relations
 
-#region comments
-
-# Define inlines for Many to Many relations
-# class PatientProjectInline(admin.TabularInline):
-#     model = PatientProject
-#     extra = 1
-
-# class DiagnosisDICOMStudyInline(admin.TabularInline):
-#     model = DiagnosisDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']
-
-# class LesionDICOMStudyInline(admin.TabularInline):
-#     model = LesionDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
-# class LesionResponseDICOMStudyInline(admin.TabularInline):
-#     model = LesionResponseDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
-# class DiagnosisProjectInline(admin.TabularInline):
-#     model = DiagnosisProject
-#     extra = 1
-
-# class RadiotherapyDICOMStudyInline(admin.TabularInline):
-#     model = RadiotherapyDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
-# class SurgeryDICOMStudyInline(admin.TabularInline):
-#     model = SurgeryDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
-# class SystemicTherapyDICOMStudyInline(admin.TabularInline):
-#     model = SystemicTherapyDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
-
-# class OutcomeDICOMStudyInline(admin.TabularInline):
-#     model = OutcomeDICOMStudy
-#     extra = 1
-#     search_fields = ['dicom_study']
-#     autocomplete_fields = ['dicom_study']    
-
 #endregion
 class DICOMStudyProjectInline(admin.TabularInline):
     model = DICOMStudyProject
@@ -383,16 +329,16 @@ class PathologyAdmin (ImportExportModelAdmin):
 
 @admin.register(LookupStageDescriptor)
 class LookupStageDescriptorAdmin(admin.ModelAdmin):
-    search_fields = ['description']
-    readonly_fields = ['key','description']
+    search_fields = ['label']
+    readonly_fields = ['code','label']
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
 class StageInformationAdmin (admin.ModelAdmin):
     search = ['diagnosis__patient_id']
     autocomplete_fields = ['diagnosis','overall_stage']
-    list_filter = ['diagnosis','staging_system__staging_system','stage_type','overall_stage']
-    list_display = ['diagnosis__patient','staging_system__staging_system','stage_type','overall_stage']
+    list_filter = ['diagnosis','staging_system__label','stage_type','overall_stage']
+    list_display = ['diagnosis__patient','staging_system__label','stage_type','overall_stage']
     fieldsets = (
         ('Stage Information',{
             'fields' : ['diagnosis',('staging_system','stage_type')] 
@@ -489,8 +435,8 @@ class SurgeryAdmin (admin.ModelAdmin):
 
 @admin.register(LookupSystemicAgent)
 class LookupSystemicAgentAdmin (admin.ModelAdmin):
-    search_fields = ['systemic_agent_name']
-    readonly_fields = ['code','systemic_agent_name']
+    search_fields = ['label']
+    readonly_fields = ['code','label']
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)

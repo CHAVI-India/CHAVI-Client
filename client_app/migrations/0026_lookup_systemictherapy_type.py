@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupSystemicTherapyType(
                 code=row['code'],
-                systemic_therapy_type = row['systemic_therapy_type'] 
+                label = row['systemic_therapy_type'] 
             ) for _, row in df.iterrows()
         ]
         

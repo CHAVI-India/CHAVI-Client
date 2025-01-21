@@ -38,7 +38,7 @@ def reverse_migration(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client_app', '0002_dicomstudy_series_descriptions'),
+        ('client_app', '0001_initial'),
     ]
 
     operations = [

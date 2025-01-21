@@ -11,12 +11,15 @@ def import_csv_data(apps, schema_editor):
         # Read CSV and create objects
         url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/main/lookup_datasets/staging_system.csv'
         df = pd.read_csv(url)
+        df['code'] = df.apply(lambda row: f"{row['staging_system']} {row['staging_system_version']}", axis=1)
+
 
         
         # Create objects in bulk for better performance
         objects_to_create = [
             LookupStagingSystem(
-                staging_system=row['staging_system'],
+                code= row['code'],
+                label=row['staging_system'],
                 staging_system_version=row['staging_system_version'] 
             ) for _, row in df.iterrows()
         ]

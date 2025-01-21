@@ -19,7 +19,7 @@ def import_csv_data(apps, schema_editor):
             LookupUnits(
                 code=row['code'],
                 unit_abbreviation=row['unit_abbreviation'],
-                unit = row['unit']
+                label = row['unit']
             ) for _, row in df.iterrows()
         ]
         

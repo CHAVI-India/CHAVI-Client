@@ -19,7 +19,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupTreatmentIntent(
                 code=row['code'],
-                treatment_intent=row['treatment_intent']
+                label=row['treatment_intent']
             ) for _, row in df.iterrows()
         ]
         

@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupDrugRoute(
                 code=row['code'],
-                route=row['route']
+                label=row['route']
             ) for _, row in df.iterrows()
         ]
         

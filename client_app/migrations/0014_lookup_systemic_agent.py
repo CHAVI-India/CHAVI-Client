@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupSystemicAgent(
                 code=row['code'],
-                systemic_agent_name=row['systemic_agent_name']
+                label=row['systemic_agent_name']
             ) for _, row in df.iterrows()
         ]
         

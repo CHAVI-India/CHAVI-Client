@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupRadiotherapyVolumeType(
                 code=row['code'],
-                radiotherapy_volume_type = row['radiotherapy_volume_type'] 
+                label = row['radiotherapy_volume_type'] 
             ) for _, row in df.iterrows()
         ]
         

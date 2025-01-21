@@ -16,8 +16,8 @@ def import_csv_data(apps, schema_editor):
         # Create objects in bulk for better performance
         objects_to_create = [
             LookupAJCCNStageDescriptor(
-                key=row['key'],
-                description=row['description'] 
+                code=row['key'],
+                label=row['description'] 
             ) for _, row in df.iterrows()
         ]
         

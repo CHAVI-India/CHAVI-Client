@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
     objects_to_create = [
         LookupPresentation(
             code=row['code'],
-            presentation_type=row['presentation_type']
+            label=row['presentation_type']
         ) for _, row in df.iterrows()
     ]
         

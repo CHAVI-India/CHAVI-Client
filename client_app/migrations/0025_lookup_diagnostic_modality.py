@@ -10,12 +10,14 @@ def import_csv_data(apps, schema_editor):
         
         # Read CSV and create objects
         url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/main/lookup_datasets/diagnostic_modality.csv?inline=false'
-        df = pd.read_csv(url)    
+        df = pd.read_csv(url)
+        df['code'] = df.reset_index().index
         
         # Create objects in bulk for better performance
         objects_to_create = [
             LookupDiagnosticModality(
-                diagnostic_modality=row['diagnostic_modality'] 
+                code=row['code'],
+                label=row['diagnostic_modality'] 
             ) for _, row in df.iterrows()
         ]
         

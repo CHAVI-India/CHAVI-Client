@@ -7,7 +7,7 @@ import uuid
 
 class SiteConfiguration(SingletonModel):
     '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
-    chavi_center_id = models.CharField(max_length=255,default="Site ID")
+    chavi_center_id = models.CharField(max_length=255,default="Site ID. This will be provided to you at the time of installation.")
     center_name = models.CharField(max_length=255, default="Your Hospital")
     center_address = models.TextField(
         null=True,
@@ -37,69 +37,55 @@ class SiteConfiguration(SingletonModel):
 
 # Lookup Models
 
-class LookupLaterality(models.Model):
+class LookupAbstract(models.Model):
+    '''This is an abstract for the lookup table.'''
+    code = models.CharField(max_length=50,primary_key=True)
+    label = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        abstract = True
+
+class LookupLaterality(LookupAbstract):
     '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    label = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.label
-
-class LookupICDCode(models.Model):
-    '''This is a lookup table with ICD 11 codes for the diagnosis.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    icd_version = models.DecimalField(max_digits=5, decimal_places=2)
-    label = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.code} - {self.label}"
 
-class LookupFMACode(models.Model):
+class LookupICDCode(LookupAbstract):
+    '''This is a lookup table with ICD 11 codes for the diagnosis.'''
+    icd_version = models.DecimalField(max_digits=5, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+
+class LookupFMACode(LookupAbstract):
     '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    label = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     def __str__(self):
-        return self.label
+        return f"{self.code} - {self.label}"
 
-class LookupPresentation(models.Model):
+class LookupPresentation(LookupAbstract):
     '''This is a lookup for presentation type.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    presentation_type = models.CharField(max_length=255)
-
     def __str__(self):
-        return self.presentation_type
+        return f"{self.code} - {self.label}"
 
-class LookupOutcomeType(models.Model):
+class LookupOutcomeType(LookupAbstract):
     '''This is a lookup table where outcome type like local recurrence, nodal recurrence etc are recorded.'''
-    code = models.CharField(max_length=50,primary_key=True)    
-    outcome_type = models.CharField(max_length=255)
-
     def __str__(self):
-        return self.outcome_type
+        return f"{self.code} - {self.label}"
 
-class LookupLesionType(models.Model):
+class LookupLesionType(LookupAbstract):
     '''This is a lookup table where lesion location type is recorded e.g. local, nodal, distant '''
-    code = models.CharField(max_length=50,primary_key=True)    
-    lesion_location_type = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.lesion_location_type
+        return f"{self.code} - {self.label}"
 
-class LookupResponseType(models.Model):
+class LookupResponseType(LookupAbstract):
     '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
-    code = models.CharField(max_length=50,primary_key=True)    
-    response_type = models.CharField(max_length=255)
-
 
     def __str__(self):
-        return self.response_type
+        return f"{self.code} - {self.label}"
 
 class LookupUniProt(models.Model):
     '''This is a lookup table from the UniProt Database for Protein Names.'''
@@ -123,45 +109,37 @@ class LookupCosmic(models.Model):
     def __str__(self):
         return f"{self.gene_name} - {self.gene_description}"
 
-class LookupTreatmentIntent(models.Model):
+class LookupTreatmentIntent(LookupAbstract):
     '''This is a lookup table for Treatment Intent.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    treatment_intent = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.treatment_intent
+        return f"{self.code} - {self.label}"
 
-class LookupTreatmentSequence(models.Model):
+class LookupTreatmentSequence(LookupAbstract):
     '''This is a lookup table for Treatment Sequence.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    treatment_sequence = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.treatment_sequence
+        return f"{self.code} - {self.label}"
 
-class LookupSystemicAgent(models.Model):
+class LookupSystemicAgent(LookupAbstract):
     '''This is a lookup table for Systemic Agents.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    systemic_agent_name = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.systemic_agent_name
+        return f"{self.code} - {self.label}"
 
-class LookupUnits(models.Model):
+class LookupUnits(LookupAbstract):
     '''This is a lookup table for units of measurement for use in the database'''
-    code = models.CharField(max_length=50,primary_key=True)
-    unit = models.CharField(max_length=255)
+
     unit_abbreviation = models.CharField(max_length=255)
+    
     def __str__(self):
         return self.unit_abbreviation
 
-class LookupDrugRoute(models.Model):
+class LookupDrugRoute(LookupAbstract):
     '''This is a lookup table for drug routes.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    route = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.route
+        return f"{self.code} - {self.label}"
 
 class LookupCTCAEGrade(models.Model):
     '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
@@ -184,95 +162,71 @@ class LookupCTCAEGrade(models.Model):
             )
         ]
 
-class LookupOutcome(models.Model):
+class LookupOutcome(LookupAbstract):
     '''This is a lookup table for outcomes types.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    outcome = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.outcome
+        return f"{self.code} - {self.label}"
 
-class LookupStagingSystem(models.Model):
+class LookupStagingSystem(LookupAbstract):
     '''This is a lookup table for staging systems.'''
-    code = models.AutoField(primary_key=True)
-    staging_system = models.CharField(max_length=255)
     staging_system_version = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.staging_system} v{self.staging_system_version}"
+        return f"{self.code} - {self.label}"
 
-class AJCCAbstract(models.Model):
-    '''This is an abstract base class for AJCC lookup tables.'''
-    key = models.CharField(max_length=255)
-    description = models.CharField(max_length=255)
-
-
-
-    class Meta:
-        abstract = True
-
-class LookupAJCCStagePrefix(AJCCAbstract):
+class LookupAJCCStagePrefix(LookupAbstract):
     '''This is a lookup table for AJCC stage prefixes.'''
     def __str__(self):
-        return f"{self.key}({self.description})"
-        
-class LookupAJCCStageSuffix(AJCCAbstract):
+        return f"{self.code} - {self.label}"
+
+class LookupAJCCStageSuffix(LookupAbstract):
     '''This is a lookup table for AJCC stage suffixes.'''
 
     def __str__(self):
-        return f"{self.key}({self.description})"
+        return f"{self.code} - {self.label}"
 
-class LookupAJCCTStageDescriptor (AJCCAbstract):
+class LookupAJCCTStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC T stage descriptors.'''
     def __str__(self):
-        return f"{self.key}({self.description})"
+        return f"{self.code} - {self.label}"
 
-class LookupAJCCNStageDescriptor (AJCCAbstract):
+class LookupAJCCNStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC N stage descriptors.'''
     def __str__(self):
-        return f"{self.key}({self.description})"
+        return f"{self.code} - {self.label}"
 
-class LookupAJCCMStageDescriptor (AJCCAbstract):
+class LookupAJCCMStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC M stage descriptors.'''
     def __str__(self):
-        return f"{self.key}({self.description})"
+        return f"{self.code} - {self.label}"
 
-class LookupStageDescriptor (AJCCAbstract):
+class LookupStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC stage descriptors.'''
     def __str__(self):
-        return f"{self.key}({self.description})"
+        return f"{self.code} - {self.label}"
 
-class LookupDiagnosticModality(models.Model):
+class LookupDiagnosticModality(LookupAbstract):
     ''' This is a lookup table for the diagnostic modality'''
-    diagnostic_modality = models.CharField(max_length=255)
-    def __str__(self):   
-        return self.diagnostic_modality
-    verbose_name_plural= "Diagnostic Modalities"
-    db_table = 'lookup_diagnostic_modality'
-
-class LookupSystemicTherapyType(models.Model):
-    ''' This is a lookup table for the type of Systemic Therapy'''
-    code = models.CharField(max_length=50,primary_key=True)
-    systemic_therapy_type = models.CharField(max_length=255)
-
     def __str__(self):
-        return self.systemic_therapy_type
+        return f"{self.code} - {self.label}"
+    class Meta:
+        verbose_name_plural= "Diagnostic Modalities"
+        db_table = 'lookup_diagnostic_modality'
+
+class LookupSystemicTherapyType(LookupAbstract):
+    ''' This is a lookup table for the type of Systemic Therapy'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
 
     class Meta:
         verbose_name_plural = "Systemic Therapy Types"
         db_table = 'lookup_systemic_therapy_type'
 
-class LookupRadiotherapyVolumeType(models.Model):
+class LookupRadiotherapyVolumeType(LookupAbstract):
     ''' This is a lookup table for the type of Radiotherapy Volume'''
-    code = models.CharField(max_length=50,primary_key=True)
-    radiotherapy_volume_type = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__ (self):
-        return self.radiotherapy_volume_type
+    def __str__(self):
+        return f"{self.code} - {self.label}"
 
     class Meta:
         verbose_name_plural = "Radiotherapy Volume Types"
@@ -280,13 +234,15 @@ class LookupRadiotherapyVolumeType(models.Model):
 
 
 # Project Model
+
 class Project(models.Model):
-    ''' This is a table which will contain the details of the Projects in which the data will be collected.'''
+    ''' This is a table which will contain the details of the Projects in which the data will be collected. Projects have a unique ID which is generated at the CHAVI server. However your institutional IRB approvals may be different for the projects. '''
     chavi_project_id = models.CharField(
         max_length=255,
         unique=True,
         help_text="A unique identifier for the project."
     )
+    center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True, default=1, related_name="project_center")
     project_name = models.CharField(
         max_length=900,
         null=True, 
@@ -1075,6 +1031,12 @@ class Radiotherapy(models.Model):
 
 class RadiotherapyVolume(models.Model):
     ''' This table will record the volumes treated as a part of the radiotherapy course.'''
+    radiotherapy_volume_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique identifier for this radiotherapy dose volume data"
+    )
     radiotherapy = models.ForeignKey(
         'Radiotherapy',
         on_delete=models.CASCADE,
@@ -1135,6 +1097,12 @@ class RadiotherapyVolume(models.Model):
 
 class RadiotherapyDoseVolumeData(models.Model):
     ''' This is a table which stores the radiotherapy dose volume data for the patients'''
+    radiotherapy_dose_volume_data_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique identifier for this radiotherapy dose volume data"
+    )
     radiotherapy = models.ForeignKey(
         Radiotherapy,
         on_delete=models.CASCADE,
@@ -1768,165 +1736,3 @@ class DICOMStudyProject(models.Model):
             )
         ]
 
-
-
-# class OutcomeDICOMStudy(models.Model):
-#     outcome = models.ForeignKey(Outcome, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="DICOM Study for Outcome"
-#         verbose_name_plural="DICOM Studies for Outcome"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['outcome', 'dicom_study'],
-#                 name='unique_outcome_dicom_study'
-#             )
-#         ]    
-
-# Junction Tables
-# class PatientProject(models.Model):
-#     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-#     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name = "Project for Patient"
-#         verbose_name_plural= "Projects for Patient"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['patient', 'project'],
-#                 name='unique_patient_project'
-#             )
-#         ]
-
-# This is a series of tables which will be needed for the Server database configuration.
-# class DICOMSeries(models.Model):
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     sop_instance_uid = models.CharField(max_length=255, unique=True)
-#     series_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-#     frame_of_reference_uid = models.CharField(max_length=255)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-# class DICOMStudyFiles(models.Model):
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     sop_instance_uid = models.CharField(max_length=255, null=True, blank=True)
-#     file_name = models.TextField(null=True, blank=True)
-#     upload_timestamp = models.DateTimeField(auto_now_add=True)
-#     number_of_files = models.IntegerField(null=True, blank=True)
-#     file_size = models.DecimalField(max_digits=10, decimal_places=2)
-
-# class DICOMTagInformation(models.Model):
-#     dicom_study_files = models.ForeignKey(DICOMStudyFiles, on_delete=models.CASCADE)
-#     tag = models.CharField(max_length=255)
-#     tag_name = models.CharField(max_length=255)
-#     tag_value = models.TextField()
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-# class DiagnosisDICOMStudy(models.Model):
-#     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="DICOM study for Diagnosis"
-#         verbose_name_plural="DICOM studies for Diagnosis"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['diagnosis', 'dicom_study'],
-#                 name='unique_diagnosis_dicom_study'
-#             )
-#         ]
-
-# class LesionDICOMStudy(models.Model):
-#     lesion = models.ForeignKey(Lesion, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-    # class Meta:
-    #     verbose_name="DICOM study for Lesion"
-    #     verbose_name_plural="DICOM studies for Lesion"
-    #     constraints = [
-    #         models.UniqueConstraint(
-    #             fields=['lesion', 'dicom_study'],
-    #             name='unique_lesion_dicom_study'
-    #         )
-    #     ]
-
-# class LesionResponseDICOMStudy(models.Model):
-#     lesion_response = models.ForeignKey(LesionResponse, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="DICOM study for Lesion Response"
-#         verbose_name_plural="DICOM studies for Lesion Response"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['lesion_response', 'dicom_study'],
-#                 name='unique_lesion_response_dicom_study'
-#             )
-#         ]
-
-# class DiagnosisProject(models.Model):
-#     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
-#     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="Project for Diagnosis"
-#         verbose_name_plural="Projects for Diagnosis"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['diagnosis', 'project'],
-#                 name='unique_diagnosis_project'
-#             )
-#         ]
-
-# class RadiotherapyDICOMStudy(models.Model):
-#     radiotherapy = models.ForeignKey(Radiotherapy, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="DICOM Study for Radiotherapy Course"
-#         verbose_name_plural="DICOM Studies for Radiotherapy Courses"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['radiotherapy', 'dicom_study'],
-#                 name='unique_radiotherapy_dicom_study'
-#             )
-#         ]
-
-# class SystemicTherapyDICOMStudy(models.Model):
-#     systemic_therapy = models.ForeignKey(SystemicTherapy, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         verbose_name="DICOM Study for Systemic Therapy Course"
-#         verbose_name_plural="DICOM Studies for Systemic Therapy Courses"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['systemic_therapy', 'dicom_study'],
-#                 name='unique_chemotherapy_dicom_study'
-#             )
-#         ]
-
-# class SurgeryDICOMStudy(models.Model) :
-#     surgery = models.ForeignKey(Surgery, on_delete=models.CASCADE)
-#     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta: 
-#         verbose_name = "DICOM Study for Surgery"
-#         verbose_name_plural = "DICOM Studies for Surgery"
-#         constraints = [
-#             models.UniqueConstraint(
-#                 fields=['surgery', 'dicom_study'],
-#                 name='unique_surgery_dicom_study'
-#             )
-#         ]

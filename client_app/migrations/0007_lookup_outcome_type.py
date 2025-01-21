@@ -17,7 +17,7 @@ def import_csv_data(apps, schema_editor):
     objects_to_create = [
         LookupOutcomeType(
             code=row['code'],
-            outcome_type=row['outcome_type']
+            label=row['outcome_type']
         ) for _, row in df.iterrows()
     ]
         

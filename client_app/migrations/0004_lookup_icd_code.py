@@ -42,7 +42,7 @@ def reverse_migration(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client_app', '0003_auto_20250111_2220'),
+        ('client_app', '0002_lookup_laterality'),
     ]
 
     operations = [

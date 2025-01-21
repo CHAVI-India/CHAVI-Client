@@ -19,7 +19,7 @@ def import_csv_data(apps, schema_editor):
     objects_to_create = [
         LookupResponseType(
             code=row['code'],
-            response_type=row['response_type']
+            label=row['response_type']
         ) for _, row in df.iterrows()
     ]
         
