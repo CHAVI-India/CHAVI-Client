@@ -393,8 +393,7 @@ class DICOMStudy(models.Model):
     study_instance_uid= models.CharField(
         max_length=255,
         unique = True,
-        null=True,
-        blank=True,
+        primary_key=True,
         help_text="A unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same Study Instance UID. This helps prevent any confusion between different studies."
     )
     study_date = models.DateField(
@@ -433,7 +432,7 @@ class Diagnosis(models.Model):
     ''' This is a table which stores the diagnosis of the patient. The diagnosis is a key table which will have links to treatment and pathology.'''
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Select the patient")
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    chavi_diagnosis_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey('LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
     help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
     diagnosis_date = models.DateField(null=True, blank=True,
@@ -1460,6 +1459,7 @@ class AdverseEffects(models.Model):
 
 class ProInstrument(models.Model):
     '''This is a table which stores information on the patient reported outcome instruments.'''
+    chavi_pro_instrument_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pro_instrument = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1473,6 +1473,7 @@ class ProInstrument(models.Model):
 
 class ProDomain(models.Model):
     '''This is a table which stores information on the patient reported outcome domains.'''
+    chavi_prodomain_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     instrument = models.ForeignKey(ProInstrument, on_delete=models.CASCADE)
     pro_domain = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1491,6 +1492,7 @@ class ProDomain(models.Model):
 
 class ProQuestion(models.Model):
     '''This is a table which stores information on the patient reported outcome questions.'''
+    chavi_pro_question_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     domain = models.ForeignKey(ProDomain, on_delete=models.CASCADE)
     pro_question = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
