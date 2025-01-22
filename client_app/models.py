@@ -1430,32 +1430,7 @@ class AdverseEffects(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-
-    def save(self, *args, **kwargs):
-        if self.ctcae_grade_lookup:
-            # Automatically set type and grade from the lookup
-            self.adverse_effect_type = self.ctcae_grade_lookup.ctcae_term
-            self.adverse_effect_grade = self.ctcae_grade_lookup.ctcae_grade
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def clean(self):
-        super().clean()
-        if self.ctcae_grade_lookup:
-            # Ensure the type and grade match the lookup
-            if (self.adverse_effect_type != self.ctcae_grade_lookup.ctcae_term or
-                self.adverse_effect_grade != self.ctcae_grade_lookup.ctcae_grade):
-                raise ValidationError(
-                    'Adverse effect type and grade must match the selected CTCAE grade lookup'
-                )
-
-    
-    def __str__(self):
-        return f"{self.adverse_effect_type} - {self.adverse_effect_grade}"
-    class Meta:
-        verbose_name_plural="Adverse Effects"
-        db_table="adverse_effects"   
+ 
 
 class ProInstrument(models.Model):
     '''This is a table which stores information on the patient reported outcome instruments.'''

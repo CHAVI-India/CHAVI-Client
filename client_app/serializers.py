@@ -75,7 +75,7 @@ class RadiotherapyVolumeSerializer(serializers.ModelSerializer):
 
 class RadiotherapyCourseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RadiotherapyCourse
+        model = Radiotherapy
         exclude = ['created_at', 'updated_at']
 
 class OtherTreatmentSerializer(serializers.ModelSerializer):
@@ -86,7 +86,7 @@ class OtherTreatmentSerializer(serializers.ModelSerializer):
 
 class SomaticGenomicAlterationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SomaticGenomicAlteration
+        model = SomaticGenomicAlterations
         exclude = ['created_at', 'updated_at']
 
 
