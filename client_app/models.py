@@ -92,7 +92,7 @@ class LookupUniProt(models.Model):
     code = models.CharField(max_length=50,primary_key=True)
     gene_name = models.CharField(max_length=500,null=True)
     uniport_id = models.CharField(max_length=500,null=True)
-    protein_name = models.CharField(max_length=500,null=True)
+    protein_name = models.CharField(max_length=3500,null=True)
     all_gene_names = models.CharField(max_length=500,null=True)
 
 
