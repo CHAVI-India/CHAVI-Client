@@ -12,6 +12,11 @@ from django.utils import timezone
 import shutil
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from django.http import HttpResponse
+from .api.serializers import PatientSerializer
+import json
+from django.contrib import messages
+from django.core.paginator import Paginator
 
 
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
@@ -143,6 +148,57 @@ def process_dicom(modeladmin, request, queryset):
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
             continue
 
+
+@admin.action(description = "Export all Patient Data as a JSON object")
+
+def export_patient_data(self, request, queryset):
+    """
+    Custom admin action to export complete patient data including all related models
+    """
+    try:
+        # Check if the queryset is too large
+        if queryset.count() > 100:  # Adjust this threshold as needed
+            messages.warning(
+                request,
+                "Exporting large number of patients. This might take a while."
+            )
+
+        # Process in chunks for large datasets
+        paginator = Paginator(queryset, 20)  # Process 20 patients at a time
+        all_data = []
+
+        for page_number in paginator.page_range:
+            page = paginator.page(page_number)
+            # Serialize each chunk
+            serializer = PatientSerializer(page.object_list, many=True)
+            all_data.extend(serializer.data)
+
+        # Convert to JSON with nice formatting
+        json_data = json.dumps(all_data, indent=2)
+        
+        # Create the HTTP response with JSON file
+        response = HttpResponse(json_data, content_type='application/json')
+        
+        # If single patient, use their ID in filename, otherwise use count
+        if queryset.count() == 1:
+            filename = f"patient_{queryset.first().patient_id}_complete_data.json"
+        else:
+            filename = f"patients_{queryset.count()}_complete_data.json"
+        
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Add success message
+        messages.success(
+            request, 
+            f"Successfully exported complete data for {queryset.count()} patient(s)"
+        )
+        
+        return response
+
+    except Exception as e:
+        messages.error(request, f"Error exporting patient data: {str(e)}")
+        return None
+
 #region inlinetables for many to many relations
 
 #endregion
@@ -233,6 +289,7 @@ class PatientAdmin (ImportExportModelAdmin):
     #inlines = [PatientProjectInline]
     list_filter = ['gender','chavi_consent','created_at']
     search_fields =[ 'patient_id']
+    actions = [export_patient_data]
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
     filter_horizontal = ['patient_project']
     resource_classes = [PatientResource]
@@ -283,8 +340,8 @@ class DiagnosisAdmin (ImportExportModelAdmin):
     search_fields = ['patient']
     autocomplete_fields = ['patient','diagnosis','cancer_site']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
-    list_filter = ['diagnosis__label','diagnostic_modality','cancer_site__label','cancer_side__label']
-    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site__label','cancer_side__label']
+    list_filter = ['diagnostic_modality']
+    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
         ('Diagnosis',{
             'fields': ['patient','diagnosis',('diagnosis_date','diagnostic_modality')]
@@ -375,7 +432,7 @@ class LesionAdmin (admin.ModelAdmin):
     filter_horizontal = ['lesion_dicom_study']
     fieldsets = (
         ('Lesion', {
-            'fields' : [('diagnosis','date_lesion_assessed'),('lesion_site','lesion_laterality')]
+            'fields' : [('diagnosis','date_lesion_assessed'),('lesion_site','lesion_laterality','lesion_type')]
         }),
         ('Dimensions', {
             'fields' : [('lesion_size_x_axis', 'lesion_size_y_axis', 'lesion_size_z_axis','lesion_size_unit'), ('lesion_volume','lesion_volume_unit')]
@@ -402,7 +459,7 @@ class RadiotherapyAdmin (admin.ModelAdmin):
     filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
-            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side')]
+            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side','radiotherapy_sequence')]
         }),
         ('Description',{
             'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('total_fractions','fractions_per_day')]

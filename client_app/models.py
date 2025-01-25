@@ -451,7 +451,7 @@ class Diagnosis(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient.patient_id} - {self.diagnosis__label} - {self.diagnosis_date}"
+        return f"{self.patient.patient_id} - {self.diagnosis_date}"
 
     class Meta:
         verbose_name_plural="Diagnoses"
@@ -1022,7 +1022,7 @@ class Radiotherapy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.radiotherapy.chavi_radiotherapy_id}"
+        return f"{self.chavi_radiotherapy_id}"
     class Meta:
         verbose_name = "Radiotherapy Course"
         verbose_name_plural="Radiotherapy Courses"
@@ -1552,7 +1552,7 @@ class PatientOutcome(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.patient.patient_id} - {self.patient_outcome.chavi_pt_outcome_id}"
+        return f"{self.patient.patient_id} - {self.chavi_pt_outcome_id}"
 
     class Meta:
         verbose_name_plural="Patient Outcomes"
@@ -1584,7 +1584,7 @@ class Comorbidity(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.patient.patient_id} - {self.comorbidity_type.chavi_comorbidity_id}"
+        return f"{self.patient.patient_id} - {self.comorbidity_type}"
 
     class Meta:
         verbose_name_plural="Comorbidities"
