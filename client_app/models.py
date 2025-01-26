@@ -1,13 +1,19 @@
 from django.db import models
 from django.db.models.functions import Substr, Concat
 from solo.models import SingletonModel
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 import uuid
+from decimal import Decimal
 # Center Model configuration - singleton model using Solo
+# Validators
+percentage_validator = [MinValueValidator(0), MaxValueValidator(100)]
+positive_decimal_validator = [MinValueValidator(0)]
+allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
 
+# Site Configuration Model
 class SiteConfiguration(SingletonModel):
     '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
-    chavi_center_id = models.CharField(max_length=255,default="Site ID. This will be provided to you at the time of installation.")
+    chavi_center_id = models.CharField(max_length=255,default="Site ID. This will be provided to you at the time of installation.",primary_key=True)
     center_name = models.CharField(max_length=255, default="Your Hospital")
     center_address = models.TextField(
         null=True,
@@ -55,7 +61,7 @@ class LookupLaterality(LookupAbstract):
 
 class LookupICDCode(LookupAbstract):
     '''This is a lookup table with ICD 11 codes for the diagnosis.'''
-    icd_version = models.DecimalField(max_digits=5, decimal_places=2)
+    icd_version = models.DecimalField(max_digits=5, decimal_places=2, validators=positive_decimal_validator)
 
     def __str__(self):
         return f"{self.code} - {self.label}"
@@ -97,7 +103,7 @@ class LookupUniProt(models.Model):
 
 
     def __str__(self):
-        return f'{self.gene_name}-{self.protein_name}'
+        return f'{self.gene_name}'
 
 class LookupCosmic(models.Model):
     '''This is a lookup table from the Cosmic Database for Gene Names.'''
@@ -146,7 +152,7 @@ class LookupCTCAEGrade(models.Model):
     code = models.CharField(max_length=50,primary_key=True)
     ctcae_term = models.CharField(max_length=255)
     meddra_code = models.CharField(max_length=255)
-    ctcae_grade = models.BigIntegerField()
+    ctcae_grade = models.PositiveIntegerField()
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -230,9 +236,122 @@ class LookupRadiotherapyVolumeType(LookupAbstract):
 
     class Meta:
         verbose_name_plural = "Radiotherapy Volume Types"
-        db_table = 'lookup_radiotherapy_volume_type'
 
 
+class LookupPathology(LookupAbstract):
+    ''' This is a lookup table for the pathology.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Pathology"
+
+class LookupGrade(LookupAbstract):
+    ''' This is a lookup table for the grade of the pathology.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Grade"
+
+class LookupPathologyDescriptors(LookupAbstract):
+    ''' This is a lookup table for the descriptors of the pathology terms.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Pathology Descriptors"
+
+class LookupMajorCancerCategory(LookupAbstract):
+    ''' This is a lookup table for the major cancer category.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Major Cancer Category"
+
+
+class LookupRadiotherapyModality(LookupAbstract):
+    ''' This is a lookup table for the radiotherapy modality.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Radiotherapy Modality"
+
+class LookupRadiotherapyType(LookupAbstract):
+    ''' This is a lookup table for the radiotherapy type.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Radiotherapy Type" 
+
+class LookupRadiotherapyTechnique(LookupAbstract):
+    ''' This is a lookup table for the radiotherapy technique.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Radiotherapy Techniques"
+
+
+class LookupClinicalSignificance(LookupAbstract):
+    ''' This is a lookup table for the clinical significance.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Clinical Significance"
+
+class LookupIHCResult(LookupAbstract):
+    ''' This is a lookup table for the IHC result.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "IHC Results"
+
+class LookupIHCStainingIntensity(LookupAbstract):
+    ''' This is a lookup table for the IHC staining intensity.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "IHC Staining Intensities"
+class LookupMarginStatus(LookupAbstract):
+    ''' This is a lookup table for the margin status.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Margin Status"
+
+class LookupTreatmentEffect(LookupAbstract):
+    ''' This is a lookup table for the treatment effect.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Treatment Effect"
+
+class LookupStagingType(LookupAbstract):
+    ''' This is a lookup table for the staging type.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Staging Type"
+
+class LookupSystemicTherapyRegimen(LookupAbstract):
+    ''' This is a lookup table for the systemic therapy regimen.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Systemic Therapy Regimen"
+
+# Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
 class Project(models.Model):
@@ -240,6 +359,7 @@ class Project(models.Model):
     chavi_project_id = models.CharField(
         max_length=255,
         unique=True,
+        primary_key=True,
         help_text="A unique identifier for the project."
     )
     center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True, default=1, related_name="project_center")
@@ -433,6 +553,8 @@ class Diagnosis(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Select the patient")
     chavi_diagnosis_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    cancer_system = models.ForeignKey(LookupMajorCancerCategory, on_delete=models.PROTECT,related_name='diagnosis_major_cancer_category',
+                                              help_text="Select the major cancer category")
     diagnosis = models.ForeignKey('LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
     help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
     diagnosis_date = models.DateField(null=True, blank=True,
@@ -451,7 +573,7 @@ class Diagnosis(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient.patient_id} - {self.diagnosis_date}"
+        return f"{self.patient.patient_id} - {self.cancer_system} - {self.presentation_type}"
 
     class Meta:
         verbose_name_plural="Diagnoses"
@@ -510,6 +632,7 @@ class Lesion(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The width (x-axis measurement) of the lesion in the specified unit of measurement"
     )
     lesion_size_y_axis = models.DecimalField(
@@ -517,6 +640,7 @@ class Lesion(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The length (y-axis measurement) of the lesion in the specified unit of measurement"
     )
     lesion_size_z_axis = models.DecimalField(
@@ -524,6 +648,7 @@ class Lesion(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The depth (z-axis measurement) of the lesion in the specified unit of measurement"
     )
     lesion_size_unit = models.ForeignKey(
@@ -539,6 +664,7 @@ class Lesion(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
     )
     lesion_volume_unit = models.ForeignKey(
@@ -584,6 +710,7 @@ class LesionResponse(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The width (left to right measurement) of any remaining lesion after treatment"
     )
     residual_lesion_size_y_axis = models.DecimalField(
@@ -591,6 +718,7 @@ class LesionResponse(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The length (front to back measurement) of any remaining lesion after treatment"
     )
     residual_lesion_size_z_axis = models.DecimalField(
@@ -598,6 +726,7 @@ class LesionResponse(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The height (top to bottom measurement) of any remaining lesion after treatment"
     )
     residual_lesion_volume = models.DecimalField(
@@ -605,6 +734,7 @@ class LesionResponse(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The total volume (size in three dimensions) of any remaining lesion after treatment"
     )
     lesion_response_dicom_study = models.ManyToManyField(
@@ -644,43 +774,38 @@ class Pathology(models.Model):
     )
     tumor_site = models.ForeignKey(
         LookupFMACode, 
+        related_name='pathology_tumor_site',
         on_delete=models.CASCADE,
         help_text="The anatomical location of the tumor as defined by the Foundational Model of Anatomy (FMA)"
     )
     tumor_side = models.ForeignKey(
         LookupLaterality, 
+        related_name='pathology_tumor_side',
         on_delete=models.CASCADE,
         help_text="The side of the body where the tumor is located (e.g., 'Left', 'Right', 'Bilateral')"
     )
-    histological_type = models.CharField(
-        max_length=500,
+    histological_type = models.ForeignKey( 
+        'LookupPathology',
+        related_name='pathology_histological_type',
+        on_delete=models.PROTECT,
         null=True, 
         blank=True,
         help_text="The primary histological classification of the tumor (e.g., 'Adenocarcinoma', 'Squamous Cell Carcinoma')"
     )
-    histological_subtype = models.CharField(
-        max_length=500,
-        null=True, 
-        blank=True,
-        help_text="A more specific classification within the histological type (e.g., 'Mucinous', 'Papillary')"
-    )
-    histological_grade = models.CharField(
-        max_length=50,
+    histological_grade = models.ForeignKey(
+        'LookupGrade',
+        related_name='pathology_histological_grade',
+        on_delete=models.PROTECT,
         null=True, 
         blank=True,
         help_text="The degree of differentiation of the tumor cells (e.g., 'Grade 1', 'Grade 2', 'Grade 3')"
-    )
-    histological_grading_schema = models.CharField(
-        max_length=255,
-        null=True, 
-        blank=True,
-        help_text="The system used to determine the histological grade (e.g., 'Nottingham', 'Gleason', 'WHO')"
     )
     greatest_dimension_of_tumor = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The primary dimension of the tumor measured in centimeters"
     )
     additional_tumor_dimension_1 = models.DecimalField(
@@ -688,6 +813,7 @@ class Pathology(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The second dimension of the tumor measured in centimeters"
     )
     additional_tumor_dimension_2 = models.DecimalField(
@@ -695,7 +821,16 @@ class Pathology(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="The third dimension of the tumor measured in centimeters"
+    )
+    tumor_dimesion_unit = models.ForeignKey(
+        'LookupUnits',
+        on_delete=models.PROTECT,
+        related_name='pathology_tumor_dimesion_unit',
+        null=True, 
+        blank=True,
+        help_text="The unit of measurement for the tumor dimension"
     )
     tumor_focality = models.CharField(
         max_length=50,
@@ -703,50 +838,121 @@ class Pathology(models.Model):
         blank=True,
         help_text="Whether the tumor is unifocal (single focus) or multifocal (multiple foci)"
     )
-    lymphatic_vascular_invasion = models.CharField(
-        max_length=255,
-        null=True, 
+    lymphatic_vascular_invasion = models.ForeignKey(
+        'LookupPathologyDescriptors',
+        related_name='pathology_lymphatic_vascular_invasion',
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Presence or absence of tumor cells within lymphatic or blood vessels"
+        help_text="Presence or absence of perineural invasion"
     )
-    perineural_invasion = models.CharField(
-        max_length=255,
-        null=True, 
+    perineural_invasion = models.ForeignKey(
+        'LookupPathologyDescriptors',
+        related_name='pathology_perineural_invasion',
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Presence or absence of tumor cells invading nerve tissue"
+        help_text="Presence or absence of perineural invasion"
     )
-    dermal_lymphatic_vascular_invasion = models.CharField(
-        max_length=255,
-        null=True, 
+    dermal_lymphatic_vascular_invasion = models.ForeignKey(
+        'LookupPathologyDescriptors',
+        related_name='pathology_dermal_lymphatic_vascular_invasion',
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Presence or absence of tumor cells within dermal lymphatic vessels"
+        help_text="Presence or absence of perineural invasion"
+    )
+    necrosis = models.ForeignKey(
+        'LookupPathologyDescriptors',
+        related_name='pathology_necrosis',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Presence or absence of necrosis"
+    )
+    necrosis_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        default=Decimal(0),
+        validators=percentage_validator,
+        blank=True,
+        help_text="Percentage of necrosis in the specimen"
+    )
+    mitotic_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=positive_decimal_validator,
+        help_text="Number of mitoses per 10 high power field or 2 square mm"
+    )
+    margin_status = models.ForeignKey(
+        'LookupMarginStatus',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='pathology_margin_status',
+        help_text="Select the margin status of the specimen"
+    )
+    closest_margin_distance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=positive_decimal_validator,
+        help_text="Distance to the closest margin of the specimen."
+    )
+    closest_margin_distance_unit = models.ForeignKey(
+        'LookupUnits',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='pathology_closest_margin_distance_unit',
+        help_text="Unit of measurement for the closest margin distance"
+    )
+    treatment_effect = models.ForeignKey(
+        'LookupTreatmentEffect',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the treatment effect of the specimen",
+        related_name='pathology_treatment_effect'
+    )
+    primary_gleason_grade = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Enter the primary Gleason grade of the specimen"
+    )
+    secondary_gleason_grade = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Enter the secondary Gleason grade of the specimen"
     )
     lymph_nodes_removed = models.BooleanField(
         null=True, 
         blank=True,
         help_text="Whether lymph nodes were removed in the specimen"
     )
-    lymph_nodes_in_specimen = models.BigIntegerField(
+    lymph_nodes_in_specimen = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Total number of lymph nodes found in the specimen"
     )
-    number_of_uninvolved_nodes = models.BigIntegerField(
+    number_of_uninvolved_nodes = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes without any tumor involvement"
     )
-    number_of_nodes_with_macrometastases = models.BigIntegerField(
+    number_of_nodes_with_macrometastases = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with visible tumor deposits"
     )
-    number_of_nodes_with_micrometastases = models.BigIntegerField(
+    number_of_nodes_with_micrometastases = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with microscopic tumor deposits (0.2-2.0mm)"
     )
-    number_of_nodes_with_isolated_tumor_cells = models.BigIntegerField(
+    number_of_nodes_with_isolated_tumor_cells = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Number of lymph nodes with isolated tumor cells (<0.2mm)"
@@ -755,7 +961,7 @@ class Pathology(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.pathology.patient.patient_id} - {self.pathology.histological_type}"
+        return f"{self.diagnosis.patient.patient_id} - {self.histological_type}"
 
     class Meta:
         verbose_name_plural = "Pathology"
@@ -780,17 +986,58 @@ class Immunohistochemistry(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the protein that was tested for in this immunohistochemistry test"
     )
-    ihc_result = models.CharField(
-        max_length=255,
+    ihc_result = models.ForeignKey(
+        'LookupIHCResult',
+        on_delete=models.PROTECT,
+        related_name='ihc_result',
         null=True, 
         blank=True,
-        help_text="Enter the result of the immunohistochemistry test (e.g., 'Positive', 'Negative', or specific values like '3+')"
+        help_text="Select the result of the IHC staning Test overall"
     )
+    percentage_positive_tumor_cells = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=percentage_validator,
+        help_text="Enter the percentage of positive cells for IHC staining"
+    )
+    percentage_positive_immune_cells = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=percentage_validator,
+        help_text="Enter the percentage of positive immune cells for IHC staining"
+    )
+    tumor_cell_staining_intensity = models.ForeignKey(
+        'LookupIHCStainingIntensity',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the staining intensity of the cells for IHC staining"
+    )
+    allred_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Enter the Allred score for IHC staining"
+    )
+    cps_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of Tumor and Immune Cells with Staining per 100 Tumor Cells (CPS)")
+    tps_score = models.DecimalField(
+        null=True,
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        validators=percentage_validator,
+        help_text="Enter the TPS score for IHC staining in %")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.immunohistochemistry.chavi_ihc_id}"
+        return f"{self.chavi_ihc_id}"
 
     class Meta:
         verbose_name_plural="Immunohistochemistries"
@@ -815,17 +1062,19 @@ class Cytogenetics(models.Model):
         on_delete=models.PROTECT,
         help_text="Select the gene that was tested for in this cytogenetics test"
     )
-    cytogenetic_result = models.CharField(
-        max_length=255,
-        null=True, 
+    cytogenetic_result = models.ForeignKey(
+        'LookupIHCResult',
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Enter the result of the cytogenetics test (e.g., 'Normal', 'Abnormal', or specific findings)"
+        related_name='cytogenetics_result',
+        help_text="Select the result of the cytogenetics test"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.cytogenetics.chavi_cytogenetics_id}"
+        return f"{self.chavi_cytogenetics_id}"
     
     class Meta:
         verbose_name_plural="Cytogenetics"
@@ -872,24 +1121,28 @@ class SomaticGenomicAlterations(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the variant allele frequency as a decimal (e.g., 0.45 for 45%)"
     )
     read_depth = models.IntegerField(
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the sequencing read depth at this position (e.g., 500)"
     )
-    clinical_significance = models.CharField(
-        max_length=50,
-        null=True, 
+    clinical_significance = models.ForeignKey(
+        LookupClinicalSignificance,
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Indicate the clinical significance of the variant (e.g., 'Pathogenic', 'Benign', 'VUS')"
+        related_name="clinical_significance",
+        help_text="Select the clinical significance of the variant"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.somatic_genomic_alterations.chavi_somatic_genomic_id}"
+        return f"{self.chavi_somatic_genomic_id}"
     
     class Meta:
         verbose_name_plural="Somatic Genomic Alterations"
@@ -924,7 +1177,7 @@ class OtherTreatment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.treatment.chavi_treatment_id}"
+        return f"{self.chavi_treatment_id}"
     class Meta:
         verbose_name = "Other Treatment"
         verbose_name_plural="Other Treatments"
@@ -938,20 +1191,23 @@ class Radiotherapy(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the diagnosis that this treatment is associated with"
     )    
-    radiotherapy_modality = models.CharField(
-        max_length=255,
-        null=True, 
+    radiotherapy_modality = models.ForeignKey(
+        LookupRadiotherapyModality,
+        on_delete=models.PROTECT,
+        help_text="Select the modality of the radiotherapy",
+        null=True,
         blank=True,
-        help_text="Enter the type of radiation used (e.g., 'External Beam', 'Brachytherapy', 'Proton Therapy')"
+        related_name="radiotherapy_modality"
     )
     total_dose = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the total radiation dose delivered during the entire course of treatment (in Gray or specified units)"
     )
-    total_fractions = models.BigIntegerField(
+    total_fractions = models.PositiveIntegerField(
         null=True, 
         blank=True,
         help_text="Enter the total number of treatment sessions (fractions) planned for the complete course of radiotherapy"
@@ -964,24 +1220,29 @@ class Radiotherapy(models.Model):
         blank=True,
         help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
     )
-    radiotherapy_type = models.CharField(
-        max_length=255,
-        null=True, 
+    radiotherapy_type = models.ForeignKey(
+        'LookupRadiotherapyType',
+        related_name="radiotherapy_type",
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Enter the type of radiotherapy treatment (e.g., 'Definitive', 'Palliative', 'Adjuvant')"
+        help_text="Select the type of radiotherapy treatment"
     )
     radiotherapy_sequence = models.ForeignKey(
         'LookupTreatmentSequence', 
         on_delete=models.PROTECT,
+        related_name="radiotherapy_sequence",
         help_text="Select the sequence of this radiotherapy in relation to other treatments (e.g., 'Primary', 'Boost', 'Concurrent')"
     )
-    radiotherapy_technique = models.CharField(
-        max_length=255,
-        null=True, 
+    radiotherapy_technique = models.ForeignKey(
+        'LookupRadiotherapyTechnique',
+        related_name="radiotherapy_technique",
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Enter the specific technique used to deliver the radiation (e.g., 'IMRT', '3D-CRT', 'VMAT')"
+        help_text="Select the technique used to deliver the radiation"
     )
-    fractions_per_day = models.BigIntegerField(
+    fractions_per_day = models.PositiveIntegerField(
         null=True, 
         blank=True,
         default = 1,
@@ -1059,6 +1320,7 @@ class RadiotherapyVolume(models.Model):
         decimal_places=2,           
         null=True,
         blank= True,
+        validators=positive_decimal_validator,
         help_text="Enter the prescribed dose for this volume in Gray (Gy)",
     )
     radiation_dose_units = models.ForeignKey(
@@ -1121,14 +1383,16 @@ class RadiotherapyDoseVolumeData(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the absolute volume in cubic centimeters (cc)"
     )
     relative_volume = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,      
-        blank=True,     
-        help_text="Enter the relative volume as a percentage (%)"
+        blank=True,  
+        validators=percentage_validator,   
+        help_text="Enter the relative volume as a percentage (%). Enter a value between 0 and 100."
     )
     volume_units = models.ForeignKey(
         LookupUnits,
@@ -1143,6 +1407,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the absolute dose in Gray (Gy) or cGy"
     )
     relative_dose = models.DecimalField(
@@ -1150,13 +1415,15 @@ class RadiotherapyDoseVolumeData(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Enter the relative dose as a percentage (%)"
+        validators=percentage_validator,
+        help_text="Enter the relative dose as a percentage (%). Enter a value between 0 and 100."
     )
     volume_dose_prescribed = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the dose prescribed to this volume in Gray (Gy) or cGy"
     )
     radiation_dose_units = models.ForeignKey(
@@ -1256,7 +1523,8 @@ class ConcomitantMedications(models.Model):
     )
     medication_dose = models.DecimalField(
         max_digits=10, 
-        decimal_places=2, 
+        decimal_places=2,
+        validators=positive_decimal_validator, 
         null=True, 
         blank=True,
         help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
@@ -1286,7 +1554,7 @@ class ConcomitantMedications(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.concomitant_medications.chavi_medication_id}"
+        return f"{self.chavi_medication_id}"
     class Meta:
         verbose_name_plural="ConcomitantMedications"
         db_table="concomitant_medications"
@@ -1302,9 +1570,10 @@ class SystemicTherapy(models.Model):
     )    
     systemic_therapy_type = models.ForeignKey(LookupSystemicTherapyType, on_delete=models.PROTECT,null=True, blank=True,
     help_text = "Select the type of systemic therapy.")
-    systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT,
+    systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT,null=True, blank=True,
     help_text="Select the sequence for the systemic therapy")
-    systemic_therapy_regimen = models.CharField(max_length=255, null=True, blank=True,help_text="Please enter the name of the systemic therapy regimen if there is a multi-drug or named regimen being used.")
+    systemic_therapy_regimen = models.ForeignKey(LookupSystemicTherapyRegimen, on_delete=models.PROTECT,null=True, blank=True,related_name='systemic_therapy_regimen',
+                                                 help_text="Select the regimen for the systemic therapy")
     systemic_therapy_start_date = models.DateField(
         null=True, 
         blank=True,
@@ -1315,7 +1584,7 @@ class SystemicTherapy(models.Model):
         blank=True,
         help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
     )    
-    cycles_delivered = models.BigIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
+    cycles_delivered = models.PositiveIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
     systemic_therapy_dicom_study = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'systemic_therapy_dicom_studies',
@@ -1339,11 +1608,17 @@ class SystemicTherapySchedule(models.Model):
     systemic_therapy = models.ForeignKey(
         'SystemicTherapy', 
         on_delete=models.CASCADE,
+        related_name='systemic_therapy_schedule',
+        null=True,
+        blank=True,
         help_text="Select the systemic therapy treatment this schedule is associated with"
     )
     systemic_therapy_agent_route = models.ForeignKey(
         'LookupDrugRoute', 
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='systemic_therapy_agent_route',
         help_text="Select how the medication was administered (e.g., oral, intravenous, subcutaneous)"
     )
     systemic_therapy_agent_start_date = models.DateField(
@@ -1357,8 +1632,11 @@ class SystemicTherapySchedule(models.Model):
         help_text="Enter the date when this specific medication was stopped (format: YYYY-MM-DD)."
     )
     systemic_therapy_agent = models.ForeignKey(
-        'LookupSystemicAgent', 
+        LookupSystemicAgent, 
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='systemic_therapy_agent',
         help_text="Select the specific medication or agent used in this treatment"
     )
     systemic_therapy_dose_planned = models.DecimalField(
@@ -1366,6 +1644,7 @@ class SystemicTherapySchedule(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the planned dose for this medication (numerical value only)"
     )
     systemic_therapy_dose_administered = models.DecimalField(
@@ -1373,6 +1652,7 @@ class SystemicTherapySchedule(models.Model):
         decimal_places=2, 
         null=True, 
         blank=True,
+        validators=positive_decimal_validator,
         help_text="Enter the actual dose of medication that was administered (numerical value only)"
     )
     systemic_therapy_dose_units = models.ForeignKey(
@@ -1408,15 +1688,6 @@ class AdverseEffects(models.Model):
         null=True, 
         blank=True,
         help_text="Select the standardized CTCAE grade for this adverse effect"
-    )
-    adverse_effect_type = models.CharField(
-        max_length=255,
-        help_text="Enter the type or name of the adverse effect"
-    )
-    adverse_effect_grade = models.PositiveIntegerField(
-        null = True,
-        blank = True,
-        help_text="Enter the severity grade of the adverse effect (typically 1-5, where 5 is most severe)"
     )
     adverse_effect_start_date = models.DateField(
         null=True, 
@@ -1601,13 +1872,18 @@ class StageInformation(models.Model):
     staging_system = models.ForeignKey(
         'LookupStagingSystem', 
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='staging_system',
         help_text="Select the staging system used (e.g., 'TNM 8th Edition', 'FIGO')"
     )
-    stage_type = models.CharField(
-        max_length=255, 
-        null=True, 
+    stage_type = models.ForeignKey(
+        'LookupStagingType',
+        on_delete=models.PROTECT,
+        null=True,
         blank=True,
-        help_text="Enter the type of staging (e.g., 'Clinical', 'Pathological', 'Post-therapy')"
+        related_name='stage_type',
+        help_text="Select the type of staging information"
     )
     t_stage_prefix = models.ForeignKey(
         'LookupAJCCStagePrefix',

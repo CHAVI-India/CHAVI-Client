@@ -174,6 +174,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Patient
+        ordering = ['patient_id']
         exclude = ['created_at', 'updated_at']
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -181,4 +182,5 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
+        ordering = ['project_id']
         exclude = ['created_at', 'updated_at']

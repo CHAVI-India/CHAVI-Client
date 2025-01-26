@@ -344,7 +344,7 @@ class DiagnosisAdmin (ImportExportModelAdmin):
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
         ('Diagnosis',{
-            'fields': ['patient','diagnosis',('diagnosis_date','diagnostic_modality')]
+            'fields': ['patient','cancer_system','diagnosis',('diagnosis_date','diagnostic_modality')]
         }),
         ('Presentation',{
             "fields": [('presentation_type','cancer_site','cancer_side')]
@@ -373,10 +373,10 @@ class PathologyAdmin (ImportExportModelAdmin):
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
-            'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),'tumor_focality']
+            'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit'),'tumor_focality']
         }),
         ('Histology',{
-            'fields': [('histological_type','histological_subtype'),('histological_grade','histological_grading_schema'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion')]
+            'fields': [('histological_type','histological_grade'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count','mitotic_count_unit'),('margin_status','closest_margin_distance','closest_margin_distance_unit'),('treatment_effect'),('primary_gleason_grade','secondary_gleason_grade')]
         }),
         ('Nodes',{
             'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
@@ -544,13 +544,13 @@ class LookupCTCAEGradeAdmin (admin.ModelAdmin):
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (admin.ModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
-    list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup', 'adverse_effect_grade']
+    list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
     fieldsets = (
         ('Adverse Effects',{
             'fields':['diagnosis',('adverse_effect_start_date','adverse_effect_end_date')]
         }),
         ('Description',{
-            'fields':[('ctcae_grade_lookup','adverse_effect_type','adverse_effect_grade')]
+            'fields':[('ctcae_grade_lookup')]
         }),
     )
 
