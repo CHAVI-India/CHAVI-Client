@@ -6,8 +6,8 @@ import uuid
 from decimal import Decimal
 # Center Model configuration - singleton model using Solo
 # Validators
-percentage_validator = [MinValueValidator(0), MaxValueValidator(100)]
-positive_decimal_validator = [MinValueValidator(0)]
+percentage_validator = [MinValueValidator(0.0), MaxValueValidator(100.0)]
+positive_decimal_validator = [MinValueValidator(0.0)]
 allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
 
 # Site Configuration Model
@@ -1594,7 +1594,7 @@ class SystemicTherapy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.systemic_therapy.chavi_systemic_therapy_id}"
+        return f"{self.chavi_systemic_therapy_id}"
 
     class Meta:
         verbose_name= "Systemic Therapy Course"
@@ -1667,7 +1667,7 @@ class SystemicTherapySchedule(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.systemic_therapy_schedule.chavi_systemic_therapy_schedule_id}"
+        return f"{self.chavi_systemic_therapy_schedule_id}"
     class Meta:
         verbose_name="Medication Detail"
         verbose_name_plural="Medication Details"
@@ -1796,7 +1796,7 @@ class PatientReportedOutcome(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.patient.patient_id} - {self.patient_reported_outcome.chavi_pro_id}"
+        return f"{self.patient.patient_id} - {self.chavi_pro_id}"
 
     class Meta:
         verbose_name_plural="Patient Reported Outcomes"

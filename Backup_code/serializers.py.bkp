@@ -114,11 +114,11 @@ class LesionResponseSerializer(serializers.ModelSerializer):
         model = LesionResponse
         exclude = ['created_at', 'updated_at', 'chavi_lesion_response_id']
 
+
 class LesionSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     diagnosis = serializers.SerializerMethodField()
     lesion_dicom_study = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-    responses = LesionResponseSerializer(source='lesionresponse_set', many=True)
 
     def get_id(self, obj):
         return hash_id(obj.chavi_lesion_id)
@@ -172,6 +172,8 @@ class SomaticGenomicAlterationsSerializer(serializers.ModelSerializer):
         model = SomaticGenomicAlterations
         exclude = ['created_at', 'updated_at', 'chavi_somatic_genomic_id']
 
+
+
 class PathologySerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     diagnosis = serializers.SerializerMethodField()
@@ -202,6 +204,7 @@ class StageInformationSerializer(serializers.ModelSerializer):
     class Meta:
         model = StageInformation
         exclude = ['created_at', 'updated_at', 'chavi_stage_information_id']
+
 
 class OtherTreatmentSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
@@ -257,7 +260,7 @@ class ProInstrumentSerializer(serializers.ModelSerializer):
 
 class ProDomainSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    instrument = ProInstrumentSerializer(source='proinstrument_set',many=True,read_only=True)
+    instrument = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return hash_id(obj.chavi_prodomain_id)
@@ -267,10 +270,11 @@ class ProDomainSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProDomain
-        exclude = ['created_at', 'updated_at', 'chavi_prodomain_id']        
+        exclude = ['created_at', 'updated_at', 'chavi_prodomain_id']
+
 class ProQuestionSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    domain = ProDomainSerializer(source='prodomain_set',many=True,read_only=True)
+    domain = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return hash_id(obj.chavi_pro_question_id)
@@ -282,19 +286,18 @@ class ProQuestionSerializer(serializers.ModelSerializer):
         model = ProQuestion
         exclude = ['created_at', 'updated_at', 'chavi_pro_question_id']
 
-
-
-
-
 class PatientReportedOutcomeSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    patient = serializers.PrimaryKeyRelatedField(read_only=True)
-    instrument = ProInstrumentSerializer(source='proinstrument_set',many=True,read_only=True)
-    domain = ProDomainSerializer(source='prodomain_set',many=True,read_only=True)
-    question = ProQuestionSerializer(source='proquestion_set',many=True,read_only=True)
+    patient = serializers.SerializerMethodField()
+    instrument = serializers.SerializerMethodField()
+    domain = serializers.SerializerMethodField()
+    question = serializers.SerializerMethodField()
 
     def get_id(self, obj):
         return hash_id(obj.chavi_pro_id)
+
+    def get_patient(self, obj):
+        return obj.patient.patient_id if obj.patient else None
 
     def get_instrument(self, obj):
         return hash_id(obj.instrument.chavi_pro_instrument_id) if obj.instrument else None
@@ -308,6 +311,8 @@ class PatientReportedOutcomeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientReportedOutcome
         exclude = ['created_at', 'updated_at', 'chavi_pro_id']
+
+
 
 class OutcomeSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
@@ -326,7 +331,7 @@ class OutcomeSerializer(serializers.ModelSerializer):
 
 class DiagnosisSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    patient = serializers.PrimaryKeyRelatedField(read_only=True)
+    patient = serializers.PrimaryKeyRelatedField(read_only=True)  # Keep patient ID unchanged
     diagnosis_dicom_study = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     stage_information = StageInformationSerializer(source='stageinformation_set', many=True)
     pathology = PathologySerializer(source='pathology_set', many=True)
@@ -335,9 +340,6 @@ class DiagnosisSerializer(serializers.ModelSerializer):
     systemic_therapies = SystemicTherapySerializer(source='systemictherapy_set', many=True)
     other_treatments = OtherTreatmentSerializer(source='othertreatment_set', many=True)
     concomitant_medications = ConcomitantMedicationsSerializer(source='concomitantmedications_set', many=True)
-    lesions = LesionSerializer(source='lesion_set', many=True)
-    outcomes = OutcomeSerializer(source='outcome_set', many=True)
-    adverse_effects = AdverseEffectsSerializer(source='adverseeffects_set', many=True)
 
     def get_id(self, obj):
         return hash_id(obj.chavi_diagnosis_id)
@@ -348,7 +350,7 @@ class DiagnosisSerializer(serializers.ModelSerializer):
 
 class ComorbiditySerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    patient = serializers.PrimaryKeyRelatedField(read_only=True)
+    patient = serializers.PrimaryKeyRelatedField(read_only=True)  # Keep patient ID unchanged
 
     def get_id(self, obj):
         return hash_id(obj.chavi_comorbidity_id)
@@ -357,9 +359,11 @@ class ComorbiditySerializer(serializers.ModelSerializer):
         model = Comorbidity
         exclude = ['created_at', 'updated_at', 'chavi_comorbidity_id']
 
+
+
 class PatientOutcomeSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    patient = serializers.PrimaryKeyRelatedField(read_only=True)
+    patient = serializers.PrimaryKeyRelatedField(read_only=True)  # Keep patient ID unchanged
 
     def get_id(self, obj):
         return hash_id(obj.chavi_pt_outcome_id)
@@ -372,9 +376,10 @@ class PatientSerializer(serializers.ModelSerializer):
     diagnoses = DiagnosisSerializer(source='diagnosis_set', many=True)
     comorbidities = ComorbiditySerializer(source='comorbidity_set', many=True)
     patient_outcomes = PatientOutcomeSerializer(source='patientoutcome_set', many=True)
-    patient_dicom_files = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    patient_dicom_files = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
+    adverse_effects = AdverseEffectsSerializer(source='adverseeffects_set', many=True)
     patient_reported_outcomes = PatientReportedOutcomeSerializer(source='patientreportedoutcome_set', many=True)
-    projects = serializers.PrimaryKeyRelatedField(source='patient_project', many=True, read_only=True)
+
 
     class Meta:
         model = Patient
@@ -382,9 +387,10 @@ class PatientSerializer(serializers.ModelSerializer):
         exclude = ['created_at', 'updated_at']
 
 class ProjectSerializer(serializers.ModelSerializer):
-    patients = PatientSerializer(source='patient_project', many=True, read_only=True)
+    patients = PatientSerializer(source='patient_project', many=True)
 
     class Meta:
         model = Project
         ordering = ['project_id']
         exclude = ['created_at', 'updated_at']
+
