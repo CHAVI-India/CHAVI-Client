@@ -376,7 +376,7 @@ class PathologyAdmin (ImportExportModelAdmin):
             'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit'),'tumor_focality']
         }),
         ('Histology',{
-            'fields': [('histological_type','histological_grade'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count','mitotic_count_unit'),('margin_status','closest_margin_distance','closest_margin_distance_unit'),('treatment_effect'),('primary_gleason_grade','secondary_gleason_grade')]
+            'fields': [('histological_type','histological_grade'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count'),('margin_status','closest_margin_distance','closest_margin_distance_unit'),('treatment_effect'),('primary_gleason_grade','secondary_gleason_grade')]
         }),
         ('Nodes',{
             'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
