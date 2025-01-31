@@ -1,5 +1,4 @@
 from django.contrib import admin
-from solo.admin import SingletonModelAdmin
 from .models import *
 from pathlib import Path
 import tempfile
@@ -304,8 +303,7 @@ class PatientAdmin (ImportExportModelAdmin):
             'fields': ['patient_project']
         }),
     )
-    readonly_fields = ('center',)
-
+    readonly_fields = ['center']
 @admin.register(PatientDicomFile)
 class PatientDicomFileAdmin (admin.ModelAdmin):
     search_fields =[ 'patient__patient_id']
@@ -623,15 +621,16 @@ class ProjectAdmin(admin.ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     fieldsets = (
         ('Project',{
-            'fields':[('chavi_project_id','project_name','project_abbreviation'),'description','license']
+            'fields':[('chavi_project_id','center','project_name','project_abbreviation'),'description','license']
         }),
         ('Dates',{
             'fields':[('start_date','completion_date'),('project_irb_approval','project_irb_approval_number')]
         }),
     )
+    readonly_fields = ['center']
 
 
 
 
 # Register your models here.
-admin.site.register(SiteConfiguration,SingletonModelAdmin)
+admin.site.register(SiteConfiguration)

@@ -1,6 +1,5 @@
 from django.db import models
 from django.db.models.functions import Substr, Concat
-from solo.models import SingletonModel
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 import uuid
 from decimal import Decimal
@@ -11,30 +10,15 @@ positive_decimal_validator = [MinValueValidator(0.0)]
 allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
 
 # Site Configuration Model
-class SiteConfiguration(SingletonModel):
+class SiteConfiguration(models.Model):
     '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
     chavi_center_id = models.CharField(max_length=255,default="Site ID. This will be provided to you at the time of installation.",primary_key=True)
     center_name = models.CharField(max_length=255, default="Your Hospital")
-    center_address = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The complete street address of the medical center. Should include building number, street name, and any additional address details like suite or floor number. Example: '1216 Second Street SW'. This field is optional."
-    )
-    center_city = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The city where the medical center is located. Should be written in full without abbreviations. Example: 'Rochester' or 'New York City'. This field is optional."
-    )
-    center_state = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The state or province where the medical center is located. For US locations, use the full state name or standard two-letter abbreviation. For international locations, use appropriate regional divisions. Example: 'Minnesota' or 'MN'. This field is optional."
-    )
-    center_country = models.TextField(
-        null=True,
-        blank=True,
-        help_text="The country where the medical center is located. Use the full country name, not abbreviations. Example: 'United States' or 'Canada'. This field is optional."
-    )
+
+    def save(self, *args, **kwargs):
+        if self.__class__.objects.count():
+            self.pk = self.__class__.objects.first().pk
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.center_name
@@ -354,6 +338,10 @@ class LookupSystemicTherapyRegimen(LookupAbstract):
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
+def get_default_site():
+    return SiteConfiguration.objects.first()
+
+
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected. Projects have a unique ID which is generated at the CHAVI server. However your institutional IRB approvals may be different for the projects. '''
     chavi_project_id = models.CharField(
@@ -362,7 +350,7 @@ class Project(models.Model):
         primary_key=True,
         help_text="A unique identifier for the project."
     )
-    center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True, default=1, related_name="project_center")
+    center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True,default=get_default_site, related_name="project_center")
     project_name = models.CharField(
         max_length=900,
         null=True, 
@@ -422,7 +410,7 @@ class Patient(models.Model):
     center = models.ForeignKey(SiteConfiguration, 
     on_delete=models.CASCADE, 
     null=True, blank=True,
-    default=1,
+    default=get_default_site,
     related_name="center")
     chavi_consent = models.BooleanField(
         null=True,
@@ -437,7 +425,7 @@ class Patient(models.Model):
     )
     patient_id = models.CharField(
         max_length=255, 
-        unique=True,
+        primary_key=True,
         help_text="This should be your institution's medical record number or another consistent identifier used by your center."
     )
     class Gender(models.TextChoices):
@@ -1504,7 +1492,7 @@ class Surgery(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.surgery.chavi_surgery_id}"
+        return f"{self.diagnosis.diagnosis_id}"
     class Meta:
         verbose_name_plural="Surgery"
         db_table="surgery"
@@ -1968,7 +1956,7 @@ class StageInformation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return self.chavi_stage_information_id
+        return self.diagnosis.diagnosis_id
 
     class Meta:
         verbose_name_plural="Stage Informations"

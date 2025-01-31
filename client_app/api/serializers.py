@@ -21,7 +21,7 @@ class RadiotherapyDoseVolumeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RadiotherapyDoseVolumeData
-        exclude = ['created_at', 'updated_at', 'radiotherapy_dose_volume_data_id']
+        exclude = ['created_at','radiotherapy_dose_volume_data_id']
 
 class RadiotherapyVolumeSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
