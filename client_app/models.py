@@ -12,8 +12,8 @@ allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
 # Site Configuration Model
 class SiteConfiguration(models.Model):
     '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
-    chavi_center_id = models.CharField(max_length=255,default="Site ID. This will be provided to you at the time of installation.",primary_key=True)
-    center_name = models.CharField(max_length=255, default="Your Hospital")
+    chavi_center_id = models.CharField(max_length=255,help_text="Site ID. This will be provided to you at the time of installation.",primary_key=True)
+    center_name = models.CharField(max_length=255, help_text="Your Hospital")
 
     def save(self, *args, **kwargs):
         if self.__class__.objects.count():
