@@ -117,13 +117,45 @@ class LookupSystemicAgent(LookupAbstract):
     def __str__(self):
         return f"{self.code} - {self.label}"
 
-class LookupUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database'''
+class LookupVolumeUnits(LookupAbstract):
+    '''This is a lookup table for units of measurement for use in the database for volume'''
 
     unit_abbreviation = models.CharField(max_length=255)
     
     def __str__(self):
         return self.unit_abbreviation
+    
+class LookupSizeUnits(LookupAbstract):
+    '''This is a lookup table for units of measurement for use in the database for size'''
+
+    unit_abbreviation = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.unit_abbreviation    
+    
+class LookupDoseUnits(LookupAbstract):
+    '''This is a lookup table for units of measurement for use in the database for dose'''
+
+    unit_abbreviation = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.unit_abbreviation    
+    
+class LookupLabResultsUnits(LookupAbstract):
+    '''This is a lookup table for units of measurement for use in the database for lab results'''
+
+    unit_abbreviation = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.unit_abbreviation    
+
+class LookupMassUnits(LookupAbstract):
+    '''This is a lookup table for units of measurement for use in the database for mass'''
+
+    unit_abbreviation = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.unit_abbreviation    
 
 class LookupDrugRoute(LookupAbstract):
     '''This is a lookup table for drug routes.'''
@@ -338,8 +370,11 @@ class LookupSystemicTherapyRegimen(LookupAbstract):
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
+# This function is used to get the default site configuration.
 def get_default_site():
     return SiteConfiguration.objects.first()
+
+# Define choices for units of measurement.
 
 
 class Project(models.Model):
@@ -640,7 +675,7 @@ class Lesion(models.Model):
         help_text="The depth (z-axis measurement) of the lesion in the specified unit of measurement"
     )
     lesion_size_unit = models.ForeignKey(
-        LookupUnits, 
+        LookupSizeUnits, 
         related_name='lesion_size_unit',
         on_delete=models.PROTECT, 
         null=True, 
@@ -656,7 +691,7 @@ class Lesion(models.Model):
         help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
     )
     lesion_volume_unit = models.ForeignKey(
-        LookupUnits, 
+        LookupVolumeUnits, 
         related_name='lesion_volume_unit',
         on_delete=models.PROTECT, 
         null=True, 
@@ -813,7 +848,7 @@ class Pathology(models.Model):
         help_text="The third dimension of the tumor measured in centimeters"
     )
     tumor_dimesion_unit = models.ForeignKey(
-        'LookupUnits',
+        LookupSizeUnits,
         on_delete=models.PROTECT,
         related_name='pathology_tumor_dimesion_unit',
         null=True, 
@@ -890,7 +925,7 @@ class Pathology(models.Model):
         help_text="Distance to the closest margin of the specimen."
     )
     closest_margin_distance_unit = models.ForeignKey(
-        'LookupUnits',
+        LookupSizeUnits,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1201,7 +1236,7 @@ class Radiotherapy(models.Model):
         help_text="Enter the total number of treatment sessions (fractions) planned for the complete course of radiotherapy"
     )
     radiation_dose_units = models.ForeignKey(
-        LookupUnits,
+        LookupDoseUnits,
         related_name= 'radiation_course_dose_units',
         on_delete = models.PROTECT,
         null=True, 
@@ -1312,7 +1347,7 @@ class RadiotherapyVolume(models.Model):
         help_text="Enter the prescribed dose for this volume in Gray (Gy)",
     )
     radiation_dose_units = models.ForeignKey(
-        'LookupUnits',
+        LookupDoseUnits,
         on_delete = models.PROTECT,
         related_name= 'radiotherapy_volume_dose_units',
         null=True, 
@@ -1383,7 +1418,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Enter the relative volume as a percentage (%). Enter a value between 0 and 100."
     )
     volume_units = models.ForeignKey(
-        LookupUnits,
+        LookupVolumeUnits,
         on_delete=models.PROTECT,
         null=True,
         related_name='volume_units',
@@ -1415,7 +1450,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Enter the dose prescribed to this volume in Gray (Gy) or cGy"
     )
     radiation_dose_units = models.ForeignKey(
-        LookupUnits,
+        LookupDoseUnits,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1518,7 +1553,7 @@ class ConcomitantMedications(models.Model):
         help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
     )
     medication_dose_units = models.ForeignKey(
-        LookupUnits,
+        LookupMassUnits,
         on_delete=models.PROTECT,
         related_name='medication_dose_units',
         null=True,
@@ -1644,7 +1679,7 @@ class SystemicTherapySchedule(models.Model):
         help_text="Enter the actual dose of medication that was administered (numerical value only)"
     )
     systemic_therapy_dose_units = models.ForeignKey(
-        'LookupUnits', 
+        LookupMassUnits, 
         on_delete=models.PROTECT,
         null=True,
         blank=True,
