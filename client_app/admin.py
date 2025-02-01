@@ -238,6 +238,11 @@ class LookupCosmicAdmin(admin.ModelAdmin):
     search_fields = ['gene_name']
     readonly_fields = ['code','gene_name','gene_description','gene_aliases']
 
+@admin.register(LookupPathology)
+class LookupPathologyAdmin(admin.ModelAdmin):
+    search_fields = ['label','code']
+    readonly_fields = ['code','label']
+
 class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
     autocomplete_fields =['protein_name']
@@ -263,7 +268,11 @@ class RadiotherapyVolumeInline(admin.StackedInline):
         ('Volume Description',{
             'fields': [('volume_name','volume_type'),('volume_dose_prescribed','radiation_dose_units','volume_fractions'),('volume_radiotherapy_start_date','volume_radiotherapy_end_date')]
         }),
+        ('Anatomical Locations',{
+            'fields': ['anatomical_locations']
+        }),
     )
+    filter_horizontal = ['anatomical_locations']
     tab=True
 
 class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
@@ -365,7 +374,7 @@ class PathologyResource(resources.ModelResource):
 @admin.register(Pathology)
 class PathologyAdmin (ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
-    autocomplete_fields = ['diagnosis','tumor_site']
+    autocomplete_fields = ['diagnosis','tumor_site','histological_type']
     search_fields = ['diagnosis__patient_id']
     list_filter = ['date_pathology','tumor_side__label']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
@@ -453,11 +462,11 @@ class LesionResponseAdmin (admin.ModelAdmin):
 @admin.register(Radiotherapy)
 class RadiotherapyAdmin (admin.ModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
-    autocomplete_fields = ['diagnosis','radiotherapy_site']
+    autocomplete_fields = ['diagnosis']
     filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
-            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),('radiotherapy_site','radiotherapy_side','radiotherapy_sequence')]
+            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side')]
         }),
         ('Description',{
             'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('total_fractions','fractions_per_day')]
@@ -557,13 +566,13 @@ class AdverseEffectsAdmin (admin.ModelAdmin):
 
 @admin.register(PatientOutcome)
 class PatientOutcomeAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['patient']
+    autocomplete_fields = ['patient','diagnosis']
     fieldsets = (
         ('Patient Outcome',{
-            'fields':['patient',('patient_status','date_of_death')]
+            'fields':['patient',('patient_status','date_of_death','death_related_to_cancer_progression')]
         }),
         ('Description',{
-            'fields':[('primary_cause_of_death','secondary_cause_of_death','tertiary_cause_of_death')]
+            'fields':[('death_related_to_cancer_progression','cancer_related_to_death')]
         }),
     )
 

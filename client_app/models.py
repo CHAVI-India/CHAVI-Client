@@ -3,11 +3,39 @@ from django.db.models.functions import Substr, Concat
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 import uuid
 from decimal import Decimal
+from django.forms import ValidationError
 # Center Model configuration - singleton model using Solo
 # Validators
 percentage_validator = [MinValueValidator(0.0), MaxValueValidator(100.0)]
 positive_decimal_validator = [MinValueValidator(0.0)]
 allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
+
+class DateValidationMixin:
+    """
+    Mixin to validate that start dates come before or on end dates.
+    Models using this mixin should specify date_validation_pairs as a list of tuples,
+    where each tuple contains (start_date_field, end_date_field).
+    """
+    
+    def clean(self):
+        super().clean()
+        
+        # Get date validation pairs from the model, default to empty list if not specified
+        date_pairs = getattr(self, 'date_validation_pairs', [])
+        
+        for start_field, end_field in date_pairs:
+            start_date = getattr(self, start_field)
+            end_date = getattr(self, end_field)
+            
+            if start_date and end_date and end_date < start_date:
+                raise ValidationError({
+                    end_field: f'{end_field.replace("_", " ").title()} cannot be before {start_field.replace("_", " ").title()}.'
+                })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 # Site Configuration Model
 class SiteConfiguration(models.Model):
@@ -29,8 +57,8 @@ class SiteConfiguration(models.Model):
 
 class LookupAbstract(models.Model):
     '''This is an abstract for the lookup table.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    label = models.CharField(max_length=255)
+    code = models.CharField(max_length=100,primary_key=True)
+    label = models.CharField(max_length=5000)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -174,15 +202,8 @@ class LookupCTCAEGrade(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.ctcae_term} - Grade {self.ctcae_grade}"
+        return f"{self.ctcae_term} - Grade {self.ctcae_grade} ({self.description})"
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['ctcae_term', 'ctcae_grade'],
-                name='unique_ctcae_term_grade'
-            )
-        ]
 
 class LookupOutcome(LookupAbstract):
     '''This is a lookup table for outcomes types.'''
@@ -367,6 +388,23 @@ class LookupSystemicTherapyRegimen(LookupAbstract):
     class Meta:
         verbose_name_plural = "Systemic Therapy Regimen"
 
+class LookupRTLocation(LookupAbstract):
+    ''' This is a lookup table for the anatomical location of radiotherapy volumes'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Anatomical Location"
+
+
+class LookupLaboratoryTest(LookupAbstract):
+    ''' This is a lookup table for the laboratory test.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Laboratory Test"
+
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
@@ -440,7 +478,7 @@ class Project(models.Model):
         db_table="project"
 
 # Core Patient Models
-class Patient(models.Model):
+class Patient(DateValidationMixin, models.Model):
     ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
     center = models.ForeignKey(SiteConfiguration, 
     on_delete=models.CASCADE, 
@@ -501,6 +539,10 @@ class Patient(models.Model):
         auto_now=True,
         help_text="The date and time when this patient record was last updated. This field is automatically updated whenever any information in the record is modified."
     )
+    date_validation_pairs = [
+        ('date_of_birth', 'date_of_registration')
+    ]
+
     def __str__(self):
         return self.patient_id
 
@@ -752,6 +794,13 @@ class LesionResponse(models.Model):
         validators=positive_decimal_validator,
         help_text="The height (top to bottom measurement) of any remaining lesion after treatment"
     )
+    residual_lesion_size_unit = models.ForeignKey(
+        LookupSizeUnits,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="The unit of measurement used for the residual lesion size (e.g., 'millimeters', 'centimeters')"
+    )
     residual_lesion_volume = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -759,6 +808,13 @@ class LesionResponse(models.Model):
         blank=True,
         validators=positive_decimal_validator,
         help_text="The total volume (size in three dimensions) of any remaining lesion after treatment"
+    )
+    residual_lesion_volume_unit = models.ForeignKey(
+        LookupVolumeUnits,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="The unit of measurement used for the residual lesion volume (e.g., 'millimeters', 'centimeters')"
     )
     lesion_response_dicom_study = models.ManyToManyField(
         'DICOMStudy', blank = True, 
@@ -1171,7 +1227,7 @@ class SomaticGenomicAlterations(models.Model):
         verbose_name_plural="Somatic Genomic Alterations"
         db_table="somatic_genomic_alterations"
 
-class OtherTreatment(models.Model):
+class OtherTreatment(DateValidationMixin, models.Model):
     ''' The table will store information on other treatments that the patient undergoes'''
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1199,6 +1255,10 @@ class OtherTreatment(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
 
+    date_validation_pairs = [
+        ('treatment_start_date', 'treatment_end_date')
+    ]
+
     def __str__ (self):
         return f"{self.chavi_treatment_id}"
     class Meta:
@@ -1206,7 +1266,7 @@ class OtherTreatment(models.Model):
         verbose_name_plural="Other Treatments"
         db_table="other_treatment"
 
-class Radiotherapy(models.Model):
+class Radiotherapy(DateValidationMixin, models.Model):
     '''This table will record the radiotherapy course details for the patient's diagnosis.'''
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1251,14 +1311,8 @@ class Radiotherapy(models.Model):
         blank=True,
         help_text="Select the type of radiotherapy treatment"
     )
-    radiotherapy_sequence = models.ForeignKey(
-        'LookupTreatmentSequence', 
-        on_delete=models.PROTECT,
-        related_name="radiotherapy_sequence",
-        help_text="Select the sequence of this radiotherapy in relation to other treatments (e.g., 'Primary', 'Boost', 'Concurrent')"
-    )
     radiotherapy_technique = models.ForeignKey(
-        'LookupRadiotherapyTechnique',
+        LookupRadiotherapyTechnique,
         related_name="radiotherapy_technique",
         on_delete=models.PROTECT,
         null=True,
@@ -1270,11 +1324,6 @@ class Radiotherapy(models.Model):
         blank=True,
         default = 1,
         help_text="Enter the number of treatment sessions (fractions) delivered per day"
-    )
-    radiotherapy_site = models.ForeignKey(
-        'LookupFMACode', 
-        on_delete=models.PROTECT,
-        help_text="Select the anatomical location where the radiation is being delivered"
     )
     radiotherapy_side = models.ForeignKey(
         'LookupLaterality', 
@@ -1305,6 +1354,10 @@ class Radiotherapy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    date_validation_pairs = [
+        ('radiotherapy_start_date', 'radiotherapy_end_date')
+    ]
+
     def __str__ (self):
         return f"{self.chavi_radiotherapy_id}"
     class Meta:
@@ -1312,7 +1365,7 @@ class Radiotherapy(models.Model):
         verbose_name_plural="Radiotherapy Courses"
         db_table="radiotherapy"
 
-class RadiotherapyVolume(models.Model):
+class RadiotherapyVolume(DateValidationMixin, models.Model):
     ''' This table will record the volumes treated as a part of the radiotherapy course.'''
     radiotherapy_volume_id = models.UUIDField(
         primary_key=True,
@@ -1332,12 +1385,13 @@ class RadiotherapyVolume(models.Model):
         help_text="Enter a name or description for this volume"
     )
     volume_type = models.ForeignKey(
-        'LookupRadiotherapyVolumeType',
+        LookupRadiotherapyVolumeType,
         null=True,
         blank= True,        
         on_delete = models.PROTECT,
         help_text="Select the type of volume (e.g., PTV, CTV, OAR)"
     )
+
     volume_dose_prescribed = models.DecimalField(
         max_digits=10, 
         decimal_places=2,           
@@ -1369,8 +1423,17 @@ class RadiotherapyVolume(models.Model):
         blank=True,
         help_text="Enter the end date for this volume (format: YYYY-MM-DD)"     
     )
+    anatomical_locations = models.ManyToManyField(
+        LookupRTLocation,
+        blank=True,
+        help_text="Select the anatomical locations included in this volume if applicable"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    date_validation_pairs = [
+        ('volume_radiotherapy_start_date', 'volume_radiotherapy_end_date')
+    ]
 
     def __str__(self):
         return f"{self.radiotherapy} - {self.volume_name}"
@@ -1532,7 +1595,7 @@ class Surgery(models.Model):
         verbose_name_plural="Surgery"
         db_table="surgery"
 
-class ConcomitantMedications(models.Model):
+class ConcomitantMedications(DateValidationMixin, models.Model):
     '''This is a table of the concomitant medications that the patient may receive.'''
     chavi_medication_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1576,13 +1639,17 @@ class ConcomitantMedications(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    date_validation_pairs = [
+        ('date_medication_start_date', 'date_medication_end_date')
+    ]
+
     def __str__ (self):
         return f"{self.chavi_medication_id}"
     class Meta:
         verbose_name_plural="ConcomitantMedications"
         db_table="concomitant_medications"
 
-class SystemicTherapy(models.Model):
+class SystemicTherapy(DateValidationMixin, models.Model):
     ''' This is a systemic therapy table which has details of the systemic therapy given to the patient'''
 
     chavi_systemic_therapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1616,6 +1683,10 @@ class SystemicTherapy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    date_validation_pairs = [
+        ('systemic_therapy_start_date', 'systemic_therapy_end_date')
+    ]
+
     def __str__ (self):
         return f"{self.chavi_systemic_therapy_id}"
 
@@ -1624,7 +1695,7 @@ class SystemicTherapy(models.Model):
         verbose_name_plural="Systemic Therapy Courses"
         db_table="systemic_therapy"
 
-class SystemicTherapySchedule(models.Model):
+class SystemicTherapySchedule(DateValidationMixin, models.Model):
     '''This table stores the systemic therapy drug schedule for the patients'''
 
     chavi_systemic_therapy_schedule_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1689,6 +1760,10 @@ class SystemicTherapySchedule(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    date_validation_pairs = [
+        ('systemic_therapy_agent_start_date', 'systemic_therapy_agent_end_date')
+    ]
+
     def __str__ (self):
         return f"{self.chavi_systemic_therapy_schedule_id}"
     class Meta:
@@ -1696,7 +1771,7 @@ class SystemicTherapySchedule(models.Model):
         verbose_name_plural="Medication Details"
         db_table="systematic_therapy_schedule"    
 
-class AdverseEffects(models.Model):
+class AdverseEffects(DateValidationMixin, models.Model):
     '''This model represents adverse effects that may occur during treatment.'''
 
     chavi_adverse_effects_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1724,6 +1799,16 @@ class AdverseEffects(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    date_validation_pairs = [
+        ('adverse_effect_start_date', 'adverse_effect_end_date')
+    ]
+
+    def __str__(self):
+        return f"{self.diagnosis.diagnosis_name} - {self.ctcae_grade_lookup.ctcae_term}"
+    
+    class Meta:
+        verbose_name_plural="Adverse Effects"
  
 
 class ProInstrument(models.Model):
@@ -1833,15 +1918,9 @@ class PatientOutcome(models.Model):
     help_text="Select the patients last known status")
     date_of_death = models.DateField(null=True, blank=True,
     help_text="Enter the date of death, if applicable")
-    primary_cause_of_death = models.ForeignKey('LookupICDCode', on_delete=models.PROTECT,
-                                             related_name='primary_cause', null=True, blank=True,
-                                             help_text="Select the primary cause of death, if applicable")
-    secondary_cause_of_death = models.ForeignKey('LookupICDCode', on_delete=models.PROTECT,
-                                               related_name='secondary_cause', null=True, blank=True,
-                                               help_text="Select the secondary cause of death, if applicable")
-    tertiary_cause_of_death = models.ForeignKey('LookupICDCode', on_delete=models.PROTECT,
-                                              related_name='tertiary_cause', null=True, blank=True,
-                                              help_text="Select the tertiary cause of death, if applicable")
+    death_related_to_cancer_progression = models.BooleanField(default=False,null=True,blank=True,help_text="Indicate if the death was related to cancer progression (check for Yes, uncheck for No)")
+    cancer_related_to_death = models.ForeignKey('Diagnosis', on_delete=models.PROTECT,
+    help_text="Select the diagnosis that was the cause of death")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1996,6 +2075,25 @@ class StageInformation(models.Model):
     class Meta:
         verbose_name_plural="Stage Informations"
         db_table='stage_information'    
+
+
+class LaboratoryResults(models.Model):
+    ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
+    chavi_laboratory_result_id = models.CharField(max_length=300, primary_key=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    laboratory_test = models.ForeignKey(LookupLaboratoryTest, on_delete=models.PROTECT)
+    result_date = models.DateField(null=True, blank=True)
+    result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    result_unit = models.ForeignKey(LookupLabResultsUnits,null=True, blank=True, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__ (self):
+        return f"{self.patient.patient_id} - {self.laboratory_test.label}"
+    
+    class Meta:
+        verbose_name_plural="Laboratory Results"
+        db_table='laboratory_results'        
     
 class DICOMStudyProject(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)

@@ -357,9 +357,22 @@ class ComorbiditySerializer(serializers.ModelSerializer):
         model = Comorbidity
         exclude = ['created_at', 'updated_at', 'chavi_comorbidity_id']
 
+class LaboratoryResultsSerializer(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
+    patient = serializers.PrimaryKeyRelatedField(read_only=True)
+    laboratory_test = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    def get_id(self, obj):
+        return hash_id(obj.chavi_laboratory_result_id)
+
+    class Meta:
+        model = LaboratoryResults
+        exclude = ['created_at', 'updated_at', 'chavi_laboratory_result_id']
+
 class PatientOutcomeSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     patient = serializers.PrimaryKeyRelatedField(read_only=True)
+    diagnosis = serializers.PrimaryKeyRelatedField(read_only=True)
 
     def get_id(self, obj):
         return hash_id(obj.chavi_pt_outcome_id)
@@ -375,11 +388,12 @@ class PatientSerializer(serializers.ModelSerializer):
     patient_dicom_files = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     patient_reported_outcomes = PatientReportedOutcomeSerializer(source='patientreportedoutcome_set', many=True)
     projects = serializers.PrimaryKeyRelatedField(source='patient_project', many=True, read_only=True)
+    laboratory_results = LaboratoryResultsSerializer(source='laboratoryresults_set', many=True)
 
     class Meta:
         model = Patient
         ordering = ['patient_id']
-        exclude = ['created_at', 'updated_at']
+        exclude = ['created_at', 'updated_at','chavi_consent','date_chavi_consent']
 
 class ProjectSerializer(serializers.ModelSerializer):
     patients = PatientSerializer(source='patient_project', many=True, read_only=True)
