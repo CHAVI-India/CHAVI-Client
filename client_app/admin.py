@@ -556,6 +556,10 @@ class LookupCTCAEGradeAdmin (admin.ModelAdmin):
 ## Create the Adverse Effects form class
 class AdverseEffectsResource(resources.ModelResource):
 
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_adverse_effects_id')
+        super().before_import(dataset,**kwargs)
+
     def before_import_row(self,row,**kwargs):
         row['chavi_adverse_effects_id'] = str(uuid.uuid4())
 
