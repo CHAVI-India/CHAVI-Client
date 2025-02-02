@@ -244,6 +244,17 @@ class LookupPathologyAdmin(admin.ModelAdmin):
     search_fields = ['label','code']
     readonly_fields = ['code','label']
 
+@admin.register(LookupCTCAEGrade)
+class LookupCTCAEGradeAdmin (admin.ModelAdmin):
+    search_fields = ['ctcae_term','ctcae_grade']
+    readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
+
+@admin.register(LookupSystemicAgent)
+class LookupSystemicAgentAdmin (admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+
 class ImmunohistochemistryInline(admin.StackedInline):
     model = Immunohistochemistry
     autocomplete_fields =['protein_name']
@@ -342,12 +353,29 @@ class LookupLaboratoryTestAdmin (admin.ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
-## Create the Diagnosis Form Class
+
+@admin.register(LookupStageDescriptor)
+class LookupStageDescriptorAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+
+
+## Create the Diagnosis Resource
 class DiagnosisResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_diagnosis_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_diagnosis_id'] = str(uuid.uuid4())
+
     class Meta:
         model = Diagnosis
+        import_id_fields = ['chavi_diagnosis_id']
+        fields = ['patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
 
-
+# Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ImportExportModelAdmin):
     search_fields = ['patient']
@@ -374,8 +402,16 @@ class DiagnosisAdmin (ImportExportModelAdmin):
 
 ## Create the Pathology Form Class
 class PathologyResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_pathology_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_pathology_id'] = str(uuid.uuid4())
     class Meta:
         model = Pathology
+        import_id_fields = ['chavi_pathology_id']
+        fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells']
 
 @admin.register(Pathology)
 class PathologyAdmin (ImportExportModelAdmin):
@@ -397,14 +433,25 @@ class PathologyAdmin (ImportExportModelAdmin):
     )
     resource_classes = [PathologyResource]
 
-@admin.register(LookupStageDescriptor)
-class LookupStageDescriptorAdmin(admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
+
+# Create the Stage Information Resource
+class StageInformationResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_stage_information_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_stage_information_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = StageInformation
+        import_id_fields = ['chavi_stage_information_id']
+        fields = ['diagnosis','staging_system','stage_type','t_stage_prefix','t_stage','t_stage_suffix','n_stage_prefix','n_stage','n_stage_suffix','m_stage_prefix','m_stage','m_stage_suffix','overall_stage']
+
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
-class StageInformationAdmin (admin.ModelAdmin):
+class StageInformationAdmin (ImportExportModelAdmin):
     search = ['diagnosis__patient_id']
     autocomplete_fields = ['diagnosis','overall_stage']
     list_filter = ['diagnosis','staging_system__label','stage_type','overall_stage']
@@ -426,20 +473,50 @@ class StageInformationAdmin (admin.ModelAdmin):
             'fields' : ['overall_stage']
         }),
     )
+    resource_classes = [StageInformationResource]
 
+
+class ComorbidityResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_comorbidity_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_comorbidity_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = Comorbidity
+        import_id_fields = ['chavi_comorbidity_id']
+        fields = ['patient','comorbidity_type','created_at']
 
 ## Create the Comorbidity Form
 
 @admin.register(Comorbidity)
-class ComorbidityAdmin (admin.ModelAdmin):
+class ComorbidityAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     list_display = ['patient','comorbidity_type','created_at']
     list_filter = ['created_at']
+    resource_classes = [ComorbidityResource]
+
+
+# Create the Lesion Resource
+class LesionResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_lesion_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_lesion_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = Lesion
+        import_id_fields = ['chavi_lesion_id']
+        fields = ['diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit']
 
 
 ## Create the Lesion Form Class
 @admin.register(Lesion)
-class LesionAdmin (admin.ModelAdmin):
+class LesionAdmin (ImportExportModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
     autocomplete_fields = ['diagnosis','lesion_site']
     filter_horizontal = ['lesion_dicom_study']
@@ -455,18 +532,47 @@ class LesionAdmin (admin.ModelAdmin):
             'fields' : ['lesion_dicom_study']
         })
     )   
+    resource_classes = [LesionResource]
 
+class LesionResponseResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_lesion_response_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_lesion_response_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = LesionResponse
+        import_id_fields = ['chavi_lesion_response_id']
+        fields = ['lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit']
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
-class LesionResponseAdmin (admin.ModelAdmin):
+class LesionResponseAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
     filter_horizontal = ['lesion_response_dicom_study']
+    resource_classes = [LesionResponseResource]
+
+
+class RadiotherapyResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_radiotherapy_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_radiotherapy_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = Radiotherapy
+        import_id_fields = ['chavi_radiotherapy_id']
+        fields = ['diagnosis','radiotherapy_start_date','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
+
 
 ## Create the Radiotherapy Form Class
 
 @admin.register(Radiotherapy)
-class RadiotherapyAdmin (admin.ModelAdmin):
+class RadiotherapyAdmin (ImportExportModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
     autocomplete_fields = ['diagnosis']
     filter_horizontal = ['radiotherapy_dicom_study']
@@ -481,11 +587,28 @@ class RadiotherapyAdmin (admin.ModelAdmin):
             'fields': ['radiotherapy_dicom_study']
         }),
     )
+    resource_classes = [RadiotherapyResource]
  
+
+## Create the Surgery Resource
+class SurgeryResource(resources.ModelResource):
+
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_surgery_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_surgery_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = Surgery
+        import_id_fields = ['chavi_surgery_id']
+        fields = ['diagnosis','surgery_date','surgery_side','surgery_type','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
+
 
 ## Create the Surgery Form Class
 @admin.register(Surgery)
-class SurgeryAdmin (admin.ModelAdmin):
+class SurgeryAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
@@ -502,15 +625,27 @@ class SurgeryAdmin (admin.ModelAdmin):
             'fields': ['surgery_dicom_study']
         }),        
     )
+    resource_classes = [SurgeryResource]
 
-@admin.register(LookupSystemicAgent)
-class LookupSystemicAgentAdmin (admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
+# Create the Systemic Therapy Resource
+class SystemicTherapyResource(resources.ModelResource):
+
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_systemic_therapy_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_systemic_therapy_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = SystemicTherapy
+        import_id_fields = ['chavi_systemic_therapy_id']
+        fields = ['diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
+
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
-class SystemicTherapyAdmin (admin.ModelAdmin):
+class SystemicTherapyAdmin (ImportExportModelAdmin):
     inlines = [SystemicTherapyScheduleInline]
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
@@ -526,32 +661,59 @@ class SystemicTherapyAdmin (admin.ModelAdmin):
             'fields': ['systemic_therapy_dicom_study']
         }),        
     )
-
+    resource_classes = [SystemicTherapyResource]
 ## Create the ConcomitantMedications Form Class
+class ConcomitantMedicationsResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_medication_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_medication_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = ConcomitantMedications
+        import_id_fields = ['chavi_medication_id']
+        fields = ['diagnosis','medication_name','medication_route','medication_dose','medication_dose_units','date_medication_start_date','date_medication_end_date']
+
+
 @admin.register(ConcomitantMedications)
-class ConcomitantMedicationsAdmin (admin.ModelAdmin):
+class ConcomitantMedicationsAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Concomitant Medications',{
             'fields':['diagnosis',('medication_name','medication_route'),('medication_dose','medication_dose_units'),('date_medication_start_date', 'date_medication_end_date')]
         }),
     )
+    resource_classes = [ConcomitantMedicationsResource]
 
+
+# Create the Other Treatment Resource
+class OtherTreatmentResource(resources.ModelResource):
+
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_treatment_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_treatment_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = OtherTreatment
+        import_id_fields = ['chavi_treatment_id']
+        fields = ['diagnosis','treatment_start_date','treatment_end_date','treatment']
 
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
-class OtherTreatmentAdmin (admin.ModelAdmin):
+class OtherTreatmentAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Description',{
             'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment']
         }),
     )
+    resource_classes = [OtherTreatmentResource]
 
-@admin.register(LookupCTCAEGrade)
-class LookupCTCAEGradeAdmin (admin.ModelAdmin):
-    search_fields = ['ctcae_term','ctcae_grade']
-    readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
 
 ## Create the Adverse Effects form class
 class AdverseEffectsResource(resources.ModelResource):
@@ -568,7 +730,7 @@ class AdverseEffectsResource(resources.ModelResource):
         import_id_fields = ['chavi_adverse_effects_id']
         fields = ['diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
 
-
+# Create the Adverse Effects form Class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
@@ -585,21 +747,41 @@ class AdverseEffectsAdmin (ImportExportModelAdmin):
 
 ## Create the Patient Outcomes form class
 
+class PatientOutcomeResource(resources.ModelResource):
+    
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_patient_outcome_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_patient_outcome_id'] = str(uuid.uuid4())
+    
+    class Meta:
+        model = PatientOutcome
+        import_id_fields = ['chavi_patient_outcome_id']
+        fields = ['patient','patient_status','date_of_death','death_related_to_cancer_progression']
+
 @admin.register(PatientOutcome)
-class PatientOutcomeAdmin (admin.ModelAdmin):
+class PatientOutcomeAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['patient']
-    fieldsets = (
-        ('Patient Outcome',{
-            'fields':['patient',('patient_status','date_of_death')]
-        }),
-        ('Description',{
-            'fields':[('death_related_to_cancer_progression')]
-        }),
-    )
+    resource_classes = [PatientOutcomeResource]
+
+# Create the Outcome Resource
+class OutcomeResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_outcome_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_outcome_id'] = str(uuid.uuid4())
+    class Meta:
+        model = Outcome
+        import_id_fields = ['chavi_outcome_id']
+        fields = ['diagnosis','date_outcome_assessed','outcome_type']
 
 ## Create the Outcome Form Class
 @admin.register(Outcome)
-class OutcomeAdmin (admin.ModelAdmin):
+class OutcomeAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal = ['outcome_dicom_study']
@@ -614,6 +796,7 @@ class OutcomeAdmin (admin.ModelAdmin):
             'fields':[('outcome_dicom_study')]
         }),
     )
+    resource_classes = [OutcomeResource]
 
 #endregion
 
@@ -651,9 +834,25 @@ class ProjectAdmin(admin.ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     readonly_fields = ['center']
 
+# Create the Laboratory Results form Class
+class LaboratoryResultsResource(resources.ModelResource):
+
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_laboratory_result_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_laboratory_results_id'] = str(uuid.uuid4())
+
+    class Meta:
+        model = LaboratoryResults
+        import_id_fields = ['chavi_laboratory_result_id']
+        fields = ['patient','laboratory_test','result_date','result_value','result_unit']
+        
 @admin.register(LaboratoryResults)
-class LaboratoryResultsAdmin(admin.ModelAdmin):
+class LaboratoryResultsAdmin(ImportExportModelAdmin):
     autocomplete_fields = ['patient','laboratory_test']
+    resource_classes = [LaboratoryResultsResource]
 
 
 

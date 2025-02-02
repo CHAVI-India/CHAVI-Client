@@ -280,7 +280,7 @@ class LookupPathology(LookupAbstract):
         return f"{self.code} - {self.label}"
     
     class Meta:
-        verbose_name_plural = "Pathology"
+        verbose_name_plural = "Lookup Pathology"
 
 class LookupGrade(LookupAbstract):
     ''' This is a lookup table for the grade of the pathology.'''
@@ -2039,7 +2039,6 @@ class StageInformation(models.Model):
     class Meta:
         verbose_name_plural="Stage Informations"
         db_table='stage_information'    
-
 
 class LaboratoryResults(models.Model):
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
