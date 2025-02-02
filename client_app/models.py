@@ -10,6 +10,7 @@ percentage_validator = [MinValueValidator(0.0), MaxValueValidator(100.0)]
 positive_decimal_validator = [MinValueValidator(0.0)]
 allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
 
+# Validate date so that start date comes before or on end date
 class DateValidationMixin:
     """
     Mixin to validate that start dates come before or on end dates.
@@ -105,8 +106,8 @@ class LookupResponseType(LookupAbstract):
     def __str__(self):
         return f"{self.code} - {self.label}"
 
-class LookupUniProt(models.Model):
-    '''This is a lookup table from the UniProt Database for Protein Names.'''
+class LookupProtein(models.Model):
+    '''This is a lookup table for Protein Names.'''
     code = models.CharField(max_length=50,primary_key=True)
     gene_name = models.CharField(max_length=500,null=True)
     uniport_id = models.CharField(max_length=500,null=True)
@@ -117,8 +118,8 @@ class LookupUniProt(models.Model):
     def __str__(self):
         return f'{self.gene_name}'
 
-class LookupCosmic(models.Model):
-    '''This is a lookup table from the Cosmic Database for Gene Names.'''
+class LookupGene(models.Model):
+    '''This is a lookup table for Gene Names.'''
     code = models.CharField(max_length=50,primary_key=True)
     gene_name = models.CharField(max_length=500,null = True)
     gene_description = models.CharField(max_length=500,null = True)
@@ -204,7 +205,6 @@ class LookupCTCAEGrade(models.Model):
     def __str__(self):
         return f"{self.ctcae_term} - Grade {self.ctcae_grade} ({self.description})"
 
-
 class LookupOutcome(LookupAbstract):
     '''This is a lookup table for outcomes types.'''
 
@@ -274,7 +274,6 @@ class LookupRadiotherapyVolumeType(LookupAbstract):
     class Meta:
         verbose_name_plural = "Radiotherapy Volume Types"
 
-
 class LookupPathology(LookupAbstract):
     ''' This is a lookup table for the pathology.'''
     def __str__(self):
@@ -307,7 +306,6 @@ class LookupMajorCancerCategory(LookupAbstract):
     class Meta:
         verbose_name_plural = "Major Cancer Category"
 
-
 class LookupRadiotherapyModality(LookupAbstract):
     ''' This is a lookup table for the radiotherapy modality.'''
     def __str__(self):
@@ -332,9 +330,8 @@ class LookupRadiotherapyTechnique(LookupAbstract):
     class Meta:
         verbose_name_plural = "Radiotherapy Techniques"
 
-
 class LookupClinicalSignificance(LookupAbstract):
-    ''' This is a lookup table for the clinical significance.'''
+    ''' This is a lookup table for the clinical significance for genetic mutations.'''
     def __str__(self):
         return f"{self.code} - {self.label}"
     
@@ -356,6 +353,7 @@ class LookupIHCStainingIntensity(LookupAbstract):
     
     class Meta:
         verbose_name_plural = "IHC Staining Intensities"
+
 class LookupMarginStatus(LookupAbstract):
     ''' This is a lookup table for the margin status.'''
     def __str__(self):
@@ -396,14 +394,13 @@ class LookupRTLocation(LookupAbstract):
     class Meta:
         verbose_name_plural = "Anatomical Location"
 
-
 class LookupLaboratoryTest(LookupAbstract):
     ''' This is a lookup table for the laboratory test.'''
     def __str__(self):
         return f"{self.code} - {self.label}"
     
     class Meta:
-        verbose_name_plural = "Laboratory Test"
+        verbose_name_plural = "Lookup Laboratory Tests"
 
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
@@ -417,57 +414,8 @@ def get_default_site():
 
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected. Projects have a unique ID which is generated at the CHAVI server. However your institutional IRB approvals may be different for the projects. '''
-    chavi_project_id = models.CharField(
-        max_length=255,
-        unique=True,
-        primary_key=True,
-        help_text="A unique identifier for the project."
-    )
+    chavi_project_id = models.CharField(max_length=255,unique=True, primary_key=True,help_text="A unique identifier for the project.")
     center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True,default=get_default_site, related_name="project_center")
-    project_name = models.CharField(
-        max_length=900,
-        null=True, 
-        blank=True,
-        help_text="The descriptive name of the project. This should be a clear, recognizable title. Example: 'Breast Cancer Imaging Study 2023'"
-    )
-    project_abbreviation = models.CharField(
-        max_length=20,
-        null=True,
-        blank=True,
-        help_text="The abbreviation for the project."
-    )
-    start_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="The date when this project officially began. Format: YYYY-MM-DD. Example: '01-01-2023'"
-    )
-    project_irb_approval = models.BooleanField(
-        null=True,
-        blank=True,
-        help_text="Indicate whether this project has received IRB (Institutional Review Board) approval. Check the box for Yes, leave unchecked for No."
-    )
-    project_irb_approval_number = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="If IRB approval was received, enter the IRB protocol number here. This can typically be found on your IRB approval letter. Example: 'IRB-2023-123'"
-    )
-    completion_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="The date when this project was or is expected to be completed. Format: YYYY-MM-DD. Example: '31-12-2024'"
-    )
-    description = models.TextField(
-        null= True,
-        blank=True,
-        help_text="A detailed description of the project's purpose, goals, and methods. This should be comprehensive enough for others to understand what the project is about."
-    )
-    license = models.CharField(
-        null=True,
-        blank=True,
-        max_length=255,
-        help_text="The type of license under which this project's data is shared. Example: 'MIT', 'Apache 2.0', 'CC BY 4.0'"
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
@@ -1061,7 +1009,7 @@ class Immunohistochemistry(models.Model):
         help_text="Enter the date when the immunohistochemistry test was performed (format: YYYY-MM-DD)"
     )
     protein_name = models.ForeignKey(
-        LookupUniProt, 
+        LookupProtein, 
         on_delete=models.CASCADE,
         help_text="Select the protein that was tested for in this immunohistochemistry test"
     )
@@ -1137,7 +1085,7 @@ class Cytogenetics(models.Model):
         help_text="Enter the date when the cytogenetics test was performed (format: YYYY-MM-DD)"
     )
     gene = models.ForeignKey(
-        LookupCosmic, 
+        LookupGene, 
         on_delete=models.PROTECT,
         help_text="Select the gene that was tested for in this cytogenetics test"
     )
@@ -1173,7 +1121,7 @@ class SomaticGenomicAlterations(models.Model):
         help_text="Enter the date when the genomic testing was performed (format: YYYY-MM-DD)"
     )
     cosmic_gene_name = models.ForeignKey(
-        LookupCosmic, 
+        LookupGene, 
         on_delete=models.PROTECT,
         help_text="Select the gene where the alteration was found, using COSMIC database nomenclature"
     )
@@ -1266,6 +1214,10 @@ class OtherTreatment(DateValidationMixin, models.Model):
         verbose_name_plural="Other Treatments"
         db_table="other_treatment"
 
+class RadiationCourseTypeChoices(models.TextChoices):
+    Primary = 'Primary'
+    Boost = 'Boost'
+
 class Radiotherapy(DateValidationMixin, models.Model):
     '''This table will record the radiotherapy course details for the patient's diagnosis.'''
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1273,6 +1225,11 @@ class Radiotherapy(DateValidationMixin, models.Model):
         Diagnosis, 
         on_delete=models.CASCADE,
         help_text="Select the diagnosis that this treatment is associated with"
+    )
+    radiotherapy_course_type = models.CharField(
+        max_length=255, 
+        choices=RadiationCourseTypeChoices.choices, 
+        help_text="Select the type of radiotherapy course"
     )    
     radiotherapy_modality = models.ForeignKey(
         LookupRadiotherapyModality,
@@ -1281,6 +1238,11 @@ class Radiotherapy(DateValidationMixin, models.Model):
         null=True,
         blank=True,
         related_name="radiotherapy_modality"
+    )
+    reirradiation = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Indicate if this is a reirradiation course"
     )
     total_dose = models.DecimalField(
         max_digits=10, 
@@ -1293,7 +1255,20 @@ class Radiotherapy(DateValidationMixin, models.Model):
     total_fractions = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Enter the total number of treatment sessions (fractions) planned for the complete course of radiotherapy"
+        help_text="Enter the total number of fractions delivered for the complete course of radiotherapy"
+    )
+    simultaneous_integrated_boost = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Indicate if this course of treatment had a simultaneous integrated boost"
+    )
+    simultaneous_integrated_boost_dose = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        validators=positive_decimal_validator,
+        help_text="Enter the dose of the simultaneous integrated boost"
     )
     radiation_dose_units = models.ForeignKey(
         LookupDoseUnits,
@@ -1543,11 +1518,6 @@ class Surgery(models.Model):
         blank=True,
         help_text="Enter the date when the surgery was performed (format: YYYY-MM-DD)"
     )
-    surgery_site = models.ForeignKey(
-        LookupFMACode, 
-        on_delete=models.PROTECT,
-        help_text="Select the anatomical location where the surgery was performed"
-    )
     surgery_side = models.ForeignKey(
         LookupLaterality, 
         on_delete=models.PROTECT,
@@ -1590,7 +1560,7 @@ class Surgery(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.diagnosis.diagnosis_id}"
+        return f"{self.diagnosis.patient.patient_id}-{self.surgery_date}-{self.surgery_type}"
     class Meta:
         verbose_name_plural="Surgery"
         db_table="surgery"
@@ -1688,7 +1658,7 @@ class SystemicTherapy(DateValidationMixin, models.Model):
     ]
 
     def __str__ (self):
-        return f"{self.chavi_systemic_therapy_id}"
+        return f"{self.chavi_systemic_therapy_id}-{self.systemic_therapy_type}-{self.systemic_therapy_regimen}"
 
     class Meta:
         verbose_name= "Systemic Therapy Course"
@@ -1765,7 +1735,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
     ]
 
     def __str__ (self):
-        return f"{self.chavi_systemic_therapy_schedule_id}"
+        return f"{self.chavi_systemic_therapy_schedule_id}-{self.systemic_therapy_agent}-{self.systemic_therapy_agent_route}"
     class Meta:
         verbose_name="Medication Detail"
         verbose_name_plural="Medication Details"
@@ -1805,12 +1775,11 @@ class AdverseEffects(DateValidationMixin, models.Model):
     ]
 
     def __str__(self):
-        return f"{self.diagnosis.diagnosis_name} - {self.ctcae_grade_lookup.ctcae_term}"
+        return f"{self.diagnosis.patient.patient_id}-{self.ctcae_grade_lookup.ctcae_term}"
     
     class Meta:
         verbose_name_plural="Adverse Effects"
  
-
 class ProInstrument(models.Model):
     '''This is a table which stores information on the patient reported outcome instruments.'''
     chavi_pro_instrument_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1883,7 +1852,7 @@ class PatientReportedOutcome(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the specific question from the assessment that was answered"
     )
-    pro_date = models.DateField(
+    pro_assessment_date = models.DateField(
         null=True, 
         blank=True,
         help_text="Enter the date when this assessment was completed (format: YYYY-MM-DD)"
@@ -1919,8 +1888,6 @@ class PatientOutcome(models.Model):
     date_of_death = models.DateField(null=True, blank=True,
     help_text="Enter the date of death, if applicable")
     death_related_to_cancer_progression = models.BooleanField(default=False,null=True,blank=True,help_text="Indicate if the death was related to cancer progression (check for Yes, uncheck for No)")
-    cancer_related_to_death = models.ForeignKey('Diagnosis', on_delete=models.PROTECT,
-    help_text="Select the diagnosis that was the cause of death")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1939,19 +1906,16 @@ class Comorbidity(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the patient who has this comorbidity"
     )
-    comorbidity_type = models.ForeignKey(
-        'LookupICDCode', 
-        on_delete=models.PROTECT,
-        help_text="Select the ICD code that best describes this comorbidity"
+    comorbidity_type = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Enter the comorbidity type"
     )
     date_of_comorbidity_diagnosis = models.DateField(
         null=True, 
         blank=True,
         help_text="Enter the date when this comorbidity was first diagnosed (format: YYYY-MM-DD)"
-    )
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Indicate whether this comorbidity is currently active (check for Yes, uncheck for No)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2096,6 +2060,7 @@ class LaboratoryResults(models.Model):
         db_table='laboratory_results'        
     
 class DICOMStudyProject(models.Model):
+    '''This is a through table for relating DICOM studies to Projects'''
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)

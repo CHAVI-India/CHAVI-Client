@@ -18,6 +18,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 
 
+
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
 def process_dicom(modeladmin, request, queryset):
     '''
@@ -197,7 +198,6 @@ def export_patient_data(self, request, queryset):
     except Exception as e:
         messages.error(request, f"Error exporting patient data: {str(e)}")
         return None
-
 #region inlinetables for many to many relations
 
 #endregion
@@ -227,14 +227,14 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
     )
        
 
-@admin.register(LookupUniProt)
-class LookupUniProtAdmin(admin.ModelAdmin):
+@admin.register(LookupProtein)
+class LookupProteinAdmin(admin.ModelAdmin):
     search_fields = ['protein_name']
     readonly_fields = ['code','gene_name','protein_name','all_gene_names','uniport_id']
 
 
-@admin.register(LookupCosmic)
-class LookupCosmicAdmin(admin.ModelAdmin):
+@admin.register(LookupGene)
+class LookupGeneAdmin(admin.ModelAdmin):
     search_fields = ['gene_name']
     readonly_fields = ['code','gene_name','gene_description','gene_aliases']
 
@@ -279,7 +279,6 @@ class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
     model = RadiotherapyDoseVolumeData
     extra = 1
     
-
 
 #endregion
 
@@ -334,6 +333,11 @@ class LookupICDCodeAdmin (admin.ModelAdmin):
 @admin.register(LookupFMACode)
 class LookupFMACodeAdmin (admin.ModelAdmin):
     search_fields = ['code','label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupLaboratoryTest)
+class LookupLaboratoryTestAdmin (admin.ModelAdmin):
+    search_fields = ['label']
     readonly_fields = ['code','label']
 
 ## Create the Diagnosis Form Class
@@ -426,9 +430,9 @@ class StageInformationAdmin (admin.ModelAdmin):
 
 @admin.register(Comorbidity)
 class ComorbidityAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['patient','comorbidity_type']
+    autocomplete_fields = ['patient']
     list_display = ['patient','comorbidity_type','created_at']
-    list_filter = ['comorbidity_type__label','created_at']
+    list_filter = ['created_at']
 
 
 ## Create the Lesion Form Class
@@ -466,10 +470,10 @@ class RadiotherapyAdmin (admin.ModelAdmin):
     filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
-            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side')]
+            'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side','radiotherapy_course_type','reirradiation')]
         }),
         ('Description',{
-            'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('total_fractions','fractions_per_day')]
+            'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
         }),
         ('DICOM Studies',{
             'fields': ['radiotherapy_dicom_study']
@@ -480,14 +484,14 @@ class RadiotherapyAdmin (admin.ModelAdmin):
 ## Create the Surgery Form Class
 @admin.register(Surgery)
 class SurgeryAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['diagnosis','surgery_site']
+    autocomplete_fields = ['diagnosis']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
             'fields':['diagnosis','surgery_date']
         }),
         ('Description',{
-            'fields':['surgery_site',('surgery_side','surgery_type'),('nodal_assessment','nodal_assessment_type')]
+            'fields':[('surgery_side','surgery_type'),('nodal_assessment','nodal_assessment_type')]
         }),
         ('Reconstruction',{
             'fields':['reconstruction','type_reconstruction']
@@ -566,13 +570,13 @@ class AdverseEffectsAdmin (admin.ModelAdmin):
 
 @admin.register(PatientOutcome)
 class PatientOutcomeAdmin (admin.ModelAdmin):
-    autocomplete_fields = ['patient','diagnosis']
+    autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient Outcome',{
-            'fields':['patient',('patient_status','date_of_death','death_related_to_cancer_progression')]
+            'fields':['patient',('patient_status','date_of_death')]
         }),
         ('Description',{
-            'fields':[('death_related_to_cancer_progression','cancer_related_to_death')]
+            'fields':[('death_related_to_cancer_progression')]
         }),
     )
 
@@ -628,16 +632,11 @@ class DICOMStudyAdmin (admin.ModelAdmin):
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     inlines = [DICOMStudyProjectInline]
-    fieldsets = (
-        ('Project',{
-            'fields':[('chavi_project_id','center','project_name','project_abbreviation'),'description','license']
-        }),
-        ('Dates',{
-            'fields':[('start_date','completion_date'),('project_irb_approval','project_irb_approval_number')]
-        }),
-    )
     readonly_fields = ['center']
 
+@admin.register(LaboratoryResults)
+class LaboratoryResultsAdmin(admin.ModelAdmin):
+    autocomplete_fields = ['patient','laboratory_test']
 
 
 

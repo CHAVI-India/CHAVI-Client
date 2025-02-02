@@ -18,8 +18,7 @@ def import_csv_data(apps, schema_editor):
         objects_to_create = [
             LookupRTLocation(
                 code=row['code'],
-                unit_abbreviation=row['unit_abbreviation'],
-                label = row['unit']
+                label = row['label']
             ) for _, row in df.iterrows()
         ]
         

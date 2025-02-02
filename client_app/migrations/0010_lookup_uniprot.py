@@ -6,7 +6,7 @@ import pandas as pd
 
 def import_csv_data(apps, schema_editor):
     # Get the model
-    LookupUniProt = apps.get_model('client_app', 'LookupUniProt')
+    LookupProtein = apps.get_model('client_app', 'LookupProtein')
     
     try:
         
@@ -18,7 +18,7 @@ def import_csv_data(apps, schema_editor):
         
         # Create objects in bulk for better performance
         objects_to_create = [
-            LookupUniProt(
+            LookupProtein(
                 code=row['code'],
                 gene_name=row['gene_name'],
                 uniport_id=row['uniprot_id'],
@@ -31,7 +31,7 @@ def import_csv_data(apps, schema_editor):
         batch_size = 200
         while objects_to_create:
             batch = objects_to_create[:batch_size]
-            LookupUniProt.objects.bulk_create(batch)
+            LookupProtein.objects.bulk_create(batch)
             objects_to_create = objects_to_create[batch_size:]
             
     except Exception as e:
@@ -39,9 +39,9 @@ def import_csv_data(apps, schema_editor):
 
 def reverse_migration(apps, schema_editor):
     # Get the model
-    LookupUniProt = apps.get_model('client_app', 'LookupUniProt')
+    LookupProtein = apps.get_model('client_app', 'LookupProtein')
     # Delete all objects created by this migration
-    LookupUniProt.objects.all().delete()        
+    LookupProtein.objects.all().delete()        
 
 class Migration(migrations.Migration):
 
