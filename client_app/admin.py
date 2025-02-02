@@ -19,6 +19,7 @@ from django.core.paginator import Paginator
 
 
 
+
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
 def process_dicom(modeladmin, request, queryset):
     '''
@@ -554,9 +555,13 @@ class LookupCTCAEGradeAdmin (admin.ModelAdmin):
 
 ## Create the Adverse Effects form class
 class AdverseEffectsResource(resources.ModelResource):
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_adverse_effects_id'] = str(uuid.uuid4())
+
     class Meta:
         model = AdverseEffects
-        import_id_fields = ['diagnosis']
+        import_id_fields = ['chavi_adverse_effects_id']
         fields = ['diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
 
 
