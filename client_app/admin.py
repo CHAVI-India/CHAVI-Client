@@ -290,6 +290,7 @@ class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
 class PatientResource(resources.ModelResource):
     class Meta:
         model = Patient
+        import_id_fields = ['patient_id']
 
 @admin.register(Patient)
 class PatientAdmin (ImportExportModelAdmin):
@@ -552,8 +553,15 @@ class LookupCTCAEGradeAdmin (admin.ModelAdmin):
     readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
 
 ## Create the Adverse Effects form class
+class AdverseEffectsResource(resources.ModelResource):
+    class Meta:
+        model = AdverseEffects
+        import_id_fields = ['diagnosis']
+        fields = ['diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
+
+
 @admin.register(AdverseEffects)
-class AdverseEffectsAdmin (admin.ModelAdmin):
+class AdverseEffectsAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
     fieldsets = (
@@ -564,7 +572,7 @@ class AdverseEffectsAdmin (admin.ModelAdmin):
             'fields':[('ctcae_grade_lookup')]
         }),
     )
-
+    resource_classes = [AdverseEffectsResource]
 
 ## Create the Patient Outcomes form class
 
