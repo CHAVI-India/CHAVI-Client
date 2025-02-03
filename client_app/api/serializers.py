@@ -381,11 +381,16 @@ class PatientOutcomeSerializer(serializers.ModelSerializer):
         model = PatientOutcome
         exclude = ['created_at', 'updated_at', 'chavi_pt_outcome_id']
 
+class DICOMStudySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DICOMStudy
+        exclude = ['created_at', 'updated_at','series_descriptions']
+
 class PatientSerializer(serializers.ModelSerializer):
     diagnoses = DiagnosisSerializer(source='diagnosis_set', many=True)
     comorbidities = ComorbiditySerializer(source='comorbidity_set', many=True)
     patient_outcomes = PatientOutcomeSerializer(source='patientoutcome_set', many=True)
-    patient_dicom_files = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    patient_dicom_files = DICOMStudySerializer(source='patient', many=True)
     patient_reported_outcomes = PatientReportedOutcomeSerializer(source='patientreportedoutcome_set', many=True)
     projects = serializers.PrimaryKeyRelatedField(source='patient_project', many=True, read_only=True)
     laboratory_results = LaboratoryResultsSerializer(source='laboratoryresults_set', many=True)
