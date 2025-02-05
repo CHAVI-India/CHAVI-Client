@@ -18,6 +18,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from import_export.widgets import ForeignKeyWidget
 from import_export import fields
+from .actions import export_patient_data
 
 
 
@@ -151,55 +152,55 @@ def process_dicom(modeladmin, request, queryset):
             continue
 
 
-@admin.action(description = "Export all Patient Data as a JSON object")
+# @admin.action(description = "Export all Patient Data as a JSON object")
 
-def export_patient_data(self, request, queryset):
-    """
-    Custom admin action to export complete patient data including all related models
-    """
-    try:
-        # Check if the queryset is too large
-        if queryset.count() > 100:  # Adjust this threshold as needed
-            messages.warning(
-                request,
-                "Exporting large number of patients. This might take a while."
-            )
+# def export_patient_data(self, request, queryset):
+#     """
+#     Custom admin action to export complete patient data including all related models
+#     """
+#     try:
+#         # Check if the queryset is too large
+#         if queryset.count() > 100:  # Adjust this threshold as needed
+#             messages.warning(
+#                 request,
+#                 "Exporting large number of patients. This might take a while."
+#             )
 
-        # Process in chunks for large datasets
-        paginator = Paginator(queryset, 20)  # Process 20 patients at a time
-        all_data = []
+#         # Process in chunks for large datasets
+#         paginator = Paginator(queryset, 20)  # Process 20 patients at a time
+#         all_data = []
 
-        for page_number in paginator.page_range:
-            page = paginator.page(page_number)
-            # Serialize each chunk
-            serializer = PatientSerializer(page.object_list, many=True)
-            all_data.extend(serializer.data)
+#         for page_number in paginator.page_range:
+#             page = paginator.page(page_number)
+#             # Serialize each chunk
+#             serializer = PatientSerializer(page.object_list, many=True)
+#             all_data.extend(serializer.data)
 
-        # Convert to JSON with nice formatting
-        json_data = json.dumps(all_data, indent=2)
+#         # Convert to JSON with nice formatting
+#         json_data = json.dumps(all_data, indent=2)
         
-        # Create the HTTP response with JSON file
-        response = HttpResponse(json_data, content_type='application/json')
+#         # Create the HTTP response with JSON file
+#         response = HttpResponse(json_data, content_type='application/json')
         
-        # If single patient, use their ID in filename, otherwise use count
-        if queryset.count() == 1:
-            filename = f"patient_{queryset.first().patient_id}_complete_data.json"
-        else:
-            filename = f"patients_{queryset.count()}_complete_data.json"
+#         # If single patient, use their ID in filename, otherwise use count
+#         if queryset.count() == 1:
+#             filename = f"patient_{queryset.first().patient_id}_complete_data.json"
+#         else:
+#             filename = f"patients_{queryset.count()}_complete_data.json"
         
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+#         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
-        # Add success message
-        messages.success(
-            request, 
-            f"Successfully exported complete data for {queryset.count()} patient(s)"
-        )
+#         # Add success message
+#         messages.success(
+#             request, 
+#             f"Successfully exported complete data for {queryset.count()} patient(s)"
+#         )
         
-        return response
+#         return response
 
-    except Exception as e:
-        messages.error(request, f"Error exporting patient data: {str(e)}")
-        return None
+#     except Exception as e:
+#         messages.error(request, f"Error exporting patient data: {str(e)}")
+#         return None
 #region inlinetables for many to many relations
 
 #endregion
@@ -306,11 +307,10 @@ class PatientResource(resources.ModelResource):
         import_id_fields = ['patient_id']
 
 @admin.register(Patient)
-class PatientAdmin (ImportExportModelAdmin):
-    #inlines = [PatientProjectInline]
-    list_filter = ['gender','chavi_consent','created_at']
-    search_fields =[ 'patient_id']
+class PatientAdmin(ImportExportModelAdmin):
     actions = [export_patient_data]
+    list_filter = ['gender','chavi_consent','created_at']
+    search_fields = ['patient_id']
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
     filter_horizontal = ['patient_project']
     resource_classes = [PatientResource]

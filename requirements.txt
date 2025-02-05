@@ -2,7 +2,6 @@ asgiref==3.8.1
 diff-match-patch==20241021
 Django==5.1.4
 django-admin-index==4.0.0
-django-admin-interface==0.29.3
 django-cleanup==9.0.0
 django-colorfield==0.11.0
 django-extensions==3.2.3

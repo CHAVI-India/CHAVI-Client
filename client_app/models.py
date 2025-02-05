@@ -1881,7 +1881,7 @@ class PatientReportedOutcome(models.Model):
 
 class PatientOutcome(models.Model):
     ''' This is the table which will store information on the outcome of the patients'''
-    chavi_pt_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    chavi_patient_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
     patient_status = models.ForeignKey('LookupOutcome', on_delete=models.PROTECT,
     help_text="Select the patients last known status")
@@ -2042,7 +2042,7 @@ class StageInformation(models.Model):
 
 class LaboratoryResults(models.Model):
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
-    chavi_laboratory_result_id = models.CharField(max_length=300, primary_key=True)
+    chavi_laboratory_result_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     laboratory_test = models.ForeignKey(LookupLaboratoryTest, on_delete=models.PROTECT)
     result_date = models.DateField(null=True, blank=True)

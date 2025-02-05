@@ -34,10 +34,11 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
 # Application definition
 
 INSTALLED_APPS = [
-    "django_admin_index",
-    "ordered_model",
-    'admin_interface',
-    'colorfield',    
+    # "django_admin_index",
+    # "ordered_model",
+    # 'admin_interface',
+    # 'colorfield',
+    'jazzmin',    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -152,5 +153,56 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 
-X_FRAME_OPTIONS = "SAMEORIGIN"
-SILENCED_SYSTEM_CHECKS = ["security.W019"]
+# X_FRAME_OPTIONS = "SAMEORIGIN"
+# SILENCED_SYSTEM_CHECKS = ["security.W019"]
+
+JAZZMIN_SETTINGS = {
+    'site_title': "CHAVI Client Application",
+    'site_header': "CHAVI Client Application", 
+    'welcome_sign': "Welcome to CHAVI Client Application",
+    'copyright': 'Tata Medical Center',
+    'show_ui_builder': True,
+    'changeform_format': 'single',
+    'topmenu_links': [
+        {'name': 'Home', 'url': '/admin/', 'icon': 'fas fa-home'},
+        {'app':'auth'},
+        {'model':'client_app.Project'},
+        {'model':'client_app.SiteConfiguration'},
+        {'model':'client_app.DICOMStudy'},
+        {'model':'client_app.PatientDicomFile'}
+    ],
+    'hide_models':[
+                   'auth.user',
+                   'auth.group', 
+                   'client_app.LookupFMACode',
+                   'client_app.LookupICDCode',
+                   'client_app.LookupLaboratoryTest'
+                   'client_app.LookupSystemicAgent',
+                   'client_app.LookupCTCAEGrade',
+                   'client_app.LookupStageDescriptor',
+                   'client_app.LookupPathology',
+                   'client_app.LookupProtein',
+                   'client_app.LookupGene',
+                   'client_app.LookupTreatmentIntent',
+                   'client_app.LookupTreatmentSequence',
+                   'client_app.LookupResponseType',
+                   'client_app.LookupLesionType',
+                   'client_app.LookupOutcomeType',
+                   'client_app.SiteConfiguration',
+                   'client_app.Project',
+                   'client_app.DICOMStudy',
+                   'client_app.PatientDicomFile'
+                ],
+    'order_with_respect_to': ['client_app.Patient',
+                              'client_app.Diagnosis',
+                              'client_app.PatientOutcome',
+                              'client_app.StageInformation',
+                              'client_app.Comorbidity'
+                              
+                            ],
+                              
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'theme': 'cosmo',
+}
