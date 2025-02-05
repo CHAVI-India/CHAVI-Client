@@ -375,11 +375,11 @@ class PatientOutcomeSerializer(serializers.ModelSerializer):
     diagnosis = serializers.PrimaryKeyRelatedField(read_only=True)
 
     def get_id(self, obj):
-        return hash_id(obj.chavi_pt_outcome_id)
+        return hash_id(obj.chavi_patient_outcome_id)
 
     class Meta:
         model = PatientOutcome
-        exclude = ['created_at', 'updated_at', 'chavi_pt_outcome_id']
+        exclude = ['created_at', 'updated_at', 'chavi_patient_outcome_id']
 
 class DICOMStudySerializer(serializers.ModelSerializer):
     class Meta:

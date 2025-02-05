@@ -332,11 +332,11 @@ class PatientReportedOutcomeSerializer(BaseSerializer):
         model = PatientReportedOutcome
 
 class PatientOutcomeSerializer(BaseSerializer):
-    chavi_pt_outcome_id = serializers.SerializerMethodField()
+    chavi_patient_outcome_id = serializers.SerializerMethodField()
     patient = HashedForeignKeyField(queryset=Patient.objects.all())
 
-    def get_chavi_pt_outcome_id(self, obj):
-        return hash_pk(obj.chavi_pt_outcome_id)
+    def get_chavi_patient_outcome_id(self, obj):
+        return hash_pk(obj.chavi_patient_outcome_id)
 
     class Meta(BaseSerializer.Meta):
         model = PatientOutcome

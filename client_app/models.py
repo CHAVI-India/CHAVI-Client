@@ -6,9 +6,17 @@ from decimal import Decimal
 from django.forms import ValidationError
 # Center Model configuration - singleton model using Solo
 # Validators
-percentage_validator = [MinValueValidator(0.0), MaxValueValidator(100.0)]
-positive_decimal_validator = [MinValueValidator(0.0)]
-allred_score_validator = [MinValueValidator(0), MaxValueValidator(8)]
+percentage_validator = [
+    MinValueValidator(Decimal('0.0')), 
+    MaxValueValidator(Decimal('100.0'))
+]
+positive_decimal_validator = [
+    MinValueValidator(Decimal('0.0'))
+]
+allred_score_validator = [
+    MinValueValidator('0'), 
+    MaxValueValidator('8')
+]
 
 # Validate date so that start date comes before or on end date
 class DateValidationMixin:
@@ -1151,10 +1159,9 @@ class SomaticGenomicAlterations(models.Model):
         validators=positive_decimal_validator,
         help_text="Enter the variant allele frequency as a decimal (e.g., 0.45 for 45%)"
     )
-    read_depth = models.IntegerField(
+    read_depth = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        validators=positive_decimal_validator,
         help_text="Enter the sequencing read depth at this position (e.g., 500)"
     )
     clinical_significance = models.ForeignKey(
@@ -1496,7 +1503,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Select the units for the dose (e.g., 'Gy', 'cGy', '%')"
     )
     created_at  = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
         return f"{self.radiotherapy}-{self.volume_name}"
@@ -1892,7 +1899,7 @@ class PatientOutcome(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.patient.patient_id} - {self.chavi_pt_outcome_id}"
+        return f"{self.patient.patient_id} - {self.chavi_patient_outcome_id}"
 
     class Meta:
         verbose_name_plural="Patient Outcomes"

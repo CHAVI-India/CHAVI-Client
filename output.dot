@@ -3813,7 +3813,7 @@ digraph model_graph {
   
   
     <TR><TD ALIGN="LEFT" BORDER="0">
-    <FONT FACE="Roboto"><B>chavi_pt_outcome_id</B></FONT>
+    <FONT FACE="Roboto"><B>chavi_patient_outcome_id</B></FONT>
     </TD><TD ALIGN="LEFT">
     <FONT FACE="Roboto"><B>UUIDField</B></FONT>
     </TD></TR>
