@@ -173,15 +173,21 @@ JAZZMIN_SETTINGS = {
     'site_header': "CHAVI Client Application", 
     'welcome_sign': "Welcome to CHAVI Client Application",
     'copyright': 'Tata Medical Center',
-    'show_ui_builder': True,
+    'show_ui_builder': False,
     'changeform_format': 'vertical_tabs',
+    'usermenu_links': [
+        {'name': 'Account Settings', 'url': '/accounts/', 'icon': 'fas fa-user-cog'},
+        {'model': 'auth.user'},
+
+
+    ],
     'topmenu_links': [
         {'name': 'Home', 'url': '/admin/', 'icon': 'fas fa-home'},
         {'app':'auth'},
         {'model':'client_app.Project'},
         {'model':'client_app.SiteConfiguration'},
         {'model':'client_app.DICOMStudy'},
-        {'model':'client_app.PatientDicomFile'}
+        {'model':'client_app.PatientDicomFile'},
     ],
     'hide_models':[
                    'auth.user',
@@ -204,7 +210,12 @@ JAZZMIN_SETTINGS = {
                    'client_app.Project',
                    'client_app.DICOMStudy',
                    'client_app.PatientDicomFile',
-                   'client_app.LookupSystemicAgent'
+                   'client_app.LookupSystemicAgent',
+                   'account.emailaddress',
+                   'socialaccount.socialaccount',
+                   'socialaccount.socialtoken',
+                   'socialaccount.socialapp',
+                   'mfa.authenticator'
                 ],
     'order_with_respect_to': ['client_app.Patient',
                               'client_app.Comorbidity',                              
