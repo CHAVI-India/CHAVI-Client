@@ -34,10 +34,6 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
 # Application definition
 
 INSTALLED_APPS = [
-    # "django_admin_index",
-    # "ordered_model",
-    # 'admin_interface',
-    # 'colorfield',
     'jazzmin',    
     'django.contrib.admin',
     'django.contrib.auth',
@@ -50,6 +46,13 @@ INSTALLED_APPS = [
     'client_app',
     'django_cleanup.apps.CleanupConfig',
     'import_export',
+    'allauth_ui',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.mfa',
+    'widget_tweaks',
+    'slippers'
 ]
 
 MIDDLEWARE = [
@@ -61,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.contrib.admindocs.middleware.XViewMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'chavi_client.urls'
@@ -83,7 +87,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'chavi_client.wsgi.application'
 
+# Authentication backends for Django AllAuth
+AUTHENTICATION_BACKENDS = [
+    # Needed to login by username in Django admin, regardless of `allauth`
+    'django.contrib.auth.backends.ModelBackend',
 
+    # `allauth` specific authentication methods, such as login by email
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+SITE_ID = 1
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -146,7 +159,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Added for Django Admin Index
 # https://github.com/maykinmedia/django-admin-index?tab=readme-ov-file#readme
 
-ADMIN_INDEX_SHOW_REMAINING_APPS = False
 
 # Add Media file root
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -162,7 +174,7 @@ JAZZMIN_SETTINGS = {
     'welcome_sign': "Welcome to CHAVI Client Application",
     'copyright': 'Tata Medical Center',
     'show_ui_builder': True,
-    'changeform_format': 'single',
+    'changeform_format': 'vertical_tabs',
     'topmenu_links': [
         {'name': 'Home', 'url': '/admin/', 'icon': 'fas fa-home'},
         {'app':'auth'},
@@ -176,7 +188,7 @@ JAZZMIN_SETTINGS = {
                    'auth.group', 
                    'client_app.LookupFMACode',
                    'client_app.LookupICDCode',
-                   'client_app.LookupLaboratoryTest'
+                   'client_app.LookupLaboratoryTest',
                    'client_app.LookupSystemicAgent',
                    'client_app.LookupCTCAEGrade',
                    'client_app.LookupStageDescriptor',
@@ -191,13 +203,25 @@ JAZZMIN_SETTINGS = {
                    'client_app.SiteConfiguration',
                    'client_app.Project',
                    'client_app.DICOMStudy',
-                   'client_app.PatientDicomFile'
+                   'client_app.PatientDicomFile',
+                   'client_app.LookupSystemicAgent'
                 ],
     'order_with_respect_to': ['client_app.Patient',
+                              'client_app.Comorbidity',                              
                               'client_app.Diagnosis',
-                              'client_app.PatientOutcome',
+                              'client_app.Pathology',
                               'client_app.StageInformation',
-                              'client_app.Comorbidity'
+                              'client_app.Lesion',
+                              'client_app.LesionResponse',
+                              'client_app.StageInformation',
+                              'client_app.Surgery',
+                              'client_app.Radiotherapy',
+                              'client_app.SystemicTherapy',
+                              'client_app.ConcomitantMedications',
+                              'client_app.OtherTreatment',
+                              'client_app.AdverseEffects',
+                              'client_app.PatientOutcome',
+                              'client_app.Outcome'
                               
                             ],
                               
@@ -206,3 +230,16 @@ JAZZMIN_SETTINGS = {
 JAZZMIN_UI_TWEAKS = {
     'theme': 'cosmo',
 }
+
+# AllAuth settings
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/admin/'
+ACCOUNT_LOGIN_METHOD = 'username_email'
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_LOGOUT_ON_GET = True
+ACCOUNT_PRESERVE_USERNAME_CASING = False
+ACCOUNT_USERNAME_MIN_LENGTH = 5
+ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']

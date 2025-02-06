@@ -2044,7 +2044,7 @@ class StageInformation(models.Model):
         return self.diagnosis.diagnosis_id
 
     class Meta:
-        verbose_name_plural="Stage Informations"
+        verbose_name_plural="Stage Information"
         db_table='stage_information'    
 
 class LaboratoryResults(models.Model):

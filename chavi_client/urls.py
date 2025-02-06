@@ -16,9 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.shortcuts import redirect
 
 
 urlpatterns = [
     path('admin/doc/', include('django.contrib.admindocs.urls')), 
     path('admin/', admin.site.urls),
+    path('accounts/', include('allauth.urls')),
+    path('', lambda request: redirect('account_login'), name='home'),
 ]

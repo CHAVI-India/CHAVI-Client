@@ -18,8 +18,13 @@ from django.core.paginator import Paginator
 from import_export.widgets import ForeignKeyWidget
 from import_export import fields
 from .actions import export_patient_data
+from allauth.account.decorators import secure_admin_login
 
+# For Django AllAuth
+admin.autodiscover()
+admin.site.login = secure_admin_login(admin.site.login)
 
+# Extract and Process DICOM File and extract metadata
 
 @admin.action(description = "Extract and Process DICOM File and extract metadata")
 def process_dicom(modeladmin, request, queryset):
@@ -326,9 +331,10 @@ class PatientAdmin(ImportExportModelAdmin):
     )
     readonly_fields = ['center']
 @admin.register(PatientDicomFile)
-class PatientDicomFileAdmin (admin.ModelAdmin):
+class PatientDicomFileAdmin(admin.ModelAdmin):
     search_fields =[ 'patient__patient_id']
-    list_display = ['patient','file','created_at','updated_at']
+    list_display = ['patient', 'file', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at']
     fieldsets = (
         ('Patient DICOM File',{
             'fields': ['patient','file']  
@@ -537,8 +543,8 @@ class ComorbidityResource(resources.ModelResource):
 @admin.register(Comorbidity)
 class ComorbidityAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['patient']
-    list_display = ['patient','comorbidity_type','created_at']
-    list_filter = ['created_at']
+    list_display = ['patient', 'comorbidity_type', 'date_of_comorbidity_diagnosis', 'created_at']
+    list_filter = ['date_of_comorbidity_diagnosis', 'created_at']
     resource_classes = [ComorbidityResource]
 
 
@@ -608,6 +614,8 @@ class LesionResponseAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
     filter_horizontal = ['lesion_response_dicom_study']
     resource_classes = [LesionResponseResource]
+    list_display = ['lesion', 'lesion_response_date', 'lesion_response', 'residual_lesion_volume']
+    list_filter = ['lesion_response_date', 'lesion_response']
 
 
 class RadiotherapyResource(resources.ModelResource):
@@ -762,6 +770,8 @@ class ConcomitantMedicationsAdmin (ImportExportModelAdmin):
         }),
     )
     resource_classes = [ConcomitantMedicationsResource]
+    list_display = ['diagnosis', 'medication_name', 'medication_dose', 'date_medication_start_date', 'date_medication_end_date']
+    list_filter = ['date_medication_start_date', 'date_medication_end_date', 'medication_route']
 
 
 # Create the Other Treatment Resource
@@ -790,6 +800,8 @@ class OtherTreatmentAdmin (ImportExportModelAdmin):
         }),
     )
     resource_classes = [OtherTreatmentResource]
+    list_display = ['diagnosis', 'treatment', 'treatment_start_date', 'treatment_end_date']
+    list_filter = ['treatment_start_date', 'treatment_end_date']
 
 
 ## Create the Adverse Effects form class
@@ -848,6 +860,8 @@ class PatientOutcomeResource(resources.ModelResource):
 class PatientOutcomeAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     resource_classes = [PatientOutcomeResource]
+    list_display = ['patient', 'patient_status', 'date_of_death', 'death_related_to_cancer_progression']
+    list_filter = ['patient_status', 'date_of_death', 'death_related_to_cancer_progression']
 
 # Create the Outcome Resource
 class OutcomeResource(resources.ModelResource):
@@ -899,12 +913,14 @@ class PatientReportedOutcomeAdmin (admin.ModelAdmin):
             'fields':[('instrument','domain'),'question',('pro_answer','pro_score')]
         }),
     )
+    list_display = ['patient', 'instrument', 'domain', 'pro_assessment_date', 'pro_score']
+    list_filter = ['pro_assessment_date', 'instrument', 'domain']
 
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin (admin.ModelAdmin):
     search_fields = ['patient__patient_id']
-    list_display = ['patient','study_date','study_description','series_descriptions']
+    list_display = ['patient', 'study_date', 'study_description', 'series_descriptions']
     autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{
@@ -914,12 +930,15 @@ class DICOMStudyAdmin (admin.ModelAdmin):
             'fields':[('study_instance_uid','study_description','series_descriptions')]
         }),
     )
+    list_filter = ['study_date', 'patient']
 
 ## Create the Project form Class
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     readonly_fields = ['center']
+    list_display = ['chavi_project_id', 'center', 'created_at']
+    list_filter = ['center', 'created_at']
 
 # Create the Laboratory Results form Class
 class LaboratoryResultsResource(resources.ModelResource):
