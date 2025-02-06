@@ -12,7 +12,6 @@ import shutil
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 from django.http import HttpResponse
-from .api.serializers import PatientSerializer
 import json
 from django.contrib import messages
 from django.core.paginator import Paginator
