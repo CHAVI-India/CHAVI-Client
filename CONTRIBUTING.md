@@ -1,0 +1,1 @@
+We welcome your contributions for the application. All contributions should be made keeping the original licence in mind. Please note that the primary application uses Django. 
