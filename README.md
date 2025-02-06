@@ -1,8 +1,120 @@
 ## Welcome
 
-The CHAVI Client Application is a companion application to the CHAVI de-identification system. This application allows users to enter patient data at their own premsises and this clinical data can then be de-identified in a reporducible fashion. While the application is primarily designed for data entry using the provided forms, it is possible to allow import of data from other sources like CSV and other databases in the future. 
+The CHAVI Client Application is a companion application to the CHAVI de-identification system. This application allows users to enter patient data at their own premises and this clinical data can then be de-identified in a reproducible fashion. While the application is primarily designed for data entry using the provided forms, it is possible to allow import of data from other sources like CSV and other databases in the future.
 
-## Database schema
+## Features and Functionality
+
+### Patient Management
+- Register and track patients with unique identifiers
+- Record demographic information
+- Manage patient consent for CHAVI system
+- Track patient registration dates and project associations
+- Import/export patient data in bulk
+
+### Clinical Data Management
+
+#### Diagnosis Tracking
+- Record multiple diagnoses per patient
+- Track cancer system and specific diagnosis (ICD codes)
+- Record diagnostic modalities and presentation types
+- Link diagnoses with anatomical sites and laterality
+- Associate DICOM studies with diagnoses
+
+#### Pathology Data
+- Comprehensive pathology reporting including:
+  - Tumor characteristics (size, location, grade)
+  - Histological details
+  - Margin status
+  - Lymph node information
+- Track immunohistochemistry results
+- Record cytogenetics findings
+- Document somatic genomic alterations
+
+#### Treatment Management
+
+1. **Radiotherapy**
+   - Record treatment schedules and doses
+   - Track radiation modalities and techniques
+   - Document treatment volumes and anatomical locations
+   - Store dose-volume data
+   - Link to DICOM studies
+
+2. **Surgery**
+   - Document surgical procedures
+   - Track nodal assessments
+   - Record reconstruction details
+   - Link surgical records with DICOM studies
+
+3. **Systemic Therapy**
+   - Manage chemotherapy and other systemic treatments
+   - Track treatment cycles and schedules
+   - Record drug dosing information
+   - Monitor treatment responses
+   - Link with DICOM studies
+
+4. **Concomitant Medications**
+   - Track additional medications
+   - Record dosing and administration details
+   - Monitor medication periods
+
+### Clinical Monitoring
+
+#### Laboratory Results
+- Record and track laboratory test results
+- Store test values and units
+- Track result dates
+- Support multiple test types
+
+#### Adverse Effects
+- Document treatment-related adverse effects
+- Use standardized CTCAE grading
+- Track onset and resolution dates
+
+#### Disease Monitoring
+- Track lesions and their measurements
+- Record treatment responses
+- Monitor disease progression
+- Link with imaging studies
+
+### Outcomes Tracking
+- Record patient survival status
+- Track disease-specific outcomes
+- Document cause of death when applicable
+- Monitor disease progression
+- Record patient-reported outcomes (PRO)
+  - Support multiple PRO instruments
+  - Track domains and questions
+  - Record patient responses and scores
+
+### DICOM Integration
+- Upload and process DICOM files
+- Automatic extraction of study metadata
+- Link imaging studies with clinical data
+- Organize studies by patient
+- Support for multiple imaging modalities
+
+### Data Export and Integration
+- Export complete patient datasets
+- Generate JSON-formatted data exports
+- Create zipped archives of patient data
+- Support for bulk data operations
+- Maintain data relationships in exports
+
+### Administrative Features
+- Secure user authentication
+- Role-based access control
+- Site configuration management
+- Project management
+- Audit trail for data modifications
+
+### Data Import/Export
+- Support for bulk data operations
+- Import data from CSV files
+- Export data in JSON format
+- Maintain data relationships in exports
+- Generate comprehensive patient data packages
+
+## Database Schema
 
 The database schema in the client application mimics the central CHAVI server database with few exceptions related to the user authentication tables. This allows data to be faithfully migrated to the central CHAVI server while retaining the longitudinal temporal linkage. 
 
@@ -82,17 +194,39 @@ The next step is to create a user group. To do so go the form titled "User Group
 ### Create User
 The next step is to create a user. To do so go the form titled "User" and click on the "Add User" button. This will allow you to enter the user details. Please remember to put the user ID as the one which has been provided to you by the CHAVI team.
 
-### Configure the admin index to show the forms properly. 
+## Usage Guidelines
 
-While this is an optional step, it is recommended to configure the admin index to show the forms properly. To do so go the form titled "Application Group" and click on the "Add Application Group" button. This will allow you to organize the forms into categories. While the exact organization is up to you, it is recommended to organize the forms into categories that make sense for your organization:
-1. Patient Data: Patient and Comorbidity form
-2. Disease Data: Diagnosis, Pathology, Lesions and Stage Information forms
-3. Treatment Data: Surgery, Radiotherapy, Systemic therapy, Concomitant medication and other therapy forms
-4. Outcome Data: Outcome, Disease outcome, Patient reported outcome, Lesion response and Adverse events forms
-5. DICOM Data: DICOM Studies and Patient DICOM Files forms
-6. Configuration: Site Configuration, Group, User, Theme, Application Groups and Projects forms
-7. Lookup Tables: Lookup Tables
+### Accessing the Application
+1. Navigate to `http://localhost:8000` (or your configured host)
+2. Log in with your credentials
+3. Access the appropriate forms based on your role
 
-You can then ensure that the forms are accessed by specific groups only allowing your data entry operators to access only the forms they need.
+### Data Entry Workflow
+1. Register/select a patient
+2. Enter clinical information using the appropriate forms
+3. Save and validate the data
+4. Export or synchronize with the central server when ready
+
+### Best Practices
+- Always verify patient information before entry
+- Use standardized terminology from lookup tables
+- Regularly backup your database
+- Keep the application and its dependencies updated
+- Follow your organization's data privacy policies
+
+## Support and Troubleshooting
+
+For technical support or questions about the application:
+- Check the application logs for errors
+- Contact your system administrator
+- Reach out to the CHAVI team for advanced support
+
+## Contributing
+
+If you'd like to contribute to the development of CHAVI Client Application:
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request with your changes
+
 
 
