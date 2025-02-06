@@ -5,6 +5,6 @@ DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost' # Add other hosts if needed seperated
 DJANGO_DB_ENGINE=django.db.backends.postgresql # Add engine of the database
 DJANGO_DB_NAME=chaviclient # Add name of the database
 DJANGO_DB_USER=postgres # Add username of the database  
-DJANGO_DB_PASSWORD=26rishi1978 # Add password of the database
+DJANGO_DB_PASSWORD=sample_password # Add password of the database
 DJANGO_DB_HOST=localhost # Add host of the database
 DJANGO_DB_PORT=5432 # Add port of the database

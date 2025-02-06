@@ -3,6 +3,10 @@ from .models import *
 from .serializers import *
 import json
 import uuid
+import zipfile
+import io
+import os
+import hashlib
 
 class UUIDEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle UUID objects"""
@@ -14,220 +18,298 @@ class UUIDEncoder(json.JSONEncoder):
 
 def export_patient_data(modeladmin, request, queryset):
     """
-    Admin action to export all related data for selected patients as JSON
+    Admin action to export patient data as individual JSON files within a zip archive.
+    
+    This function performs the following steps:
+    1. Creates an in-memory zip file to store all patient data files
+    2. For each patient in the queryset:
+        - Collects all related data from various models (diagnoses, treatments, outcomes, etc.)
+        - Serializes the data into JSON format
+        - Creates a unique filename using a hash of the patient ID
+        - Adds the JSON file to the zip archive
+    3. Returns the zip file as an HTTP response for download
+
+    Detailed Process:
+    ----------------
+    Laboratory Results Collection:
+        The function queries and processes laboratory results by:
+        1. Querying the database for all laboratory test results associated with the patient
+           using LaboratoryResults.objects.filter(patient=patient)
+        2. Serializing the results using LaboratoryResultsSerializer, which converts each
+           result into a dictionary containing:
+           - Test type/name
+           - Result value
+           - Units
+           - Date of test
+           - Other fields defined in the serializer
+        3. Adding all serialized results to the patient's data collection using extend()
+    
+    Args:
+        modeladmin: The ModelAdmin instance that called the action
+        request: The current HttpRequest object
+        queryset: A QuerySet containing the selected Patient objects
+    
+    Returns:
+        HttpResponse: A response containing the zip file with all patient data files
     """
-    # Dictionary to store all serialized data
-    export_data = {
-        'patients': [],
-        'dicom_studies': [],
-        'diagnoses': [],
-        'outcomes': [],
-        'lesions': [],
-        'lesion_responses': [],
-        'pathologies': [],
-        'immunohistochemistries': [],
-        'cytogenetics': [],
-        'somatic_genomic_alterations': [],
-        'other_treatments': [],
-        'radiotherapies': [],
-        'radiotherapy_volumes': [],
-        'radiotherapy_dose_volume_data': [],
-        'surgeries': [],
-        'concomitant_medications': [],
-        'systemic_therapies': [],
-        'systemic_therapy_schedules': [],
-        'adverse_effects': [],
-        'pro_instruments': [],
-        'pro_domains': [],
-        'pro_questions': [],
-        'patient_reported_outcomes': [],
-        'patient_outcomes': [],
-        'comorbidities': [],
-        'stage_information': [],
-        'laboratory_results': [],
-        'dicom_study_projects': []
-    }
+    # Create an in-memory buffer to store the zip file
+    # Using BytesIO allows us to create the zip file in memory without writing to disk
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Create a context dictionary for DRF serializers that includes the request object
+        context = {'request': request}
+        
+        # Process each patient individually
+        for patient in queryset:
+            # Initialize a dictionary to store all data related to this patient
+            # Each key represents a different type of data (diagnoses, treatments, etc.)
+            # The values will be lists of serialized data for each type
+            patient_data = {
+                'patients': [],
+                'dicom_studies': [],
+                'diagnoses': [],
+                'outcomes': [],
+                'lesions': [],
+                'lesion_responses': [],
+                'pathologies': [],
+                'immunohistochemistries': [],
+                'cytogenetics': [],
+                'somatic_genomic_alterations': [],
+                'other_treatments': [],
+                'radiotherapies': [],
+                'radiotherapy_volumes': [],
+                'radiotherapy_dose_volume_data': [],
+                'surgeries': [],
+                'concomitant_medications': [],
+                'systemic_therapies': [],
+                'systemic_therapy_schedules': [],
+                'adverse_effects': [],
+                'pro_instruments': [],
+                'pro_domains': [],
+                'pro_questions': [],
+                'patient_reported_outcomes': [],
+                'patient_outcomes': [],
+                'comorbidities': [],
+                'stage_information': [],
+                'laboratory_results': [],
+                'dicom_study_projects': []
+            }
 
-    context = {'request': request}
-
-    # Serialize patient data and all related information
-    for patient in queryset:
-        # Patient data
-        export_data['patients'].append(
-            PatientSerializer(patient, context=context).data
-        )
-
-        # DICOM Studies
-        dicom_studies = DICOMStudy.objects.filter(patient=patient)
-        export_data['dicom_studies'].extend(
-            DICOMStudySerializer(dicom_studies, many=True, context=context).data
-        )
-
-        # DICOM Study Projects
-        dicom_study_projects = DICOMStudyProject.objects.filter(dicom_study__patient=patient)
-        export_data['dicom_study_projects'].extend(
-            DICOMStudyProjectSerializer(dicom_study_projects, many=True, context=context).data
-        )
-
-        # Diagnoses and related data
-        diagnoses = Diagnosis.objects.filter(patient=patient)
-        export_data['diagnoses'].extend(
-            DiagnosisSerializer(diagnoses, many=True, context=context).data
-        )
-
-        for diagnosis in diagnoses:
-            # Outcomes
-            outcomes = Outcome.objects.filter(diagnosis=diagnosis)
-            export_data['outcomes'].extend(
-                OutcomeSerializer(outcomes, many=True, context=context).data
+            # Serialize the patient's basic information
+            patient_data['patients'].append(
+                PatientSerializer(patient, context=context).data
             )
 
-            # Lesions and responses
-            lesions = Lesion.objects.filter(diagnosis=diagnosis)
-            export_data['lesions'].extend(
-                LesionSerializer(lesions, many=True, context=context).data
+            # Collect and serialize DICOM studies
+            # These are medical imaging studies associated with the patient
+            dicom_studies = DICOMStudy.objects.filter(patient=patient)
+            patient_data['dicom_studies'].extend(
+                DICOMStudySerializer(dicom_studies, many=True, context=context).data
             )
 
-            for lesion in lesions:
-                lesion_responses = LesionResponse.objects.filter(lesion=lesion)
-                export_data['lesion_responses'].extend(
-                    LesionResponseSerializer(lesion_responses, many=True, context=context).data
+            # Collect and serialize DICOM study projects
+            # These represent the research projects associated with each DICOM study
+            dicom_study_projects = DICOMStudyProject.objects.filter(dicom_study__patient=patient)
+            patient_data['dicom_study_projects'].extend(
+                DICOMStudyProjectSerializer(dicom_study_projects, many=True, context=context).data
+            )
+
+            # Collect all diagnoses for this patient
+            # A patient may have multiple diagnoses, each with its own related data
+            diagnoses = Diagnosis.objects.filter(patient=patient)
+            patient_data['diagnoses'].extend(
+                DiagnosisSerializer(diagnoses, many=True, context=context).data
+            )
+
+            # For each diagnosis, collect all related information
+            for diagnosis in diagnoses:
+                # Collect outcome data for this diagnosis
+                outcomes = Outcome.objects.filter(diagnosis=diagnosis)
+                patient_data['outcomes'].extend(
+                    OutcomeSerializer(outcomes, many=True, context=context).data
                 )
 
-            # Pathology and related data
-            pathologies = Pathology.objects.filter(diagnosis=diagnosis)
-            export_data['pathologies'].extend(
-                PathologySerializer(pathologies, many=True, context=context).data
-            )
-
-            for pathology in pathologies:
-                # Immunohistochemistry
-                immunohistochemistries = Immunohistochemistry.objects.filter(pathology=pathology)
-                export_data['immunohistochemistries'].extend(
-                    ImmunohistochemistrySerializer(immunohistochemistries, many=True, context=context).data
+                # Collect lesion data and their responses
+                lesions = Lesion.objects.filter(diagnosis=diagnosis)
+                patient_data['lesions'].extend(
+                    LesionSerializer(lesions, many=True, context=context).data
                 )
 
-                # Cytogenetics
-                cytogenetics = Cytogenetics.objects.filter(pathology=pathology)
-                export_data['cytogenetics'].extend(
-                    CytogeneticsSerializer(cytogenetics, many=True, context=context).data
+                # For each lesion, collect response data
+                for lesion in lesions:
+                    lesion_responses = LesionResponse.objects.filter(lesion=lesion)
+                    patient_data['lesion_responses'].extend(
+                        LesionResponseSerializer(lesion_responses, many=True, context=context).data
+                    )
+
+                # Collect pathology data and related information
+                pathologies = Pathology.objects.filter(diagnosis=diagnosis)
+                patient_data['pathologies'].extend(
+                    PathologySerializer(pathologies, many=True, context=context).data
                 )
 
-                # Somatic Genomic Alterations
-                genomic_alterations = SomaticGenomicAlterations.objects.filter(pathology=pathology)
-                export_data['somatic_genomic_alterations'].extend(
-                    SomaticGenomicAlterationsSerializer(genomic_alterations, many=True, context=context).data
+                # For each pathology record, collect related data
+                for pathology in pathologies:
+                    # Collect immunohistochemistry data
+                    immunohistochemistries = Immunohistochemistry.objects.filter(pathology=pathology)
+                    patient_data['immunohistochemistries'].extend(
+                        ImmunohistochemistrySerializer(immunohistochemistries, many=True, context=context).data
+                    )
+
+                    # Cytogenetics
+                    cytogenetics = Cytogenetics.objects.filter(pathology=pathology)
+                    patient_data['cytogenetics'].extend(
+                        CytogeneticsSerializer(cytogenetics, many=True, context=context).data
+                    )
+
+                    # Somatic Genomic Alterations
+                    genomic_alterations = SomaticGenomicAlterations.objects.filter(pathology=pathology)
+                    patient_data['somatic_genomic_alterations'].extend(
+                        SomaticGenomicAlterationsSerializer(genomic_alterations, many=True, context=context).data
+                    )
+
+                # Collect treatment-related data
+                # This includes various types of treatments: radiotherapy, surgery, medications, etc.
+                other_treatments = OtherTreatment.objects.filter(diagnosis=diagnosis)
+                patient_data['other_treatments'].extend(
+                    OtherTreatmentSerializer(other_treatments, many=True, context=context).data
                 )
 
-            # Treatments
-            other_treatments = OtherTreatment.objects.filter(diagnosis=diagnosis)
-            export_data['other_treatments'].extend(
-                OtherTreatmentSerializer(other_treatments, many=True, context=context).data
-            )
-
-            # Radiotherapy and related data
-            radiotherapies = Radiotherapy.objects.filter(diagnosis=diagnosis)
-            export_data['radiotherapies'].extend(
-                RadiotherapySerializer(radiotherapies, many=True, context=context).data
-            )
-
-            for radiotherapy in radiotherapies:
-                # Radiotherapy Volumes
-                rt_volumes = RadiotherapyVolume.objects.filter(radiotherapy=radiotherapy)
-                export_data['radiotherapy_volumes'].extend(
-                    RadiotherapyVolumeSerializer(rt_volumes, many=True, context=context).data
+                # Radiotherapy and related data
+                radiotherapies = Radiotherapy.objects.filter(diagnosis=diagnosis)
+                patient_data['radiotherapies'].extend(
+                    RadiotherapySerializer(radiotherapies, many=True, context=context).data
                 )
 
-                # Radiotherapy Dose Volume Data
-                rt_dose_volumes = RadiotherapyDoseVolumeData.objects.filter(radiotherapy=radiotherapy)
-                export_data['radiotherapy_dose_volume_data'].extend(
-                    RadiotherapyDoseVolumeDataSerializer(rt_dose_volumes, many=True, context=context).data
+                for radiotherapy in radiotherapies:
+                    # Radiotherapy Volumes
+                    rt_volumes = RadiotherapyVolume.objects.filter(radiotherapy=radiotherapy)
+                    patient_data['radiotherapy_volumes'].extend(
+                        RadiotherapyVolumeSerializer(rt_volumes, many=True, context=context).data
+                    )
+
+                    # Radiotherapy Dose Volume Data
+                    rt_dose_volumes = RadiotherapyDoseVolumeData.objects.filter(radiotherapy=radiotherapy)
+                    patient_data['radiotherapy_dose_volume_data'].extend(
+                        RadiotherapyDoseVolumeDataSerializer(rt_dose_volumes, many=True, context=context).data
+                    )
+
+                # Surgery
+                surgeries = Surgery.objects.filter(diagnosis=diagnosis)
+                patient_data['surgeries'].extend(
+                    SurgerySerializer(surgeries, many=True, context=context).data
                 )
 
-            # Surgery
-            surgeries = Surgery.objects.filter(diagnosis=diagnosis)
-            export_data['surgeries'].extend(
-                SurgerySerializer(surgeries, many=True, context=context).data
-            )
-
-            # Concomitant Medications
-            medications = ConcomitantMedications.objects.filter(diagnosis=diagnosis)
-            export_data['concomitant_medications'].extend(
-                ConcomitantMedicationsSerializer(medications, many=True, context=context).data
-            )
-
-            # Systemic Therapy and Schedules
-            systemic_therapies = SystemicTherapy.objects.filter(diagnosis=diagnosis)
-            export_data['systemic_therapies'].extend(
-                SystemicTherapySerializer(systemic_therapies, many=True, context=context).data
-            )
-
-            for therapy in systemic_therapies:
-                schedules = SystemicTherapySchedule.objects.filter(systemic_therapy=therapy)
-                export_data['systemic_therapy_schedules'].extend(
-                    SystemicTherapyScheduleSerializer(schedules, many=True, context=context).data
+                # Concomitant Medications
+                medications = ConcomitantMedications.objects.filter(diagnosis=diagnosis)
+                patient_data['concomitant_medications'].extend(
+                    ConcomitantMedicationsSerializer(medications, many=True, context=context).data
                 )
 
-            # Adverse Effects
-            adverse_effects = AdverseEffects.objects.filter(diagnosis=diagnosis)
-            export_data['adverse_effects'].extend(
-                AdverseEffectsSerializer(adverse_effects, many=True, context=context).data
+                # Systemic Therapy and Schedules
+                systemic_therapies = SystemicTherapy.objects.filter(diagnosis=diagnosis)
+                patient_data['systemic_therapies'].extend(
+                    SystemicTherapySerializer(systemic_therapies, many=True, context=context).data
+                )
+
+                for therapy in systemic_therapies:
+                    schedules = SystemicTherapySchedule.objects.filter(systemic_therapy=therapy)
+                    patient_data['systemic_therapy_schedules'].extend(
+                        SystemicTherapyScheduleSerializer(schedules, many=True, context=context).data
+                    )
+
+                # Adverse Effects
+                adverse_effects = AdverseEffects.objects.filter(diagnosis=diagnosis)
+                patient_data['adverse_effects'].extend(
+                    AdverseEffectsSerializer(adverse_effects, many=True, context=context).data
+                )
+
+                # Stage Information
+                stage_info = StageInformation.objects.filter(diagnosis=diagnosis)
+                patient_data['stage_information'].extend(
+                    StageInformationSerializer(stage_info, many=True, context=context).data
+                )
+
+            # Collect patient-specific data not related to diagnoses
+            # This includes PRO (Patient Reported Outcome) data, laboratory results, etc.
+            # PRO Instruments, Domains, and Questions
+            pro_instruments = ProInstrument.objects.all()
+            patient_data['pro_instruments'].extend(
+                ProInstrumentSerializer(pro_instruments, many=True, context=context).data
             )
 
-            # Stage Information
-            stage_info = StageInformation.objects.filter(diagnosis=diagnosis)
-            export_data['stage_information'].extend(
-                StageInformationSerializer(stage_info, many=True, context=context).data
+            pro_domains = ProDomain.objects.filter(instrument__in=pro_instruments)
+            patient_data['pro_domains'].extend(
+                ProDomainSerializer(pro_domains, many=True, context=context).data
             )
 
-        # Patient-specific data (not diagnosis-related)
-        # PRO Instruments, Domains, and Questions
-        pro_instruments = ProInstrument.objects.all()
-        export_data['pro_instruments'].extend(
-            ProInstrumentSerializer(pro_instruments, many=True, context=context).data
-        )
+            pro_questions = ProQuestion.objects.filter(domain__in=pro_domains)
+            patient_data['pro_questions'].extend(
+                ProQuestionSerializer(pro_questions, many=True, context=context).data
+            )
 
-        pro_domains = ProDomain.objects.filter(instrument__in=pro_instruments)
-        export_data['pro_domains'].extend(
-            ProDomainSerializer(pro_domains, many=True, context=context).data
-        )
+            # Patient Reported Outcomes
+            patient_reported_outcomes = PatientReportedOutcome.objects.filter(patient=patient)
+            patient_data['patient_reported_outcomes'].extend(
+                PatientReportedOutcomeSerializer(patient_reported_outcomes, many=True, context=context).data
+            )
 
-        pro_questions = ProQuestion.objects.filter(domain__in=pro_domains)
-        export_data['pro_questions'].extend(
-            ProQuestionSerializer(pro_questions, many=True, context=context).data
-        )
+            # Patient Outcomes
+            patient_outcomes = PatientOutcome.objects.filter(patient=patient)
+            patient_data['patient_outcomes'].extend(
+                PatientOutcomeSerializer(patient_outcomes, many=True, context=context).data
+            )
 
-        # Patient Reported Outcomes
-        patient_reported_outcomes = PatientReportedOutcome.objects.filter(patient=patient)
-        export_data['patient_reported_outcomes'].extend(
-            PatientReportedOutcomeSerializer(patient_reported_outcomes, many=True, context=context).data
-        )
+            # Comorbidities
+            comorbidities = Comorbidity.objects.filter(patient=patient)
+            patient_data['comorbidities'].extend(
+                ComorbiditySerializer(comorbidities, many=True, context=context).data
+            )
 
-        # Patient Outcomes
-        patient_outcomes = PatientOutcome.objects.filter(patient=patient)
-        export_data['patient_outcomes'].extend(
-            PatientOutcomeSerializer(patient_outcomes, many=True, context=context).data
-        )
+            # Laboratory Results
+            # 1. Query the database for all laboratory test results associated with this patient
+            lab_results = LaboratoryResults.objects.filter(patient=patient)
+            
+            # 2. Serialize the laboratory results:
+            #    - lab_results: QuerySet of LaboratoryResults objects for this patient
+            #    - many=True: Indicates we're serializing multiple records
+            #    - context: Contains the request object needed by the serializer
+            # 3. The serializer converts each laboratory result into a dictionary containing:
+            #    - Test type/name
+            #    - Result value
+            #    - Units
+            #    - Date of test
+            #    - Any other fields defined in LaboratoryResultsSerializer
+            # 4. extend() adds all serialized results to the patient_data['laboratory_results'] list
+            patient_data['laboratory_results'].extend(
+                LaboratoryResultsSerializer(lab_results, many=True, context=context).data
+            )
 
-        # Comorbidities
-        comorbidities = Comorbidity.objects.filter(patient=patient)
-        export_data['comorbidities'].extend(
-            ComorbiditySerializer(comorbidities, many=True, context=context).data
-        )
+            # Convert the collected data to JSON format
+            # Using indent=2 for pretty printing and UUIDEncoder for handling UUID fields
+            patient_json = json.dumps(patient_data, indent=2, cls=UUIDEncoder)
+            
+            # Create a unique filename using a hash of the patient ID
+            # This ensures privacy by not using the actual patient ID in the filename
+            # while still maintaining uniqueness
+            patient_id_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()
+            filename = f"patient_{patient_id_hash}_data.json"
+            
+            # Add the JSON file to the zip archive
+            # writestr() adds a file to the zip archive with the given name and content
+            zip_file.writestr(filename, patient_json)
 
-        # Laboratory Results
-        lab_results = LaboratoryResults.objects.filter(patient=patient)
-        export_data['laboratory_results'].extend(
-            LaboratoryResultsSerializer(lab_results, many=True, context=context).data
-        )
-
-    # Create the response with the JSON file
-    response = HttpResponse(
-        json.dumps(export_data, indent=2, cls=UUIDEncoder), 
-        content_type='application/json'
-    )
-    filename = f"patient_data_export_{queryset.count()}_patients.json"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # Prepare the HTTP response
+    # First, reset the buffer position to the beginning
+    zip_buffer.seek(0)
+    
+    # Create the HTTP response with the zip file content
+    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+    # Set the filename for the downloaded zip file
+    response['Content-Disposition'] = f'attachment; filename="patient_data_export_{queryset.count()}_patients.zip"'
+    
     return response
 
-export_patient_data.short_description = "Export selected patients' data as JSON" 
+# Short description for the admin interface
+export_patient_data.short_description = "Export selected patients' data as JSON files (zipped)" 
