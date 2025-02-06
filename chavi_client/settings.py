@@ -178,8 +178,6 @@ JAZZMIN_SETTINGS = {
     'usermenu_links': [
         {'name': 'Account Settings', 'url': '/accounts/', 'icon': 'fas fa-user-cog'},
         {'model': 'auth.user'},
-
-
     ],
     'topmenu_links': [
         {'name': 'Home', 'url': '/admin/', 'icon': 'fas fa-home'},
