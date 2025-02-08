@@ -110,12 +110,8 @@ class HashedForeignKeyField(PrimaryKeyRelatedField):
             return full_obj.study_instance_uid
         elif model_name == 'Project':
             return full_obj.chavi_project_id
-        elif model_name == 'Center':  # Site configuration
-            return str(full_obj.pk)  # Return UUID as string
-        elif model_name == 'CTCAEGrade':  # Site configuration
-            return full_obj.ctcae_grade_lookup
-        elif model_name == 'CTCAEVersion':  # Site configuration
-            return full_obj.ctcae_version_lookup
+        elif model_name == 'SiteConfiguration':  # Site configuration
+            return str(full_obj.chavi_center_id)  # Return UUID as string
             
         # For all other models, hash the primary key
         pk_field = full_obj._meta.pk.name
@@ -130,6 +126,18 @@ class DiagnosisSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = Diagnosis
 
+
+class SymptomSerializer(BaseSerializer):
+    chavi_symptom_id = serializers.SerializerMethodField()
+    patient = HashedForeignKeyField(queryset=Patient.objects.all())
+
+    def get_chavi_symptom_id(self, obj):
+        return hash_pk(obj.chavi_symptom_id)
+
+    class Meta(BaseSerializer.Meta):
+        model = Symptom
+
+        
 class OutcomeSerializer(BaseSerializer):
     chavi_outcome_id = serializers.SerializerMethodField()
     diagnosis = HashedForeignKeyField(queryset=Diagnosis.objects.all())
@@ -150,6 +158,8 @@ class LesionSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = Lesion
 
+
+
 class LesionResponseSerializer(BaseSerializer):
     chavi_lesion_response_id = serializers.SerializerMethodField()
     lesion = HashedForeignKeyField(queryset=Lesion.objects.all())
@@ -159,6 +169,16 @@ class LesionResponseSerializer(BaseSerializer):
 
     class Meta(BaseSerializer.Meta):
         model = LesionResponse
+
+class GermlineGenomicAlterationsSerializer(BaseSerializer):
+    chavi_germline_genomic_id = serializers.SerializerMethodField()
+    patient = HashedForeignKeyField(queryset=Patient.objects.all())
+
+    def get_chavi_germline_genomic_id(self, obj):
+        return hash_pk(obj.chavi_germline_genomic_id)
+
+    class Meta(BaseSerializer.Meta):
+        model = GermlineGenomicAlterations
 
 class PathologySerializer(BaseSerializer):
     chavi_pathology_id = serializers.SerializerMethodField()

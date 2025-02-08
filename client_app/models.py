@@ -410,6 +410,26 @@ class LookupLaboratoryTest(LookupAbstract):
     class Meta:
         verbose_name_plural = "Lookup Laboratory Tests"
 
+class LookupSymptoms(LookupAbstract):
+    ''' This is a lookup table for the symptoms.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Symptoms"
+
+class LookupSeverity(LookupAbstract):
+    ''' This is a lookup table for the severity of the symptoms.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Severity"
+
+
+
+
+
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
@@ -786,6 +806,39 @@ class LesionResponse(models.Model):
     class Meta:
         verbose_name_plural="Lesion Responses"
         db_table="lesion_response"
+
+class Symptom(models.Model):
+    ''' This table will store information on the symptoms for the patient.'''
+    chavi_symptom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    symptom = models.ForeignKey(LookupSymptoms, on_delete=models.PROTECT)
+    date_onset = models.DateField(null=True, blank=True)
+    date_resolution = models.DateField(null=True, blank=True)
+    severity = models.ForeignKey(LookupSeverity, on_delete=models.PROTECT, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class GermlineGenomicAlterations(models.Model):
+    ''' This table will store information on the germline genomic alterations for the patient.'''
+    chavi_germline_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    date_test = models.DateField(null=True, blank=True)
+    cosmic_gene_name = models.ForeignKey(LookupGene, on_delete=models.PROTECT)
+    reference_sequence = models.CharField(max_length=255, null=True, blank=True)
+    protein_modification = models.CharField(max_length=255, null=True, blank=True)
+    variant_type = models.CharField(max_length=255, null=True, blank=True)
+    allele_frequency = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    read_depth = models.IntegerField(null=True, blank=True)
+    clinical_significance = models.ForeignKey(LookupClinicalSignificance, on_delete=models.PROTECT, related_name='germline_genomic_clinical_significance',null = True, blank = True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.chavi_germline_genomic_id}"
+    
+    class Meta:
+        verbose_name_plural = "Germline Genomic Alterations"
+        db_table = "germline_genomic_alterations"
 
 class Pathology(models.Model):
     ''' This a table which stores the pathology information related to a diagnosis.'''
@@ -1894,6 +1947,8 @@ class PatientOutcome(models.Model):
     help_text="Select the patients last known status")
     date_of_death = models.DateField(null=True, blank=True,
     help_text="Enter the date of death, if applicable")
+    last_date_of_follow_up = models.DateField(null=True, blank=True,
+    help_text="Enter the last date of follow up")
     death_related_to_cancer_progression = models.BooleanField(default=False,null=True,blank=True,help_text="Indicate if the death was related to cancer progression (check for Yes, uncheck for No)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2080,4 +2135,19 @@ class DICOMStudyProject(models.Model):
                 name='unique_dicom_study_project'
             )
         ]
+
+class BulkDICOMUpload(models.Model):
+    '''This model handles bulk uploads of DICOM files from multiple patients. It matches the DICOM files to existing patients based on the Patient ID found in the DICOM metadata.'''
+    file = models.FileField(
+        upload_to='bulk_dicom_files',
+        validators=[FileExtensionValidator(allowed_extensions=["zip"])],
+        help_text="Upload a zip file containing DICOM studies from multiple patients. Files will be processed and sorted based on Patient IDs found in DICOM metadata."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, default='Pending')
+    
+    class Meta:
+        verbose_name = "Bulk DICOM Upload"
+        verbose_name_plural = "Bulk DICOM Uploads"
 

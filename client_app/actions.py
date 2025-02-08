@@ -72,6 +72,7 @@ def export_patient_data(modeladmin, request, queryset):
                 'outcomes': [],
                 'lesions': [],
                 'lesion_responses': [],
+                'germline_genomic_alterations': [],
                 'pathologies': [],
                 'immunohistochemistries': [],
                 'cytogenetics': [],
@@ -265,6 +266,18 @@ def export_patient_data(modeladmin, request, queryset):
             comorbidities = Comorbidity.objects.filter(patient=patient)
             patient_data['comorbidities'].extend(
                 ComorbiditySerializer(comorbidities, many=True, context=context).data
+            )
+
+            # Somatic Genomic Alterations
+            genomic_alterations = GermlineGenomicAlterations.objects.filter(patient=patient)
+            patient_data['germline_genomic_alterations'].extend(
+                GermlineGenomicAlterationsSerializer(genomic_alterations, many=True, context=context).data
+            )
+
+            # Symptoms
+            symptoms = Symptom.objects.filter(patient=patient)
+            patient_data['symptoms'].extend(
+                SymptomSerializer(symptoms, many=True, context=context).data
             )
 
             # Laboratory Results

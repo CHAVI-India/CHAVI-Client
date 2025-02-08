@@ -156,57 +156,6 @@ def process_dicom(modeladmin, request, queryset):
             continue
 
 
-# @admin.action(description = "Export all Patient Data as a JSON object")
-
-# def export_patient_data(self, request, queryset):
-#     """
-#     Custom admin action to export complete patient data including all related models
-#     """
-#     try:
-#         # Check if the queryset is too large
-#         if queryset.count() > 100:  # Adjust this threshold as needed
-#             messages.warning(
-#                 request,
-#                 "Exporting large number of patients. This might take a while."
-#             )
-
-#         # Process in chunks for large datasets
-#         paginator = Paginator(queryset, 20)  # Process 20 patients at a time
-#         all_data = []
-
-#         for page_number in paginator.page_range:
-#             page = paginator.page(page_number)
-#             # Serialize each chunk
-#             serializer = PatientSerializer(page.object_list, many=True)
-#             all_data.extend(serializer.data)
-
-#         # Convert to JSON with nice formatting
-#         json_data = json.dumps(all_data, indent=2)
-        
-#         # Create the HTTP response with JSON file
-#         response = HttpResponse(json_data, content_type='application/json')
-        
-#         # If single patient, use their ID in filename, otherwise use count
-#         if queryset.count() == 1:
-#             filename = f"patient_{queryset.first().patient_id}_complete_data.json"
-#         else:
-#             filename = f"patients_{queryset.count()}_complete_data.json"
-        
-#         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        
-#         # Add success message
-#         messages.success(
-#             request, 
-#             f"Successfully exported complete data for {queryset.count()} patient(s)"
-#         )
-        
-#         return response
-
-#     except Exception as e:
-#         messages.error(request, f"Error exporting patient data: {str(e)}")
-#         return None
-#region inlinetables for many to many relations
-
 #endregion
 class DICOMStudyProjectInline(admin.TabularInline):
     model = DICOMStudyProject
@@ -362,6 +311,11 @@ class LookupLaboratoryTestAdmin (admin.ModelAdmin):
 
 @admin.register(LookupStageDescriptor)
 class LookupStageDescriptorAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupSymptoms)
+class LookupSymptomsAdmin(admin.ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
@@ -965,5 +919,171 @@ class LaboratoryResultsAdmin(ImportExportModelAdmin):
 
 
 
+class GermlineGenomicAlterationsResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_germline_genomic_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_germline_genomic_id'] = str(uuid.uuid4())
+
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene,field='label'))
+
+    class Meta:
+        model = GermlineGenomicAlterations
+        import_id_fields = ['chavi_germline_genomic_id']
+        fields = ['patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
+
+@admin.register(GermlineGenomicAlterations)
+class GermlineGenomicAlterationsAdmin(ImportExportModelAdmin):
+    autocomplete_fields = ['patient','cosmic_gene_name']
+    resource_classes = [GermlineGenomicAlterationsResource]
+    list_display = ['patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
+
+
+class SymptomResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_symptom_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_symptom_id'] = str(uuid.uuid4())
+
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    symptom = fields.Field(attribute='symptom',column_name='symptom',widget=ForeignKeyWidget(LookupSymptoms,field='label'))
+    severity = fields.Field(attribute='severity',column_name='severity',widget=ForeignKeyWidget(LookupSeverity,field='label'))
+    class Meta:
+        model = Symptom
+        import_id_fields = ['chavi_symptom_id']
+        fields = ['patient','symptom','date_onset','date_resolution','severity']
+@admin.register(Symptom)
+class SymptomAdmin(ImportExportModelAdmin):
+    autocomplete_fields = ['patient','symptom']
+    resource_classes = [SymptomResource]
+    list_display = ['patient','symptom','date_onset','date_resolution','severity']
+
+
+
+
 # Register your models here.
 admin.site.register(SiteConfiguration)
+
+@admin.register(BulkDICOMUpload)
+class BulkDICOMUploadAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'processed_at', 'status']
+    readonly_fields = ['created_at', 'processed_at', 'status']
+    actions = ['process_bulk_dicom']
+
+    @admin.action(description="Process Bulk DICOM Files")
+    def process_bulk_dicom(self, request, queryset):
+        '''
+        Process uploaded zip files containing DICOM studies from multiple patients:
+        1. Unzip to temp directory
+        2. Process each DICOM file:
+            - If patient exists: Move to patient's study directory
+            - If patient doesn't exist: Move to unprocessed directory
+        3. Update database with study information for matched patients
+        '''
+        def sanitize(path):
+            return path.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+
+        for upload in queryset:
+            if upload.status == 'Processed':
+                messages.warning(request, f"Upload {upload.id} already processed")
+                continue
+
+            try:
+                # Create temporary directory
+                temp_dir = Path(tempfile.TemporaryDirectory().name)
+                temp_dir.mkdir(parents=True, exist_ok=True)
+
+                # Create unprocessed directory if it doesn't exist
+                unprocessed_dir = Path(settings.MEDIA_ROOT) / 'Unprocessed_DICOM'
+                unprocessed_dir.mkdir(parents=True, exist_ok=True)
+
+                # Extract zip file
+                with zipfile.ZipFile(upload.file.path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+
+                # Process all files in directory tree
+                dicom_files = [f for f in temp_dir.glob('**/*') if f.is_file()]
+                processed_count = 0
+                unprocessed_count = 0
+
+                for file_path in dicom_files:
+                    try:
+                        # Try to read as DICOM
+                        ds = dcmread(file_path)
+                        
+                        # Extract patient ID and sanitize it
+                        patient_id = ds.PatientID
+                        sanitized_patient_id = sanitize(patient_id)
+                        
+                        # Get study information
+                        study_instance_uid = ds.StudyInstanceUID
+                        sop_instance_uid = ds.SOPInstanceUID
+                        
+                        try:
+                            # Look for matching patient
+                            patient = Patient.objects.get(patient_id=patient_id)
+                            
+                            # Patient found - save to patient directory
+                            patient_dir = Path(settings.MEDIA_ROOT) / sanitized_patient_id
+                            study_dir = patient_dir / sanitize(study_instance_uid)
+                            study_dir.mkdir(parents=True, exist_ok=True)
+                            
+                            # Save DICOM file
+                            ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm")
+                            
+                            # Update or create DICOM study record
+                            study_date = None
+                            if hasattr(ds, 'StudyDate') and ds.StudyDate:
+                                try:
+                                    study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
+                                except ValueError as e:
+                                    messages.warning(request, f"Invalid date format in DICOM file {file_path.name}")
+
+                            study_description = getattr(ds, 'StudyDescription', None)
+                            series_description = getattr(ds, 'SeriesDescription', None)
+                            
+                            DICOMStudy.objects.update_or_create(
+                                patient=patient,
+                                study_instance_uid=study_instance_uid,
+                                defaults={
+                                    'study_description': study_description,
+                                    'study_date': study_date,
+                                    'series_descriptions': series_description
+                                }
+                            )
+                            processed_count += 1
+                            
+                        except Patient.DoesNotExist:
+                            # Patient not found - move to unprocessed directory
+                            unprocessed_patient_dir = unprocessed_dir / sanitized_patient_id / sanitize(study_instance_uid)
+                            unprocessed_patient_dir.mkdir(parents=True, exist_ok=True)
+                            ds.save_as(unprocessed_patient_dir / f"{sanitize(sop_instance_uid)}.dcm")
+                            unprocessed_count += 1
+                            
+                    except Exception as e:
+                        messages.error(request, f"Error processing file {file_path.name}: {str(e)}")
+                        continue
+
+                # Update upload status
+                upload.status = 'Processed'
+                upload.processed_at = timezone.now()
+                upload.save()
+
+                messages.success(
+                    request,
+                    f"Processed {processed_count} DICOM files for existing patients and moved {unprocessed_count} files to unprocessed directory"
+                )
+
+            except Exception as e:
+                messages.error(request, f"Error processing upload {upload.id}: {str(e)}")
+                continue
+
+            finally:
+                # Cleanup temporary directory
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir)

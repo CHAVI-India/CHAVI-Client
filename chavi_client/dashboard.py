@@ -37,6 +37,7 @@ class CustomIndexDashboard(Dashboard):
             css_classes=('collapse closed',),
             models=('client_app.models.DICOMStudy',
                     'client_app.models.PatientDicomFile',
+                    'client_app.models.BulkDICOMUpload',
                     ),
         ))        
 
@@ -70,8 +71,10 @@ class CustomIndexDashboard(Dashboard):
             column=1,
             css_classes=('collapse closed',),
             models=('client_app.models.Patient',
+                    'client_app.models.Symptom',
                     'client_app.models.Comorbidity',
                     'client_app.models.LaboratoryResults',
+                    'client_app.models.GermlineGenomicAlterations',
                     ),
         ))
         self.children.append(modules.ModelList(
