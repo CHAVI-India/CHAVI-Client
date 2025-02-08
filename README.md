@@ -322,13 +322,13 @@ graph LR
         PD --> PI
     end
 
-classDef core fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-classDef imaging fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-classDef clinical fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-classDef pathology fill:#fff3e0,stroke:#e65100,stroke-width:2px
-classDef treatment fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-classDef patient fill:#f1f8e9,stroke:#33691e,stroke-width:2px
-classDef pro fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+classDef core fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000000
+classDef imaging fill:#e1bee7,stroke:#4a148c,stroke-width:2px,color:#000000
+classDef clinical fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000000
+classDef pathology fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000000
+classDef treatment fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000000
+classDef patient fill:#dcedc8,stroke:#33691e,stroke-width:2px,color:#000000
+classDef pro fill:#b2dfdb,stroke:#004d40,stroke-width:2px,color:#000000
 
 class SC,P,PT core
 class PDF,DS,DSP imaging
