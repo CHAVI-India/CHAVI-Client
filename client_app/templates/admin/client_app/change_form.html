@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+    {% if adminform.model_admin.guidance_text %}
+    <div class="module grp-module">
+        {{ adminform.model_admin.guidance_text|safe }}
+    </div>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

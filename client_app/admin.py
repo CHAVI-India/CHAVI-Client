@@ -279,6 +279,15 @@ class PatientAdmin(ImportExportModelAdmin):
         }),
     )
     readonly_fields = ['center']
+    change_form_template = 'admin/client_app/change_form.html'
+    guidance_text = """
+    <h2>Guidance</h2>
+    <p>This form allows you to enter data for patients in the CHAVI database. This is the key form to fill as the patient ID will be used for all other forms. <br>
+    For patients who have a CHAVI consent done please choose Yes and input the date of the consent. You can assign a patient to multiple projects also in this form. <br> Please note that DICOM data can be associated with the patient only after the Patient ID is entered.</p>    <br>
+    """
+
+
+
 @admin.register(PatientDicomFile)
 class PatientDicomFileAdmin(admin.ModelAdmin):
     search_fields =[ 'patient__patient_id']
@@ -292,6 +301,13 @@ class PatientDicomFileAdmin(admin.ModelAdmin):
     actions = [
         process_dicom
     ]
+    change_form_template = 'admin/client_app/change_form.html'
+    guidance_text = """
+    <h2>Guidance</h2>
+    <p>This form allows you to enter DICOM data for a <strong>SINGLE patient</strong>. Please upload a zip file with DICOM studies belonging to a <strong>SINGLE patient only</strong> in this form. <br>
+     After the zip file is uploaded and saved, you can use the action at the bottom of the listing page to process the DICOM. The processing function will extract all the DICOM files from the zip folder, ensure that the patient ID in the DICOM files match that of the patient ID in the database and then appropriately sort them into a dicom_study folder. Additionally you will see that it updates the DICOMStudies data also in the database.
+      <br> <strong> Please upload a zip belonging to a single patient only as patient ID in the dicom files will be changed !! </strong> </p> After the DICOM zip file has been processed you may decide to delete the file by selecting the file in the list display page and clicking the delete selected patient dicom files action. <p> </p>   <br>
+    """
 
 @admin.register(LookupICDCode)
 class LookupICDCodeAdmin (admin.ModelAdmin):
@@ -974,6 +990,12 @@ class BulkDICOMUploadAdmin(admin.ModelAdmin):
     list_display = ['created_at', 'processed_at', 'status']
     readonly_fields = ['created_at', 'processed_at', 'status']
     actions = ['process_bulk_dicom']
+    change_form_template = 'admin/client_app/change_form.html'
+    guidance_text = """
+    <h2>Guidance</h2>
+    <p> This form allows you to upload DICOM data for several patients at the same time. This a convinience way to upload DICOM data for several patients in a single step but has a caveat that patient ID in the DICOM files <strong> MUST match an existing patient in the Patient database. </strong> <br>
+     Therefore it is important that for all patients whose DICOM data is being uploaded the patient ID should be in a consistent format. After uploading please run the Process Bulk DICOM action to extract and organize the DICOM files. For files where a matching patient ID is found, the system will automatically associate the DICOM file with the correct patient and create a proper zip file with the patient DICOM data. If the patient ID cannot be matched it will store the DICOM data in a Unprocessed_DICOM folder for you to review.  </p>   <br>
+    """
 
     @admin.action(description="Process Bulk DICOM Files")
     def process_bulk_dicom(self, request, queryset):
