@@ -51,8 +51,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#linux-installation">Linux Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#windows-installation">Windows Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#accessing-the-application">Accessing the Application</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#security-considerations">Security Considerations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
@@ -93,7 +91,7 @@
       </nav>
 
       <div class="wy-nav-content">
-        <div class="rst-content">
+        <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
@@ -306,68 +304,7 @@ DJANGO_DB_PORT=5432
 <li><p>On Linux: Run <code class="docutils literal notranslate"><span class="pre">ip</span> <span class="pre">addr</span></code> or <code class="docutils literal notranslate"><span class="pre">ifconfig</span></code></p></li>
 <li><p>On Windows: Run <code class="docutils literal notranslate"><span class="pre">ipconfig</span></code> in Command Prompt</p></li>
 </ul>
-</section>
-<section id="security-considerations">
-<h2>Security Considerations<a class="headerlink" href="#security-considerations" title="Link to this heading"></a></h2>
-<p>For production deployment:</p>
-<ol class="arabic simple">
-<li><p>Update <code class="docutils literal notranslate"><span class="pre">settings.py</span></code>:</p>
-<ul class="simple">
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">DEBUG</span> <span class="pre">=</span> <span class="pre">False</span></code></p></li>
-<li><p>Update <code class="docutils literal notranslate"><span class="pre">ALLOWED_HOSTS</span></code> with your domain or IP address</p></li>
-<li><p>Use a proper production database (e.g., PostgreSQL)</p></li>
-<li><p>Configure proper static file serving</p></li>
-</ul>
-</li>
-<li><p>Use a production-grade web server:</p>
-<ul class="simple">
-<li><p>Nginx or Apache as reverse proxy</p></li>
-<li><p>Gunicorn or uWSGI as application server</p></li>
-</ul>
-</li>
-<li><p>Enable HTTPS:</p>
-<ul class="simple">
-<li><p>Install and configure SSL certificates</p></li>
-<li><p>Force HTTPS redirects</p></li>
-</ul>
-</li>
-<li><p>Set proper file permissions:</p>
-<ul class="simple">
-<li><p>Restrict access to sensitive files</p></li>
-<li><p>Set appropriate ownership for project files</p></li>
-</ul>
-</li>
-</ol>
-</section>
-<section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
-<p>Common Issues:</p>
-<ol class="arabic simple">
-<li><p>Port 8000 already in use:</p>
-<ul class="simple">
-<li><p>Use a different port: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">runserver</span> <span class="pre">0.0.0.0:8001</span></code></p></li>
-</ul>
-</li>
-<li><p>Database migration errors:</p>
-<ul class="simple">
-<li><p>Delete the database file (if using SQLite)</p></li>
-<li><p>Run migrations again</p></li>
-</ul>
-</li>
-<li><p>Static files not loading:</p>
-<ul class="simple">
-<li><p>Ensure <code class="docutils literal notranslate"><span class="pre">DEBUG</span> <span class="pre">=</span> <span class="pre">True</span></code> for development</p></li>
-<li><p>Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">collectstatic</span></code> again</p></li>
-<li><p>Check <code class="docutils literal notranslate"><span class="pre">STATIC_ROOT</span></code> and <code class="docutils literal notranslate"><span class="pre">STATIC_URL</span></code> settings</p></li>
-</ul>
-</li>
-</ol>
-<p>For additional help, consult:</p>
-<ul class="simple">
-<li><p>Django documentation: <a class="reference external" href="https://docs.djangoproject.com/">https://docs.djangoproject.com/</a></p></li>
-<li><p>Project documentation</p></li>
-<li><p>System administrators</p></li>
-</ul>
+<p>For additional help, contact the CHAVI team.</p>
 </section>
 </section>
 

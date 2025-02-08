@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Concomitant Medications &mdash; CHAVI Client 1.0 documentation</title>
+  <title>DICOM Studies &mdash; CHAVI Client 1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -18,9 +18,7 @@
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Other Treatment" href="other_treatment.html" />
-    <link rel="prev" title="Surgery" href="surgery.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,11 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
 <li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
 <li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
@@ -63,15 +63,7 @@
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Concomitant Medications</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#medication-information">Medication Information</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#administration-details">Administration Details</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
@@ -96,9 +88,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Concomitant Medications</li>
+      <li class="breadcrumb-item active">DICOM Studies</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/concomitant_medications.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/help_files/dicom_studies.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -106,50 +98,85 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="concomitant-medications">
-<h1>Concomitant Medications<a class="headerlink" href="#concomitant-medications" title="Link to this heading"></a></h1>
-<p>The Concomitant Medications module tracks medications given alongside primary cancer treatments.</p>
-<section id="data-collection-fields">
-<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
-<section id="medication-information">
-<h3>Medication Information<a class="headerlink" href="#medication-information" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><strong>Diagnosis Link</strong>: Associated diagnosis</p></li>
-<li><p><strong>Medication Name</strong>: Name of the medication</p></li>
-<li><p><strong>Medication Dose</strong>: Amount prescribed</p></li>
-<li><p><strong>Dose Units</strong>: Units of measurement</p></li>
-</ul>
-</section>
-<section id="administration-details">
-<h3>Administration Details<a class="headerlink" href="#administration-details" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><strong>Start Date</strong>: When medication was started</p></li>
-<li><p><strong>End Date</strong>: When medication was stopped</p></li>
-<li><p><strong>Route</strong>: How medication is given</p></li>
-</ul>
-</section>
-</section>
-<section id="special-considerations">
-<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+  <section id="dicom-studies">
+<h1>DICOM Studies<a class="headerlink" href="#dicom-studies" title="Link to this heading"></a></h1>
+<p>The DICOM Studies module manages medical imaging studies associated with patients.</p>
+<section id="study-management">
+<h2>Study Management<a class="headerlink" href="#study-management" title="Link to this heading"></a></h2>
+<section id="view-studies">
+<h3>View Studies:<a class="headerlink" href="#view-studies" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
-<li><p>Documentation:</p>
-<ol class="arabic simple">
-<li><p>Record all concurrent medications</p></li>
-<li><p>Note duration of treatment</p></li>
-<li><p>Document any modifications</p></li>
-</ol>
+<li><p>Navigate to “DICOM Studies” in the Django Admin interface</p></li>
+<li><p>Search by patient ID or study details</p></li>
+<li><p>View study information:</p>
+<ul class="simple">
+<li><p>Study Instance UID</p></li>
+<li><p>Study Date</p></li>
+<li><p>Study Description</p></li>
+<li><p>Series Descriptions</p></li>
+</ul>
 </li>
 </ol>
+</section>
+</section>
+<section id="study-association">
+<h2>Study Association<a class="headerlink" href="#study-association" title="Link to this heading"></a></h2>
+<section id="studies-can-be-associated-with">
+<h3>Studies can be associated with:<a class="headerlink" href="#studies-can-be-associated-with" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Diagnoses</p></li>
+<li><p>Lesions</p></li>
+<li><p>Treatment responses</p></li>
+<li><p>Outcomes</p></li>
+<li><p>Projects</p></li>
+</ul>
+</section>
+<section id="to-associate-a-study">
+<h3>To associate a study:<a class="headerlink" href="#to-associate-a-study" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Navigate to the relevant record (e.g., Diagnosis, Lesion)</p></li>
+<li><p>Use the “DICOM Studies” selection field</p></li>
+<li><p>Choose applicable studies from the list</p></li>
+<li><p>Save the record</p></li>
+</ol>
+</section>
+</section>
+<section id="project-association">
+<h2>Project Association<a class="headerlink" href="#project-association" title="Link to this heading"></a></h2>
+<p>To associate studies with research projects:</p>
+<ol class="arabic simple">
+<li><p>Navigate to “Projects”</p></li>
+<li><p>Select or create a project</p></li>
+<li><p>Use the DICOM Study Project inline form</p></li>
+<li><p>Select studies to include</p></li>
+<li><p>Save the project</p></li>
+</ol>
+</section>
+<section id="study-information">
+<h2>Study Information<a class="headerlink" href="#study-information" title="Link to this heading"></a></h2>
+<p>Each DICOM study record includes:</p>
+<ul class="simple">
+<li><p>Patient reference</p></li>
+<li><p>Study date</p></li>
+<li><p>Study description</p></li>
+<li><p>Series descriptions</p></li>
+<li><p>Study Instance UID (unique identifier)</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Use the search functionality to quickly find studies by patient ID or date.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>DICOM studies are automatically populated when processing DICOM files through the import features.</p>
+</div>
 </section>
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="surgery.html" class="btn btn-neutral float-left" title="Surgery" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="other_treatment.html" class="btn btn-neutral float-right" title="Other Treatment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

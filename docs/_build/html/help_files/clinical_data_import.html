@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Concomitant Medications &mdash; CHAVI Client 1.0 documentation</title>
+  <title>Clinical Data Import using the CHAVI Client &mdash; CHAVI Client 1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -18,9 +18,7 @@
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Other Treatment" href="other_treatment.html" />
-    <link rel="prev" title="Surgery" href="surgery.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,7 +41,7 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
@@ -63,15 +61,7 @@
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Concomitant Medications</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#medication-information">Medication Information</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#administration-details">Administration Details</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
@@ -96,9 +86,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Concomitant Medications</li>
+      <li class="breadcrumb-item active">Clinical Data Import using the CHAVI Client</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/concomitant_medications.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/help_files/clinical_data_import.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -106,50 +96,24 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="concomitant-medications">
-<h1>Concomitant Medications<a class="headerlink" href="#concomitant-medications" title="Link to this heading"></a></h1>
-<p>The Concomitant Medications module tracks medications given alongside primary cancer treatments.</p>
-<section id="data-collection-fields">
-<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
-<section id="medication-information">
-<h3>Medication Information<a class="headerlink" href="#medication-information" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><strong>Diagnosis Link</strong>: Associated diagnosis</p></li>
-<li><p><strong>Medication Name</strong>: Name of the medication</p></li>
-<li><p><strong>Medication Dose</strong>: Amount prescribed</p></li>
-<li><p><strong>Dose Units</strong>: Units of measurement</p></li>
-</ul>
-</section>
-<section id="administration-details">
-<h3>Administration Details<a class="headerlink" href="#administration-details" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><strong>Start Date</strong>: When medication was started</p></li>
-<li><p><strong>End Date</strong>: When medication was stopped</p></li>
-<li><p><strong>Route</strong>: How medication is given</p></li>
-</ul>
-</section>
-</section>
-<section id="special-considerations">
-<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p>Documentation:</p>
-<ol class="arabic simple">
-<li><p>Record all concurrent medications</p></li>
-<li><p>Note duration of treatment</p></li>
-<li><p>Document any modifications</p></li>
-</ol>
-</li>
-</ol>
-</section>
+  <section id="clinical-data-import-using-the-chavi-client">
+<h1>Clinical Data Import using the CHAVI Client<a class="headerlink" href="#clinical-data-import-using-the-chavi-client" title="Link to this heading"></a></h1>
+<p>The CHAVI Client allows you to import data from a CSV file. In order to do this you need to ensure that the data you are importing is in the correct format. The order of the columns in the CSV file is important and must match the order of the columns in the CHAVI Client. Importing is done through the Django Admin interface. Each list page will have an Import button that will allow you to import data from a CSV file. Clicking the IMPORT button will bring up a page where you can see the fields that will be imported and the order of the columns in the CSV file.</p>
+<p>In order to import data it is also important to be congnizant of the following:
+1. Importing is done through the Django Admin interface.
+2. Importing is done per page. That is Patient data is imported per patient, Lesion data is imported per lesion, etc.
+3. Several lookup tables have been created to assist with importing data. The csv should contain the label corresponding to the lookup table to successfully import data.
+4. For some tables, you will have to provide a ID field e.g. Patient. For others the system automatically generates the UUID. For these tables you DO NOT need to provide a value for the ID field. Please do note that each row of the csv will be imported as a new record and will receive a new UUID.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Please contact us to help you with bulk data import. We can help you write scripts in R to format your data correctly.</p>
+</div>
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="surgery.html" class="btn btn-neutral float-left" title="Surgery" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="other_treatment.html" class="btn btn-neutral float-right" title="Other Treatment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

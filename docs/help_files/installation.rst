@@ -173,55 +173,5 @@ To find your IP address:
 * On Linux: Run ``ip addr`` or ``ifconfig``
 * On Windows: Run ``ipconfig`` in Command Prompt
 
-Security Considerations
----------------------
 
-For production deployment:
-
-1. Update ``settings.py``:
-   
-   * Set ``DEBUG = False``
-   * Update ``ALLOWED_HOSTS`` with your domain or IP address
-   * Use a proper production database (e.g., PostgreSQL)
-   * Configure proper static file serving
-
-2. Use a production-grade web server:
-   
-   * Nginx or Apache as reverse proxy
-   * Gunicorn or uWSGI as application server
-
-3. Enable HTTPS:
-   
-   * Install and configure SSL certificates
-   * Force HTTPS redirects
-
-4. Set proper file permissions:
-   
-   * Restrict access to sensitive files
-   * Set appropriate ownership for project files
-
-Troubleshooting
---------------
-
-Common Issues:
-
-1. Port 8000 already in use:
-   
-   * Use a different port: ``python manage.py runserver 0.0.0.0:8001``
-
-2. Database migration errors:
-   
-   * Delete the database file (if using SQLite)
-   * Run migrations again
-
-3. Static files not loading:
-   
-   * Ensure ``DEBUG = True`` for development
-   * Run ``python manage.py collectstatic`` again
-   * Check ``STATIC_ROOT`` and ``STATIC_URL`` settings
-
-For additional help, consult:
-
-* Django documentation: https://docs.djangoproject.com/
-* Project documentation
-* System administrators
+For additional help, contact the CHAVI team.

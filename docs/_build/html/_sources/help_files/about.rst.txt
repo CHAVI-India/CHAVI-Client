@@ -11,7 +11,6 @@ The CHAVI client is a Django application that is designed to allow users to mana
                 - :doc:`Immunohistochemistry <immunohistochemistry>`
                 - :doc:`Cytogenetics <cytogenetics>`
                 - :doc:`Somatic Genomic Alterations <somatic_genomic_alterations>`
-            - :doc:`Adverse Effects <adverse_effects>`
             - :doc:`Systemic therapy <systemic_therapy>`
                 - :doc:`Systemic Therapy Drug Schedule <systemic_therapy_drug_schedule>`
             - :doc:`Radiation therapy <radiation_therapy>`
@@ -21,4 +20,11 @@ The CHAVI client is a Django application that is designed to allow users to mana
             - :doc:`Concomitant medications <concomitant_medications>`
             - :doc:`Other Treatment <other_treatment>`
             - :doc:`Cancer Outcomes <cancer_outcomes>`
+
         - :doc:`Laboratory results <laboratory_results>`
+        - :doc:`Patient Repoted Outcomes <patient_reported_outcomes>`
+        - :doc:`Comorbidities <comorbidities>`
+        - :doc:`Symptoms <symptoms>`
+        - :doc:`Stage Information <stage_information>`
+        - :doc:`Patient Outcomes <patient_outcomes>`
+    - :doc:`DICOM Studies <dicom_studies>`

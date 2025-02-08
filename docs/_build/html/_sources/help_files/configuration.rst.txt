@@ -8,7 +8,7 @@ Initial Site Configuration
 
 1. Access the Django Admin Interface:
    
-   #. Go to ``http://<your-server>/admin/``. Usually the <your-server> is the localhost (127.0.0.1) or the LAN IP address if you wish the server to be able to serve pages on the server.
+   #. Go to ``http://<your-server>/admin/``. Usually the <your-server> is the localhost (``127.0.0.1``) or the LAN IP address if you wish the server to be able to serve pages on the server.
    #. Log in with the superuser account created during installation
 
 2. Configure Site Information:

@@ -19,6 +19,8 @@ documentation for details.
    help_files/installation
    help_files/configuration
    help_files/tfa
+   help_files/clinical_data_import
+   help_files/dicom_data_import
    help_files/patient_demographics
    help_files/diagnosis
    help_files/lesion
@@ -39,6 +41,7 @@ documentation for details.
    help_files/cancer_outcomes
    help_files/laboratory_results
    help_files/symptoms
+   help_files/stage_information
    help_files/comorbidities
    help_files/patient_outcomes
    help_files/patient_reported_outcomes
