@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>client_app.serializers &#8212; CHAVI Client 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for client_app.serializers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains serializers for the CHAVI client application&#39;s data export functionality.</span>
+
+<span class="sd">Purpose:</span>
+<span class="sd">--------</span>
+<span class="sd">These serializers are designed to transform Django model instances into JSON format </span>
+<span class="sd">for data transfer between the client and server applications. The serialization process</span>
+<span class="sd">includes special handling of primary keys and foreign key relationships to maintain</span>
+<span class="sd">data integrity and security.</span>
+
+<span class="sd">Key Features:</span>
+<span class="sd">------------</span>
+<span class="sd">1. Primary Key Hashing:</span>
+<span class="sd">   - All model primary keys (except Patient, DICOMStudy, and Project) are hashed using SHA-256</span>
+<span class="sd">   - This ensures sensitive IDs are not exposed in the exported data</span>
+<span class="sd">   - Hashing is consistent, allowing for reliable data linking on the server side</span>
+
+<span class="sd">2. Foreign Key Handling:</span>
+<span class="sd">   - Foreign key fields are serialized with their original names</span>
+<span class="sd">   - Related IDs are hashed when they reference models with hashed primary keys</span>
+<span class="sd">   - Patient IDs are kept unhashed to maintain direct reference</span>
+
+<span class="sd">3. Timestamp Exclusion:</span>
+<span class="sd">   - created_at and updated_at fields are excluded from serialization</span>
+<span class="sd">   - This is handled by the BaseSerializer class</span>
+
+<span class="sd">Implementation Details:</span>
+<span class="sd">---------------------</span>
+<span class="sd">1. BaseSerializer:</span>
+<span class="sd">   - Inherits from ModelSerializer</span>
+<span class="sd">   - Excludes created_at and updated_at fields by default</span>
+<span class="sd">   - Serves as the base class for all other serializers</span>
+
+<span class="sd">2. Field Naming Convention:</span>
+<span class="sd">   - Primary key fields: original_name (e.g., chavi_diagnosis_id)</span>
+<span class="sd">   - Foreign key fields: original field name (e.g., diagnosis)</span>
+<span class="sd">   - Maintains original Django model field names</span>
+
+<span class="sd">3. Data Flow:</span>
+<span class="sd">   - Model Instance → Serializer → JSON with hashed IDs</span>
+<span class="sd">   - Foreign keys are represented with their original field names</span>
+
+<span class="sd">Example:</span>
+<span class="sd">-------</span>
+<span class="sd">For a model with:</span>
+<span class="sd">    diagnosis = ForeignKey(Diagnosis)</span>
+
+<span class="sd">The serialized output will have:</span>
+<span class="sd">    {</span>
+<span class="sd">        &quot;diagnosis&quot;: &quot;&lt;hashed_id&gt;&quot;,  # Hashed ID for the foreign key</span>
+<span class="sd">    }</span>
+
+<span class="sd">Usage:</span>
+<span class="sd">------</span>
+<span class="sd">These serializers are primarily used in the export_patient_data action to create</span>
+<span class="sd">a complete JSON export of patient data. The exported JSON maintains referential </span>
+<span class="sd">integrity through hashed IDs while protecting sensitive information.</span>
+
+<span class="sd">Note:</span>
+<span class="sd">-----</span>
+<span class="sd">When adding new models or relationships, ensure to:</span>
+<span class="sd">1. Hash primary keys if they contain sensitive information</span>
+<span class="sd">2. Maintain original field names for consistency</span>
+<span class="sd">3. Consider data privacy and linking requirements</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">serializers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrimaryKeyRelatedField</span>
+
+<div class="viewcode-block" id="hash_pk">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.hash_pk">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hash_pk</span><span class="p">(</span><span class="n">pk</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function to hash primary keys&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">pk</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BaseSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.BaseSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseSerializer</span><span class="p">(</span><span class="n">serializers</span><span class="o">.</span><span class="n">ModelSerializer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base serializer to exclude created_at and modified_at fields&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="BaseSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.BaseSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">exclude</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;created_at&#39;</span><span class="p">,</span> <span class="s1">&#39;updated_at&#39;</span><span class="p">]</span></div>
+</div>
+
+
+<div class="viewcode-block" id="PatientSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PatientSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+<div class="viewcode-block" id="PatientSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Patient</span>
+        <span class="n">exclude</span> <span class="o">=</span> <span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="o">.</span><span class="n">exclude</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;chavi_consent&#39;</span><span class="p">,</span><span class="s1">&#39;date_chavi_consent&#39;</span><span class="p">]</span></div>
+</div>
+
+
+<div class="viewcode-block" id="DICOMStudySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DICOMStudySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DICOMStudySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+<div class="viewcode-block" id="DICOMStudySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DICOMStudySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">DICOMStudy</span>
+        <span class="n">exclude</span> <span class="o">=</span> <span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="o">.</span><span class="n">exclude</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;series_descriptions&#39;</span><span class="p">]</span></div>
+</div>
+
+
+<div class="viewcode-block" id="HashedForeignKeyField">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.HashedForeignKeyField">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HashedForeignKeyField</span><span class="p">(</span><span class="n">PrimaryKeyRelatedField</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom field to hash foreign key values&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="HashedForeignKeyField.to_representation">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.HashedForeignKeyField.to_representation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the hashed ID of the related object&quot;&quot;&quot;</span>
+        <span class="c1"># Get the full related object</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s1">&#39;_meta&#39;</span><span class="p">):</span>
+            <span class="c1"># Already a full object</span>
+            <span class="n">full_obj</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Get the full object from database</span>
+            <span class="n">full_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">queryset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pk</span><span class="o">=</span><span class="n">value</span><span class="o">.</span><span class="n">pk</span><span class="p">)</span>
+            
+        <span class="c1"># Get the model name</span>
+        <span class="n">model_name</span> <span class="o">=</span> <span class="n">full_obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        
+        <span class="c1"># Special handling for models that shouldn&#39;t be hashed</span>
+        <span class="k">if</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;Patient&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">full_obj</span><span class="o">.</span><span class="n">patient_id</span>
+        <span class="k">elif</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;DICOMStudy&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">full_obj</span><span class="o">.</span><span class="n">study_instance_uid</span>
+        <span class="k">elif</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;Project&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">full_obj</span><span class="o">.</span><span class="n">chavi_project_id</span>
+        <span class="k">elif</span> <span class="n">model_name</span> <span class="o">==</span> <span class="s1">&#39;SiteConfiguration&#39;</span><span class="p">:</span>  <span class="c1"># Site configuration</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">full_obj</span><span class="o">.</span><span class="n">chavi_center_id</span><span class="p">)</span>  <span class="c1"># Return UUID as string</span>
+            
+        <span class="c1"># For all other models, hash the primary key</span>
+        <span class="n">pk_field</span> <span class="o">=</span> <span class="n">full_obj</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">pk</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">full_obj</span><span class="p">,</span> <span class="n">pk_field</span><span class="p">))</span></div>
+</div>
+
+
+<div class="viewcode-block" id="DiagnosisSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DiagnosisSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiagnosisSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_diagnosis_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+
+<div class="viewcode-block" id="DiagnosisSerializer.get_chavi_diagnosis_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DiagnosisSerializer.get_chavi_diagnosis_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_diagnosis_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_diagnosis_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DiagnosisSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DiagnosisSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Diagnosis</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SymptomSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SymptomSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SymptomSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_symptom_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">patient</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Patient</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="SymptomSerializer.get_chavi_symptom_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SymptomSerializer.get_chavi_symptom_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_symptom_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_symptom_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SymptomSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SymptomSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Symptom</span></div>
+</div>
+
+
+        
+<div class="viewcode-block" id="OutcomeSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OutcomeSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OutcomeSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_outcome_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="OutcomeSerializer.get_chavi_outcome_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OutcomeSerializer.get_chavi_outcome_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_outcome_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_outcome_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OutcomeSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OutcomeSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Outcome</span></div>
+</div>
+
+
+<div class="viewcode-block" id="LesionSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LesionSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_lesion_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="LesionSerializer.get_chavi_lesion_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionSerializer.get_chavi_lesion_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_lesion_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_lesion_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LesionSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Lesion</span></div>
+</div>
+
+
+
+
+<div class="viewcode-block" id="LesionResponseSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionResponseSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LesionResponseSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_lesion_response_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">lesion</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Lesion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="LesionResponseSerializer.get_chavi_lesion_response_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionResponseSerializer.get_chavi_lesion_response_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_lesion_response_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_lesion_response_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LesionResponseSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LesionResponseSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">LesionResponse</span></div>
+</div>
+
+
+<div class="viewcode-block" id="GermlineGenomicAlterationsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.GermlineGenomicAlterationsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GermlineGenomicAlterationsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_germline_genomic_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">patient</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Patient</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="GermlineGenomicAlterationsSerializer.get_chavi_germline_genomic_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.GermlineGenomicAlterationsSerializer.get_chavi_germline_genomic_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_germline_genomic_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_germline_genomic_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GermlineGenomicAlterationsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.GermlineGenomicAlterationsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">GermlineGenomicAlterations</span></div>
+</div>
+
+
+<div class="viewcode-block" id="PathologySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PathologySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PathologySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_pathology_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="PathologySerializer.get_chavi_pathology_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PathologySerializer.get_chavi_pathology_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_pathology_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_pathology_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PathologySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PathologySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Pathology</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ImmunohistochemistrySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ImmunohistochemistrySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImmunohistochemistrySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_ihc_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">pathology</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Pathology</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ImmunohistochemistrySerializer.get_chavi_ihc_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ImmunohistochemistrySerializer.get_chavi_ihc_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_ihc_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_ihc_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ImmunohistochemistrySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ImmunohistochemistrySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Immunohistochemistry</span></div>
+</div>
+
+
+<div class="viewcode-block" id="CytogeneticsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.CytogeneticsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CytogeneticsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_cytogenetics_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">pathology</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Pathology</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="CytogeneticsSerializer.get_chavi_cytogenetics_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.CytogeneticsSerializer.get_chavi_cytogenetics_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_cytogenetics_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_cytogenetics_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CytogeneticsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.CytogeneticsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Cytogenetics</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SomaticGenomicAlterationsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SomaticGenomicAlterationsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SomaticGenomicAlterationsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_somatic_genomic_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">pathology</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Pathology</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="SomaticGenomicAlterationsSerializer.get_chavi_somatic_genomic_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SomaticGenomicAlterationsSerializer.get_chavi_somatic_genomic_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_somatic_genomic_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_somatic_genomic_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SomaticGenomicAlterationsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SomaticGenomicAlterationsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">SomaticGenomicAlterations</span></div>
+</div>
+
+
+<div class="viewcode-block" id="OtherTreatmentSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OtherTreatmentSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OtherTreatmentSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_treatment_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="OtherTreatmentSerializer.get_chavi_treatment_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OtherTreatmentSerializer.get_chavi_treatment_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_treatment_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_treatment_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OtherTreatmentSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.OtherTreatmentSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">OtherTreatment</span></div>
+</div>
+
+
+<div class="viewcode-block" id="RadiotherapySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RadiotherapySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_radiotherapy_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="RadiotherapySerializer.get_chavi_radiotherapy_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapySerializer.get_chavi_radiotherapy_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_radiotherapy_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_radiotherapy_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RadiotherapySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Radiotherapy</span></div>
+</div>
+
+
+<div class="viewcode-block" id="RadiotherapyVolumeSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyVolumeSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RadiotherapyVolumeSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">radiotherapy_volume_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">radiotherapy</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Radiotherapy</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="RadiotherapyVolumeSerializer.get_radiotherapy_volume_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyVolumeSerializer.get_radiotherapy_volume_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_radiotherapy_volume_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">radiotherapy_volume_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RadiotherapyVolumeSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyVolumeSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">RadiotherapyVolume</span></div>
+</div>
+
+
+<div class="viewcode-block" id="RadiotherapyDoseVolumeDataSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyDoseVolumeDataSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RadiotherapyDoseVolumeDataSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">radiotherapy_dose_volume_data_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">radiotherapy</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Radiotherapy</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="RadiotherapyDoseVolumeDataSerializer.get_radiotherapy_dose_volume_data_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyDoseVolumeDataSerializer.get_radiotherapy_dose_volume_data_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_radiotherapy_dose_volume_data_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">radiotherapy_dose_volume_data_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RadiotherapyDoseVolumeDataSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.RadiotherapyDoseVolumeDataSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">RadiotherapyDoseVolumeData</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SurgerySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SurgerySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SurgerySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_surgery_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="SurgerySerializer.get_chavi_surgery_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SurgerySerializer.get_chavi_surgery_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_surgery_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_surgery_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SurgerySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SurgerySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Surgery</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ConcomitantMedicationsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ConcomitantMedicationsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConcomitantMedicationsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_medication_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ConcomitantMedicationsSerializer.get_chavi_medication_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ConcomitantMedicationsSerializer.get_chavi_medication_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_medication_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_medication_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ConcomitantMedicationsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ConcomitantMedicationsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ConcomitantMedications</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SystemicTherapySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SystemicTherapySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_systemic_therapy_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="SystemicTherapySerializer.get_chavi_systemic_therapy_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapySerializer.get_chavi_systemic_therapy_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_systemic_therapy_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_systemic_therapy_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SystemicTherapySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">SystemicTherapy</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SystemicTherapyScheduleSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapyScheduleSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SystemicTherapyScheduleSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_systemic_therapy_schedule_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">systemic_therapy</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">SystemicTherapy</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="SystemicTherapyScheduleSerializer.get_chavi_systemic_therapy_schedule_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapyScheduleSerializer.get_chavi_systemic_therapy_schedule_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_systemic_therapy_schedule_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_systemic_therapy_schedule_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SystemicTherapyScheduleSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.SystemicTherapyScheduleSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">SystemicTherapySchedule</span></div>
+</div>
+
+
+<div class="viewcode-block" id="AdverseEffectsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.AdverseEffectsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AdverseEffectsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_adverse_effects_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="AdverseEffectsSerializer.get_chavi_adverse_effects_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.AdverseEffectsSerializer.get_chavi_adverse_effects_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_adverse_effects_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_adverse_effects_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdverseEffectsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.AdverseEffectsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">AdverseEffects</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ProInstrumentSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProInstrumentSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProInstrumentSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_pro_instrument_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ProInstrumentSerializer.get_chavi_pro_instrument_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProInstrumentSerializer.get_chavi_pro_instrument_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_pro_instrument_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_pro_instrument_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProInstrumentSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProInstrumentSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ProInstrument</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ProDomainSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProDomainSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProDomainSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_prodomain_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">instrument</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">ProInstrument</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ProDomainSerializer.get_chavi_prodomain_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProDomainSerializer.get_chavi_prodomain_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_prodomain_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_prodomain_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProDomainSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProDomainSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ProDomain</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ProQuestionSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProQuestionSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProQuestionSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_pro_question_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">ProDomain</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ProQuestionSerializer.get_chavi_pro_question_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProQuestionSerializer.get_chavi_pro_question_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_pro_question_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_pro_question_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ProQuestionSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ProQuestionSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ProQuestion</span></div>
+</div>
+
+
+<div class="viewcode-block" id="PatientReportedOutcomeSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientReportedOutcomeSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PatientReportedOutcomeSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_pro_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">instrument</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">ProInstrument</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">ProDomain</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+    <span class="n">question</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">ProQuestion</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="PatientReportedOutcomeSerializer.get_chavi_pro_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientReportedOutcomeSerializer.get_chavi_pro_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_pro_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_pro_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PatientReportedOutcomeSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientReportedOutcomeSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">PatientReportedOutcome</span></div>
+</div>
+
+
+<div class="viewcode-block" id="PatientOutcomeSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientOutcomeSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PatientOutcomeSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_patient_outcome_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">patient</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Patient</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="PatientOutcomeSerializer.get_chavi_patient_outcome_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientOutcomeSerializer.get_chavi_patient_outcome_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_patient_outcome_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_patient_outcome_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PatientOutcomeSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.PatientOutcomeSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">PatientOutcome</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ComorbiditySerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ComorbiditySerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ComorbiditySerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_comorbidity_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">patient</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Patient</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ComorbiditySerializer.get_chavi_comorbidity_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ComorbiditySerializer.get_chavi_comorbidity_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_comorbidity_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_comorbidity_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ComorbiditySerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.ComorbiditySerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Comorbidity</span></div>
+</div>
+
+
+<div class="viewcode-block" id="StageInformationSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.StageInformationSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StageInformationSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_stage_information_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">diagnosis</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Diagnosis</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="StageInformationSerializer.get_chavi_stage_information_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.StageInformationSerializer.get_chavi_stage_information_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_stage_information_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_stage_information_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="StageInformationSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.StageInformationSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">StageInformation</span></div>
+</div>
+
+
+<div class="viewcode-block" id="LaboratoryResultsSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LaboratoryResultsSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LaboratoryResultsSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">chavi_laboratory_result_id</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+    <span class="n">patient</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Patient</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+
+<div class="viewcode-block" id="LaboratoryResultsSerializer.get_chavi_laboratory_result_id">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LaboratoryResultsSerializer.get_chavi_laboratory_result_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_chavi_laboratory_result_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_pk</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">chavi_laboratory_result_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LaboratoryResultsSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.LaboratoryResultsSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">LaboratoryResults</span></div>
+</div>
+
+
+<div class="viewcode-block" id="DICOMStudyProjectSerializer">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DICOMStudyProjectSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DICOMStudyProjectSerializer</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="p">):</span>
+    <span class="n">dicom_study</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">DICOMStudy</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>  <span class="c1"># No hash_id_field needed</span>
+    <span class="n">project</span> <span class="o">=</span> <span class="n">HashedForeignKeyField</span><span class="p">(</span><span class="n">queryset</span><span class="o">=</span><span class="n">Project</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>  <span class="c1"># No hash_id_field needed</span>
+
+<div class="viewcode-block" id="DICOMStudyProjectSerializer.Meta">
+<a class="viewcode-back" href="../../client_app.html#client_app.serializers.DICOMStudyProjectSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">(</span><span class="n">BaseSerializer</span><span class="o">.</span><span class="n">Meta</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">DICOMStudyProject</span> </div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CHAVI Client</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Tata Medical Center.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

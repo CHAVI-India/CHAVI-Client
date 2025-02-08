@@ -335,7 +335,10 @@ class LookupSymptomsAdmin(admin.ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
-
+@admin.register(LookupMajorCancerCategory)
+class LookupMajorCancerCategoryAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
 
 ## Create the Diagnosis Resource
 class DiagnosisResource(resources.ModelResource):
@@ -364,7 +367,7 @@ class DiagnosisResource(resources.ModelResource):
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ImportExportModelAdmin):
     search_fields = ['patient']
-    autocomplete_fields = ['patient','diagnosis','cancer_site']
+    autocomplete_fields = ['patient','diagnosis','cancer_site','cancer_system']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
     list_filter = ['diagnostic_modality']
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
