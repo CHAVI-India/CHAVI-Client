@@ -1,0 +1,405 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation Guide &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Configuration Guide" href="configuration.html" />
+    <link rel="prev" title="About" href="about.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#environment-setup">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#linux-installation">Linux Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#windows-installation">Windows Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-the-application">Accessing the Application</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#security-considerations">Security Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation-guide">
+<h1>Installation Guide<a class="headerlink" href="#installation-guide" title="Link to this heading"></a></h1>
+<p>This guide will help you install and set up the Django project on your system for local network (LAN) access.</p>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<p>Before installation, ensure you have the following:</p>
+<ul class="simple">
+<li><p>Python 3.8 or higher</p></li>
+<li><p>pip (Python package installer)</p></li>
+<li><p>Git (for version control)</p></li>
+</ul>
+</section>
+<section id="environment-setup">
+<h2>Environment Setup<a class="headerlink" href="#environment-setup" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Copy the sample environment file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cp</span> <span class="n">sampleenv</span> <span class="o">.</span><span class="n">env</span>
+</pre></div>
+</div>
+</li>
+<li><p>Update the .env file with your settings:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SECRET_KEY</span></code> - Django secret key for security (change this for production!)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> - Set to True for development, False for production</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_ALLOWED_HOSTS</span></code> - Comma-separated list of allowed hostnames/IPs</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_ENGINE</span></code> - Database engine (default: django.db.backends.postgresql)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_NAME</span></code> - Name of your database</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_USER</span></code> - Database username</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_PASSWORD</span></code> - Database password</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_HOST</span></code> - Database host address</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DJANGO_DB_PORT</span></code> - Database port number</p></li>
+</ul>
+<p>Example .env file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&amp;8%l4^-lp!$(s#ysd9w8)fe!
+DEBUG=True
+DJANGO_ALLOWED_HOSTS=&#39;127.0.0.1,localhost&#39;
+
+DJANGO_DB_ENGINE=django.db.backends.postgresql
+DJANGO_DB_NAME=chaviclient
+DJANGO_DB_USER=postgres
+DJANGO_DB_PASSWORD=your_secure_password
+DJANGO_DB_HOST=localhost
+DJANGO_DB_PORT=5432
+</pre></div>
+</div>
+<p>Note: Make sure to change the SECRET_KEY and set a secure database password before deployment.</p>
+</li>
+<li><p>Database Setup:</p>
+<p>For PostgreSQL database (recommended):</p>
+<ul>
+<li><p>Install PostgreSQL:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># On Linux</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">postgresql</span> <span class="n">postgresql</span><span class="o">-</span><span class="n">contrib</span>
+
+<span class="c1"># On Windows</span>
+<span class="c1"># Download and install from https://www.postgresql.org/download/windows/</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Login to PostgreSQL</span>
+<span class="n">sudo</span> <span class="o">-</span><span class="n">u</span> <span class="n">postgres</span> <span class="n">psql</span>
+
+<span class="c1"># Create database</span>
+<span class="n">CREATE</span> <span class="n">DATABASE</span> <span class="n">chaviclient</span><span class="p">;</span>
+
+<span class="c1"># Create user (if needed)</span>
+<span class="n">CREATE</span> <span class="n">USER</span> <span class="n">your_user</span> <span class="n">WITH</span> <span class="n">PASSWORD</span> <span class="s1">&#39;your_password&#39;</span><span class="p">;</span>
+
+<span class="c1"># Grant privileges</span>
+<span class="n">GRANT</span> <span class="n">ALL</span> <span class="n">PRIVILEGES</span> <span class="n">ON</span> <span class="n">DATABASE</span> <span class="n">chaviclient</span> <span class="n">TO</span> <span class="n">your_user</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="linux-installation">
+<h2>Linux Installation<a class="headerlink" href="#linux-installation" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Update your system packages:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">update</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">upgrade</span>
+</pre></div>
+</div>
+</li>
+<li><p>Install Python and required system packages:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="n">python3</span> <span class="n">python3</span><span class="o">-</span><span class="n">pip</span> <span class="n">python3</span><span class="o">-</span><span class="n">venv</span>
+</pre></div>
+</div>
+</li>
+<li><p>Clone the repository:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="o">&lt;</span><span class="n">repository</span><span class="o">-</span><span class="n">url</span><span class="o">&gt;</span>
+<span class="n">cd</span> <span class="o">&lt;</span><span class="n">project</span><span class="o">-</span><span class="n">directory</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create and activate a virtual environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python3</span> <span class="o">-</span><span class="n">m</span> <span class="n">venv</span> <span class="n">venv</span>
+<span class="n">source</span> <span class="n">venv</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">activate</span>
+</pre></div>
+</div>
+</li>
+<li><p>Install required Python packages:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+</li>
+<li><p>Set up the database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">migrate</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create a superuser account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">createsuperuser</span>
+</pre></div>
+</div>
+</li>
+<li><p>Collect static files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">collectstatic</span>
+</pre></div>
+</div>
+</li>
+<li><p>Run the development server for LAN access:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">runserver</span> <span class="mf">0.0.0.0</span><span class="p">:</span><span class="mi">8000</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="windows-installation">
+<h2>Windows Installation<a class="headerlink" href="#windows-installation" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Download and install Python:</p>
+<ul class="simple">
+<li><p>Visit <a class="reference external" href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></p></li>
+<li><p>Download the latest Python version</p></li>
+<li><p>Run the installer (make sure to check “Add Python to PATH”)</p></li>
+</ul>
+</li>
+<li><p>Download and install Git:</p>
+<ul class="simple">
+<li><p>Visit <a class="reference external" href="https://git-scm.com/download/win">https://git-scm.com/download/win</a></p></li>
+<li><p>Download and run the installer</p></li>
+</ul>
+</li>
+<li><p>Clone the repository:</p>
+<p>Open Command Prompt and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="o">&lt;</span><span class="n">repository</span><span class="o">-</span><span class="n">url</span><span class="o">&gt;</span>
+<span class="n">cd</span> <span class="o">&lt;</span><span class="n">project</span><span class="o">-</span><span class="n">directory</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create and activate a virtual environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">venv</span> <span class="n">venv</span>
+<span class="n">venv</span>\<span class="n">Scripts</span>\<span class="n">activate</span>
+</pre></div>
+</div>
+</li>
+<li><p>Install required Python packages:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+</li>
+<li><p>Set up the database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">migrate</span>
+</pre></div>
+</div>
+</li>
+<li><p>Create a superuser account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">createsuperuser</span>
+</pre></div>
+</div>
+</li>
+<li><p>Collect static files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">collectstatic</span>
+</pre></div>
+</div>
+</li>
+<li><p>Run the development server for LAN access:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">runserver</span> <span class="mf">0.0.0.0</span><span class="p">:</span><span class="mi">8000</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="accessing-the-application">
+<h2>Accessing the Application<a class="headerlink" href="#accessing-the-application" title="Link to this heading"></a></h2>
+<p>After starting the server, the application will be available at:</p>
+<ul class="simple">
+<li><p>Local access: <a class="reference external" href="http://localhost:8000">http://localhost:8000</a></p></li>
+<li><p>LAN access: <a class="reference external" href="http:/">http:/</a>/&lt;your-ip-address&gt;:8000</p></li>
+</ul>
+<p>To find your IP address:</p>
+<ul class="simple">
+<li><p>On Linux: Run <code class="docutils literal notranslate"><span class="pre">ip</span> <span class="pre">addr</span></code> or <code class="docutils literal notranslate"><span class="pre">ifconfig</span></code></p></li>
+<li><p>On Windows: Run <code class="docutils literal notranslate"><span class="pre">ipconfig</span></code> in Command Prompt</p></li>
+</ul>
+</section>
+<section id="security-considerations">
+<h2>Security Considerations<a class="headerlink" href="#security-considerations" title="Link to this heading"></a></h2>
+<p>For production deployment:</p>
+<ol class="arabic simple">
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">settings.py</span></code>:</p>
+<ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">DEBUG</span> <span class="pre">=</span> <span class="pre">False</span></code></p></li>
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">ALLOWED_HOSTS</span></code> with your domain or IP address</p></li>
+<li><p>Use a proper production database (e.g., PostgreSQL)</p></li>
+<li><p>Configure proper static file serving</p></li>
+</ul>
+</li>
+<li><p>Use a production-grade web server:</p>
+<ul class="simple">
+<li><p>Nginx or Apache as reverse proxy</p></li>
+<li><p>Gunicorn or uWSGI as application server</p></li>
+</ul>
+</li>
+<li><p>Enable HTTPS:</p>
+<ul class="simple">
+<li><p>Install and configure SSL certificates</p></li>
+<li><p>Force HTTPS redirects</p></li>
+</ul>
+</li>
+<li><p>Set proper file permissions:</p>
+<ul class="simple">
+<li><p>Restrict access to sensitive files</p></li>
+<li><p>Set appropriate ownership for project files</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<p>Common Issues:</p>
+<ol class="arabic simple">
+<li><p>Port 8000 already in use:</p>
+<ul class="simple">
+<li><p>Use a different port: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">runserver</span> <span class="pre">0.0.0.0:8001</span></code></p></li>
+</ul>
+</li>
+<li><p>Database migration errors:</p>
+<ul class="simple">
+<li><p>Delete the database file (if using SQLite)</p></li>
+<li><p>Run migrations again</p></li>
+</ul>
+</li>
+<li><p>Static files not loading:</p>
+<ul class="simple">
+<li><p>Ensure <code class="docutils literal notranslate"><span class="pre">DEBUG</span> <span class="pre">=</span> <span class="pre">True</span></code> for development</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">collectstatic</span></code> again</p></li>
+<li><p>Check <code class="docutils literal notranslate"><span class="pre">STATIC_ROOT</span></code> and <code class="docutils literal notranslate"><span class="pre">STATIC_URL</span></code> settings</p></li>
+</ul>
+</li>
+</ol>
+<p>For additional help, consult:</p>
+<ul class="simple">
+<li><p>Django documentation: <a class="reference external" href="https://docs.djangoproject.com/">https://docs.djangoproject.com/</a></p></li>
+<li><p>Project documentation</p></li>
+<li><p>System administrators</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="about.html" class="btn btn-neutral float-left" title="About" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configuration.html" class="btn btn-neutral float-right" title="Configuration Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

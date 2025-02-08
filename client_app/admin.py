@@ -373,10 +373,10 @@ class DiagnosisAdmin (ImportExportModelAdmin):
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
         ('Diagnosis',{
-            'fields': ['patient','cancer_system','diagnosis',('diagnosis_date','diagnostic_modality')]
+            'fields': ['patient','diagnosis',('diagnosis_date','diagnostic_modality')]
         }),
         ('Presentation',{
-            "fields": [('presentation_type','cancer_site','cancer_side')]
+            "fields": ['cancer_system','cancer_site',('cancer_side','presentation_type')]
         }),
         ('DICOM Studies',{
             'fields': ['diagnosis_dicom_study']

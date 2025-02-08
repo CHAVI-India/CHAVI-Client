@@ -1,0 +1,292 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration Guide &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Two Factor Authentication" href="tfa.html" />
+    <link rel="prev" title="Installation Guide" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#initial-site-configuration">Initial Site Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#user-groups-and-permissions">User Groups and Permissions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-users">Creating Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#security-recommendations">Security Recommendations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Configuration Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/configuration.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="configuration-guide">
+<h1>Configuration Guide<a class="headerlink" href="#configuration-guide" title="Link to this heading"></a></h1>
+<p>This guide explains how to configure the application after installation. The configuration involves setting up your site information and configuring user permissions.</p>
+<section id="initial-site-configuration">
+<h2>Initial Site Configuration<a class="headerlink" href="#initial-site-configuration" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Access the Django Admin Interface:</p>
+<ol class="arabic simple">
+<li><p>Go to <code class="docutils literal notranslate"><span class="pre">http://&lt;your-server&gt;/admin/</span></code>. Usually the &lt;your-server&gt; is the localhost (127.0.0.1) or the LAN IP address if you wish the server to be able to serve pages on the server.</p></li>
+<li><p>Log in with the superuser account created during installation</p></li>
+</ol>
+</li>
+<li><p>Configure Site Information:</p>
+<ol class="arabic simple">
+<li><p>Navigate to “Site Configuration” under client_app</p></li>
+<li><p>Click “Add Site Configuration”</p></li>
+<li><p>Fill in:</p></li>
+</ol>
+<blockquote>
+<div><ul class="simple">
+<li><p>CHAVI Center ID (provided by CHAVI team)</p></li>
+<li><p>Center Name (your hospital/institution name)</p></li>
+</ul>
+</div></blockquote>
+<ol class="arabic simple">
+<li><p>Click “Save”</p></li>
+</ol>
+<p>Note: Only one site configuration should exist. This is enforced by the system.</p>
+</li>
+<li><p>Project Configuration:</p>
+<ol class="arabic simple">
+<li><p>Navigate to “Projects” under client_app</p></li>
+<li><p>Click “Add Projects”</p></li>
+<li><p>Fill in:</p></li>
+</ol>
+<blockquote>
+<div><ul class="simple">
+<li><p>Project ID (provided by CHAVI team)</p></li>
+</ul>
+</div></blockquote>
+<ol class="arabic simple">
+<li><p>Click “Save”</p></li>
+</ol>
+<p>Note: Several Projects can be added.</p>
+</li>
+</ol>
+</section>
+<section id="user-groups-and-permissions">
+<h2>User Groups and Permissions<a class="headerlink" href="#user-groups-and-permissions" title="Link to this heading"></a></h2>
+<p>The system requires two main user groups with specific permissions:</p>
+<ol class="arabic">
+<li><p>Create Data Entry Operator Group:</p>
+<ul>
+<li><p>In Django Admin, go to “Groups”</p></li>
+<li><p>Click “Add Group”</p></li>
+<li><p>Name: “Data Entry Operators”</p></li>
+<li><p>Permissions: Add the following permissions:</p>
+<p>View/Add/Change permissions for:</p>
+<ul class="simple">
+<li><p>Patients</p></li>
+<li><p>Lesions</p></li>
+<li><p>Lesion Responses</p></li>
+<li><p>Diagnosis</p></li>
+<li><p>Pathology</p></li>
+<li><p>Immunohistochemistry</p></li>
+<li><p>Cytogenetics</p></li>
+<li><p>Somatic Genomic Alterations</p></li>
+<li><p>Surgery</p></li>
+<li><p>Radiotherapy</p></li>
+<li><p>Systemic Therapy</p></li>
+<li><p>Patient Outcomes</p></li>
+<li><p>Laboratory Results</p></li>
+<li><p>DICOM Studies</p></li>
+<li><p>Symptoms</p></li>
+<li><p>Comorbidities</p></li>
+<li><p>Patient Reported Outcomes</p></li>
+<li><p>Concomitant Medications</p></li>
+<li><p>Other Treatment</p></li>
+<li><p>Cancer Outcomes</p></li>
+<li><p>Adverse Effects</p></li>
+<li><p>Radiation Volume</p></li>
+<li><p>Radiation Dose Volume Data</p></li>
+</ul>
+<p>Note: Do NOT grant delete permissions or access to lookup tables</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can search for the tables by searching for ‘client_app’ in the search bar.
+Please DO NOT grant delete permissions or access to lookup tables.</p>
+</div>
+<p>If you are unsure about the permissions, please ask the CHAVI team for help.</p>
+</li>
+</ul>
+</li>
+<li><p>Create Clinical Staff Group:</p>
+<ul class="simple">
+<li><p>Create another group named “Clinical Staff”</p></li>
+<li><p>Grant the same permissions as Data Entry Operators</p></li>
+<li><p>Add additional view permissions for lookup tables</p></li>
+</ul>
+</li>
+<li><p>Restricted Tables (Superuser Only):</p>
+<p>The following tables should only be accessible to superusers:</p>
+<ul class="simple">
+<li><p>All Lookup tables</p></li>
+<li><p>Site Configuration</p></li>
+<li><p>Projects</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="creating-users">
+<h2>Creating Users<a class="headerlink" href="#creating-users" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Create New User:</p>
+<ul class="simple">
+<li><p>Go to “Users” in Django Admin</p></li>
+<li><p>Click “Add User”</p></li>
+<li><p>Enter username and password</p></li>
+<li><p>Fill in required user information</p></li>
+</ul>
+</li>
+<li><p>Assign Group:</p>
+<ul class="simple">
+<li><p>In the user edit page</p></li>
+<li><p>Under “Permissions”</p></li>
+<li><p>Select appropriate group (Data Entry Operators or Clinical Staff)</p></li>
+<li><p>Save the user</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="security-recommendations">
+<h2>Security Recommendations<a class="headerlink" href="#security-recommendations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Password Policy:</p>
+<ul class="simple">
+<li><p>Require strong passwords</p></li>
+<li><p>Set password expiration</p></li>
+<li><p>Implement account lockout after failed attempts</p></li>
+</ul>
+</li>
+<li><p>Data Entry Guidelines:</p>
+<ul class="simple">
+<li><p>Train users on data entry procedures</p></li>
+<li><p>Implement data validation checks</p></li>
+<li><p>Regular backup of database</p></li>
+</ul>
+</li>
+</ol>
+<p>For additional help please contact CHAVI support team.</p>
+<p>You can raise tickets for support at <a class="reference external" href="https://gitlab.com/chavi/chavi-2.0/-/issues">https://gitlab.com/chavi/chavi-2.0/-/issues</a></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tfa.html" class="btn btn-neutral float-right" title="Two Factor Authentication" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

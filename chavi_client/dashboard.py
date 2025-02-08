@@ -138,6 +138,17 @@ class CustomIndexDashboard(Dashboard):
                 },
             ]
         ))
+        self.children.append(modules.LinkList(
+            _('Help and Documentation'),
+            column=3,
+            children=[
+                {
+                    'title': _('Documentation'),
+                    'url': '/docs/',
+                    'external': False,
+                },
+            ]
+        ))        
 
         # append a feed module
         # self.children.append(modules.Feed(

@@ -21,7 +21,7 @@ from client_app.views import documentation_view
 
 
 urlpatterns = [
-    path('admin/doc/', include('django.contrib.admindocs.urls')), 
+    # path('admin/doc/', include('django.contrib.admindocs.urls')), 
     path('grappelli/', include('grappelli.urls')), # grappelli URLS    
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),

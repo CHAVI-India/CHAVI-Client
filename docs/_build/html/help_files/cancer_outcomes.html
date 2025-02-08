@@ -1,0 +1,181 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cancer Outcomes &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Laboratory Results" href="laboratory_results.html" />
+    <link rel="prev" title="Other Treatment" href="other_treatment.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Cancer Outcomes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#outcome-information">Outcome Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Cancer Outcomes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/cancer_outcomes.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cancer-outcomes">
+<h1>Cancer Outcomes<a class="headerlink" href="#cancer-outcomes" title="Link to this heading"></a></h1>
+<p>The Cancer Outcomes module tracks disease-specific outcomes related to a particular diagnosis.</p>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
+<section id="outcome-information">
+<h3>Outcome Information<a class="headerlink" href="#outcome-information" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Diagnosis Link</strong>: The diagnosis this outcome is associated with</p></li>
+<li><p><strong>Date Assessed</strong>: When the outcome was evaluated</p></li>
+<li><p><strong>Outcome Type</strong>: Nature of the outcome (e.g., Local Recurrence, Nodal Recurrence)</p></li>
+</ul>
+</section>
+<section id="documentation">
+<h3>Documentation<a class="headerlink" href="#documentation" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Associated DICOM Studies</strong>: Imaging studies confirming the outcome</p></li>
+</ul>
+</section>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Assessment Documentation:</p>
+<ol class="arabic simple">
+<li><p>Record timing of assessments</p></li>
+<li><p>Document basis for outcome determination</p></li>
+<li><p>Note any uncertainty in assessment</p></li>
+</ol>
+</li>
+<li><p>Follow-up:</p>
+<ol class="arabic simple">
+<li><p>Track outcomes systematically</p></li>
+<li><p>Document supporting evidence</p></li>
+<li><p>Note impact on subsequent treatment</p></li>
+</ol>
+</li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="other_treatment.html" class="btn btn-neutral float-left" title="Other Treatment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="laboratory_results.html" class="btn btn-neutral float-right" title="Laboratory Results" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
