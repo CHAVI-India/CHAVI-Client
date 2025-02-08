@@ -231,9 +231,10 @@ If you'd like to contribute to the development of CHAVI Client Application:
 ## Model Relationships
 
 ```mermaid
-graph TD
+graph LR
     %% Core Models
     subgraph Core
+        direction LR
         SC[SiteConfiguration]
         P[Project]
         PT[Patient]
@@ -243,6 +244,7 @@ graph TD
 
     %% Imaging Models
     subgraph Imaging
+        direction LR
         PDF[PatientDicomFile]
         DS[DICOMStudy]
         DSP[DICOMStudyProject]
@@ -253,6 +255,7 @@ graph TD
 
     %% Clinical Models
     subgraph Clinical
+        direction LR
         D[Diagnosis]
         SI[StageInformation]
         O[Outcome]
@@ -267,6 +270,7 @@ graph TD
 
     %% Pathology Models
     subgraph Pathology
+        direction LR
         PA[Pathology]
         IH[Immunohistochemistry]
         CY[Cytogenetics]
@@ -279,6 +283,7 @@ graph TD
 
     %% Treatment Models
     subgraph Treatment
+        direction LR
         RT[Radiotherapy]
         RV[RadiotherapyVolume]
         RD[RadiotherapyDoseVolumeData]
@@ -288,33 +293,25 @@ graph TD
         OT[OtherTreatment]
         CM[ConcomitantMedications]
         AE[AdverseEffects]
-        D --> RT
-        RT --> RV
-        RT --> RD
-        D --> ST
+        D --> RT & ST & SU & OT & CM & AE
+        RT --> RV & RD
         ST --> SS
-        D --> SU
-        D --> OT
-        D --> CM
-        D --> AE
     end
 
     %% Patient-Related Models
     subgraph Patient_Related
+        direction LR
         GG[GermlineGenomicAlterations]
         CO[Comorbidity]
         LR[LaboratoryResults]
         SY[Symptom]
         PO[PatientOutcome]
-        PT --> GG
-        PT --> CO
-        PT --> LR
-        PT --> SY
-        PT --> PO
+        PT --> GG & CO & LR & SY & PO
     end
 
     %% PRO Models
     subgraph Patient_Reported_Outcomes
+        direction LR
         PR[PatientReportedOutcome]
         PQ[ProQuestion]
         PD[ProDomain]
@@ -325,13 +322,13 @@ graph TD
         PD --> PI
     end
 
-classDef core fill:#e1f5fe,stroke:#01579b
-classDef imaging fill:#f3e5f5,stroke:#4a148c
-classDef clinical fill:#e8f5e9,stroke:#1b5e20
-classDef pathology fill:#fff3e0,stroke:#e65100
-classDef treatment fill:#fce4ec,stroke:#880e4f
-classDef patient fill:#f1f8e9,stroke:#33691e
-classDef pro fill:#e0f2f1,stroke:#004d40
+classDef core fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+classDef imaging fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+classDef clinical fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+classDef pathology fill:#fff3e0,stroke:#e65100,stroke-width:2px
+classDef treatment fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+classDef patient fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+classDef pro fill:#e0f2f1,stroke:#004d40,stroke-width:2px
 
 class SC,P,PT core
 class PDF,DS,DSP imaging
@@ -340,6 +337,9 @@ class PA,IH,CY,SG pathology
 class RT,RV,RD,ST,SS,SU,OT,CM,AE treatment
 class GG,CO,LR,SY,PO patient
 class PR,PQ,PD,PI pro
+
+%% Layout Adjustments
+linkStyle default stroke-width:2px
 ```
 
 Legend:
