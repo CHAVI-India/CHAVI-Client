@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>chavi_client &#8212; CHAVI Client 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="chavi-client">
+<h1>chavi_client<a class="headerlink" href="#chavi-client" title="Link to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="chavi_client.html">chavi_client package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#chavi-client-asgi-module">chavi_client.asgi module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#chavi-client-dashboard-module">chavi_client.dashboard module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#chavi-client-settings-module">chavi_client.settings module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#chavi-client-urls-module">chavi_client.urls module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#chavi-client-wsgi-module">chavi_client.wsgi module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chavi_client.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="client_app.html">client_app package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="client_app.migrations.html">client_app.migrations package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0001-initial-module">client_app.migrations.0001_initial module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0002-lookup-laterality-module">client_app.migrations.0002_lookup_laterality module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0004-lookup-icd-code-module">client_app.migrations.0004_lookup_icd_code module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0005-lookup-fma-code-module">client_app.migrations.0005_lookup_fma_code module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0006-lookup-presentation-module">client_app.migrations.0006_lookup_presentation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0007-lookup-outcome-type-module">client_app.migrations.0007_lookup_outcome_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0008-lookup-lesion-type-module">client_app.migrations.0008_lookup_lesion_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0009-lookup-response-type-module">client_app.migrations.0009_lookup_response_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0010-lookup-uniprot-module">client_app.migrations.0010_lookup_uniprot module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0011-lookup-cosmic-module">client_app.migrations.0011_lookup_cosmic module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0012-lookup-treatment-intent-module">client_app.migrations.0012_lookup_treatment_intent module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0013-lookup-treatment-sequence-module">client_app.migrations.0013_lookup_treatment_sequence module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0014-lookup-systemic-agent-module">client_app.migrations.0014_lookup_systemic_agent module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0015-lookup-units-module">client_app.migrations.0015_lookup_units module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0016-lookup-drug-route-module">client_app.migrations.0016_lookup_drug_route module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0017-lookup-ctcae-grade-module">client_app.migrations.0017_lookup_ctcae_grade module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0018-lookup-outcome-module">client_app.migrations.0018_lookup_outcome module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0019-lookup-staging-system-module">client_app.migrations.0019_lookup_staging_system module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0020-lookup-ajcc-suffix-module">client_app.migrations.0020_lookup_ajcc_suffix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0021-lookup-ajcc-prefix-module">client_app.migrations.0021_lookup_ajcc_prefix module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0022-lookup-ajcc-tstage-module">client_app.migrations.0022_lookup_ajcc_tstage module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0023-lookup-ajcc-nstage-module">client_app.migrations.0023_lookup_ajcc_nstage module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0024-lookup-ajcc-mstage-module">client_app.migrations.0024_lookup_ajcc_mstage module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0025-lookup-diagnostic-modality-module">client_app.migrations.0025_lookup_diagnostic_modality module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0026-lookup-systemictherapy-type-module">client_app.migrations.0026_lookup_systemictherapy_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0027-lookup-radiotherapy-volume-type-module">client_app.migrations.0027_lookup_radiotherapy_volume_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0028-lookup-stage-descriptor-module">client_app.migrations.0028_lookup_stage_descriptor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0029-lookup-pathology-module">client_app.migrations.0029_lookup_pathology module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0030-lookup-grade-module">client_app.migrations.0030_lookup_grade module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0031-lookup-pathology-descriptors-module">client_app.migrations.0031_lookup_pathology_descriptors module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0032-lookup-major-cancer-category-module">client_app.migrations.0032_lookup_major_cancer_category module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0033-lookup-radiotherapy-modality-module">client_app.migrations.0033_lookup_radiotherapy_modality module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0034-lookup-radiotherapy-type-module">client_app.migrations.0034_lookup_radiotherapy_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0035-lookup-radiotherapy-technique-module">client_app.migrations.0035_lookup_radiotherapy_technique module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0036-lookup-clinical-significance-module">client_app.migrations.0036_lookup_clinical_significance module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0037-lookup-ihc-result-module">client_app.migrations.0037_lookup_ihc_result module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0038-lookup-ihc-staining-intensity-module">client_app.migrations.0038_lookup_ihc_staining_intensity module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0039-lookup-margin-status-module">client_app.migrations.0039_lookup_margin_status module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0040-lookup-treatment-effect-module">client_app.migrations.0040_lookup_treatment_effect module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0041-lookup-staging-type-module">client_app.migrations.0041_lookup_staging_type module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0042-lookup-systemic-regimen-module">client_app.migrations.0042_lookup_systemic_regimen module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0043-lookup-mass-units-module">client_app.migrations.0043_lookup_mass_units module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0044-lookup-length-units-module">client_app.migrations.0044_lookup_length_units module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0045-lookup-dose-units-module">client_app.migrations.0045_lookup_dose_units module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0046-lookup-lab-value-units-module">client_app.migrations.0046_lookup_lab_value_units module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0047-lookup-radiotherapy-anatomical-location-module">client_app.migrations.0047_lookup_radiotherapy_anatomical_location module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0048-lookup-laboratory-test-module">client_app.migrations.0048_lookup_laboratory_test module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0049-lookup-symptoms-module">client_app.migrations.0049_lookup_symptoms module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#client-app-migrations-0050-lookup-severity-module">client_app.migrations.0050_lookup_severity module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="client_app.migrations.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-actions-module">client_app.actions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-admin-module">client_app.admin module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-apps-module">client_app.apps module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-models-module">client_app.models module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-serializers-module">client_app.serializers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-tests-module">client_app.tests module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#client-app-views-module">client_app.views module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="client_app.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="manage.html">manage module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scratch.html">scratch module</a></li>
+</ul>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">CHAVI Client</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Tata Medical Center.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/modules.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
