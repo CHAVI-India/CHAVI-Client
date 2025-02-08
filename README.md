@@ -228,5 +228,133 @@ If you'd like to contribute to the development of CHAVI Client Application:
 2. Create a feature branch
 3. Submit a pull request with your changes
 
+## Model Relationships
+
+```mermaid
+graph TD
+    %% Core Models
+    subgraph Core
+        SC[SiteConfiguration]
+        P[Project]
+        PT[Patient]
+        SC --> P
+        P <--> PT
+    end
+
+    %% Imaging Models
+    subgraph Imaging
+        PDF[PatientDicomFile]
+        DS[DICOMStudy]
+        DSP[DICOMStudyProject]
+        PT --> PDF
+        PT --> DS
+        DS --> DSP
+    end
+
+    %% Clinical Models
+    subgraph Clinical
+        D[Diagnosis]
+        SI[StageInformation]
+        O[Outcome]
+        L[Lesion]
+        LR[LesionResponse]
+        PT --> D
+        D --> SI
+        D --> O
+        D --> L
+        L --> LR
+    end
+
+    %% Pathology Models
+    subgraph Pathology
+        PA[Pathology]
+        IH[Immunohistochemistry]
+        CY[Cytogenetics]
+        SG[SomaticGenomicAlterations]
+        D --> PA
+        PA --> IH
+        PA --> CY
+        PA --> SG
+    end
+
+    %% Treatment Models
+    subgraph Treatment
+        RT[Radiotherapy]
+        RV[RadiotherapyVolume]
+        RD[RadiotherapyDoseVolumeData]
+        ST[SystemicTherapy]
+        SS[SystemicTherapySchedule]
+        SU[Surgery]
+        OT[OtherTreatment]
+        CM[ConcomitantMedications]
+        AE[AdverseEffects]
+        D --> RT
+        RT --> RV
+        RT --> RD
+        D --> ST
+        ST --> SS
+        D --> SU
+        D --> OT
+        D --> CM
+        D --> AE
+    end
+
+    %% Patient-Related Models
+    subgraph Patient_Related
+        GG[GermlineGenomicAlterations]
+        CO[Comorbidity]
+        LR[LaboratoryResults]
+        SY[Symptom]
+        PO[PatientOutcome]
+        PT --> GG
+        PT --> CO
+        PT --> LR
+        PT --> SY
+        PT --> PO
+    end
+
+    %% PRO Models
+    subgraph Patient_Reported_Outcomes
+        PR[PatientReportedOutcome]
+        PQ[ProQuestion]
+        PD[ProDomain]
+        PI[ProInstrument]
+        PT --> PR
+        PR --> PQ
+        PQ --> PD
+        PD --> PI
+    end
+
+classDef core fill:#e1f5fe,stroke:#01579b
+classDef imaging fill:#f3e5f5,stroke:#4a148c
+classDef clinical fill:#e8f5e9,stroke:#1b5e20
+classDef pathology fill:#fff3e0,stroke:#e65100
+classDef treatment fill:#fce4ec,stroke:#880e4f
+classDef patient fill:#f1f8e9,stroke:#33691e
+classDef pro fill:#e0f2f1,stroke:#004d40
+
+class SC,P,PT core
+class PDF,DS,DSP imaging
+class D,SI,O,L,LR clinical
+class PA,IH,CY,SG pathology
+class RT,RV,RD,ST,SS,SU,OT,CM,AE treatment
+class GG,CO,LR,SY,PO patient
+class PR,PQ,PD,PI pro
+```
+
+Legend:
+- `-->` indicates a One-to-Many relationship
+- `<-->` indicates a Many-to-Many relationship
+- Colors represent different functional groups:
+  - Light Blue: Core system models
+  - Purple: Imaging-related models
+  - Green: Clinical data models
+  - Orange: Pathology-related models
+  - Pink: Treatment-related models
+  - Light Green: Patient-related data
+  - Teal: Patient-reported outcomes
+
+Note: This diagram shows the primary relationships between models. Lookup tables that provide standardized options for various fields are excluded for clarity.
+
 
 
