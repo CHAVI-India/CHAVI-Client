@@ -1795,7 +1795,7 @@ class PatientAssessment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__ (self):
-        return f"{self.patient.patient_id} - {self.assessment_date}"
+        return f"{self.patient.patient_id} - {self.date_assessment}"
     
     class Meta:
         verbose_name_plural="Patient Assessments"

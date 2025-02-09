@@ -73,6 +73,7 @@ def export_patient_data(modeladmin, request, queryset):
                 'cytogenetics': [],
                 'somatic_genomic_alterations': [],
                 'gene_expression_data': [],
+                'epigenetic_data': [],
                 'other_treatments': [],
                 'radiotherapies': [],
                 'radiotherapy_volumes': [],

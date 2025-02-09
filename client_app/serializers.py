@@ -237,6 +237,9 @@ class EpigeneticDataSerializer(BaseSerializer):
     def get_chavi_epigenetic_id(self, obj):
         return hash_pk(obj.chavi_epigenetic_id)
     
+    class Meta(BaseSerializer.Meta):
+        model = EpigeneticData
+
 class OtherTreatmentSerializer(BaseSerializer):
     chavi_treatment_id = serializers.SerializerMethodField()
     diagnosis = HashedForeignKeyField(queryset=Diagnosis.objects.all())
@@ -383,6 +386,9 @@ class PatientAssessmentSerializer(BaseSerializer):
 
     def get_chavi_patient_assessment_id(self, obj):
         return hash_pk(obj.chavi_patient_assessment_id)
+    
+    class Meta(BaseSerializer.Meta):
+        model = PatientAssessment
 
 
 class DICOMStudyProjectSerializer(BaseSerializer):

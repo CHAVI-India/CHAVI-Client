@@ -9,7 +9,7 @@ def import_csv_data(apps, schema_editor):
     try:
         
         # Read CSV and create objects
-        url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/main/lookup_datasets/gene_expression_units.csv?ref_type=heads&inline=false'
+        url = 'https://gitlab.com/drsantam/chavi-lookup-data/-/raw/main/lookup_datasets/lookup_cytogenetics.csv?ref_type=heads&inline=false'
         df = pd.read_csv(url)
 
         df = df.drop_duplicates(subset=['code'], keep='first')        

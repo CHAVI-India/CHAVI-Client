@@ -47,4 +47,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(import_csv_data, reverse_migration),
     ]
