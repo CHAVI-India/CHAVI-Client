@@ -939,7 +939,7 @@ admin.site.register(SiteConfiguration)
 class BulkDICOMUploadAdmin(admin.ModelAdmin):
     list_display = ['created_at', 'processed_at', 'status']
     readonly_fields = ['created_at', 'processed_at', 'status']
-    actions = ['process_bulk_dicom']
+    actions = [process_bulk_dicom]
     change_form_template = 'admin/client_app/change_form.html'
     guidance_text = """
     <h2>Guidance</h2>

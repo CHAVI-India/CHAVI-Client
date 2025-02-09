@@ -27,6 +27,10 @@ def process_bulk_dicom(modeladmin, request, queryset):
     processed_dir.mkdir(parents=True, exist_ok=True)
     unprocessed_dir.mkdir(parents=True, exist_ok=True)
 
+    # Track unmatched patients to avoid duplicate messages
+    unmatched_patients = set()
+    error_files = []
+
     for upload in queryset:
         if upload.status == 'Processed':
             messages.warning(request, f"Upload {upload.id} already processed")
@@ -36,6 +40,10 @@ def process_bulk_dicom(modeladmin, request, queryset):
             temp_dir = Path(tempfile.TemporaryDirectory().name)
             temp_dir.mkdir(parents=True, exist_ok=True)
 
+            # Extract the zip file first
+            with zipfile.ZipFile(upload.file.path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
             # Process all files in directory tree
             dicom_files = [f for f in temp_dir.glob('**/*') if f.is_file()]
             processed_count = 0
@@ -43,36 +51,27 @@ def process_bulk_dicom(modeladmin, request, queryset):
 
             for file_path in dicom_files:
                 try:
-                    # Try to read as DICOM
                     ds = dcmread(file_path)
-                    
-                    # Extract patient ID and sanitize it
                     patient_id = ds.PatientID
                     sanitized_patient_id = sanitize(patient_id)
-                    
-                    # Get study information
                     study_instance_uid = ds.StudyInstanceUID
                     sop_instance_uid = ds.SOPInstanceUID
                     
                     try:
-                        # Look for matching patient
                         patient = Patient.objects.get(patient_id=patient_id)
                         
-                        # Update patient directory path to use processed_dicom subfolder
                         patient_dir = processed_dir / sanitized_patient_id
                         study_dir = patient_dir / sanitize(study_instance_uid)
                         study_dir.mkdir(parents=True, exist_ok=True)
                         
-                        # Save DICOM file
                         ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm")
                         
-                        # Update or create DICOM study record
                         study_date = None
                         if hasattr(ds, 'StudyDate') and ds.StudyDate:
                             try:
                                 study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
-                            except ValueError as e:
-                                messages.warning(request, f"Invalid date format in DICOM file {file_path.name}")
+                            except ValueError:
+                                pass  # Skip invalid dates without message
 
                         study_description = getattr(ds, 'StudyDescription', None)
                         series_description = getattr(ds, 'SeriesDescription', None)
@@ -89,14 +88,14 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         processed_count += 1
                         
                     except Patient.DoesNotExist:
-                        # Unprocessed directory path remains the same
                         unprocessed_patient_dir = unprocessed_dir / sanitized_patient_id / sanitize(study_instance_uid)
                         unprocessed_patient_dir.mkdir(parents=True, exist_ok=True)
                         ds.save_as(unprocessed_patient_dir / f"{sanitize(sop_instance_uid)}.dcm")
                         unprocessed_count += 1
+                        unmatched_patients.add(patient_id)  # Track unique unmatched patients
                         
                 except Exception as e:
-                    messages.error(request, f"Error processing file {file_path.name}: {str(e)}")
+                    error_files.append(f"{file_path.name}: {str(e)}")
                     continue
 
             # Update upload status
@@ -104,17 +103,30 @@ def process_bulk_dicom(modeladmin, request, queryset):
             upload.processed_at = timezone.now()
             upload.save()
 
-            messages.success(
-                request,
-                f"Processed {processed_count} DICOM files for existing patients and moved {unprocessed_count} files to unprocessed directory"
-            )
+            # Summary messages
+            if processed_count > 0:
+                messages.success(
+                    request,
+                    f"Successfully processed {processed_count} DICOM files"
+                )
+            
+            if unmatched_patients:
+                messages.warning(
+                    request,
+                    f"No matching patients found for IDs: {', '.join(sorted(unmatched_patients))} ({unprocessed_count} files moved to unprocessed directory)"
+                )
+
+            if error_files:
+                messages.error(
+                    request,
+                    f"Failed to process {len(error_files)} files. First few errors: {', '.join(error_files[:3])}"
+                )
 
         except Exception as e:
             messages.error(request, f"Error processing upload {upload.id}: {str(e)}")
             continue
 
         finally:
-            # Cleanup temporary directory
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
