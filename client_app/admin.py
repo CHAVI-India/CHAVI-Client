@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import *
+from lookup.models import *
 from pathlib import Path
 import tempfile
 import zipfile
@@ -182,7 +183,7 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
 
     )
        
-
+# Register Lookup Models so that autocomplete fields work.
 @admin.register(LookupProtein)
 class LookupProteinAdmin(admin.ModelAdmin):
     search_fields = ['protein_name']
@@ -191,8 +192,8 @@ class LookupProteinAdmin(admin.ModelAdmin):
 
 @admin.register(LookupGene)
 class LookupGeneAdmin(admin.ModelAdmin):
-    search_fields = ['gene_name']
-    readonly_fields = ['code','gene_name','gene_description','gene_aliases']
+    search_fields = ['code','label']
+    # readonly_fields = ['code','label']
 
 @admin.register(LookupPathology)
 class LookupPathologyAdmin(admin.ModelAdmin):
@@ -206,8 +207,63 @@ class LookupCTCAEGradeAdmin (admin.ModelAdmin):
 
 @admin.register(LookupSystemicAgent)
 class LookupSystemicAgentAdmin (admin.ModelAdmin):
+    search_fields = ['code','label']
+    readonly_fields = ['code','label']
+
+
+@admin.register(LookupCytogeneticAbnormality)
+class LookupCytogeneticAbnormalityAdmin(admin.ModelAdmin):
+    search_fields = ['code','label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupICDCode)
+class LookupICDCodeAdmin (admin.ModelAdmin):
+    search_fields = ['code','label']
+    readonly_fields = ['code','label','icd_version']
+
+@admin.register(LookupFMACode)
+class LookupFMACodeAdmin (admin.ModelAdmin):
+    search_fields = ['code','label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupLaboratoryTest)
+class LookupLaboratoryTestAdmin (admin.ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+
+
+@admin.register(LookupStageDescriptor)
+class LookupStageDescriptorAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupSymptoms)
+class LookupSymptomsAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupMajorCancerCategory)
+class LookupMajorCancerCategoryAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+
+@admin.register(LookupIHCAntibody)
+class LookupIHCAntibodyAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupEpigeneticAbnormalityType)
+class LookupEpigeneticAbnormalityTypeAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupComorbidity)
+class LookupComorbidityAdmin(admin.ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
+# Create Inline Models
 
 
 class ImmunohistochemistryInline(admin.StackedInline):
@@ -218,7 +274,7 @@ class ImmunohistochemistryInline(admin.StackedInline):
 
 class CytogeneticsInline(admin.StackedInline):
     model = Cytogenetics
-    autocomplete_fields =['gene']
+    autocomplete_fields =['gene','cytogentic_abnormality']
     extra = 1
     
 
@@ -227,6 +283,16 @@ class SomaticGenomicAlterationsInline(admin.StackedInline):
     autocomplete_fields = ['cosmic_gene_name']
     extra = 1
     
+
+class GeneExpressionDataInline(admin.StackedInline):
+    model = GeneExpressionData
+    autocomplete_fields = ['gene']
+    extra = 1
+
+class EpigeneticDataInline(admin.StackedInline):
+    model = EpigeneticData
+    autocomplete_fields = ['gene']
+    extra = 1
 
 class RadiotherapyVolumeInline(admin.StackedInline):
     model = RadiotherapyVolume
@@ -309,36 +375,7 @@ class PatientDicomFileAdmin(admin.ModelAdmin):
       <br> <strong> Please upload a zip belonging to a single patient only as patient ID in the dicom files will be changed !! </strong> </p> After the DICOM zip file has been processed you may decide to delete the file by selecting the file in the list display page and clicking the delete selected patient dicom files action. <p> </p>   <br>
     """
 
-@admin.register(LookupICDCode)
-class LookupICDCodeAdmin (admin.ModelAdmin):
-    search_fields = ['code','label']
-    readonly_fields = ['code','label','icd_version']
 
-@admin.register(LookupFMACode)
-class LookupFMACodeAdmin (admin.ModelAdmin):
-    search_fields = ['code','label']
-    readonly_fields = ['code','label']
-
-@admin.register(LookupLaboratoryTest)
-class LookupLaboratoryTestAdmin (admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
-
-
-@admin.register(LookupStageDescriptor)
-class LookupStageDescriptorAdmin(admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
-
-@admin.register(LookupSymptoms)
-class LookupSymptomsAdmin(admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
-
-@admin.register(LookupMajorCancerCategory)
-class LookupMajorCancerCategoryAdmin(admin.ModelAdmin):
-    search_fields = ['label']
-    readonly_fields = ['code','label']
 
 ## Create the Diagnosis Resource
 class DiagnosisResource(resources.ModelResource):
@@ -420,7 +457,7 @@ class PathologyResource(resources.ModelResource):
 
 @admin.register(Pathology)
 class PathologyAdmin (ImportExportModelAdmin):
-    inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline]
+    inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline,GeneExpressionDataInline,EpigeneticDataInline]
     autocomplete_fields = ['diagnosis','tumor_site','histological_type']
     search_fields = ['diagnosis__patient_id']
     list_filter = ['date_pathology','tumor_side__label']
@@ -515,7 +552,7 @@ class ComorbidityResource(resources.ModelResource):
 
 @admin.register(Comorbidity)
 class ComorbidityAdmin (ImportExportModelAdmin):
-    autocomplete_fields = ['patient']
+    autocomplete_fields = ['patient','comorbidity_type']
     list_display = ['patient', 'comorbidity_type', 'date_of_comorbidity_diagnosis', 'created_at']
     list_filter = ['date_of_comorbidity_diagnosis', 'created_at']
     resource_classes = [ComorbidityResource]
@@ -874,20 +911,40 @@ class OutcomeAdmin (ImportExportModelAdmin):
 
 #endregion
 
+
+# Create the Patient Reported Outcome Resource
+class PatientReportedOutcomeResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_pro_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_pro_id'] = str(uuid.uuid4())
+
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    
+    class Meta:
+        model = PatientReportedOutcome
+        import_id_fields = ['chavi_pro_id']
+        fields = ['patient','pro_assessment_date','pro_instrument','pro_scale','pro_question_id','pro_question','pro_answer','pro_score']
+
+
+
 ## Create the Patient Reported Outcome Form Class
 @admin.register(PatientReportedOutcome)
-class PatientReportedOutcomeAdmin (admin.ModelAdmin):
+class PatientReportedOutcomeAdmin (ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{
-            'fields':[('patient','pro_date')]
+            'fields':[('patient','pro_assessment_date')]
         }),
         ('PRO Data',{
-            'fields':[('instrument','domain'),'question',('pro_answer','pro_score')]
+            'fields':[('pro_instrument','pro_scale'),('pro_question_id','pro_question'),('pro_answer','pro_score')]
         }),
     )
-    list_display = ['patient', 'instrument', 'domain', 'pro_assessment_date', 'pro_score']
-    list_filter = ['pro_assessment_date', 'instrument', 'domain']
+    list_display = ['patient','pro_assessment_date', 'pro_instrument', 'pro_question_id',  'pro_score']
+    list_filter = ['pro_assessment_date', 'pro_instrument', 'pro_scale']
+    resource_classes = [PatientReportedOutcomeResource]
 
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
@@ -983,6 +1040,26 @@ class SymptomAdmin(ImportExportModelAdmin):
     list_display = ['patient','symptom','date_onset','date_resolution','severity']
 
 
+class PatientAssessmentResource(resources.ModelResource):
+    def before_import(self,dataset,**kwargs):
+        dataset.headers.append('chavi_patient_assessment_id')
+        super().before_import(dataset,**kwargs)
+
+    def before_import_row(self,row,**kwargs):
+        row['chavi_patient_assessment_id'] = str(uuid.uuid4())
+
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    performance_status = fields.Field(attribute='performance_status',column_name='performance_status',widget=ForeignKeyWidget(LookupPerformanceStatus,field='code'))
+    
+    class Meta:
+        model = PatientAssessment
+        import_id_fields = ['chavi_patient_assessment_id']
+        fields = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
+@admin.register(PatientAssessment)
+class PatientAssessmentAdmin(ImportExportModelAdmin):
+    autocomplete_fields = ['patient']
+    resource_classes = [PatientAssessmentResource]
+    list_display = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
 
 
 # Register your models here.

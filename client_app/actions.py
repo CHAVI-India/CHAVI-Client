@@ -31,17 +31,12 @@ def export_patient_data(modeladmin, request, queryset):
 
     Detailed Process:
     ----------------
-    Laboratory Results Collection:
-        The function queries and processes laboratory results by:
-        1. Querying the database for all laboratory test results associated with the patient
-           using LaboratoryResults.objects.filter(patient=patient)
-        2. Serializing the results using LaboratoryResultsSerializer, which converts each
-           result into a dictionary containing:
-           - Test type/name
-           - Result value
-           - Units
-           - Date of test
-           - Other fields defined in the serializer
+    For each model:
+        The function queries and processes results by:
+        1. Querying the database for all test results associated with the patient
+           using <Model>.objects.filter(patient=patient)
+        2. Serializing the results using <Model>Serializer, which converts each
+           field into a dictionary containing:
         3. Adding all serialized results to the patient's data collection using extend()
     
     Args:
@@ -77,6 +72,7 @@ def export_patient_data(modeladmin, request, queryset):
                 'immunohistochemistries': [],
                 'cytogenetics': [],
                 'somatic_genomic_alterations': [],
+                'gene_expression_data': [],
                 'other_treatments': [],
                 'radiotherapies': [],
                 'radiotherapy_volumes': [],
@@ -94,6 +90,8 @@ def export_patient_data(modeladmin, request, queryset):
                 'comorbidities': [],
                 'stage_information': [],
                 'laboratory_results': [],
+                'symptoms': [],
+                'patient_assessments': [],
                 'dicom_study_projects': []
             }
 
@@ -170,6 +168,18 @@ def export_patient_data(modeladmin, request, queryset):
                         SomaticGenomicAlterationsSerializer(genomic_alterations, many=True, context=context).data
                     )
 
+                    # Gene Expression Data
+                    gene_expression_data = GeneExpressionData.objects.filter(pathology=pathology)
+                    patient_data['gene_expression_data'].extend(
+                        GeneExpressionDataSerializer(gene_expression_data, many=True, context=context).data
+                    )
+
+                    # Epigenetic Data
+                    epigenetic_data = EpigeneticData.objects.filter(pathology=pathology)
+                    patient_data['epigenetic_data'].extend(
+                        EpigeneticDataSerializer(epigenetic_data, many=True, context=context).data
+                    )
+
                 # Collect treatment-related data
                 # This includes various types of treatments: radiotherapy, surgery, medications, etc.
                 other_treatments = OtherTreatment.objects.filter(diagnosis=diagnosis)
@@ -232,24 +242,6 @@ def export_patient_data(modeladmin, request, queryset):
                     StageInformationSerializer(stage_info, many=True, context=context).data
                 )
 
-            # Collect patient-specific data not related to diagnoses
-            # This includes PRO (Patient Reported Outcome) data, laboratory results, etc.
-            # PRO Instruments, Domains, and Questions
-            pro_instruments = ProInstrument.objects.all()
-            patient_data['pro_instruments'].extend(
-                ProInstrumentSerializer(pro_instruments, many=True, context=context).data
-            )
-
-            pro_domains = ProDomain.objects.filter(instrument__in=pro_instruments)
-            patient_data['pro_domains'].extend(
-                ProDomainSerializer(pro_domains, many=True, context=context).data
-            )
-
-            pro_questions = ProQuestion.objects.filter(domain__in=pro_domains)
-            patient_data['pro_questions'].extend(
-                ProQuestionSerializer(pro_questions, many=True, context=context).data
-            )
-
             # Patient Reported Outcomes
             patient_reported_outcomes = PatientReportedOutcome.objects.filter(patient=patient)
             patient_data['patient_reported_outcomes'].extend(
@@ -280,37 +272,24 @@ def export_patient_data(modeladmin, request, queryset):
                 SymptomSerializer(symptoms, many=True, context=context).data
             )
 
+            # Patient Assessments
+            patient_assessments = PatientAssessment.objects.filter(patient=patient)
+            patient_data['patient_assessments'].extend(
+                PatientAssessmentSerializer(patient_assessments, many=True, context=context).data
+            )
+
             # Laboratory Results
-            # 1. Query the database for all laboratory test results associated with this patient
             lab_results = LaboratoryResults.objects.filter(patient=patient)
-            
-            # 2. Serialize the laboratory results:
-            #    - lab_results: QuerySet of LaboratoryResults objects for this patient
-            #    - many=True: Indicates we're serializing multiple records
-            #    - context: Contains the request object needed by the serializer
-            # 3. The serializer converts each laboratory result into a dictionary containing:
-            #    - Test type/name
-            #    - Result value
-            #    - Units
-            #    - Date of test
-            #    - Any other fields defined in LaboratoryResultsSerializer
-            # 4. extend() adds all serialized results to the patient_data['laboratory_results'] list
             patient_data['laboratory_results'].extend(
                 LaboratoryResultsSerializer(lab_results, many=True, context=context).data
             )
 
-            # Convert the collected data to JSON format
-            # Using indent=2 for pretty printing and UUIDEncoder for handling UUID fields
-            patient_json = json.dumps(patient_data, indent=2, cls=UUIDEncoder)
-            
             # Create a unique filename using a hash of the patient ID
             # This ensures privacy by not using the actual patient ID in the filename
             # while still maintaining uniqueness
+            patient_json = json.dumps(patient_data, indent=2, cls=UUIDEncoder)
             patient_id_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()
             filename = f"patient_{patient_id_hash}_data.json"
-            
-            # Add the JSON file to the zip archive
-            # writestr() adds a file to the zip archive with the given name and content
             zip_file.writestr(filename, patient_json)
 
     # Prepare the HTTP response

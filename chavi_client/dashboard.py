@@ -72,6 +72,7 @@ class CustomIndexDashboard(Dashboard):
             css_classes=('collapse closed',),
             models=('client_app.models.Patient',
                     'client_app.models.Symptom',
+                    'client_app.models.PatientAssessment',
                     'client_app.models.Comorbidity',
                     'client_app.models.LaboratoryResults',
                     'client_app.models.GermlineGenomicAlterations',

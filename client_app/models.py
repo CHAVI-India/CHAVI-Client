@@ -4,6 +4,8 @@ from django.core.validators import FileExtensionValidator, MinValueValidator, Ma
 import uuid
 from decimal import Decimal
 from django.forms import ValidationError
+from lookup.models import *
+
 # Center Model configuration - singleton model using Solo
 # Validators
 percentage_validator = [
@@ -64,372 +66,6 @@ class SiteConfiguration(models.Model):
 
 # Lookup Models
 
-class LookupAbstract(models.Model):
-    '''This is an abstract for the lookup table.'''
-    code = models.CharField(max_length=100,primary_key=True)
-    label = models.CharField(max_length=5000)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        abstract = True
-
-class LookupLaterality(LookupAbstract):
-    '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupICDCode(LookupAbstract):
-    '''This is a lookup table with ICD 11 codes for the diagnosis.'''
-    icd_version = models.DecimalField(max_digits=5, decimal_places=2, validators=positive_decimal_validator)
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupFMACode(LookupAbstract):
-    '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupPresentation(LookupAbstract):
-    '''This is a lookup for presentation type.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupOutcomeType(LookupAbstract):
-    '''This is a lookup table where outcome type like local recurrence, nodal recurrence etc are recorded.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupLesionType(LookupAbstract):
-    '''This is a lookup table where lesion location type is recorded e.g. local, nodal, distant '''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupResponseType(LookupAbstract):
-    '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupProtein(models.Model):
-    '''This is a lookup table for Protein Names.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    gene_name = models.CharField(max_length=500,null=True)
-    uniport_id = models.CharField(max_length=500,null=True)
-    protein_name = models.CharField(max_length=3500,null=True)
-    all_gene_names = models.CharField(max_length=500,null=True)
-
-
-    def __str__(self):
-        return f'{self.gene_name}'
-
-class LookupGene(models.Model):
-    '''This is a lookup table for Gene Names.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    gene_name = models.CharField(max_length=500,null = True)
-    gene_description = models.CharField(max_length=500,null = True)
-    gene_aliases = models.CharField(max_length=500,null = True)
-
-    def __str__(self):
-        return f"{self.gene_name} - {self.gene_description}"
-
-class LookupTreatmentIntent(LookupAbstract):
-    '''This is a lookup table for Treatment Intent.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupTreatmentSequence(LookupAbstract):
-    '''This is a lookup table for Treatment Sequence.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupSystemicAgent(LookupAbstract):
-    '''This is a lookup table for Systemic Agents.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupVolumeUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database for volume'''
-
-    unit_abbreviation = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.unit_abbreviation
-    
-class LookupSizeUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database for size'''
-
-    unit_abbreviation = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.unit_abbreviation    
-    
-class LookupDoseUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database for dose'''
-
-    unit_abbreviation = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.unit_abbreviation    
-    
-class LookupLabResultsUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database for lab results'''
-
-    unit_abbreviation = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.unit_abbreviation    
-
-class LookupMassUnits(LookupAbstract):
-    '''This is a lookup table for units of measurement for use in the database for mass'''
-
-    unit_abbreviation = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.unit_abbreviation    
-
-class LookupDrugRoute(LookupAbstract):
-    '''This is a lookup table for drug routes.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupCTCAEGrade(models.Model):
-    '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
-    code = models.CharField(max_length=50,primary_key=True)
-    ctcae_term = models.CharField(max_length=255)
-    meddra_code = models.CharField(max_length=255)
-    ctcae_grade = models.PositiveIntegerField()
-    description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.ctcae_term} - Grade {self.ctcae_grade} ({self.description})"
-
-class LookupOutcome(LookupAbstract):
-    '''This is a lookup table for outcomes types.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupStagingSystem(LookupAbstract):
-    '''This is a lookup table for staging systems.'''
-    staging_system_version = models.CharField(max_length=255)
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupAJCCStagePrefix(LookupAbstract):
-    '''This is a lookup table for AJCC stage prefixes.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupAJCCStageSuffix(LookupAbstract):
-    '''This is a lookup table for AJCC stage suffixes.'''
-
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupAJCCTStageDescriptor (LookupAbstract):
-    ''' This is a lookup table for AJJC T stage descriptors.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupAJCCNStageDescriptor (LookupAbstract):
-    ''' This is a lookup table for AJJC N stage descriptors.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupAJCCMStageDescriptor (LookupAbstract):
-    ''' This is a lookup table for AJJC M stage descriptors.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupStageDescriptor (LookupAbstract):
-    ''' This is a lookup table for AJJC stage descriptors.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-class LookupDiagnosticModality(LookupAbstract):
-    ''' This is a lookup table for the diagnostic modality'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    class Meta:
-        verbose_name_plural= "Diagnostic Modalities"
-        db_table = 'lookup_diagnostic_modality'
-
-class LookupSystemicTherapyType(LookupAbstract):
-    ''' This is a lookup table for the type of Systemic Therapy'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-    class Meta:
-        verbose_name_plural = "Systemic Therapy Types"
-        db_table = 'lookup_systemic_therapy_type'
-
-class LookupRadiotherapyVolumeType(LookupAbstract):
-    ''' This is a lookup table for the type of Radiotherapy Volume'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-
-    class Meta:
-        verbose_name_plural = "Radiotherapy Volume Types"
-
-class LookupPathology(LookupAbstract):
-    ''' This is a lookup table for the pathology.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Lookup Pathology"
-
-class LookupGrade(LookupAbstract):
-    ''' This is a lookup table for the grade of the pathology.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Grade"
-
-class LookupPathologyDescriptors(LookupAbstract):
-    ''' This is a lookup table for the descriptors of the pathology terms.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Pathology Descriptors"
-
-class LookupMajorCancerCategory(LookupAbstract):
-    ''' This is a lookup table for the major cancer category.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Major Cancer Category"
-
-class LookupRadiotherapyModality(LookupAbstract):
-    ''' This is a lookup table for the radiotherapy modality.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Radiotherapy Modality"
-
-class LookupRadiotherapyType(LookupAbstract):
-    ''' This is a lookup table for the radiotherapy type.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Radiotherapy Type" 
-
-class LookupRadiotherapyTechnique(LookupAbstract):
-    ''' This is a lookup table for the radiotherapy technique.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Radiotherapy Techniques"
-
-class LookupClinicalSignificance(LookupAbstract):
-    ''' This is a lookup table for the clinical significance for genetic mutations.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Clinical Significance"
-
-class LookupIHCResult(LookupAbstract):
-    ''' This is a lookup table for the IHC result.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "IHC Results"
-
-class LookupIHCStainingIntensity(LookupAbstract):
-    ''' This is a lookup table for the IHC staining intensity.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "IHC Staining Intensities"
-
-class LookupMarginStatus(LookupAbstract):
-    ''' This is a lookup table for the margin status.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Margin Status"
-
-class LookupTreatmentEffect(LookupAbstract):
-    ''' This is a lookup table for the treatment effect.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Treatment Effect"
-
-class LookupStagingType(LookupAbstract):
-    ''' This is a lookup table for the staging type.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Staging Type"
-
-class LookupSystemicTherapyRegimen(LookupAbstract):
-    ''' This is a lookup table for the systemic therapy regimen.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Systemic Therapy Regimen"
-
-class LookupRTLocation(LookupAbstract):
-    ''' This is a lookup table for the anatomical location of radiotherapy volumes'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Anatomical Location"
-
-class LookupLaboratoryTest(LookupAbstract):
-    ''' This is a lookup table for the laboratory test.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Lookup Laboratory Tests"
-
-class LookupSymptoms(LookupAbstract):
-    ''' This is a lookup table for the symptoms.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Symptoms"
-
-class LookupSeverity(LookupAbstract):
-    ''' This is a lookup table for the severity of the symptoms.'''
-    def __str__(self):
-        return f"{self.code} - {self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Severity"
-
-
-
-
-
 # Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
 # Project Model
 
@@ -443,11 +79,12 @@ def get_default_site():
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected. Projects have a unique ID which is generated at the CHAVI server. However your institutional IRB approvals may be different for the projects. '''
     chavi_project_id = models.CharField(max_length=255,unique=True, primary_key=True,help_text="A unique identifier for the project.")
+    project_name = models.CharField(max_length=600,help_text="The name of the project.")
     center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True,default=get_default_site, related_name="project_center")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
-        return self.chavi_project_id
+        return self.project_name
 
     class Meta:
         verbose_name_plural = "Projects"
@@ -458,7 +95,6 @@ class Patient(DateValidationMixin, models.Model):
     ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
     center = models.ForeignKey(SiteConfiguration, 
     on_delete=models.CASCADE, 
-    null=True, blank=True,
     default=get_default_site,
     related_name="center")
     chavi_consent = models.BooleanField(
@@ -594,19 +230,19 @@ class Diagnosis(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Select the patient")
     chavi_diagnosis_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    cancer_system = models.ForeignKey(LookupMajorCancerCategory, on_delete=models.PROTECT,related_name='diagnosis_major_cancer_category',
+    cancer_system = models.ForeignKey('lookup.LookupMajorCancerCategory', on_delete=models.PROTECT,related_name='diagnosis_major_cancer_category',
                                               help_text="Select the major cancer category")
-    diagnosis = models.ForeignKey('LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
+    diagnosis = models.ForeignKey('lookup.LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
     help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
     diagnosis_date = models.DateField(null=True, blank=True,
     help_text="Select the data at which the diagnosis was made. This can be a date when the patient came to the hospital for the first time or when a pathological proof was obtained")
-    presentation_type = models.ForeignKey(LookupPresentation, on_delete=models.PROTECT,
+    presentation_type = models.ForeignKey('lookup.LookupPresentation', on_delete=models.PROTECT,
     help_text="Select the type of presentation. This can be a new presentation or a recurrence or a metastasis.")
-    cancer_site = models.ForeignKey(LookupFMACode, on_delete=models.PROTECT,
+    cancer_site = models.ForeignKey('lookup.LookupFMACode', on_delete=models.PROTECT,
     help_text="Select the cancer site. This can be a site where the cancer was first diagnosed or a site where the cancer was recurred or metastasized.")
-    cancer_side = models.ForeignKey(LookupLaterality, on_delete=models.PROTECT,
+    cancer_side = models.ForeignKey('lookup.LookupLaterality', on_delete=models.PROTECT,
     help_text="Select the side at which the cancer was present.")
-    diagnostic_modality = models.ForeignKey('LookupDiagnosticModality',on_delete=models.PROTECT,null=True, blank=True,
+    diagnostic_modality = models.ForeignKey('lookup.LookupDiagnosticModality',on_delete=models.PROTECT,null=True, blank=True,
     help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
     diagnosis_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
     diagnosis_project = models.ManyToManyField('Project', blank = True, help_text="Select the project that was used to diagnose the cancer. You can select multiple projects.")
@@ -626,7 +262,7 @@ class Outcome(models.Model):
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
     date_outcome_assessed = models.DateField(null=True, blank=True,
     help_text = "Date this Outcome was assessed or documented or confirmed.")
-    outcome_type = models.ForeignKey(LookupOutcomeType, on_delete=models.PROTECT,
+    outcome_type = models.ForeignKey('lookup.LookupOutcomeType', on_delete=models.PROTECT,
     help_text = "Select the Type of Outcome. If you wish to add another outcome then please create another instance of the form.")
     outcome_dicom_study = models.ManyToManyField('DICOMStudy',blank = True, related_name = "outcome_dicom_study",help_text = "Select all DICOM Studies for this Disease Outcome")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -654,17 +290,17 @@ class Lesion(models.Model):
         help_text="The date when this lesion was first identified or assessed by a medical professional"
     )
     lesion_site = models.ForeignKey(
-        LookupFMACode, 
+        'lookup.LookupFMACode', 
         on_delete=models.PROTECT,
         help_text="The anatomical location where the lesion is found (e.g., 'Left Breast', 'Right Lung')"
     )
     lesion_type = models.ForeignKey(
-        LookupLesionType, 
+        'lookup.LookupLesionType', 
         on_delete=models.PROTECT,
         help_text="The type or category of the lesion (e.g., 'Primary Tumor', 'Metastatic Lesion')"
     )
     lesion_laterality = models.ForeignKey(
-        LookupLaterality, 
+        'lookup.LookupLaterality', 
         on_delete=models.PROTECT,
         help_text="Indicates which side of the body the lesion is on (e.g., 'Left', 'Right', 'Bilateral')"
     )
@@ -693,7 +329,7 @@ class Lesion(models.Model):
         help_text="The depth (z-axis measurement) of the lesion in the specified unit of measurement"
     )
     lesion_size_unit = models.ForeignKey(
-        LookupSizeUnits, 
+        'lookup.LookupSizeUnits', 
         related_name='lesion_size_unit',
         on_delete=models.PROTECT, 
         null=True, 
@@ -709,7 +345,7 @@ class Lesion(models.Model):
         help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
     )
     lesion_volume_unit = models.ForeignKey(
-        LookupVolumeUnits, 
+        'lookup.LookupVolumeUnits', 
         related_name='lesion_volume_unit',
         on_delete=models.PROTECT, 
         null=True, 
@@ -742,7 +378,7 @@ class LesionResponse(models.Model):
         help_text="The date when the lesion's response to treatment was evaluated"
     )
     lesion_response = models.ForeignKey(
-        LookupResponseType, 
+        'lookup.LookupResponseType', 
         on_delete=models.CASCADE,
         help_text="How the lesion has responded to treatment (e.g., complete response, partial response, stable disease, etc.)"
     )
@@ -771,7 +407,7 @@ class LesionResponse(models.Model):
         help_text="The height (top to bottom measurement) of any remaining lesion after treatment"
     )
     residual_lesion_size_unit = models.ForeignKey(
-        LookupSizeUnits,
+        'lookup.LookupSizeUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -786,7 +422,7 @@ class LesionResponse(models.Model):
         help_text="The total volume (size in three dimensions) of any remaining lesion after treatment"
     )
     residual_lesion_volume_unit = models.ForeignKey(
-        LookupVolumeUnits,
+        'lookup.LookupVolumeUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -811,10 +447,10 @@ class Symptom(models.Model):
     ''' This table will store information on the symptoms for the patient.'''
     chavi_symptom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    symptom = models.ForeignKey(LookupSymptoms, on_delete=models.PROTECT)
+    symptom = models.ForeignKey('lookup.LookupSymptoms', on_delete=models.PROTECT)
     date_onset = models.DateField(null=True, blank=True)
     date_resolution = models.DateField(null=True, blank=True)
-    severity = models.ForeignKey(LookupSeverity, on_delete=models.PROTECT, null=True, blank=True)
+    severity = models.ForeignKey('lookup.LookupSeverity', on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -823,13 +459,13 @@ class GermlineGenomicAlterations(models.Model):
     chavi_germline_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     date_test = models.DateField(null=True, blank=True)
-    cosmic_gene_name = models.ForeignKey(LookupGene, on_delete=models.PROTECT)
+    cosmic_gene_name = models.ForeignKey('lookup.LookupGene', on_delete=models.PROTECT)
     reference_sequence = models.CharField(max_length=255, null=True, blank=True)
     protein_modification = models.CharField(max_length=255, null=True, blank=True)
     variant_type = models.CharField(max_length=255, null=True, blank=True)
     allele_frequency = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     read_depth = models.IntegerField(null=True, blank=True)
-    clinical_significance = models.ForeignKey(LookupClinicalSignificance, on_delete=models.PROTECT, related_name='germline_genomic_clinical_significance',null = True, blank = True)
+    clinical_significance = models.ForeignKey('lookup.LookupClinicalSignificance', on_delete=models.PROTECT, related_name='germline_genomic_clinical_significance',null = True, blank = True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -861,19 +497,19 @@ class Pathology(models.Model):
         help_text="The type of specimen collected (e.g., 'Core Biopsy', 'Surgical Resection', 'Fine Needle Aspiration')"
     )
     tumor_site = models.ForeignKey(
-        LookupFMACode, 
+        'lookup.LookupFMACode', 
         related_name='pathology_tumor_site',
         on_delete=models.CASCADE,
         help_text="The anatomical location of the tumor as defined by the Foundational Model of Anatomy (FMA)"
     )
     tumor_side = models.ForeignKey(
-        LookupLaterality, 
+        'lookup.LookupLaterality', 
         related_name='pathology_tumor_side',
         on_delete=models.CASCADE,
         help_text="The side of the body where the tumor is located (e.g., 'Left', 'Right', 'Bilateral')"
     )
     histological_type = models.ForeignKey( 
-        'LookupPathology',
+        'lookup.LookupPathology',
         related_name='pathology_histological_type',
         on_delete=models.PROTECT,
         null=True, 
@@ -881,7 +517,7 @@ class Pathology(models.Model):
         help_text="The primary histological classification of the tumor (e.g., 'Adenocarcinoma', 'Squamous Cell Carcinoma')"
     )
     histological_grade = models.ForeignKey(
-        'LookupGrade',
+        'lookup.LookupGrade',
         related_name='pathology_histological_grade',
         on_delete=models.PROTECT,
         null=True, 
@@ -913,7 +549,7 @@ class Pathology(models.Model):
         help_text="The third dimension of the tumor measured in centimeters"
     )
     tumor_dimesion_unit = models.ForeignKey(
-        LookupSizeUnits,
+        'lookup.LookupSizeUnits',
         on_delete=models.PROTECT,
         related_name='pathology_tumor_dimesion_unit',
         null=True, 
@@ -927,7 +563,7 @@ class Pathology(models.Model):
         help_text="Whether the tumor is unifocal (single focus) or multifocal (multiple foci)"
     )
     lymphatic_vascular_invasion = models.ForeignKey(
-        'LookupPathologyDescriptors',
+        'lookup.LookupPathologyDescriptors',
         related_name='pathology_lymphatic_vascular_invasion',
         on_delete=models.PROTECT,
         null=True,
@@ -935,7 +571,7 @@ class Pathology(models.Model):
         help_text="Presence or absence of perineural invasion"
     )
     perineural_invasion = models.ForeignKey(
-        'LookupPathologyDescriptors',
+        'lookup.LookupPathologyDescriptors',
         related_name='pathology_perineural_invasion',
         on_delete=models.PROTECT,
         null=True,
@@ -943,7 +579,7 @@ class Pathology(models.Model):
         help_text="Presence or absence of perineural invasion"
     )
     dermal_lymphatic_vascular_invasion = models.ForeignKey(
-        'LookupPathologyDescriptors',
+        'lookup.LookupPathologyDescriptors',
         related_name='pathology_dermal_lymphatic_vascular_invasion',
         on_delete=models.PROTECT,
         null=True,
@@ -951,7 +587,7 @@ class Pathology(models.Model):
         help_text="Presence or absence of perineural invasion"
     )
     necrosis = models.ForeignKey(
-        'LookupPathologyDescriptors',
+        'lookup.LookupPathologyDescriptors',
         related_name='pathology_necrosis',
         on_delete=models.PROTECT,
         null=True,
@@ -974,7 +610,7 @@ class Pathology(models.Model):
         help_text="Number of mitoses per 10 high power field or 2 square mm"
     )
     margin_status = models.ForeignKey(
-        'LookupMarginStatus',
+        'lookup.LookupMarginStatus',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -990,7 +626,7 @@ class Pathology(models.Model):
         help_text="Distance to the closest margin of the specimen."
     )
     closest_margin_distance_unit = models.ForeignKey(
-        LookupSizeUnits,
+        'lookup.LookupSizeUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -998,7 +634,7 @@ class Pathology(models.Model):
         help_text="Unit of measurement for the closest margin distance"
     )
     treatment_effect = models.ForeignKey(
-        'LookupTreatmentEffect',
+        'lookup.LookupTreatmentEffect',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1067,15 +703,15 @@ class Immunohistochemistry(models.Model):
     date_ihc = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the immunohistochemistry test was performed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the immunohistochemistry test was performed (format:DD/MM/YYYY)"
     )
     protein_name = models.ForeignKey(
-        LookupProtein, 
+        'lookup.LookupIHCAntibody', 
         on_delete=models.CASCADE,
-        help_text="Select the protein that was tested for in this immunohistochemistry test"
+        help_text="Select the antibody that was tested for in this immunohistochemistry test"
     )
     ihc_result = models.ForeignKey(
-        'LookupIHCResult',
+        'lookup.LookupIHCResult',
         on_delete=models.PROTECT,
         related_name='ihc_result',
         null=True, 
@@ -1099,7 +735,7 @@ class Immunohistochemistry(models.Model):
         help_text="Enter the percentage of positive immune cells for IHC staining"
     )
     tumor_cell_staining_intensity = models.ForeignKey(
-        'LookupIHCStainingIntensity',
+        'lookup.LookupIHCStainingIntensity',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1125,7 +761,7 @@ class Immunohistochemistry(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.chavi_ihc_id}"
+        return f"{self.pathology.diagnosis.patient.patient_id} - {self.protein_name}"
 
     class Meta:
         verbose_name_plural="Immunohistochemistries"
@@ -1143,15 +779,22 @@ class Cytogenetics(models.Model):
     date_cytogenetics = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the cytogenetics test was performed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the cytogenetics test was performed (format:DD/MM/YYYY)"
     )
     gene = models.ForeignKey(
-        LookupGene, 
+        'lookup.LookupGene', 
         on_delete=models.PROTECT,
         help_text="Select the gene that was tested for in this cytogenetics test"
     )
+    cytogentic_abnormality = models.ForeignKey(
+        'lookup.LookupCytogeneticAbnormality',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the cytogenetic abnormality if applicable"
+    )
     cytogenetic_result = models.ForeignKey(
-        'LookupIHCResult',
+        'lookup.LookupIHCResult',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1168,7 +811,7 @@ class Cytogenetics(models.Model):
         verbose_name_plural="Cytogenetics"
         db_table="cytogenetics"
 
-class SomaticGenomicAlterations(models.Model):
+class SomaticGenomicAlterations(models.Model):  
     ''' This model represents somatic genomic alterations found in a pathology report.'''
     chavi_somatic_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
@@ -1179,10 +822,10 @@ class SomaticGenomicAlterations(models.Model):
     date_test = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the genomic testing was performed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the genomic testing was performed (format:DD/MM/YYYY)"
     )
     cosmic_gene_name = models.ForeignKey(
-        LookupGene, 
+        'lookup.LookupGene', 
         on_delete=models.PROTECT,
         help_text="Select the gene where the alteration was found, using COSMIC database nomenclature"
     )
@@ -1218,7 +861,7 @@ class SomaticGenomicAlterations(models.Model):
         help_text="Enter the sequencing read depth at this position (e.g., 500)"
     )
     clinical_significance = models.ForeignKey(
-        LookupClinicalSignificance,
+        'lookup.LookupClinicalSignificance',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1235,6 +878,90 @@ class SomaticGenomicAlterations(models.Model):
         verbose_name_plural="Somatic Genomic Alterations"
         db_table="somatic_genomic_alterations"
 
+class GeneExpressionData(models.Model):
+    ''' This model represents gene expression data for a pathology report.'''
+    chavi_gene_expression_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    pathology = models.ForeignKey(
+        Pathology, 
+        on_delete=models.CASCADE,
+        help_text="Select the pathology report this gene expression data is associated with"
+    )
+    date_test = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the gene expression test was performed (format:DD/MM/YYYY)"
+    )
+    gene = models.ForeignKey(
+        'lookup.LookupGene', 
+        on_delete=models.PROTECT,
+        help_text="Select the gene that was tested for in this gene expression data"
+    )
+    expression_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=positive_decimal_validator,
+        help_text="Enter the expression value of the gene"
+    )
+    expression_units = models.ForeignKey(
+        'lookup.LookupExpressionUnits',
+        on_delete=models.PROTECT,
+        help_text="Select the units of expression"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.gene.code} - {self.expression_value}"   
+    
+    class Meta:
+        verbose_name_plural="Gene Expression Data"
+        db_table="gene_expression_data"
+    
+class EpigeneticData(models.Model):
+    ''' This model represents epigenetic data for a pathology report.'''
+    chavi_epigenetic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    pathology = models.ForeignKey(
+        Pathology, 
+        on_delete=models.CASCADE,
+        help_text="Select the pathology report this epigenetic data is associated with"
+    )
+    date_test = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when the epigenetic test was performed (format:DD/MM/YYYY)"
+    )
+    gene = models.ForeignKey(
+        'lookup.LookupGene', 
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the gene that was tested for in this epigenetic data"
+    )
+    epigenetic_abnormality_type = models.ForeignKey(
+        'lookup.LookupEpigeneticAbnormalityType',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the type of epigenetic abnormality if applicable"
+    )
+    epigenetic_result = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Enter the result of the epigenetic test"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.gene.code} - {self.epigenetic_result}"
+    
+    class Meta:
+        verbose_name_plural="Epigenetic Data"
+        db_table="epigenetic_data"
+    
 class OtherTreatment(DateValidationMixin, models.Model):
     ''' The table will store information on other treatments that the patient undergoes'''
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1292,7 +1019,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         help_text="Select the type of radiotherapy course"
     )    
     radiotherapy_modality = models.ForeignKey(
-        LookupRadiotherapyModality,
+        'lookup.LookupRadiotherapyModality',
         on_delete=models.PROTECT,
         help_text="Select the modality of the radiotherapy",
         null=True,
@@ -1331,7 +1058,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         help_text="Enter the dose of the simultaneous integrated boost"
     )
     radiation_dose_units = models.ForeignKey(
-        LookupDoseUnits,
+        'lookup.LookupDoseUnits',
         related_name= 'radiation_course_dose_units',
         on_delete = models.PROTECT,
         null=True, 
@@ -1339,7 +1066,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
     )
     radiotherapy_type = models.ForeignKey(
-        'LookupRadiotherapyType',
+        'lookup.LookupRadiotherapyType',
         related_name="radiotherapy_type",
         on_delete=models.PROTECT,
         null=True,
@@ -1347,7 +1074,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         help_text="Select the type of radiotherapy treatment"
     )
     radiotherapy_technique = models.ForeignKey(
-        LookupRadiotherapyTechnique,
+        'lookup.LookupRadiotherapyTechnique',
         related_name="radiotherapy_technique",
         on_delete=models.PROTECT,
         null=True,
@@ -1361,7 +1088,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         help_text="Enter the number of treatment sessions (fractions) delivered per day"
     )
     radiotherapy_side = models.ForeignKey(
-        'LookupLaterality', 
+        'lookup.LookupLaterality', 
         on_delete=models.PROTECT,
         help_text="Select which side of the body is being treated (e.g., 'Left', 'Right', 'Bilateral')"
     )
@@ -1374,12 +1101,12 @@ class Radiotherapy(DateValidationMixin, models.Model):
     radiotherapy_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was started (format: YYYY-MM-DD)"
+        help_text="Enter the date when the treatment was started (format:DD/MM/YYYY)"
     )
     radiotherapy_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
     )
     radiotherapy_dicom_study = models.ManyToManyField(
         'DICOMStudy',blank = True, 
@@ -1420,7 +1147,7 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
         help_text="Enter a name or description for this volume"
     )
     volume_type = models.ForeignKey(
-        LookupRadiotherapyVolumeType,
+        'lookup.LookupRadiotherapyVolumeType',
         null=True,
         blank= True,        
         on_delete = models.PROTECT,
@@ -1436,7 +1163,7 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
         help_text="Enter the prescribed dose for this volume in Gray (Gy)",
     )
     radiation_dose_units = models.ForeignKey(
-        LookupDoseUnits,
+        'lookup.LookupDoseUnits',
         on_delete = models.PROTECT,
         related_name= 'radiotherapy_volume_dose_units',
         null=True, 
@@ -1451,15 +1178,15 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
     volume_radiotherapy_start_date = models.DateField(
         null=True,
         blank=True,
-        help_text="Enter the start date for this volume (format: YYYY-MM-DD)"
+        help_text="Enter the start date for this volume (format:DD/MM/YYYY)"
     )
     volume_radiotherapy_end_date = models.DateField(    
         null=True,
         blank=True,
-        help_text="Enter the end date for this volume (format: YYYY-MM-DD)"     
+        help_text="Enter the end date for this volume (format:DD/MM/YYYY)"     
     )
     anatomical_locations = models.ManyToManyField(
-        LookupRTLocation,
+        'lookup.LookupRTLocation',
         blank=True,
         help_text="Select the anatomical locations included in this volume if applicable"
     )
@@ -1495,7 +1222,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Enter a name for this dose volume data"
     )
     volume_type = models.ForeignKey(
-        LookupRadiotherapyVolumeType,
+        'lookup.LookupRadiotherapyVolumeType',
         on_delete=models.PROTECT,
         help_text="Select the type of volume (e.g., 'CTV', 'PTV')"
     )
@@ -1516,7 +1243,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Enter the relative volume as a percentage (%). Enter a value between 0 and 100."
     )
     volume_units = models.ForeignKey(
-        LookupVolumeUnits,
+        'lookup.LookupVolumeUnits',
         on_delete=models.PROTECT,
         null=True,
         related_name='volume_units',
@@ -1548,7 +1275,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         help_text="Enter the dose prescribed to this volume in Gray (Gy) or cGy"
     )
     radiation_dose_units = models.ForeignKey(
-        LookupDoseUnits,
+        'lookup.LookupDoseUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1576,10 +1303,10 @@ class Surgery(models.Model):
     surgery_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the surgery was performed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the surgery was performed (format:DD/MM/YYYY)"
     )
     surgery_side = models.ForeignKey(
-        LookupLaterality, 
+        'lookup.LookupLaterality', 
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
@@ -1646,7 +1373,7 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
         help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
     )
     medication_dose_units = models.ForeignKey(
-        LookupMassUnits,
+        'lookup.LookupMassUnits',
         on_delete=models.PROTECT,
         related_name='medication_dose_units',
         null=True,
@@ -1654,15 +1381,15 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
         help_text="Select the units for the medication dose (e.g., mg, mL, etc.)"
     )
     date_medication_start_date = models.DateField(
-        help_text="Enter the date when the medication was started (format: YYYY-MM-DD)"
+        help_text="Enter the date when the medication was started (format:DD/MM/YYYY)"
     )
     date_medication_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the medication was stopped, if applicable (format: YYYY-MM-DD)"
+        help_text="Enter the date when the medication was stopped, if applicable (format:DD/MM/YYYY)"
     )
     medication_route = models.ForeignKey(
-        LookupDrugRoute, 
+        'lookup.LookupDrugRoute', 
         on_delete=models.CASCADE,
         help_text="Select how the medication was administered (e.g., oral, intravenous, etc.)"
     )
@@ -1688,21 +1415,21 @@ class SystemicTherapy(DateValidationMixin, models.Model):
         on_delete=models.CASCADE,
         help_text="Select the diagnosis that this treatment is associated with"
     )    
-    systemic_therapy_type = models.ForeignKey(LookupSystemicTherapyType, on_delete=models.PROTECT,null=True, blank=True,
+    systemic_therapy_type = models.ForeignKey('lookup.LookupSystemicTherapyType', on_delete=models.PROTECT,null=True, blank=True,
     help_text = "Select the type of systemic therapy.")
-    systemic_therapy_sequence = models.ForeignKey(LookupTreatmentSequence, on_delete=models.PROTECT,null=True, blank=True,
+    systemic_therapy_sequence = models.ForeignKey('lookup.LookupTreatmentSequence', on_delete=models.PROTECT,null=True, blank=True,
     help_text="Select the sequence for the systemic therapy")
-    systemic_therapy_regimen = models.ForeignKey(LookupSystemicTherapyRegimen, on_delete=models.PROTECT,null=True, blank=True,related_name='systemic_therapy_regimen',
+    systemic_therapy_regimen = models.ForeignKey('lookup.LookupSystemicTherapyRegimen', on_delete=models.PROTECT,null=True, blank=True,related_name='systemic_therapy_regimen',
                                                  help_text="Select the regimen for the systemic therapy")
     systemic_therapy_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was started (format: YYYY-MM-DD)"
+        help_text="Enter the date when the treatment was started (format:DD/MM/YYYY)"
     )
     systemic_therapy_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was completed (format: YYYY-MM-DD)"
+        help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
     )    
     cycles_delivered = models.PositiveIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
     systemic_therapy_dicom_study = models.ManyToManyField(
@@ -1738,7 +1465,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         help_text="Select the systemic therapy treatment this schedule is associated with"
     )
     systemic_therapy_agent_route = models.ForeignKey(
-        'LookupDrugRoute', 
+        'lookup.LookupDrugRoute', 
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1748,15 +1475,15 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
     systemic_therapy_agent_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this specific medication was started (format: YYYY-MM-DD)"
+        help_text="Enter the date when this specific medication was started (format:DD/MM/YYYY)"
     )
     systemic_therapy_agent_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this specific medication was stopped (format: YYYY-MM-DD)."
+        help_text="Enter the date when this specific medication was stopped (format:DD/MM/YYYY)."
     )
     systemic_therapy_agent = models.ForeignKey(
-        LookupSystemicAgent, 
+        'lookup.LookupSystemicAgent', 
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1780,7 +1507,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         help_text="Enter the actual dose of medication that was administered (numerical value only)"
     )
     systemic_therapy_dose_units = models.ForeignKey(
-        LookupMassUnits, 
+        'lookup.LookupMassUnits', 
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -1811,7 +1538,7 @@ class AdverseEffects(DateValidationMixin, models.Model):
         help_text="Select the diagnosis this adverse effect is associated with"
     )
     ctcae_grade_lookup = models.ForeignKey(
-        'LookupCTCAEGrade', 
+        'lookup.LookupCTCAEGrade', 
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
@@ -1820,12 +1547,12 @@ class AdverseEffects(DateValidationMixin, models.Model):
     adverse_effect_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this adverse effect was first noticed (format: YYYY-MM-DD)"
+        help_text="Enter the date when this adverse effect was first noticed (format:DD/MM/YYYY)"
     )
     adverse_effect_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this adverse effect resolved, if applicable (format: YYYY-MM-DD)"
+        help_text="Enter the date when this adverse effect resolved, if applicable (format:DD/MM/YYYY)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1840,55 +1567,6 @@ class AdverseEffects(DateValidationMixin, models.Model):
     class Meta:
         verbose_name_plural="Adverse Effects"
  
-class ProInstrument(models.Model):
-    '''This is a table which stores information on the patient reported outcome instruments.'''
-    chavi_pro_instrument_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    pro_instrument = models.CharField(max_length=255, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.pro_instrument
-
-    class Meta:
-        verbose_name_plural="PRO Instruments"
-        db_table="pro_instrument"
-
-class ProDomain(models.Model):
-    '''This is a table which stores information on the patient reported outcome domains.'''
-    chavi_prodomain_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    instrument = models.ForeignKey(ProInstrument, on_delete=models.CASCADE)
-    pro_domain = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['instrument', 'pro_domain'],
-                name='unique_instrument_pro_domain'
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.instrument.pro_instrument} - {self.pro_domain}"
-
-class ProQuestion(models.Model):
-    '''This is a table which stores information on the patient reported outcome questions.'''
-    chavi_pro_question_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    domain = models.ForeignKey(ProDomain, on_delete=models.CASCADE)
-    pro_question = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['domain', 'pro_question'],
-                name='unique_dommain_pro_question'
-            )
-        ]
-
 class PatientReportedOutcome(models.Model):
     ''' This is the table which will store information on the patient-reported outcomes'''
     chavi_pro_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1897,37 +1575,18 @@ class PatientReportedOutcome(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the patient who completed this patient-reported outcome assessment"
     )
-    instrument = models.ForeignKey(
-        ProInstrument, 
-        on_delete=models.CASCADE,
-        help_text="Select the assessment instrument or questionnaire that was used (e.g., 'EORTC QLQ-C30', 'FACT-G')"
-    )
-    domain = models.ForeignKey(
-        ProDomain, 
-        on_delete=models.CASCADE,
-        help_text="Select the specific domain or category of the assessment (e.g., 'Physical Function', 'Emotional Well-being')"
-    )
-    question = models.ForeignKey(
-        ProQuestion, 
-        on_delete=models.CASCADE,
-        help_text="Select the specific question from the assessment that was answered"
-    )
-    pro_assessment_date = models.DateField(
-        null=True, 
-        blank=True,
-        help_text="Enter the date when this assessment was completed (format: YYYY-MM-DD)"
-    )
-    pro_answer = models.TextField(
-        null=True, 
-        blank=True,
-        help_text="Enter the patient's response to this specific question"
-    )
+    pro_assessment_date = models.DateField(null=True,blank=True,help_text="Enter the date when this assessment was completed (format:DD/MM/YYYY)")
+    pro_instrument = models.CharField(max_length=255, help_text="Enter the name of the instrument used for the assessment")
+    pro_scale = models.CharField(max_length=255, help_text="Enter the domain the question refers to. This may represent a scale in the questionnaire")
+    pro_question_id = models.CharField(max_length=255, help_text="Enter the question number from the instrument")
+    pro_question = models.CharField(max_length=600, help_text="Enter the question that was asked")
+    pro_answer = models.CharField(max_length=1000, help_text="Enter the answer to the question as it is recorded by the patient")
     pro_score = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         null=True, 
         blank=True,
-        help_text="Enter the numerical score for this response, if applicable (e.g., on a scale of 0-10)"
+        help_text="Enter the numerical score for this response, if applicable "
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1943,7 +1602,7 @@ class PatientOutcome(models.Model):
     ''' This is the table which will store information on the outcome of the patients'''
     chavi_patient_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
-    patient_status = models.ForeignKey('LookupOutcome', on_delete=models.PROTECT,
+    patient_status = models.ForeignKey('lookup.LookupOutcome', on_delete=models.PROTECT,
     help_text="Select the patients last known status")
     date_of_death = models.DateField(null=True, blank=True,
     help_text="Enter the date of death, if applicable")
@@ -1968,16 +1627,15 @@ class Comorbidity(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the patient who has this comorbidity"
     )
-    comorbidity_type = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="Enter the comorbidity type"
+    comorbidity_type = models.ForeignKey(
+        'lookup.LookupComorbidity', 
+        on_delete=models.PROTECT,
+        help_text="Select the comorbidity type"
     )
     date_of_comorbidity_diagnosis = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this comorbidity was first diagnosed (format: YYYY-MM-DD)"
+        help_text="Enter the date when this comorbidity was first diagnosed (format:DD/MM/YYYY)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1998,7 +1656,7 @@ class StageInformation(models.Model):
         help_text="Select the diagnosis this staging information is associated with"
     )
     staging_system = models.ForeignKey(
-        'LookupStagingSystem', 
+        'lookup.LookupStagingSystem', 
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -2006,7 +1664,7 @@ class StageInformation(models.Model):
         help_text="Select the staging system used (e.g., 'TNM 8th Edition', 'FIGO')"
     )
     stage_type = models.ForeignKey(
-        'LookupStagingType',
+        'lookup.LookupStagingType',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -2014,7 +1672,7 @@ class StageInformation(models.Model):
         help_text="Select the type of staging information"
     )
     t_stage_prefix = models.ForeignKey(
-        'LookupAJCCStagePrefix',
+        'lookup.LookupAJCCStagePrefix',
         on_delete=models.PROTECT,
         related_name='t_stage_prefix',
         null=True, 
@@ -2022,7 +1680,7 @@ class StageInformation(models.Model):
         help_text="Select the prefix modifiers for the T stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
     t_stage = models.ForeignKey(
-        'LookupAJCCTStageDescriptor',
+        'lookup.LookupAJCCTStageDescriptor',
         on_delete=models.PROTECT,
         related_name = 't_stage',
         null=True, 
@@ -2030,7 +1688,7 @@ class StageInformation(models.Model):
         help_text="Select the T stage describing the primary tumor (e.g., 'T1', 'T2', 'T3', 'T4')"
     )
     t_stage_suffix = models.ForeignKey(
-        'LookupAJCCStageSuffix',
+        'lookup.LookupAJCCStageSuffix',
         on_delete=models.PROTECT,
         related_name='t_stage_suffix',             
         null=True, 
@@ -2038,7 +1696,7 @@ class StageInformation(models.Model):
         help_text="Enter any suffix modifiers for the T stage (e.g., 'a', 'b', 'c')"
     )
     n_stage_prefix = models.ForeignKey(
-        'LookupAJCCStagePrefix',
+        'lookup.LookupAJCCStagePrefix',
         on_delete=models.PROTECT,
         related_name='n_stage_prefix',        
         null=True, 
@@ -2046,7 +1704,7 @@ class StageInformation(models.Model):
         help_text="Select any prefix modifiers for the N stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
     n_stage = models.ForeignKey(
-        'LookupAJCCNStageDescriptor',
+        'lookup.LookupAJCCNStageDescriptor',
         on_delete=models.PROTECT,
         related_name='n_stage',
         null=True, 
@@ -2054,7 +1712,7 @@ class StageInformation(models.Model):
         help_text="Enter the N stage describing lymph node involvement (e.g., 'N0', 'N1', 'N2', 'N3')"
     )
     n_stage_suffix = models.ForeignKey(
-        'LookupAJCCStageSuffix',
+        'lookup.LookupAJCCStageSuffix',
         on_delete=models.PROTECT,
         related_name='n_stage_suffix',         
         null=True, 
@@ -2062,7 +1720,7 @@ class StageInformation(models.Model):
         help_text="Select any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')"
     ) 
     m_stage_prefix = models.ForeignKey(
-        'LookupAJCCStagePrefix',
+        'lookup.LookupAJCCStagePrefix',
         on_delete=models.PROTECT,
         related_name='m_stage_prefix',        
         null=True, 
@@ -2070,14 +1728,14 @@ class StageInformation(models.Model):
         help_text="Select any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)"
     )
     m_stage = models.ForeignKey(
-        'LookupAJCCMStageDescriptor',
+        'lookup.LookupAJCCMStageDescriptor',
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
         help_text="Enter the M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')"
     )
     m_stage_suffix = models.ForeignKey(
-        'LookupAJCCStageSuffix',
+        'lookup.LookupAJCCStageSuffix',
         related_name='m_stage_suffix',        
         on_delete=models.PROTECT,
         null=True, 
@@ -2085,7 +1743,7 @@ class StageInformation(models.Model):
         help_text="Enter any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')"
     ) 
     overall_stage = models.ForeignKey(
-        'LookupStageDescriptor',
+        'lookup.LookupStageDescriptor',
         on_delete=models.PROTECT,
         related_name= 'overall_stage',
         null=True, 
@@ -2105,11 +1763,11 @@ class StageInformation(models.Model):
 class LaboratoryResults(models.Model):
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
     chavi_laboratory_result_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    laboratory_test = models.ForeignKey(LookupLaboratoryTest, on_delete=models.PROTECT)
-    result_date = models.DateField(null=True, blank=True)
-    result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    result_unit = models.ForeignKey(LookupLabResultsUnits,null=True, blank=True, on_delete=models.PROTECT)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the laboratory result was obtained")
+    laboratory_test = models.ForeignKey('lookup.LookupLaboratoryTest', on_delete=models.PROTECT,help_text="Select the laboratory test for which the result was obtained")
+    result_date = models.DateField(null=True, blank=True,help_text="Enter the date of the laboratory result")
+    result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the value of the laboratory result")
+    result_unit = models.ForeignKey('lookup.LookupLabResultsUnits',null=True, blank=True, on_delete=models.PROTECT,help_text="Select the unit of the laboratory result")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2119,6 +1777,29 @@ class LaboratoryResults(models.Model):
     class Meta:
         verbose_name_plural="Laboratory Results"
         db_table='laboratory_results'        
+
+class PatientAssessment(models.Model):
+    ''' This is a table for recording the assessments of the patients'''
+    chavi_patient_assessment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the assessment was performed")
+    date_assessment = models.DateField(null=True, blank=True,help_text="Enter the date of the assessment")
+    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the height of the patient in centimeters")
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the weight of the patient in kilograms")
+    systolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the systolic blood pressure of the patient in millimeters of mercury")
+    diastolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the diastolic blood pressure of the patient in millimeters of mercury")
+    pulse = models.PositiveIntegerField(null=True, blank=True,help_text="Enter the pulse of the patient in beats per minute")
+    temperature = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the temperature of the patient in degrees Celsius")
+    respiratory_rate = models.PositiveIntegerField(null=True, blank=True,help_text="Enter the respiratory rate of the patient in breaths per minute")
+    performance_status = models.ForeignKey('lookup.LookupPerformanceStatus', on_delete=models.PROTECT,null=True, blank=True,help_text="Select the performance status of the patient")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__ (self):
+        return f"{self.patient.patient_id} - {self.assessment_date}"
+    
+    class Meta:
+        verbose_name_plural="Patient Assessments"
+        db_table='patient_assessments'
     
 class DICOMStudyProject(models.Model):
     '''This is a through table for relating DICOM studies to Projects'''
@@ -2136,6 +1817,7 @@ class DICOMStudyProject(models.Model):
             )
         ]
 
+# Model created for handling bulk uploads of DICOM files from multiple patients. It matches the DICOM files to existing patients based on the Patient ID found in the DICOM metadata.
 class BulkDICOMUpload(models.Model):
     '''This model handles bulk uploads of DICOM files from multiple patients. It matches the DICOM files to existing patients based on the Patient ID found in the DICOM metadata.'''
     file = models.FileField(

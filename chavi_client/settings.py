@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # 'django.contrib.admindocs' ,
     'django_extensions',
+    'lookup',
     'client_app',
     'django_cleanup.apps.CleanupConfig',
     'import_export',

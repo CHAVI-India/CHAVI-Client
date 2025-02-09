@@ -220,6 +220,23 @@ class SomaticGenomicAlterationsSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = SomaticGenomicAlterations
 
+class GeneExpressionDataSerializer(BaseSerializer):
+    chavi_gene_expression_id = serializers.SerializerMethodField()
+    pathology = HashedForeignKeyField(queryset=Pathology.objects.all())
+
+    def get_chavi_gene_expression_id(self, obj):
+        return hash_pk(obj.chavi_gene_expression_id)
+
+    class Meta(BaseSerializer.Meta):
+        model = GeneExpressionData
+
+class EpigeneticDataSerializer(BaseSerializer):
+    chavi_epigenetic_id = serializers.SerializerMethodField()
+    pathology = HashedForeignKeyField(queryset=Pathology.objects.all())
+
+    def get_chavi_epigenetic_id(self, obj):
+        return hash_pk(obj.chavi_epigenetic_id)
+    
 class OtherTreatmentSerializer(BaseSerializer):
     chavi_treatment_id = serializers.SerializerMethodField()
     diagnosis = HashedForeignKeyField(queryset=Diagnosis.objects.all())
@@ -310,40 +327,9 @@ class AdverseEffectsSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = AdverseEffects
 
-class ProInstrumentSerializer(BaseSerializer):
-    chavi_pro_instrument_id = serializers.SerializerMethodField()
-
-    def get_chavi_pro_instrument_id(self, obj):
-        return hash_pk(obj.chavi_pro_instrument_id)
-
-    class Meta(BaseSerializer.Meta):
-        model = ProInstrument
-
-class ProDomainSerializer(BaseSerializer):
-    chavi_prodomain_id = serializers.SerializerMethodField()
-    instrument = HashedForeignKeyField(queryset=ProInstrument.objects.all())
-
-    def get_chavi_prodomain_id(self, obj):
-        return hash_pk(obj.chavi_prodomain_id)
-
-    class Meta(BaseSerializer.Meta):
-        model = ProDomain
-
-class ProQuestionSerializer(BaseSerializer):
-    chavi_pro_question_id = serializers.SerializerMethodField()
-    domain = HashedForeignKeyField(queryset=ProDomain.objects.all())
-
-    def get_chavi_pro_question_id(self, obj):
-        return hash_pk(obj.chavi_pro_question_id)
-
-    class Meta(BaseSerializer.Meta):
-        model = ProQuestion
-
 class PatientReportedOutcomeSerializer(BaseSerializer):
     chavi_pro_id = serializers.SerializerMethodField()
-    instrument = HashedForeignKeyField(queryset=ProInstrument.objects.all())
-    domain = HashedForeignKeyField(queryset=ProDomain.objects.all())
-    question = HashedForeignKeyField(queryset=ProQuestion.objects.all())
+
 
     def get_chavi_pro_id(self, obj):
         return hash_pk(obj.chavi_pro_id)
@@ -390,6 +376,14 @@ class LaboratoryResultsSerializer(BaseSerializer):
 
     class Meta(BaseSerializer.Meta):
         model = LaboratoryResults
+
+class PatientAssessmentSerializer(BaseSerializer):
+    chavi_patient_assessment_id = serializers.SerializerMethodField()
+    patient = HashedForeignKeyField(queryset=Patient.objects.all())
+
+    def get_chavi_patient_assessment_id(self, obj):
+        return hash_pk(obj.chavi_patient_assessment_id)
+
 
 class DICOMStudyProjectSerializer(BaseSerializer):
     dicom_study = HashedForeignKeyField(queryset=DICOMStudy.objects.all())  # No hash_id_field needed
