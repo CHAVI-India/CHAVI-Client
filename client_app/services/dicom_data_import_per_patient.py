@@ -14,7 +14,7 @@ def process_dicom(modeladmin, request, queryset):
     1. Unzip the uploaded zipped file into the temporary directory.
     2. From the directory take all DICOM files and change the Patient ID tag to match that of the patient ID in the query set. This ensures that the de-identification process will produce the same ID even if the patient has undergone imaging at different centers. 
     3. Extract the SOP Instance UID and Study Instance UID and then create save the files inside a folder inside the Media directory. The folder is specific for each patient. Thus all studies for a given patient will be stored in the same folder. 
-    4. The created folder structure will thus look like this Patient_id > StudyInstanceUID > SOPInstanceUID.dcm
+    4. The created folder structure will thus look like this processed_dicom/Patient_id/StudyInstanceUID/SOPInstanceUID.dcm
     5. Delete the temporary directory where the files were processed.
     '''
     # Function to sanitize paths
@@ -108,7 +108,6 @@ def process_dicom(modeladmin, request, queryset):
             #  Processing Study UID into the DICOMStudy Table
             for uid in study_uids:
                 try: 
-                    # Convert set of series descriptions to comma-separated string
                     series_desc_string = ', '.join(sorted(series_descriptions.get(uid, []))) if uid in series_descriptions else ''
                     
                     DICOMStudy.objects.update_or_create(
@@ -117,20 +116,12 @@ def process_dicom(modeladmin, request, queryset):
                         defaults={
                             'study_description': study_descriptions.get(uid),
                             'study_date': study_dates.get(uid),
-                            'series_descriptions': series_desc_string,  # Add the new field
+                            'series_descriptions': series_desc_string,
                         }
                     )
                     messages.success(request,f"Added DICOM study UID {uid} Data for {obj.patient.patient_id}")
                 except Exception as e:
                     messages.error(request,f"Error adding DICOM data for Study")   
-
-            # Convert the folder to zip format.
-            try:
-                shutil.make_archive(base_name=f"{save_path}", format='zip', root_dir=save_path)
-                messages.success(request, f"Successfully converted folder to zip for {obj.patient.patient_id}")
-                shutil.rmtree(save_path)
-            except Exception as e:
-                messages.error(request, f"Error converting folder to zip for {obj.patient.patient_id}: {str(e)}")
 
         except zipfile.BadZipFile:
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")

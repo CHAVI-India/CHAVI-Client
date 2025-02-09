@@ -14,10 +14,9 @@ def process_bulk_dicom(modeladmin, request, queryset):
     Process uploaded zip files containing DICOM studies from multiple patients:
     1. Unzip to temp directory
     2. Process each DICOM file:
-        - If patient exists: Move to patient's study directory
+        - If patient exists: Move to patient's study directory in processed_dicom folder
         - If patient doesn't exist: Move to unprocessed directory
     3. Update database with study information for matched patients
-    4. Create zip archives for each patient's DICOM data
     '''
     def sanitize(path):
         return path.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
@@ -36,13 +35,6 @@ def process_bulk_dicom(modeladmin, request, queryset):
         try:
             temp_dir = Path(tempfile.TemporaryDirectory().name)
             temp_dir.mkdir(parents=True, exist_ok=True)
-
-            # Track which patient directories need to be zipped
-            patient_dirs_to_zip = set()
-
-            # Extract zip file
-            with zipfile.ZipFile(upload.file.path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
 
             # Process all files in directory tree
             dicom_files = [f for f in temp_dir.glob('**/*') if f.is_file()]
@@ -70,8 +62,6 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         patient_dir = processed_dir / sanitized_patient_id
                         study_dir = patient_dir / sanitize(study_instance_uid)
                         study_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        patient_dirs_to_zip.add(patient_dir)
                         
                         # Save DICOM file
                         ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm")
@@ -108,16 +98,6 @@ def process_bulk_dicom(modeladmin, request, queryset):
                 except Exception as e:
                     messages.error(request, f"Error processing file {file_path.name}: {str(e)}")
                     continue
-
-            # Create zip archives for each patient's directory
-            for patient_dir in patient_dirs_to_zip:
-                try:
-                    # Create zip archive in processed_dicom directory
-                    shutil.make_archive(base_name=str(patient_dir), format='zip', root_dir=patient_dir)
-                    messages.success(request, f"Successfully created zip archive for {patient_dir.name}")
-                    shutil.rmtree(patient_dir)
-                except Exception as e:
-                    messages.error(request, f"Error creating zip archive for {patient_dir.name}: {str(e)}")
 
             # Update upload status
             upload.status = 'Processed'
