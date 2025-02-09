@@ -1,6 +1,6 @@
 from django.http import HttpResponse
-from .models import *
-from .serializers import *
+from ..models import *
+from ..serializers import *
 import json
 import uuid
 import zipfile
