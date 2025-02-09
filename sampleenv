@@ -2,7 +2,7 @@ SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&8%l4^-lp!$(s#ysd9w8)fe! # A
 DEBUG=True # Set to True for development, False for production
 DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost' # Add other hosts if needed seperated by commas
 
-DJANGO_DB_ENGINE=django.db.backends.postgresql # Add engine of the database
+DJANGO_DB_ENGINE=django.db.backends.postgresql # Add engine of the database. We prefer postgresql
 DJANGO_DB_NAME=chaviclient # Add name of the database
 DJANGO_DB_USER=postgres # Add username of the database  
 DJANGO_DB_PASSWORD=sample_password # Add password of the database
