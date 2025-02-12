@@ -207,4 +207,50 @@ UNFOLD = {
     "SITE_HEADER": "CHAVI Client Application",
     "SITE_TITLE": "CHAVI Client Application",
     "SITE_BRAND": "CHAVI Client Application",
+
+    "SITE_DROPDOWN": [
+        {
+            "icon": "book",
+            "title": _("Documentation"),
+            "link": "/docs",
+        },
+    ],
+
+    "SIDEBAR": {
+        "show_search": True,  # Search in applications and models names
+        "show_all_applications": False,  # Dropdown with all applications and models
+        "navigation": [
+            {
+                "title": _("Patient Data"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Patient"),
+                        "icon": "people",
+                        "link": reverse_lazy("admin:client_app_patient_changelist"),
+                    },
+                    {
+                        'title': _("Symptoms"),
+                        'icon': 'symptoms',
+                        'link': reverse_lazy("admin:client_app_symptom_changelist"),
+                    },
+                    {
+                        'title': _("Assessments"),
+                        'icon': 'assessment',
+                        'link': reverse_lazy("admin:client_app_patientassessment_changelist"),
+                    },
+                    {
+                        'title': _("Laboratory Results"),
+                        'icon': 'Experiment',
+                        'link': reverse_lazy("admin:client_app_laboratoryresults_changelist"),
+                    },                    
+
+                ],
+            },
+        ],
+    },    
+
 }
+
+
