@@ -1,4 +1,24 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
+from django.contrib.auth.models import User, Group
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
+from unfold.contrib.filters.admin import (
+    RangeDateFilter, 
+    RangeDateTimeFilter, 
+    RangeNumericFilter, 
+    RangeNumericListFilter, 
+    SingleNumericFilter,
+    SliderNumericFilter,
+    ChoicesDropdownFilter,
+    MultipleChoicesDropdownFilter,
+    RelatedDropdownFilter,
+    MultipleRelatedDropdownFilter,
+    DropdownFilter,
+    MultipleDropdownFilter    
+    )
+from unfold.contrib.forms.widgets import ArrayWidget
 from .models import *
 from lookup.models import *
 from pathlib import Path
@@ -18,6 +38,9 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from import_export.widgets import ForeignKeyWidget
 from import_export import fields
+from import_export.admin import ImportExportModelAdmin
+from unfold.contrib.import_export.forms import ExportForm, ImportForm, SelectableFieldsExportForm
+from unfold.decorators import action
 from .services.patient_data_export import export_patient_data
 from allauth.account.decorators import secure_admin_login
 from .services.dicom_data_import_per_patient import process_dicom
@@ -28,7 +51,7 @@ admin.autodiscover()
 admin.site.login = secure_admin_login(admin.site.login)
 
 #endregion
-class DICOMStudyProjectInline(admin.TabularInline):
+class DICOMStudyProjectInline(TabularInline):
     model = DICOMStudyProject
     extra = 1
     search_fields = ['dicom_study']
@@ -38,7 +61,7 @@ class DICOMStudyProjectInline(admin.TabularInline):
 
 #region Inlines for Foreign Key relations.
 
-class SystemicTherapyScheduleInline(admin.StackedInline):
+class SystemicTherapyScheduleInline(StackedInline):
     model = SystemicTherapySchedule
     autocomplete_fields = ['systemic_therapy_agent']
     extra = 1
@@ -55,116 +78,118 @@ class SystemicTherapyScheduleInline(admin.StackedInline):
        
 # Register Lookup Models so that autocomplete fields work.
 @admin.register(LookupProtein)
-class LookupProteinAdmin(admin.ModelAdmin):
+class LookupProteinAdmin(ModelAdmin):
     search_fields = ['protein_name']
     readonly_fields = ['code','gene_name','protein_name','all_gene_names','uniport_id']
 
 
 @admin.register(LookupGene)
-class LookupGeneAdmin(admin.ModelAdmin):
+class LookupGeneAdmin(ModelAdmin):
     search_fields = ['code','label']
     # readonly_fields = ['code','label']
 
 @admin.register(LookupPathology)
-class LookupPathologyAdmin(admin.ModelAdmin):
+class LookupPathologyAdmin(ModelAdmin):
     search_fields = ['label','code']
     readonly_fields = ['code','label']
 
 @admin.register(LookupCTCAEGrade)
-class LookupCTCAEGradeAdmin (admin.ModelAdmin):
+class LookupCTCAEGradeAdmin (ModelAdmin):
     search_fields = ['ctcae_term','ctcae_grade']
     readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
 
 @admin.register(LookupSystemicAgent)
-class LookupSystemicAgentAdmin (admin.ModelAdmin):
+class LookupSystemicAgentAdmin (ModelAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label']
 
 
 @admin.register(LookupCytogeneticAbnormality)
-class LookupCytogeneticAbnormalityAdmin(admin.ModelAdmin):
+class LookupCytogeneticAbnormalityAdmin(ModelAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupICDCode)
-class LookupICDCodeAdmin (admin.ModelAdmin):
+class LookupICDCodeAdmin (ModelAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label','icd_version']
 
 @admin.register(LookupFMACode)
-class LookupFMACodeAdmin (admin.ModelAdmin):
+class LookupFMACodeAdmin (ModelAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupLaboratoryTest)
-class LookupLaboratoryTestAdmin (admin.ModelAdmin):
+class LookupLaboratoryTestAdmin (ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 
 @admin.register(LookupStageDescriptor)
-class LookupStageDescriptorAdmin(admin.ModelAdmin):
+class LookupStageDescriptorAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupSymptoms)
-class LookupSymptomsAdmin(admin.ModelAdmin):
+class LookupSymptomsAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupMajorCancerCategory)
-class LookupMajorCancerCategoryAdmin(admin.ModelAdmin):
+class LookupMajorCancerCategoryAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 
 @admin.register(LookupIHCAntibody)
-class LookupIHCAntibodyAdmin(admin.ModelAdmin):
+class LookupIHCAntibodyAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupEpigeneticAbnormalityType)
-class LookupEpigeneticAbnormalityTypeAdmin(admin.ModelAdmin):
+class LookupEpigeneticAbnormalityTypeAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 @admin.register(LookupComorbidity)
-class LookupComorbidityAdmin(admin.ModelAdmin):
+class LookupComorbidityAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
 # Create Inline Models
 
 
-class ImmunohistochemistryInline(admin.StackedInline):
+class ImmunohistochemistryInline(StackedInline):
     model = Immunohistochemistry
     autocomplete_fields =['protein_name']
     extra = 1
+    tab = True
     
 
-class CytogeneticsInline(admin.StackedInline):
+class CytogeneticsInline(StackedInline):
     model = Cytogenetics
     autocomplete_fields =['gene','cytogentic_abnormality']
     extra = 1
-    
+    tab = True
 
-class SomaticGenomicAlterationsInline(admin.StackedInline):
+class SomaticGenomicAlterationsInline(StackedInline):
     model = SomaticGenomicAlterations
     autocomplete_fields = ['cosmic_gene_name']
     extra = 1
-    
+    tab = True
 
-class GeneExpressionDataInline(admin.StackedInline):
+class GeneExpressionDataInline(StackedInline):
     model = GeneExpressionData
     autocomplete_fields = ['gene']
     extra = 1
-
-class EpigeneticDataInline(admin.StackedInline):
+    tab = True
+class EpigeneticDataInline(StackedInline):
     model = EpigeneticData
     autocomplete_fields = ['gene']
     extra = 1
+    tab = True
 
-class RadiotherapyVolumeInline(admin.StackedInline):
+class RadiotherapyVolumeInline(StackedInline):
     model = RadiotherapyVolume
     extra = 1
     fieldsets = (
@@ -178,10 +203,10 @@ class RadiotherapyVolumeInline(admin.StackedInline):
     filter_horizontal = ['anatomical_locations']
     tab=True
 
-class RadiotherapyDoseVolumeDataInline(admin.TabularInline):
+class RadiotherapyDoseVolumeDataInline(TabularInline):
     model = RadiotherapyDoseVolumeData
     extra = 1
-    
+    tab = True  
 
 #endregion
 
@@ -196,7 +221,7 @@ class PatientResource(resources.ModelResource):
         import_id_fields = ['patient_id']
 
 @admin.register(Patient)
-class PatientAdmin(ImportExportModelAdmin):
+class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
     actions = [export_patient_data]
     list_filter = ['gender','chavi_consent','created_at']
     search_fields = ['patient_id']
@@ -225,7 +250,7 @@ class PatientAdmin(ImportExportModelAdmin):
 
 
 @admin.register(PatientDicomFile)
-class PatientDicomFileAdmin(admin.ModelAdmin):
+class PatientDicomFileAdmin(ModelAdmin):
     search_fields =[ 'patient__patient_id']
     list_display = ['patient', 'file', 'created_at', 'updated_at']
     list_filter = ['created_at', 'updated_at']
@@ -272,7 +297,7 @@ class DiagnosisResource(resources.ModelResource):
 
 # Create the Diagnosis Form Class
 @admin.register(Diagnosis)
-class DiagnosisAdmin (ImportExportModelAdmin):
+class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['patient']
     autocomplete_fields = ['patient','diagnosis','cancer_site','cancer_system']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
@@ -326,7 +351,7 @@ class PathologyResource(resources.ModelResource):
         fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells']
 
 @admin.register(Pathology)
-class PathologyAdmin (ImportExportModelAdmin):
+class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline,GeneExpressionDataInline,EpigeneticDataInline]
     autocomplete_fields = ['diagnosis','tumor_site','histological_type']
     search_fields = ['diagnosis__patient_id']
@@ -377,7 +402,7 @@ class StageInformationResource(resources.ModelResource):
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
-class StageInformationAdmin (ImportExportModelAdmin):
+class StageInformationAdmin (ModelAdmin, ImportExportModelAdmin):
     search = ['diagnosis__patient_id']
     autocomplete_fields = ['diagnosis','overall_stage']
     list_filter = ['diagnosis','staging_system__label','stage_type','overall_stage']
@@ -421,7 +446,7 @@ class ComorbidityResource(resources.ModelResource):
 ## Create the Comorbidity Form
 
 @admin.register(Comorbidity)
-class ComorbidityAdmin (ImportExportModelAdmin):
+class ComorbidityAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','comorbidity_type']
     list_display = ['patient', 'comorbidity_type', 'date_of_comorbidity_diagnosis', 'created_at']
     list_filter = ['date_of_comorbidity_diagnosis', 'created_at']
@@ -452,7 +477,7 @@ class LesionResource(resources.ModelResource):
 
 ## Create the Lesion Form Class
 @admin.register(Lesion)
-class LesionAdmin (ImportExportModelAdmin):
+class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
     autocomplete_fields = ['diagnosis','lesion_site']
     filter_horizontal = ['lesion_dicom_study']
@@ -490,7 +515,7 @@ class LesionResponseResource(resources.ModelResource):
 
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
-class LesionResponseAdmin (ImportExportModelAdmin):
+class LesionResponseAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
     filter_horizontal = ['lesion_response_dicom_study']
     resource_classes = [LesionResponseResource]
@@ -522,7 +547,7 @@ class RadiotherapyResource(resources.ModelResource):
 ## Create the Radiotherapy Form Class
 
 @admin.register(Radiotherapy)
-class RadiotherapyAdmin (ImportExportModelAdmin):
+class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
     autocomplete_fields = ['diagnosis']
     filter_horizontal = ['radiotherapy_dicom_study']
@@ -562,7 +587,7 @@ class SurgeryResource(resources.ModelResource):
 
 ## Create the Surgery Form Class
 @admin.register(Surgery)
-class SurgeryAdmin (ImportExportModelAdmin):
+class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
@@ -605,7 +630,7 @@ class SystemicTherapyResource(resources.ModelResource):
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
-class SystemicTherapyAdmin (ImportExportModelAdmin):
+class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [SystemicTherapyScheduleInline]
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
@@ -642,7 +667,7 @@ class ConcomitantMedicationsResource(resources.ModelResource):
 
 
 @admin.register(ConcomitantMedications)
-class ConcomitantMedicationsAdmin (ImportExportModelAdmin):
+class ConcomitantMedicationsAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Concomitant Medications',{
@@ -672,7 +697,7 @@ class OtherTreatmentResource(resources.ModelResource):
 
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
-class OtherTreatmentAdmin (ImportExportModelAdmin):
+class OtherTreatmentAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Description',{
@@ -704,7 +729,7 @@ class AdverseEffectsResource(resources.ModelResource):
 
 # Create the Adverse Effects form Class
 @admin.register(AdverseEffects)
-class AdverseEffectsAdmin (ImportExportModelAdmin):
+class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
     fieldsets = (
@@ -737,7 +762,7 @@ class PatientOutcomeResource(resources.ModelResource):
         fields = ['patient','patient_status','date_of_death','death_related_to_cancer_progression']
 
 @admin.register(PatientOutcome)
-class PatientOutcomeAdmin (ImportExportModelAdmin):
+class PatientOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     resource_classes = [PatientOutcomeResource]
     list_display = ['patient', 'patient_status', 'date_of_death', 'death_related_to_cancer_progression']
@@ -762,7 +787,7 @@ class OutcomeResource(resources.ModelResource):
 
 ## Create the Outcome Form Class
 @admin.register(Outcome)
-class OutcomeAdmin (ImportExportModelAdmin):
+class OutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal = ['outcome_dicom_study']
@@ -802,7 +827,7 @@ class PatientReportedOutcomeResource(resources.ModelResource):
 
 ## Create the Patient Reported Outcome Form Class
 @admin.register(PatientReportedOutcome)
-class PatientReportedOutcomeAdmin (ImportExportModelAdmin):
+class PatientReportedOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     fieldsets = (
         ('Patient',{
@@ -818,7 +843,7 @@ class PatientReportedOutcomeAdmin (ImportExportModelAdmin):
 
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
-class DICOMStudyAdmin (admin.ModelAdmin):
+class DICOMStudyAdmin (ModelAdmin):
     search_fields = ['patient__patient_id']
     list_display = ['patient', 'study_date', 'study_description', 'series_descriptions']
     autocomplete_fields = ['patient']
@@ -834,7 +859,7 @@ class DICOMStudyAdmin (admin.ModelAdmin):
 
 ## Create the Project form Class
 @admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
+class ProjectAdmin(ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     readonly_fields = ['center']
     list_display = ['chavi_project_id', 'center', 'created_at']
@@ -882,7 +907,7 @@ class GermlineGenomicAlterationsResource(resources.ModelResource):
         fields = ['patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
 
 @admin.register(GermlineGenomicAlterations)
-class GermlineGenomicAlterationsAdmin(ImportExportModelAdmin):
+class GermlineGenomicAlterationsAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','cosmic_gene_name']
     resource_classes = [GermlineGenomicAlterationsResource]
     list_display = ['patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
@@ -904,7 +929,7 @@ class SymptomResource(resources.ModelResource):
         import_id_fields = ['chavi_symptom_id']
         fields = ['patient','symptom','date_onset','date_resolution','severity']
 @admin.register(Symptom)
-class SymptomAdmin(ImportExportModelAdmin):
+class SymptomAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','symptom']
     resource_classes = [SymptomResource]
     list_display = ['patient','symptom','date_onset','date_resolution','severity']
@@ -926,7 +951,7 @@ class PatientAssessmentResource(resources.ModelResource):
         import_id_fields = ['chavi_patient_assessment_id']
         fields = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
 @admin.register(PatientAssessment)
-class PatientAssessmentAdmin(ImportExportModelAdmin):
+class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     resource_classes = [PatientAssessmentResource]
     list_display = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
@@ -936,7 +961,7 @@ class PatientAssessmentAdmin(ImportExportModelAdmin):
 admin.site.register(SiteConfiguration)
 
 @admin.register(BulkDICOMUpload)
-class BulkDICOMUploadAdmin(admin.ModelAdmin):
+class BulkDICOMUploadAdmin(ModelAdmin):
     list_display = ['created_at', 'processed_at', 'status']
     readonly_fields = ['created_at', 'processed_at', 'status']
     actions = [process_bulk_dicom]
@@ -946,3 +971,20 @@ class BulkDICOMUploadAdmin(admin.ModelAdmin):
     <p> This form allows you to upload DICOM data for several patients at the same time. This a convinience way to upload DICOM data for several patients in a single step but has a caveat that patient ID in the DICOM files <strong> MUST match an existing patient in the Patient database. </strong> <br>
      Therefore it is important that for all patients whose DICOM data is being uploaded the patient ID should be in a consistent format. After uploading please run the Process Bulk DICOM action to extract and organize the DICOM files. For files where a matching patient ID is found, the system will automatically associate the DICOM file with the correct patient and create a proper zip file with the patient DICOM data. If the patient ID cannot be matched it will store the DICOM data in a Unprocessed_DICOM folder for you to review.  </p>   <br>
     """
+
+
+admin.site.unregister(User)
+admin.site.unregister(Group)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin, ModelAdmin):
+    # Forms loaded from `unfold.forms`
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
+
+
+@admin.register(Group)
+class GroupAdmin(BaseGroupAdmin, ModelAdmin):
+    pass

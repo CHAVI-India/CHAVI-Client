@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from django.templatetags.static import static
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,10 +38,17 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
 # Application definition
 
 INSTALLED_APPS = [
-    # 'jazzmin',
+    'unfold',
+    'unfold.contrib.filters',
+    "unfold.contrib.forms",  # optional, if special form elements are needed
+    "unfold.contrib.inlines",  # optional, if special inlines are needed
+    "unfold.contrib.import_export",  # optional, if django-import-export package is used
+    # "unfold.contrib.guardian",  # optional, if django-guardian package is used
+    # "unfold.contrib.simple_history",  # optional, if django-simple-history package is used
+    # "django.contrib.admin",  # required    # 'jazzmin',
     'django.contrib.contenttypes',
-    'grappelli.dashboard',    
-    'grappelli',
+    # 'grappelli.dashboard',    
+    # 'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.sessions',
@@ -186,6 +197,14 @@ ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']
 
 # Grappelli Settings
 
-GRAPPELLI_INDEX_DASHBOARD = 'chavi_client.dashboard.CustomIndexDashboard'
-GRAPPELLI_ADMIN_TITLE = 'CHAVI Client Application'
-GRAPPELLI_CLEAN_INPUT_TYPES = True
+# GRAPPELLI_INDEX_DASHBOARD = 'chavi_client.dashboard.CustomIndexDashboard'
+# GRAPPELLI_ADMIN_TITLE = 'CHAVI Client Application'
+# GRAPPELLI_CLEAN_INPUT_TYPES = True
+
+
+# Unfold Settings
+UNFOLD = {
+    "SITE_HEADER": "CHAVI Client Application",
+    "SITE_TITLE": "CHAVI Client Application",
+    "SITE_BRAND": "CHAVI Client Application",
+}

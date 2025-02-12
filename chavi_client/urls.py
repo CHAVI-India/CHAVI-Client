@@ -22,7 +22,7 @@ from client_app.views import documentation_view
 
 urlpatterns = [
     # path('admin/doc/', include('django.contrib.admindocs.urls')), 
-    path('grappelli/', include('grappelli.urls')), # grappelli URLS    
+    # path('grappelli/', include('grappelli.urls')), # grappelli URLS    
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('', lambda request: redirect('account_login'), name='home'),
