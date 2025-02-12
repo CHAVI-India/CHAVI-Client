@@ -369,6 +369,7 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
         }),
     )
     resource_classes = [PathologyResource]
+    compressed_fields = True
 
 
 # Create the Stage Information Resource
