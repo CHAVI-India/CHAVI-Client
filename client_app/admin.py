@@ -1,3 +1,4 @@
+import os
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
@@ -19,6 +20,8 @@ from unfold.contrib.filters.admin import (
     MultipleDropdownFilter    
     )
 from unfold.contrib.forms.widgets import ArrayWidget
+
+from chavi_client.settings import BASE_DIR
 from .models import *
 from lookup.models import *
 from pathlib import Path
@@ -240,7 +243,7 @@ class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
         }),
     )
     readonly_fields = ['center']
-    change_form_template = 'admin/client_app/change_form.html'
+    change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
     <h2>Guidance</h2>
     <p>This form allows you to enter data for patients in the CHAVI database. This is the key form to fill as the patient ID will be used for all other forms. <br>
@@ -262,7 +265,7 @@ class PatientDicomFileAdmin(ModelAdmin):
     actions = [
         process_dicom
     ]
-    change_form_template = 'admin/client_app/change_form.html'
+    change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
     <h2>Guidance</h2>
     <p>This form allows you to enter DICOM data for a <strong>SINGLE patient</strong>. Please upload a zip file with DICOM studies belonging to a <strong>SINGLE patient only</strong> in this form. <br>
@@ -968,7 +971,7 @@ class BulkDICOMUploadAdmin(ModelAdmin):
     list_display = ['created_at', 'processed_at', 'status']
     readonly_fields = ['created_at', 'processed_at', 'status']
     actions = [process_bulk_dicom]
-    change_form_template = 'admin/client_app/change_form.html'
+    change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
     <h2>Guidance</h2>
     <p> This form allows you to upload DICOM data for several patients at the same time. This a convinience way to upload DICOM data for several patients in a single step but has a caveat that patient ID in the DICOM files <strong> MUST match an existing patient in the Patient database. </strong> <br>
