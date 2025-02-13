@@ -339,7 +339,7 @@ class PDF,DS,DSP,BDU imaging
 class D,SI,L clinical
 class PA,IH,CY,SG,GE,EP pathology
 class RT,RV,RD,ST,SS,SU,OT,CM treatment
-class GG,CO,LAB,SY,PA patient
+class GG,CO,LAB,SY,PAS patient
 class O,LR,AE,PO,PR outcomes
 
 %% Layout Adjustments
