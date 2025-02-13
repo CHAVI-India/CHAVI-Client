@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>About &mdash; CHAVI Client 1.0 documentation</title>
+  <title>Patient Assessment &mdash; CHAVI Client 1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -18,9 +18,7 @@
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation Guide" href="installation.html" />
-    <link rel="prev" title="Welcome to CHAVI Client Documentation" href="../index.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,8 +41,8 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a></li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
@@ -92,9 +90,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">About</li>
+      <li class="breadcrumb-item active">Patient Assessment</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/about.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/help_files/patient_assesment.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -102,79 +100,63 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="about">
-<h1>About<a class="headerlink" href="#about" title="Link to this heading"></a></h1>
-<p>The CHAVI client is a Django application that is designed to allow users to manage the data for the <a class="reference external" href="https://chavi.ai">CHAVI project</a>. This allows the users to add, edit, and review the clinical data related to the patient before the data is ready for uploading to the CHAVI database. The application allows the users to add, edit, and review the following data:</p>
-<blockquote>
-<div><ul class="simple">
-<li><dl class="simple">
-<dt><a class="reference internal" href="patient_demographics.html"><span class="doc">Patient Demographics</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="diagnosis.html"><span class="doc">Diagnosis data</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="lesion.html"><span class="doc">Lesion</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="lesion_response.html"><span class="doc">Lesion Response</span></a></p></li>
+  <section id="patient-assessment">
+<h1>Patient Assessment<a class="headerlink" href="#patient-assessment" title="Link to this heading"></a></h1>
+<p>The Patient Assessment module records physical measurements and clinical assessments of patients during their care. This information helps track patient status and condition over time.</p>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
+<section id="physical-measurements">
+<h3>Physical Measurements<a class="headerlink" href="#physical-measurements" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Height</strong>: Patient’s height in centimeters</p></li>
+<li><p><strong>Weight</strong>: Patient’s weight in kilograms</p></li>
+<li><p><strong>Blood Pressure</strong>: Systolic and diastolic blood pressure in mmHg</p></li>
+<li><p><strong>Temperature</strong>: Body temperature in degrees Celsius</p></li>
+<li><p><strong>Pulse</strong>: Heart rate in beats per minute</p></li>
+<li><p><strong>Respiratory Rate</strong>: Breathing rate in breaths per minute</p></li>
 </ul>
-</dd>
-</dl>
+</section>
+<section id="clinical-assessment">
+<h3>Clinical Assessment<a class="headerlink" href="#clinical-assessment" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Date of Assessment</strong>: When the assessment was performed</p></li>
+<li><p><strong>Performance Status</strong>: Patient’s functional status using standardized scales</p></li>
+<li><p><strong>Assessment Notes</strong>: Any additional relevant observations</p></li>
+</ul>
+</section>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Measurement standards:</p>
+<ol class="arabic simple">
+<li><p>Use consistent units for all measurements</p></li>
+<li><p>Calibrate measuring equipment regularly</p></li>
+<li><p>Document any special circumstances affecting measurements</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="pathology.html"><span class="doc">Pathology data</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="immunohistochemistry.html"><span class="doc">Immunohistochemistry</span></a></p></li>
-<li><p><a class="reference internal" href="cytogenetics.html"><span class="doc">Cytogenetics</span></a></p></li>
-<li><p><a class="reference internal" href="somatic_genomic_alterations.html"><span class="doc">Somatic Genomic Alterations</span></a></p></li>
-<li><p><a class="reference internal" href="epigenetic_modifications.html"><span class="doc">Epigenetic Modifications</span></a></p></li>
-<li><p><a class="reference internal" href="gene_expression_data.html"><span class="doc">Gene Expression Data</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>Timing of assessments:</p>
+<ol class="arabic simple">
+<li><p>Record the specific date and time</p></li>
+<li><p>Note if assessment was done during routine visit or due to specific concerns</p></li>
+<li><p>Document frequency of planned assessments</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="systemic_therapy.html"><span class="doc">Systemic therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="systemic_therapy_drug_schedule.html"><span class="doc">Systemic Therapy Drug Schedule</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>Performance status:</p>
+<ol class="arabic simple">
+<li><p>Use standardized performance status scales</p></li>
+<li><p>Document any changes from previous assessments</p></li>
+<li><p>Note any factors affecting performance evaluation</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="radiation_therapy.html"><span class="doc">Radiation therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="radiation_volume.html"><span class="doc">Radiation Volume</span></a></p></li>
-<li><p><a class="reference internal" href="radiation_dose_volume.html"><span class="doc">Radiation Dose Volume Data</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="surgery.html"><span class="doc">Surgery</span></a></p></li>
-<li><p><a class="reference internal" href="concomitant_medications.html"><span class="doc">Concomitant medications</span></a></p></li>
-<li><p><a class="reference internal" href="other_treatment.html"><span class="doc">Other Treatment</span></a></p></li>
-<li><p><a class="reference internal" href="cancer_outcomes.html"><span class="doc">Cancer Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="laboratory_results.html"><span class="doc">Laboratory results</span></a></p></li>
-<li><p><a class="reference internal" href="patient_reported_outcomes.html"><span class="doc">Patient Repoted Outcomes</span></a></p></li>
-<li><p><a class="reference internal" href="comorbidities.html"><span class="doc">Comorbidities</span></a></p></li>
-<li><p><a class="reference internal" href="symptoms.html"><span class="doc">Symptoms</span></a></p></li>
-<li><p><span class="xref std std-doc">Patient Assessment</span></p></li>
-<li><p><span class="xref std std-doc">Stage Information</span></p></li>
-<li><p><a class="reference internal" href="patient_outcomes.html"><span class="doc">Patient Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="dicom_studies.html"><span class="doc">DICOM Studies</span></a></p></li>
-</ul>
-</div></blockquote>
+</ol>
+</section>
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to CHAVI Client Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="installation.html" class="btn btn-neutral float-right" title="Installation Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

@@ -19,6 +19,7 @@ documentation for details.
    help_files/installation
    help_files/configuration
    help_files/tfa
+   help_files/import_data
    help_files/clinical_data_import
    help_files/dicom_data_import
    help_files/patient_demographics
@@ -46,6 +47,10 @@ documentation for details.
    help_files/patient_outcomes
    help_files/patient_reported_outcomes
    help_files/dicom_study
+   help_files/epigenetic_modifications
+   help_files/gene_expression_data
+   help_files/patient_assessment
+
 
 Indices and tables
 ==================
