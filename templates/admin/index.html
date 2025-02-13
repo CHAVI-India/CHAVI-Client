@@ -1,0 +1,83 @@
+{% extends 'unfold/layouts/base_simple.html' %}
+
+{% load i18n %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block title %}
+    {% if subtitle %}
+        {{ subtitle }} |
+    {% endif %}
+
+    {{ title }} | {{ site_title|default:_('Django site admin') }}
+{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+ 
+<div class="flex flex-col">
+    <h1 class="text-2xl font-bold mb-4">Welcome to the Chavi Client Admin</h1>
+    <p class="mb-4">To start adding new case details please click on the links on the left in the Navigation Bar.</p>
+    <p class="mb-4">To view the documentation please click on the dropdown menu in the top left corner and select "Documentation".</p>
+    <p class="mb-4">Please use the following forms for entering the respective data:</p>
+
+    <ul class="list-disc pl-6">
+        <li class="mb-4">Patient Data
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>Patient:</strong> Basic patient information including ID, gender, date of birth, and project enrollment.</li>
+                <li class="mb-2"><strong>Patient Assessment:</strong> Clinical assessments including vital signs, height, weight, and performance status.</li>
+                <li class="mb-2"><strong>Laboratory Results:</strong> Results from various laboratory tests with dates and values.</li>
+                <li class="mb-2"><strong>Comorbidities:</strong> Other medical conditions the patient has, with dates of diagnosis.</li>
+                <li class="mb-2"><strong>Germline Mutation Data:</strong> Genetic testing results showing inherited mutations.</li>
+            </ul>
+        </li>
+
+        <li class="mb-4">Cancer Diagnostic Data
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>Diagnosis:</strong> Primary cancer diagnosis details including cancer type, site, and presentation.</li>
+                <li class="mb-2"><strong>Stage Information:</strong> TNM staging and overall stage using standard staging systems.</li>
+                <li class="mb-2"><strong>Pathology:</strong> Detailed pathology findings including histological type, grade, and tumor characteristics.</li>
+                <li class="mb-2"><strong>Lesion:</strong> Details about specific tumors or metastases including size and location.</li>
+            </ul>
+        </li>
+
+        <li class="mb-4">Treatment Data
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>Surgery:</strong> Details of surgical procedures including type, date, and extent.</li>
+                <li class="mb-2"><strong>Radiotherapy:</strong> Radiation treatment details including dose, fractions, and technique.</li>
+                <li class="mb-2"><strong>Systemic Therapy:</strong> Details of chemotherapy or other systemic treatments.</li>
+                <li class="mb-2"><strong>Concomitant Medications:</strong> Other medications given during cancer treatment.</li>
+                <li class="mb-2"><strong>Other Treatments:</strong> Additional treatments not covered by other categories.</li>
+            </ul>
+        </li>
+
+        <li class="mb-4">Outcomes & Adverse Effects
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>Patient Outcome:</strong> Overall patient status, survival data, and follow-up information.</li>
+                <li class="mb-2"><strong>Cancer Outcomes:</strong> Disease-specific outcomes and response to treatment.</li>
+                <li class="mb-2"><strong>Lesion Response:</strong> How specific tumors or metastases responded to treatment.</li>
+                <li class="mb-2"><strong>Adverse Effects:</strong> Treatment-related side effects and complications.</li>
+                <li class="mb-2"><strong>Patient Reported Outcomes:</strong> Quality of life and symptom assessments from patients.</li>
+            </ul>
+        </li>
+
+        <li class="mb-4">DICOM Studies
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>DICOM Study Data:</strong> Information about imaging studies including dates and descriptions.</li>
+                <li class="mb-2"><strong>DICOM File Upload:</strong> Upload DICOM files for a specific patient.</li>
+                <li class="mb-2"><strong>Bulk DICOM File Upload:</strong> Upload multiple DICOM files for multiple patients.</li>
+            </ul>
+        </li>
+
+        <li class="mb-4">Project
+            <ul class="list-disc pl-6 mt-2">
+                <li class="mb-2"><strong>Projects:</strong> Research project details and patient enrollment information.</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+
+{% endblock %}
