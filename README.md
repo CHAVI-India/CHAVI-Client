@@ -238,8 +238,10 @@ graph LR
         SC[SiteConfiguration]
         P[Project]
         PT[Patient]
+        PA[PatientAssessment]
         SC --> P
         P <--> PT
+        PT --> PA
     end
 
     %% Imaging Models
@@ -248,9 +250,11 @@ graph LR
         PDF[PatientDicomFile]
         DS[DICOMStudy]
         DSP[DICOMStudyProject]
+        BDU[BulkDICOMUpload]
         PT --> PDF
         PT --> DS
         DS --> DSP
+        P <--> DSP
     end
 
     %% Clinical Models
@@ -258,14 +262,25 @@ graph LR
         direction LR
         D[Diagnosis]
         SI[StageInformation]
-        O[Outcome]
         L[Lesion]
-        LR[LesionResponse]
         PT --> D
         D --> SI
-        D --> O
         D --> L
+    end
+
+    %% Outcomes and Monitoring
+    subgraph Outcomes
+        direction LR
+        O[Outcome]
+        LR[LesionResponse]
+        AE[AdverseEffects]
+        PO[PatientOutcome]
+        PR[PatientReportedOutcome]
+        D --> O
         L --> LR
+        D --> AE
+        PT --> PO
+        PT --> PR
     end
 
     %% Pathology Models
@@ -275,10 +290,14 @@ graph LR
         IH[Immunohistochemistry]
         CY[Cytogenetics]
         SG[SomaticGenomicAlterations]
+        GE[GeneExpressionData]
+        EP[EpigeneticData]
         D --> PA
         PA --> IH
         PA --> CY
         PA --> SG
+        PA --> GE
+        PA --> EP
     end
 
     %% Treatment Models
@@ -292,9 +311,9 @@ graph LR
         SU[Surgery]
         OT[OtherTreatment]
         CM[ConcomitantMedications]
-        AE[AdverseEffects]
-        D --> RT & ST & SU & OT & CM & AE
-        RT --> RV & RD
+        D --> RT & ST & SU & OT & CM
+        RT --> RV
+        RT --> RD
         ST --> SS
     end
 
@@ -305,21 +324,7 @@ graph LR
         CO[Comorbidity]
         LR[LaboratoryResults]
         SY[Symptom]
-        PO[PatientOutcome]
-        PT --> GG & CO & LR & SY & PO
-    end
-
-    %% PRO Models
-    subgraph Patient_Reported_Outcomes
-        direction LR
-        PR[PatientReportedOutcome]
-        PQ[ProQuestion]
-        PD[ProDomain]
-        PI[ProInstrument]
-        PT --> PR
-        PR --> PQ
-        PQ --> PD
-        PD --> PI
+        PT --> GG & CO & LR & SY
     end
 
 classDef core fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000000
@@ -328,15 +333,15 @@ classDef clinical fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000000
 classDef pathology fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000000
 classDef treatment fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000000
 classDef patient fill:#dcedc8,stroke:#33691e,stroke-width:2px,color:#000000
-classDef pro fill:#b2dfdb,stroke:#004d40,stroke-width:2px,color:#000000
+classDef outcomes fill:#ffccbc,stroke:#bf360c,stroke-width:2px,color:#000000
 
-class SC,P,PT core
-class PDF,DS,DSP imaging
-class D,SI,O,L,LR clinical
-class PA,IH,CY,SG pathology
-class RT,RV,RD,ST,SS,SU,OT,CM,AE treatment
-class GG,CO,LR,SY,PO patient
-class PR,PQ,PD,PI pro
+class SC,P,PT,PA core
+class PDF,DS,DSP,BDU imaging
+class D,SI,L clinical
+class PA,IH,CY,SG,GE,EP pathology
+class RT,RV,RD,ST,SS,SU,OT,CM treatment
+class GG,CO,LR,SY patient
+class O,LR,AE,PO,PR outcomes
 
 %% Layout Adjustments
 linkStyle default stroke-width:2px
@@ -352,7 +357,7 @@ Legend:
   - Orange: Pathology-related models
   - Pink: Treatment-related models
   - Light Green: Patient-related data
-  - Teal: Patient-reported outcomes
+  - Deep Orange: Outcomes and monitoring data
 
 Note: This diagram shows the primary relationships between models. Lookup tables that provide standardized options for various fields are excluded for clarity.
 
