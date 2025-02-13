@@ -959,7 +959,9 @@ class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):
 
 
 # Register your models here.
-admin.site.register(SiteConfiguration)
+@admin.register(SiteConfiguration)
+class SiteConfigurationAdmin(ModelAdmin):
+    pass
 
 @admin.register(BulkDICOMUpload)
 class BulkDICOMUploadAdmin(ModelAdmin):

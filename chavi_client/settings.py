@@ -213,16 +213,40 @@ UNFOLD = {
             "icon": "book",
             "title": _("Documentation"),
             "link": "/docs",
+            'target': '_blank',
         },
+        {
+            'icon': 'public',
+            'title': _("CHAVI Website"),
+            'link': "https://chavi.ai",
+            'target': '_blank',
+        },
+        {
+            'icon': 'groups',
+            'title': _("Users"),
+            'link': reverse_lazy("admin:auth_user_changelist"),
+        },
+        {
+            'icon': 'diversity_4',
+            'title': _("Groups"),
+            'link': reverse_lazy("admin:auth_group_changelist"),
+        },
+        {
+            'icon': 'tv_options_input_settings',
+            'title': _("Site Configuration"),
+            'link': reverse_lazy("admin:client_app_siteconfiguration_changelist"),
+        },        
+
+
     ],
 
     "SIDEBAR": {
-        "show_search": True,  # Search in applications and models names
+        "show_search": False,  # Search in applications and models names
         "show_all_applications": False,  # Dropdown with all applications and models
         "navigation": [
             {
                 "title": _("Patient Data"),
-                "separator": True,  # Top border
+                "separator": False,  # Top border
                 "collapsible": True,  # Collapsible group of links
                 "items": [
                     {
@@ -237,17 +261,163 @@ UNFOLD = {
                     },
                     {
                         'title': _("Assessments"),
-                        'icon': 'assessment',
+                        'icon': 'vital_signs',
                         'link': reverse_lazy("admin:client_app_patientassessment_changelist"),
                     },
                     {
                         'title': _("Laboratory Results"),
-                        'icon': 'Experiment',
+                        'icon': 'experiment',
                         'link': reverse_lazy("admin:client_app_laboratoryresults_changelist"),
-                    },                    
+                    },
+                    {
+                        'title': _("Comorbidities"),
+                        'icon': 'heart_plus',
+                        'link': reverse_lazy("admin:client_app_comorbidity_changelist"),
+                    },
+                    {
+                        'title': _("Germline Mutation Data"),
+                        'icon': 'genetics',
+                        'link': reverse_lazy("admin:client_app_germlinegenomicalterations_changelist"),
+                    },
 
+
+                                        
                 ],
             },
+
+            {
+                "title": _("Cancer Diagnostic Data"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Diagnosis"),
+                        "icon": "diagnosis",
+                        "link": reverse_lazy("admin:client_app_diagnosis_changelist"),
+                    },
+                    {
+                        'title': _("Stage Information"),
+                        'icon': 'clinical_notes',
+                        'link': reverse_lazy("admin:client_app_stageinformation_changelist"),
+                    },
+                    {
+                        'title': _("Pathology"),
+                        'icon': 'biotech',
+                        'link': reverse_lazy("admin:client_app_pathology_changelist"),
+                    },
+                    {
+                        'title': _("Lesion Characteristics"),
+                        'icon': 'token',
+                        'link': reverse_lazy("admin:client_app_lesion_changelist"),
+                    },                                   
+                                        
+                ],
+            },
+
+            {
+                "title": _("Treatment Data"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Surgery"),
+                        "icon": "surgical",
+                        "link": reverse_lazy("admin:client_app_surgery_changelist"),
+                    },
+                    {
+                        'title': _("Radiotherapy Courses"),
+                        'icon': 'orbit',
+                        'link': reverse_lazy("admin:client_app_radiotherapy_changelist"),
+                    },
+                    {
+                        'title': _("Systemic Therapy Courses"),
+                        'icon': 'vaccines',
+                        'link': reverse_lazy("admin:client_app_systemictherapy_changelist"),
+                    },
+                    {
+                        'title': _("Concomitant Medications"),
+                        'icon': 'pill',
+                        'link': reverse_lazy("admin:client_app_concomitantmedications_changelist"),
+                    },
+                    {
+                        'title': _("Other Treatments"),
+                        'icon': 'prescriptions',
+                        'link': reverse_lazy("admin:client_app_othertreatment_changelist"),
+                    },
+                                        
+                ],
+            },
+            {
+                "title": _("Outomes & Adverse Effects"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Patient Outcome"),
+                        "icon": "skull",
+                        "link": reverse_lazy("admin:client_app_patientoutcome_changelist"),
+                    },
+                    {
+                        'title': _("Cancer Outcomes"),
+                        'icon': 'monitoring',
+                        'link': reverse_lazy("admin:client_app_outcome_changelist"),
+                    },
+                    {
+                        'title': _("Lesion Response Data"),
+                        'icon': 'settings_heart',
+                        'link': reverse_lazy("admin:client_app_lesionresponse_changelist"),
+                    },
+                    {
+                        'title': _("Adverse Effects"),
+                        'icon': 'crisis_alert',
+                        'link': reverse_lazy("admin:client_app_adverseeffects_changelist"),
+                    },
+                    {
+                        'title': _("Patient Reported Outcomes"),
+                        'icon': 'voice_selection',
+                        'link': reverse_lazy("admin:client_app_patientreportedoutcome_changelist"),
+                    },
+                                        
+                ],
+            },
+            {
+                "title": _("DICOM Studies"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("DICOM Study Data"),
+                        "icon": "demography",
+                        "link": reverse_lazy("admin:client_app_dicomstudy_changelist"),
+                    },
+                    {
+                        'title': _("DICOM File Upload (Patient-wise)"),
+                        'icon': 'upload_file',
+                        'link': reverse_lazy("admin:client_app_patientdicomfile_changelist"),
+                    },
+                    {
+                        'title': _("Bulk DICOM File Upload"),
+                        'icon': 'folder_zip',
+                        'link': reverse_lazy("admin:client_app_bulkdicomupload_changelist"),
+                    },
+                                        
+                ],
+            },                           
+            {
+                "title": _("Project"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Projects"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:client_app_project_changelist"),
+                    },
+                                        
+                ],
+            },  
+
+
         ],
     },    
 
