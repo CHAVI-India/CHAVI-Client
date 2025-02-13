@@ -322,8 +322,8 @@ graph LR
         CO[Comorbidity]
         LAB[LaboratoryResults]
         SY[Symptom]
-        PA[PatientAssessment]
-        PT --> GG & CO & LAB & SY & PA
+        PAS[PatientAssessment]
+        PT --> GG & CO & LAB & SY & PAS
     end
 
 classDef core fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000000
