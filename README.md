@@ -238,10 +238,8 @@ graph LR
         SC[SiteConfiguration]
         P[Project]
         PT[Patient]
-        PA[PatientAssessment]
         SC --> P
         P <--> PT
-        PT --> PA
     end
 
     %% Imaging Models
@@ -322,9 +320,10 @@ graph LR
         direction LR
         GG[GermlineGenomicAlterations]
         CO[Comorbidity]
-        LR[LaboratoryResults]
+        LAB[LaboratoryResults]
         SY[Symptom]
-        PT --> GG & CO & LR & SY
+        PA[PatientAssessment]
+        PT --> GG & CO & LAB & SY & PA
     end
 
 classDef core fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000000
@@ -335,12 +334,12 @@ classDef treatment fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000000
 classDef patient fill:#dcedc8,stroke:#33691e,stroke-width:2px,color:#000000
 classDef outcomes fill:#ffccbc,stroke:#bf360c,stroke-width:2px,color:#000000
 
-class SC,P,PT,PA core
+class SC,P,PT core
 class PDF,DS,DSP,BDU imaging
 class D,SI,L clinical
 class PA,IH,CY,SG,GE,EP pathology
 class RT,RV,RD,ST,SS,SU,OT,CM treatment
-class GG,CO,LR,SY patient
+class GG,CO,LAB,SY,PA patient
 class O,LR,AE,PO,PR outcomes
 
 %% Layout Adjustments
