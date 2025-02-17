@@ -1,0 +1,247 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importing Data &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Clinical Data Import using the CHAVI Client" href="clinical_data_import.html" />
+    <link rel="prev" title="Two Factor Authentication" href="tfa.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Importing Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#using-the-import-feature">Using the Import Feature</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#access-and-navigation">Access and Navigation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#file-requirements">File Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#import-process">Import Process</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-csv-format">Example CSV Format</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Importing Data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/import_data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="importing-data">
+<h1>Importing Data<a class="headerlink" href="#importing-data" title="Link to this heading"></a></h1>
+<p>The CHAVI system supports data import functionality through the Django admin interface using CSV (Comma Separated Values) files. This feature allows bulk upload of data for various modules.</p>
+<section id="using-the-import-feature">
+<h2>Using the Import Feature<a class="headerlink" href="#using-the-import-feature" title="Link to this heading"></a></h2>
+<section id="access-and-navigation">
+<h3>Access and Navigation<a class="headerlink" href="#access-and-navigation" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Navigate to the Django admin interface</p></li>
+<li><p>Select the data type you wish to import (e.g., Patients, Diagnoses, etc.)</p></li>
+<li><p>Look for the “Import” button in the top right corner</p></li>
+</ul>
+</section>
+<section id="file-requirements">
+<h3>File Requirements<a class="headerlink" href="#file-requirements" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Format</strong>: CSV (Comma Separated Values)</p></li>
+<li><p><strong>Encoding</strong>: UTF-8</p></li>
+<li><p><strong>Headers</strong>: First row must contain field names</p></li>
+<li><p><strong>Date Format</strong>: YYYY-MM-DD (e.g., 2023-12-31)</p></li>
+<li><p><strong>Boolean Values</strong>: Use “True”/”False” or “1”/”0”</p></li>
+</ul>
+</section>
+<section id="import-process">
+<h3>Import Process<a class="headerlink" href="#import-process" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Prepare your CSV file:</p>
+<ol class="arabic simple">
+<li><p>Ensure all required fields are included</p></li>
+<li><p>Match column headers to database field names</p></li>
+<li><p>Verify data formats match requirements</p></li>
+</ol>
+</li>
+<li><p>Import steps:</p>
+<ol class="arabic simple">
+<li><p>Click the “Import” button</p></li>
+<li><p>Choose your CSV file</p></li>
+<li><p>Select import format (CSV)</p></li>
+<li><p>Preview the data</p></li>
+<li><p>Confirm and process import</p></li>
+</ol>
+</li>
+</ol>
+</section>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Data validation:</p>
+<ol class="arabic simple">
+<li><p>All required fields must be present</p></li>
+<li><p>Foreign key references must exist in the database</p></li>
+<li><p>Data types must match field specifications</p></li>
+<li><p>Dates must be in correct format</p></li>
+</ol>
+</li>
+<li><p>Error handling:</p>
+<ol class="arabic simple">
+<li><p>Review error messages if import fails</p></li>
+<li><p>Fix issues in CSV file</p></li>
+<li><p>Re-attempt import with corrected data</p></li>
+<li><p>Keep record of failed imports</p></li>
+</ol>
+</li>
+<li><p>Best practices:</p>
+<ol class="arabic simple">
+<li><p>Test with small dataset first</p></li>
+<li><p>Backup database before large imports</p></li>
+<li><p>Verify imported data after completion</p></li>
+<li><p>Document any special handling requirements</p></li>
+</ol>
+</li>
+<li><p>Foreign key relationships:</p>
+<ol class="arabic simple">
+<li><p>Ensure referenced records exist</p></li>
+<li><p>Use correct identifier values</p></li>
+<li><p>Consider import order for related data</p></li>
+</ol>
+</li>
+</ol>
+</section>
+<section id="example-csv-format">
+<h2>Example CSV Format<a class="headerlink" href="#example-csv-format" title="Link to this heading"></a></h2>
+<p>Patient import file example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">patient_id</span><span class="p">,</span><span class="n">gender</span><span class="p">,</span><span class="n">date_of_birth</span><span class="p">,</span><span class="n">date_of_registration</span>
+<span class="n">P001</span><span class="p">,</span><span class="n">Female</span><span class="p">,</span><span class="mi">1980</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">01</span><span class="p">,</span><span class="mi">2023</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">15</span>
+<span class="n">P002</span><span class="p">,</span><span class="n">Male</span><span class="p">,</span><span class="mi">1975</span><span class="o">-</span><span class="mi">06</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span><span class="mi">2023</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">16</span>
+</pre></div>
+</div>
+<p>Diagnosis import file example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">patient_id</span><span class="p">,</span><span class="n">diagnosis_date</span><span class="p">,</span><span class="n">cancer_system</span><span class="p">,</span><span class="n">presentation_type</span>
+<span class="n">P001</span><span class="p">,</span><span class="mi">2023</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">15</span><span class="p">,</span><span class="n">BREAST</span><span class="p">,</span><span class="n">NEW</span>
+<span class="n">P002</span><span class="p">,</span><span class="mi">2023</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">16</span><span class="p">,</span><span class="n">LUNG</span><span class="p">,</span><span class="n">NEW</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tfa.html" class="btn btn-neutral float-left" title="Two Factor Authentication" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="clinical_data_import.html" class="btn btn-neutral float-right" title="Clinical Data Import using the CHAVI Client" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

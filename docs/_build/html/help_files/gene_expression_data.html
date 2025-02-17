@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>About &mdash; CHAVI Client 1.0 documentation</title>
+  <title>Gene Expression Data &mdash; CHAVI Client 1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -19,8 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation Guide" href="installation.html" />
-    <link rel="prev" title="Welcome to CHAVI Client Documentation" href="../index.html" /> 
+    <link rel="prev" title="Epigenetic Modifications" href="epigenetic_modifications.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,7 +43,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
@@ -75,7 +74,15 @@
 <li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
-<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Gene Expression Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#test-information">Test Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gene-expression-details">Gene Expression Details</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -92,9 +99,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">About</li>
+      <li class="breadcrumb-item active">Gene Expression Data</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/about.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/help_files/gene_expression_data.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -102,78 +109,60 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="about">
-<h1>About<a class="headerlink" href="#about" title="Link to this heading"></a></h1>
-<p>The CHAVI client is a Django application that is designed to allow users to manage the data for the <a class="reference external" href="https://chavi.ai">CHAVI project</a>. This allows the users to add, edit, and review the clinical data related to the patient before the data is ready for uploading to the CHAVI database. The application allows the users to add, edit, and review the following data:</p>
-<blockquote>
-<div><ul class="simple">
-<li><dl class="simple">
-<dt><a class="reference internal" href="patient_demographics.html"><span class="doc">Patient Demographics</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="diagnosis.html"><span class="doc">Diagnosis data</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="lesion.html"><span class="doc">Lesion</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="lesion_response.html"><span class="doc">Lesion Response</span></a></p></li>
+  <section id="gene-expression-data">
+<h1>Gene Expression Data<a class="headerlink" href="#gene-expression-data" title="Link to this heading"></a></h1>
+<p>The Gene Expression Data module collects information about gene expression testing performed on pathology specimens. This data helps understand the molecular characteristics of tumors.</p>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
+<section id="test-information">
+<h3>Test Information<a class="headerlink" href="#test-information" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Date of Test</strong>: The date when the gene expression test was performed</p></li>
+<li><p><strong>Pathology Reference</strong>: Link to the pathology report this gene expression data is associated with</p></li>
 </ul>
-</dd>
-</dl>
+</section>
+<section id="gene-expression-details">
+<h3>Gene Expression Details<a class="headerlink" href="#gene-expression-details" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Gene</strong>: The specific gene tested for expression levels, selected from standardized gene list</p></li>
+<li><p><strong>Expression Value</strong>: The quantitative measurement of gene expression</p></li>
+<li><p><strong>Expression Units</strong>: The units used to measure gene expression (e.g., FPKM, TPM, counts)</p></li>
+</ul>
+</section>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Expression values:</p>
+<ol class="arabic simple">
+<li><p>Must be positive numbers</p></li>
+<li><p>Should be recorded with appropriate precision</p></li>
+<li><p>Units should be consistent within testing methods</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="pathology.html"><span class="doc">Pathology data</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="immunohistochemistry.html"><span class="doc">Immunohistochemistry</span></a></p></li>
-<li><p><a class="reference internal" href="cytogenetics.html"><span class="doc">Cytogenetics</span></a></p></li>
-<li><p><a class="reference internal" href="somatic_genomic_alterations.html"><span class="doc">Somatic Genomic Alterations</span></a></p></li>
-<li><p><a class="reference internal" href="epigenetic_modifications.html"><span class="doc">Epigenetic Modifications</span></a></p></li>
-<li><p><a class="reference internal" href="gene_expression_data.html"><span class="doc">Gene Expression Data</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>Gene selection:</p>
+<ol class="arabic simple">
+<li><p>Use standardized gene names from the lookup list</p></li>
+<li><p>Multiple genes can be tested from the same specimen</p></li>
+<li><p>Document any specific testing platform or methodology used</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="systemic_therapy.html"><span class="doc">Systemic therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="systemic_therapy_drug_schedule.html"><span class="doc">Systemic Therapy Drug Schedule</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>Data quality:</p>
+<ol class="arabic simple">
+<li><p>Ensure values are properly normalized if required</p></li>
+<li><p>Document any quality control metrics if available</p></li>
+<li><p>Note any technical limitations or concerns</p></li>
+</ol>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="radiation_therapy.html"><span class="doc">Radiation therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="radiation_volume.html"><span class="doc">Radiation Volume</span></a></p></li>
-<li><p><a class="reference internal" href="radiation_dose_volume.html"><span class="doc">Radiation Dose Volume Data</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="surgery.html"><span class="doc">Surgery</span></a></p></li>
-<li><p><a class="reference internal" href="concomitant_medications.html"><span class="doc">Concomitant medications</span></a></p></li>
-<li><p><a class="reference internal" href="other_treatment.html"><span class="doc">Other Treatment</span></a></p></li>
-<li><p><a class="reference internal" href="cancer_outcomes.html"><span class="doc">Cancer Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="laboratory_results.html"><span class="doc">Laboratory results</span></a></p></li>
-<li><p><a class="reference internal" href="patient_reported_outcomes.html"><span class="doc">Patient Repoted Outcomes</span></a></p></li>
-<li><p><a class="reference internal" href="comorbidities.html"><span class="doc">Comorbidities</span></a></p></li>
-<li><p><a class="reference internal" href="symptoms.html"><span class="doc">Symptoms</span></a></p></li>
-<li><p><span class="xref std std-doc">Patient Assessment</span></p></li>
-<li><p><span class="xref std std-doc">Stage Information</span></p></li>
-<li><p><a class="reference internal" href="patient_outcomes.html"><span class="doc">Patient Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><a class="reference internal" href="dicom_studies.html"><span class="doc">DICOM Studies</span></a></p></li>
-</ul>
-</div></blockquote>
+</ol>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to CHAVI Client Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="installation.html" class="btn btn-neutral float-right" title="Installation Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="epigenetic_modifications.html" class="btn btn-neutral float-left" title="Epigenetic Modifications" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

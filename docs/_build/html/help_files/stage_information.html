@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>About &mdash; CHAVI Client 1.0 documentation</title>
+  <title>Stage Information &mdash; CHAVI Client 1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -19,8 +19,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation Guide" href="installation.html" />
-    <link rel="prev" title="Welcome to CHAVI Client Documentation" href="../index.html" /> 
+    <link rel="next" title="Comorbidities" href="comorbidities.html" />
+    <link rel="prev" title="Symptoms" href="symptoms.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,7 +44,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
@@ -70,12 +70,23 @@
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
 <li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Stage Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#staging-system">Staging System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tnm-classification">TNM Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#overall-stage">Overall Stage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
 </ul>
 
         </div>
@@ -92,9 +103,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">About</li>
+      <li class="breadcrumb-item active">Stage Information</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/about.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/help_files/stage_information.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -102,78 +113,98 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="about">
-<h1>About<a class="headerlink" href="#about" title="Link to this heading"></a></h1>
-<p>The CHAVI client is a Django application that is designed to allow users to manage the data for the <a class="reference external" href="https://chavi.ai">CHAVI project</a>. This allows the users to add, edit, and review the clinical data related to the patient before the data is ready for uploading to the CHAVI database. The application allows the users to add, edit, and review the following data:</p>
-<blockquote>
-<div><ul class="simple">
+  <section id="stage-information">
+<h1>Stage Information<a class="headerlink" href="#stage-information" title="Link to this heading"></a></h1>
+<p>The Stage Information module records the cancer staging details for each diagnosis. This information is crucial for determining the extent of disease and treatment planning.</p>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading"></a></h2>
+<section id="staging-system">
+<h3>Staging System<a class="headerlink" href="#staging-system" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Staging System</strong>: The classification system used (e.g., TNM 8th Edition, FIGO)</p></li>
+<li><p><strong>Stage Type</strong>: Type of staging information (e.g., clinical, pathological)</p></li>
+</ul>
+</section>
+<section id="tnm-classification">
+<h3>TNM Classification<a class="headerlink" href="#tnm-classification" title="Link to this heading"></a></h3>
+<ul class="simple">
 <li><dl class="simple">
-<dt><a class="reference internal" href="patient_demographics.html"><span class="doc">Patient Demographics</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="diagnosis.html"><span class="doc">Diagnosis data</span></a></dt><dd><ul>
-<li><dl class="simple">
-<dt><a class="reference internal" href="lesion.html"><span class="doc">Lesion</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="lesion_response.html"><span class="doc">Lesion Response</span></a></p></li>
+<dt><strong>T Stage</strong>: Description of the primary tumor</dt><dd><ul>
+<li><p>Prefix: Clinical (c) or Pathological (p)</p></li>
+<li><p>Category: T0, T1, T2, T3, T4</p></li>
+<li><p>Suffix: Modifiers (a, b, c) if applicable</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt><a class="reference internal" href="pathology.html"><span class="doc">Pathology data</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="immunohistochemistry.html"><span class="doc">Immunohistochemistry</span></a></p></li>
-<li><p><a class="reference internal" href="cytogenetics.html"><span class="doc">Cytogenetics</span></a></p></li>
-<li><p><a class="reference internal" href="somatic_genomic_alterations.html"><span class="doc">Somatic Genomic Alterations</span></a></p></li>
-<li><p><a class="reference internal" href="epigenetic_modifications.html"><span class="doc">Epigenetic Modifications</span></a></p></li>
-<li><p><a class="reference internal" href="gene_expression_data.html"><span class="doc">Gene Expression Data</span></a></p></li>
+<dt><strong>N Stage</strong>: Description of regional lymph node involvement</dt><dd><ul>
+<li><p>Prefix: Clinical (c) or Pathological (p)</p></li>
+<li><p>Category: N0, N1, N2, N3</p></li>
+<li><p>Suffix: Modifiers (a, b, c) if applicable</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt><a class="reference internal" href="systemic_therapy.html"><span class="doc">Systemic therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="systemic_therapy_drug_schedule.html"><span class="doc">Systemic Therapy Drug Schedule</span></a></p></li>
+<dt><strong>M Stage</strong>: Description of distant metastasis</dt><dd><ul>
+<li><p>Prefix: Clinical (c) or Pathological (p)</p></li>
+<li><p>Category: M0, M1</p></li>
+<li><p>Suffix: Modifiers (a, b, c) if applicable</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><dl class="simple">
-<dt><a class="reference internal" href="radiation_therapy.html"><span class="doc">Radiation therapy</span></a></dt><dd><ul>
-<li><p><a class="reference internal" href="radiation_volume.html"><span class="doc">Radiation Volume</span></a></p></li>
-<li><p><a class="reference internal" href="radiation_dose_volume.html"><span class="doc">Radiation Dose Volume Data</span></a></p></li>
 </ul>
-</dd>
-</dl>
+</section>
+<section id="overall-stage">
+<h3>Overall Stage<a class="headerlink" href="#overall-stage" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Overall Stage</strong>: Combined stage grouping (e.g., Stage I, Stage II, Stage III, Stage IV)</p></li>
+</ul>
+</section>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Staging accuracy:</p>
+<ol class="arabic simple">
+<li><p>Use the most current staging system version</p></li>
+<li><p>Document the basis for staging (clinical vs. pathological)</p></li>
+<li><p>Update staging as new information becomes available</p></li>
+</ol>
 </li>
-<li><p><a class="reference internal" href="surgery.html"><span class="doc">Surgery</span></a></p></li>
-<li><p><a class="reference internal" href="concomitant_medications.html"><span class="doc">Concomitant medications</span></a></p></li>
-<li><p><a class="reference internal" href="other_treatment.html"><span class="doc">Other Treatment</span></a></p></li>
-<li><p><a class="reference internal" href="cancer_outcomes.html"><span class="doc">Cancer Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>TNM documentation:</p>
+<ol class="arabic simple">
+<li><p>Include all relevant prefixes and suffixes</p></li>
+<li><p>Document any uncertainty in staging</p></li>
+<li><p>Note any special circumstances affecting staging</p></li>
+</ol>
 </li>
-<li><p><a class="reference internal" href="laboratory_results.html"><span class="doc">Laboratory results</span></a></p></li>
-<li><p><a class="reference internal" href="patient_reported_outcomes.html"><span class="doc">Patient Repoted Outcomes</span></a></p></li>
-<li><p><a class="reference internal" href="comorbidities.html"><span class="doc">Comorbidities</span></a></p></li>
-<li><p><a class="reference internal" href="symptoms.html"><span class="doc">Symptoms</span></a></p></li>
-<li><p><span class="xref std std-doc">Patient Assessment</span></p></li>
-<li><p><span class="xref std std-doc">Stage Information</span></p></li>
-<li><p><a class="reference internal" href="patient_outcomes.html"><span class="doc">Patient Outcomes</span></a></p></li>
-</ul>
-</dd>
-</dl>
+<li><p>Multiple primaries:</p>
+<ol class="arabic simple">
+<li><p>Stage each primary tumor separately</p></li>
+<li><p>Clearly link staging to specific diagnosis</p></li>
+<li><p>Document any interactions between multiple primaries</p></li>
+</ol>
 </li>
-<li><p><a class="reference internal" href="dicom_studies.html"><span class="doc">DICOM Studies</span></a></p></li>
-</ul>
-</div></blockquote>
+<li><p>Stage migration:</p>
+<ol class="arabic simple">
+<li><p>Record dates of staging changes</p></li>
+<li><p>Document reasons for stage changes</p></li>
+<li><p>Maintain history of previous staging</p></li>
+</ol>
+</li>
+</ol>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to CHAVI Client Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="installation.html" class="btn btn-neutral float-right" title="Installation Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="symptoms.html" class="btn btn-neutral float-left" title="Symptoms" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="comorbidities.html" class="btn btn-neutral float-right" title="Comorbidities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

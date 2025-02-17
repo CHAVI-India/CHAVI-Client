@@ -261,7 +261,7 @@ UNFOLD = {
                         'link': reverse_lazy("admin:client_app_symptom_changelist"),
                     },
                     {
-                        'title': _("Assessments"),
+                        'title': _("Patient Assessments"),
                         'icon': 'vital_signs',
                         'link': reverse_lazy("admin:client_app_patientassessment_changelist"),
                     },
