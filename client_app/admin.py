@@ -298,6 +298,12 @@ class DiagnosisResource(resources.ModelResource):
         import_id_fields = ['chavi_diagnosis_id']
         fields = ['patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
 
+
+class DiagnosisExportResource(resources.ModelResource):
+    class Meta:
+        model = Diagnosis
+        fields = ['patient','chavi_diagnosis_id']
+
 # Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
@@ -320,7 +326,12 @@ class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': ['diagnosis_project']
         }),
     )
-    resource_classes = [DiagnosisResource]
+    resource_classes = [DiagnosisResource,DiagnosisExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return DiagnosisExportResource
 
 
 ## Create the Pathology Form Class
@@ -353,6 +364,12 @@ class PathologyResource(resources.ModelResource):
         import_id_fields = ['chavi_pathology_id']
         fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells']
 
+class PathologyExportResource(resources.ModelResource):
+    class Meta:
+        model = Pathology
+        fields = ['diagnosis','chavi_pathology_id']
+
+
 @admin.register(Pathology)
 class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline,GeneExpressionDataInline,EpigeneticDataInline]
@@ -371,8 +388,13 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
         }),
     )
-    resource_classes = [PathologyResource]
     compressed_fields = True
+    resource_classes = [PathologyResource,PathologyExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return PathologyExportResource
 
 
 # Create the Stage Information Resource
@@ -403,6 +425,10 @@ class StageInformationResource(resources.ModelResource):
         import_id_fields = ['chavi_stage_information_id']
         fields = ['diagnosis','staging_system','stage_type','t_stage_prefix','t_stage','t_stage_suffix','n_stage_prefix','n_stage','n_stage_suffix','m_stage_prefix','m_stage','m_stage_suffix','overall_stage']
 
+class StageInformationExportResource(resources.ModelResource):
+    class Meta:
+        model = StageInformation
+        fields = ['diagnosis','chavi_stage_information_id']
 
 ## Create the Stage Information Form Class
 @admin.register(StageInformation)
@@ -428,7 +454,12 @@ class StageInformationAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields' : ['overall_stage']
         }),
     )
-    resource_classes = [StageInformationResource]
+    resource_classes = [StageInformationResource,StageInformationExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return StageInformationExportResource
 
 
 class ComorbidityResource(resources.ModelResource):
@@ -478,6 +509,10 @@ class LesionResource(resources.ModelResource):
         import_id_fields = ['chavi_lesion_id']
         fields = ['diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit']
 
+class LesionExportResource(resources.ModelResource):
+    class Meta:
+        model = Lesion
+        fields = ['diagnosis','chavi_lesion_id']
 
 ## Create the Lesion Form Class
 @admin.register(Lesion)
@@ -497,7 +532,12 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields' : ['lesion_dicom_study']
         })
     )   
-    resource_classes = [LesionResource]
+    resource_classes = [LesionResource,LesionExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return LesionExportResource
 
 class LesionResponseResource(resources.ModelResource):
     def before_import(self,dataset,**kwargs):
@@ -517,14 +557,24 @@ class LesionResponseResource(resources.ModelResource):
         import_id_fields = ['chavi_lesion_response_id']
         fields = ['lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit']
 
+class LesionResponseExportResource(resources.ModelResource):
+    class Meta:
+        model = LesionResponse
+        fields = ['lesion','chavi_lesion_response_id']
+
 ## Create the Lesion Response Form Class
 @admin.register(LesionResponse)
 class LesionResponseAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
     filter_horizontal = ['lesion_response_dicom_study']
-    resource_classes = [LesionResponseResource]
     list_display = ['lesion', 'lesion_response_date', 'lesion_response', 'residual_lesion_volume']
     list_filter = ['lesion_response_date', 'lesion_response']
+    resource_classes = [LesionResponseResource,LesionResponseExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return LesionResponseExportResource    
 
 
 class RadiotherapyResource(resources.ModelResource):
@@ -547,6 +597,11 @@ class RadiotherapyResource(resources.ModelResource):
         import_id_fields = ['chavi_radiotherapy_id']
         fields = ['diagnosis','radiotherapy_start_date','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
 
+class RadiotherapyExportResource(resources.ModelResource):
+    class Meta:
+        model = Radiotherapy
+        fields = ['diagnosis','chavi_radiotherapy_id']
+
 
 ## Create the Radiotherapy Form Class
 
@@ -566,7 +621,12 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': ['radiotherapy_dicom_study']
         }),
     )
-    resource_classes = [RadiotherapyResource]
+    resource_classes = [RadiotherapyResource,RadiotherapyExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return RadiotherapyExportResource
  
 
 ## Create the Surgery Resource
@@ -631,6 +691,10 @@ class SystemicTherapyResource(resources.ModelResource):
         import_id_fields = ['chavi_systemic_therapy_id']
         fields = ['diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
 
+class SystemicTherapyExportResource(resources.ModelResource):
+    class Meta:
+        model = SystemicTherapy
+        fields = ['diagnosis','chavi_systemic_therapy_id']
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
@@ -650,7 +714,12 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': ['systemic_therapy_dicom_study']
         }),        
     )
-    resource_classes = [SystemicTherapyResource]
+    resource_classes = [SystemicTherapyResource,SystemicTherapyExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return SystemicTherapyExportResource
 
 ## Create the ConcomitantMedications Form Class
 class ConcomitantMedicationsResource(resources.ModelResource):
@@ -731,6 +800,11 @@ class AdverseEffectsResource(resources.ModelResource):
         import_id_fields = ['chavi_adverse_effects_id']
         fields = ['diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
 
+class AdverseEffectsExportResource(resources.ModelResource):
+    class Meta:
+        model = AdverseEffects
+        fields = ['diagnosis','chavi_adverse_effects_id']
+
 # Create the Adverse Effects form Class
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
@@ -744,7 +818,12 @@ class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields':[('ctcae_grade_lookup')]
         }),
     )
-    resource_classes = [AdverseEffectsResource]
+    resource_classes = [AdverseEffectsResource,AdverseEffectsExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return AdverseEffectsExportResource
 
 ## Create the Patient Outcomes form class
 
@@ -765,12 +844,23 @@ class PatientOutcomeResource(resources.ModelResource):
         import_id_fields = ['chavi_patient_outcome_id']
         fields = ['patient','patient_status','date_of_death','death_related_to_cancer_progression']
 
+class PatientOutcomeExportResource(resources.ModelResource):
+    class Meta:
+        model = PatientOutcome
+        fields = ['patient','chavi_patient_outcome_id']
+
 @admin.register(PatientOutcome)
 class PatientOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
-    resource_classes = [PatientOutcomeResource]
     list_display = ['patient', 'patient_status', 'date_of_death', 'death_related_to_cancer_progression']
     list_filter = ['patient_status', 'date_of_death', 'death_related_to_cancer_progression']
+    resource_classes = [PatientOutcomeResource,PatientOutcomeExportResource]
+    def get_export_resource_class(self):
+        """
+        Returns ResourceClass to use for export.
+        """
+        return PatientOutcomeExportResource
+
 
 # Create the Outcome Resource
 class OutcomeResource(resources.ModelResource):
