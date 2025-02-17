@@ -5,10 +5,13 @@
 
 Welcome to CHAVI Client Documentation
 ===================================
+The CHAVI Client is a web application that allows you to enter clinical data for patients to be enrolled in the CHAVI databank. The system allows entry of clinical data and linkage to DICOM and Project information. This information is then deidentified and uploaded into the CHAVI databank.
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+This documentation is intended to provide a guide to the CHAVI Client and the data that can be entered into the system. You will find information on the different forms available for entering the data in the application.
+
+Please note that the organization of the data may be different from the usual way clinical data is captured for projects. For example, there is a key form called Diagnosis which may be implicit in your clinical data collection forms. For example, if you are collecting data for patients with breast cancer, the diagnosis may not be recorded in your case record forms simply because the diagnosis is assumed to be breast cancer. In case of the CHAVI client however for each patient we need to ensure that the diagnosis of Breast cancer is recorded. 
+
+
 
 
 .. toctree::
