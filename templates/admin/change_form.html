@@ -1,10 +1,13 @@
 {% extends "admin/change_form.html" %}
 {% load i18n %}
+{% load static %}
 
 {% block content %}
     {% if adminform.model_admin.guidance_text %}
-    <div class="module grp-module">
+    <div class="module grp-module p-3 mb-2 border rounded">
+        <p>
         {{ adminform.model_admin.guidance_text|safe }}
+        </p>
     </div>
     {% endif %}
     {{ block.super }}

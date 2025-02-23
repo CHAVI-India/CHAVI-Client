@@ -24,61 +24,132 @@
     <p class="mb-4">To view the documentation please click on the dropdown menu in the top left corner and select "Documentation".</p>
     <p class="mb-4">Please use the following forms for entering the respective data:</p>
 
-    <ul class="list-disc pl-6">
-        <li class="mb-4">Patient Data
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>Patient:</strong> Basic patient information including ID, gender, date of birth, and project enrollment.</li>
-                <li class="mb-2"><strong>Symptom:</strong> Data on symptoms the patient is experienced if available.</li>                
-                <li class="mb-2"><strong>Patient Assessment:</strong> Clinical assessments including vital signs, height, weight, and performance status.</li>
-                <li class="mb-2"><strong>Laboratory Results:</strong> Results from various laboratory tests with dates and values.</li>
-                <li class="mb-2"><strong>Comorbidities:</strong> Other medical conditions the patient has, with dates of diagnosis.</li>
-                <li class="mb-2"><strong>Germline Mutation Data:</strong> Genetic testing results showing inherited mutations.</li>
-            </ul>
-        </li>
+    <div class="overflow-x-auto">
+        <table class="min-w-full border border-gray-300 mb-4">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="px-4 py-2 border-b text-left">Category</th>
+                    <th class="px-4 py-2 border-b text-left">Form</th>
+                    <th class="px-4 py-2 border-b text-left">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Patient Data -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold" rowspan="6">Patient Data</td>
+                    <td class="px-4 py-2 border-b font-semibold">Patient</td>
+                    <td class="px-4 py-2 border-b">Basic patient information including ID, gender, date of birth, and project enrollment.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Symptom</td>
+                    <td class="px-4 py-2 border-b">Data on symptoms the patient is experienced if available.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Patient Assessment</td>
+                    <td class="px-4 py-2 border-b">Clinical assessments including vital signs, height, weight, and performance status.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Laboratory Results</td>
+                    <td class="px-4 py-2 border-b">Results from various laboratory tests with dates and values.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Comorbidities</td>
+                    <td class="px-4 py-2 border-b">Other medical conditions the patient has, with dates of diagnosis.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Germline Mutation Data</td>
+                    <td class="px-4 py-2 border-b">Genetic testing results showing inherited mutations.</td>
+                </tr>
 
-        <li class="mb-4">Cancer Diagnostic Data
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>Diagnosis:</strong> Primary cancer diagnosis details including cancer type, site, and presentation.</li>
-                <li class="mb-2"><strong>Stage Information:</strong> TNM staging and overall stage using standard staging systems.</li>
-                <li class="mb-2"><strong>Pathology:</strong> Detailed pathology findings including histological type, grade, and tumor characteristics.</li>
-                <li class="mb-2"><strong>Lesion:</strong> Details about specific tumors or metastases including size and location.</li>
-            </ul>
-        </li>
+                <!-- Cancer Diagnostic Data -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold" rowspan="4">Cancer Diagnostic Data</td>
+                    <td class="px-4 py-2 border-b font-semibold">Diagnosis</td>
+                    <td class="px-4 py-2 border-b">Primary cancer diagnosis details including cancer type, site, and presentation.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Stage Information</td>
+                    <td class="px-4 py-2 border-b">TNM staging and overall stage using standard staging systems.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Pathology</td>
+                    <td class="px-4 py-2 border-b">Detailed pathology findings including histological type, grade, and tumor characteristics.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Lesion</td>
+                    <td class="px-4 py-2 border-b">Details about specific tumors or metastases including size and location.</td>
+                </tr>
 
-        <li class="mb-4">Treatment Data
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>Surgery:</strong> Details of surgical procedures including type, date, and extent.</li>
-                <li class="mb-2"><strong>Radiotherapy:</strong> Radiation treatment details including dose, fractions, and technique.</li>
-                <li class="mb-2"><strong>Systemic Therapy:</strong> Details of chemotherapy or other systemic treatments.</li>
-                <li class="mb-2"><strong>Concomitant Medications:</strong> Other medications given during cancer treatment.</li>
-                <li class="mb-2"><strong>Other Treatments:</strong> Additional treatments not covered by other categories.</li>
-            </ul>
-        </li>
+                <!-- Treatment Data -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold" rowspan="5">Treatment Data</td>
+                    <td class="px-4 py-2 border-b font-semibold">Surgery</td>
+                    <td class="px-4 py-2 border-b">Details of surgical procedures including type, date, and extent.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Radiotherapy</td>
+                    <td class="px-4 py-2 border-b">Radiation treatment details including dose, fractions, and technique.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Systemic Therapy</td>
+                    <td class="px-4 py-2 border-b">Details of chemotherapy or other systemic treatments.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Concomitant Medications</td>
+                    <td class="px-4 py-2 border-b">Other medications given during cancer treatment.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Other Treatments</td>
+                    <td class="px-4 py-2 border-b">Additional treatments not covered by other categories.</td>
+                </tr>
 
-        <li class="mb-4">Outcomes & Adverse Effects
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>Patient Outcome:</strong> Overall patient status, survival data, and follow-up information.</li>
-                <li class="mb-2"><strong>Cancer Outcomes:</strong> Disease-specific outcomes and response to treatment.</li>
-                <li class="mb-2"><strong>Lesion Response:</strong> How specific tumors or metastases responded to treatment.</li>
-                <li class="mb-2"><strong>Adverse Effects:</strong> Treatment-related side effects and complications.</li>
-                <li class="mb-2"><strong>Patient Reported Outcomes:</strong> Quality of life and symptom assessments from patients.</li>
-            </ul>
-        </li>
+                <!-- Outcomes & Adverse Effects -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold" rowspan="5">Outcomes & Adverse Effects</td>
+                    <td class="px-4 py-2 border-b font-semibold">Patient Outcome</td>
+                    <td class="px-4 py-2 border-b">Overall patient status, survival data, and follow-up information.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Cancer Outcomes</td>
+                    <td class="px-4 py-2 border-b">Disease-specific outcomes and response to treatment.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Lesion Response</td>
+                    <td class="px-4 py-2 border-b">How specific tumors or metastases responded to treatment.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Adverse Effects</td>
+                    <td class="px-4 py-2 border-b">Treatment-related side effects and complications.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Patient Reported Outcomes</td>
+                    <td class="px-4 py-2 border-b">Quality of life and symptom assessments from patients.</td>
+                </tr>
 
-        <li class="mb-4">DICOM Studies
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>DICOM Study Data:</strong> Information about imaging studies including dates and descriptions.</li>
-                <li class="mb-2"><strong>DICOM File Upload:</strong> Upload DICOM files for a specific patient.</li>
-                <li class="mb-2"><strong>Bulk DICOM File Upload:</strong> Upload multiple DICOM files for multiple patients.</li>
-            </ul>
-        </li>
+                <!-- DICOM Studies -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold" rowspan="3">DICOM Studies</td>
+                    <td class="px-4 py-2 border-b font-semibold">DICOM Study Data</td>
+                    <td class="px-4 py-2 border-b">Information about imaging studies including dates and descriptions.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">DICOM File Upload</td>
+                    <td class="px-4 py-2 border-b">Upload DICOM files for a specific patient.</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-2 border-b font-semibold">Bulk DICOM File Upload</td>
+                    <td class="px-4 py-2 border-b">Upload multiple DICOM files for multiple patients.</td>
+                </tr>
 
-        <li class="mb-4">Project
-            <ul class="list-disc pl-6 mt-2">
-                <li class="mb-2"><strong>Projects:</strong> Research project details and patient enrollment information.</li>
-            </ul>
-        </li>
-    </ul>
+                <!-- Project -->
+                <tr>
+                    <td class="px-4 py-2 border-b align-top font-bold">Project</td>
+                    <td class="px-4 py-2 border-b font-semibold">Projects</td>
+                    <td class="px-4 py-2 border-b">Research project details and patient enrollment information.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 {% endblock %}
