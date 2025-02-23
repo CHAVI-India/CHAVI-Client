@@ -476,6 +476,14 @@ class GermlineGenomicAlterations(models.Model):
         verbose_name_plural = "Germline Genomic Alterations"
         db_table = "germline_genomic_alterations"
 
+class TumorFocalityChoices(models.TextChoices):
+    ''' This is a lookup table for the tumor focality.'''
+    Unifocal = "Unifocal"
+    Multifocal = "Multifocal"
+    Multicenter = "Multicenter"
+    Unknown = "Unknown"
+    NotApplicable = "Not Applicable"
+
 class Pathology(models.Model):
     ''' This a table which stores the pathology information related to a diagnosis.'''
 
@@ -557,9 +565,10 @@ class Pathology(models.Model):
         help_text="The unit of measurement for the tumor dimension"
     )
     tumor_focality = models.CharField(
-        max_length=50,
+        max_length=100,
         null=True, 
         blank=True,
+        choices=TumorFocalityChoices.choices,
         help_text="Whether the tumor is unifocal (single focus) or multifocal (multiple foci)"
     )
     lymphatic_vascular_invasion = models.ForeignKey(
@@ -661,6 +670,7 @@ class Pathology(models.Model):
         blank=True,
         help_text="Total number of lymph nodes found in the specimen"
     )
+    lymph_node_extracapsular_extension = models.BooleanField(null=True, blank=True,help_text='Whether the lymph node had extracpsular extension')
     number_of_uninvolved_nodes = models.PositiveIntegerField(
         null=True, 
         blank=True,
@@ -681,6 +691,12 @@ class Pathology(models.Model):
         blank=True,
         help_text="Number of lymph nodes with isolated tumor cells (<0.2mm)"
     )
+    number_of_nodes_with_extracapsular_extension = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="Number of lymph nodes with extracapsular extension"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -965,6 +981,14 @@ class EpigeneticData(models.Model):
 class OtherTreatment(DateValidationMixin, models.Model):
     ''' The table will store information on other treatments that the patient undergoes'''
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    treatment_intent = models.ForeignKey(
+        'lookup.LookupTreatmentIntent',
+        on_delete=models.PROTECT,
+        related_name = 'other_treatment_intent',
+        null=True,
+        blank=True,
+        help_text="Select the treatment intent"
+    )
     diagnosis = models.ForeignKey(
         Diagnosis, 
         on_delete=models.CASCADE,
@@ -1064,6 +1088,14 @@ class Radiotherapy(DateValidationMixin, models.Model):
         null=True, 
         blank=True,
         help_text="Select the units used to measure the radiation dose (e.g., 'Gy', 'cGy')"
+    )
+    radiotherapy_intent = models.ForeignKey(
+        'lookup.LookupTreatmentIntent',
+        related_name="radiotherapy_intent",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Select the intent of the radiotherapy treatment (e.g., 'Curative', 'Palliative')"
     )
     radiotherapy_type = models.ForeignKey(
         'lookup.LookupRadiotherapyType',
@@ -1312,14 +1344,24 @@ class Surgery(models.Model):
         blank=True,
         help_text="Select which side of the body the surgery was performed on (e.g., 'Left', 'Right', 'Bilateral')"
     )
-    surgery_type = models.CharField(
-        max_length=255,
-        help_text="Enter the type of surgical procedure performed (e.g., 'Mastectomy', 'Lumpectomy', 'Excisional Biopsy')"
+    surgery_type =  models.ManyToManyField(
+        'lookup.LookupSurgicalProcedures',
+        blank=True,
+        help_text="Select the type of surgery performed (e.g., 'Mastectomy', 'Lumpectomy', 'Whole Breast Irradiation')"
     )
-    nodal_assessment = models.BooleanField(
+    surgery_intent = models.ForeignKey(
+        'lookup.LookupTreatmentIntent',
+        on_delete=models.PROTECT,
         null=True, 
         blank=True,
-        help_text="Indicate whether lymph nodes were assessed during surgery (check for Yes, leave unchecked for No)"
+        help_text="Select the intent of the surgery (e.g., 'Curative', 'Palliative')"
+    )
+    nodal_assessment = models.ForeignKey(
+        'lookup.LookupNodalAssessmentType',
+        on_delete=models.PROTECT,
+        null=True, 
+        blank=True,
+        help_text="Select the type of nodal assessment performed (e.g., 'Sentinel Node Biopsy', 'Axillary Dissection')"
     )
     nodal_assessment_type = models.CharField(
         max_length=255,
@@ -1417,6 +1459,8 @@ class SystemicTherapy(DateValidationMixin, models.Model):
     )    
     systemic_therapy_type = models.ForeignKey('lookup.LookupSystemicTherapyType', on_delete=models.PROTECT,null=True, blank=True,
     help_text = "Select the type of systemic therapy.")
+    systemic_therapy_intent = models.ForeignKey('lookup.LookupTreatmentIntent', on_delete=models.PROTECT,null=True, blank=True,
+    related_name='systemic_therapy_intent', help_text="Select the intent of the systemic therapy")
     systemic_therapy_sequence = models.ForeignKey('lookup.LookupTreatmentSequence', on_delete=models.PROTECT,null=True, blank=True,
     help_text="Select the sequence for the systemic therapy")
     systemic_therapy_regimen = models.ForeignKey('lookup.LookupSystemicTherapyRegimen', on_delete=models.PROTECT,null=True, blank=True,related_name='systemic_therapy_regimen',
@@ -1576,9 +1620,9 @@ class PatientReportedOutcome(models.Model):
         help_text="Select the patient who completed this patient-reported outcome assessment"
     )
     pro_assessment_date = models.DateField(null=True,blank=True,help_text="Enter the date when this assessment was completed (format:DD/MM/YYYY)")
-    pro_instrument = models.CharField(max_length=255, help_text="Enter the name of the instrument used for the assessment")
-    pro_scale = models.CharField(max_length=255, help_text="Enter the domain the question refers to. This may represent a scale in the questionnaire")
-    pro_question_id = models.CharField(max_length=255, help_text="Enter the question number from the instrument")
+    pro_instrument = models.CharField(max_length=500, help_text="Enter the name of the instrument used for the assessment")
+    pro_scale = models.CharField(max_length=500, help_text="Enter the domain the question refers to. This may represent a scale in the questionnaire")
+    pro_question_id = models.CharField(max_length=500, help_text="Enter the question number from the instrument")
     pro_question = models.CharField(max_length=600, help_text="Enter the question that was asked")
     pro_answer = models.CharField(max_length=1000, help_text="Enter the answer to the question as it is recorded by the patient")
     pro_score = models.DecimalField(
@@ -1760,14 +1804,29 @@ class StageInformation(models.Model):
         verbose_name_plural="Stage Information"
         db_table='stage_information'    
 
+class QualitativeLaboratoryResult(models.TextChoices):
+    ''' This is a model for the qualitative laboratory results.'''
+    Present = 'Present'
+    Absent = 'Absent'
+    Positive = 'Positive'
+    Negative = 'Negative'
+    Indeterminate = 'Indeterminate'
+    Reactive = 'Reactive'
+    NonReactive = 'Non-Reactive'
+    Detected = 'Detected'
+    NotDetected = 'Not Detected'
+    Invalid = 'Invalid'
+    Borderline = 'Borderline'        
+
 class LaboratoryResults(models.Model):
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
     chavi_laboratory_result_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the laboratory result was obtained")
     laboratory_test = models.ForeignKey('lookup.LookupLaboratoryTest', on_delete=models.PROTECT,help_text="Select the laboratory test for which the result was obtained")
     result_date = models.DateField(null=True, blank=True,help_text="Enter the date of the laboratory result")
-    result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the value of the laboratory result")
-    result_unit = models.ForeignKey('lookup.LookupLabResultsUnits',null=True, blank=True, on_delete=models.PROTECT,help_text="Select the unit of the laboratory result")
+    quantitative_result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the value of the laboratory result")
+    quantitative_result_unit = models.ForeignKey('lookup.LookupLabResultsUnits',null=True, blank=True, on_delete=models.PROTECT,help_text="Select the unit of the laboratory result")
+    qualitative_laboratory_result = models.CharField(max_length=20, choices=QualitativeLaboratoryResult.choices, null=True, blank=True,help_text="Select the qualitative laboratory result")    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

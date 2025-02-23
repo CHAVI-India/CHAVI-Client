@@ -411,3 +411,22 @@ class LookupEpigeneticAbnormalityType(LookupAbstract):
     
     class Meta:
         verbose_name_plural = "Epigenetic Abnormality Type"
+
+class LookupSurgicalProcedures(LookupAbstract):
+    ''' This is a lookup table for the surgical procedures.'''
+    description = models.TextField()
+    
+    def __str__(self):
+        return f"{self.code} - {self.label}: {self.description}"
+    
+    class Meta:
+        verbose_name_plural = "Surgical Procedures"
+
+
+class LookupNodalAssessmentType(LookupAbstract):
+    ''' This is a lookup table for the type of nodal assessment.'''
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+    
+    class Meta:
+        verbose_name_plural = "Nodal Assessment Type"             

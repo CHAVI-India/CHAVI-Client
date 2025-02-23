@@ -25,6 +25,7 @@ Please note that the organization of the data may be different from the usual wa
    help_files/import_data
    help_files/clinical_data_import
    help_files/dicom_data_import
+   help_files/lookup_tables
    help_files/patient_demographics
    help_files/diagnosis
    help_files/lesion

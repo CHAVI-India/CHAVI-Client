@@ -159,6 +159,17 @@ class LookupComorbidityAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
+
+@admin.register(LookupSurgicalProcedures)
+class LookupSurgicalProceduresAdmin(ModelAdmin):
+    search_fields = ['label','description']
+    readonly_fields = ['code','label']
+
+@admin.register(LookupNodalAssessmentType)
+class LookupNodalAssessmentTypeAdmin(ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
+
 # Create Inline Models
 
 
@@ -362,7 +373,7 @@ class PathologyResource(resources.ModelResource):
     class Meta:
         model = Pathology
         import_id_fields = ['chavi_pathology_id']
-        fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells']
+        fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension']
 
 class PathologyExportResource(resources.ModelResource):
     class Meta:
@@ -385,7 +396,7 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': [('histological_type','histological_grade'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count'),('margin_status','closest_margin_distance','closest_margin_distance_unit'),('treatment_effect'),('primary_gleason_grade','secondary_gleason_grade')]
         }),
         ('Nodes',{
-            'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells')]
+            'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension')]
         }),
     )
     compressed_fields = True
@@ -591,11 +602,12 @@ class RadiotherapyResource(resources.ModelResource):
     radiotherapy_type = fields.Field(attribute='radiotherapy_type',column_name='radiotherapy_type',widget=ForeignKeyWidget(LookupRadiotherapyType,field='label'))
     radiotherapy_technique = fields.Field(attribute='radiotherapy_technique',column_name='radiotherapy_technique',widget=ForeignKeyWidget(LookupRadiotherapyTechnique,field='label'))
     radiotherapy_side = fields.Field(attribute='radiotherapy_side',column_name='radiotherapy_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
+    radiotherapy_intent = fields.Field(attribute='radiotherapy_intent',column_name='radiotherapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='label'))
 
     class Meta:
         model = Radiotherapy
         import_id_fields = ['chavi_radiotherapy_id']
-        fields = ['diagnosis','radiotherapy_start_date','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
+        fields = ['diagnosis','radiotherapy_start_date','radiotherapy_intent','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
 
 class RadiotherapyExportResource(resources.ModelResource):
     class Meta:
@@ -615,7 +627,7 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side','radiotherapy_course_type','reirradiation')]
         }),
         ('Description',{
-            'fields': [('radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
+            'fields': [('radiotherapy_intent','radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
         }),
         ('DICOM Studies',{
             'fields': ['radiotherapy_dicom_study']
@@ -641,12 +653,13 @@ class SurgeryResource(resources.ModelResource):
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     surgery_side = fields.Field(attribute='surgery_side',column_name='surgery_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
-
+    surgery_type= fields.Field(attribute='surgery_type',column_name='surgery_type',widget=ForeignKeyWidget(LookupSurgicalProcedures,field='label'))
+    nodal_assessment_type = fields.Field(attribute='nodal_assessment_type',column_name='nodal_assessment_type',widget=ForeignKeyWidget(LookupNodalAssessmentType,field='label'))
 
     class Meta:
         model = Surgery
         import_id_fields = ['chavi_surgery_id']
-        fields = ['diagnosis','surgery_date','surgery_side','surgery_type','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
+        fields = ['diagnosis','surgery_date','surgery_side','surgery_type','surgery_intent','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
 
 
 ## Create the Surgery Form Class
@@ -656,10 +669,10 @@ class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
-            'fields':['diagnosis','surgery_date']
+            'fields':['diagnosis','surgery_date','surgery_intent']
         }),
         ('Description',{
-            'fields':[('surgery_side','surgery_type'),('nodal_assessment','nodal_assessment_type')]
+            'fields':['surgery_side','surgery_type',('nodal_assessment','nodal_assessment_type')]
         }),
         ('Reconstruction',{
             'fields':['reconstruction','type_reconstruction']
@@ -685,11 +698,12 @@ class SystemicTherapyResource(resources.ModelResource):
     systemic_therapy_type = fields.Field(attribute='systemic_therapy_type',column_name='systemic_therapy_type',widget=ForeignKeyWidget(LookupSystemicTherapyType,field='label'))
     systemic_therapy_sequence = fields.Field(attribute='systemic_therapy_sequence',column_name='systemic_therapy_sequence',widget=ForeignKeyWidget(LookupTreatmentSequence,field='label'))
     systemic_therapy_regimen = fields.Field(attribute='systemic_therapy_regimen',column_name='systemic_therapy_regimen',widget=ForeignKeyWidget(LookupSystemicTherapyRegimen,field='label'))
+    systemic_therapy_intent = fields.Field(attribute='systemic_therapy_intent',column_name='systemic_therapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='label'))
 
     class Meta:
         model = SystemicTherapy
         import_id_fields = ['chavi_systemic_therapy_id']
-        fields = ['diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
+        fields = ['diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
 
 class SystemicTherapyExportResource(resources.ModelResource):
     class Meta:
@@ -708,7 +722,7 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
         }),
         ('Description',{
-            'fields':[('systemic_therapy_type','systemic_therapy_sequence'),('systemic_therapy_regimen','cycles_delivered')]
+            'fields':[('systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent'),('systemic_therapy_regimen','cycles_delivered')]
         }),
         ('DICOM Studies',{
             'fields': ['systemic_therapy_dicom_study']
@@ -763,10 +777,11 @@ class OtherTreatmentResource(resources.ModelResource):
         row['chavi_treatment_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
+    treatment_intent = fields.Field(attribute='treatment_intent',column_name='treatment_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='chavi_treatment_intent_id'))
     class Meta:
         model = OtherTreatment
         import_id_fields = ['chavi_treatment_id']
-        fields = ['diagnosis','treatment_start_date','treatment_end_date','treatment']
+        fields = ['diagnosis','treatment_intent','treatment_start_date','treatment_end_date','treatment']
 
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
