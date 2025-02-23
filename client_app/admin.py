@@ -665,7 +665,7 @@ class SurgeryResource(resources.ModelResource):
 ## Create the Surgery Form Class
 @admin.register(Surgery)
 class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','surgery_type']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
@@ -789,7 +789,7 @@ class OtherTreatmentAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     fieldsets = (
         ('Description',{
-            'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment']
+            'fields':['diagnosis',('treatment_start_date','treatment_end_date'),'treatment_intent','treatment']
         }),
     )
     resource_classes = [OtherTreatmentResource]
@@ -993,7 +993,7 @@ class LaboratoryResultsResource(resources.ModelResource):
         fields = ['patient','laboratory_test','result_date','result_value','result_unit']
         
 @admin.register(LaboratoryResults)
-class LaboratoryResultsAdmin(ImportExportModelAdmin):
+class LaboratoryResultsAdmin(ModelAdmin,ImportExportModelAdmin):
     autocomplete_fields = ['patient','laboratory_test']
     resource_classes = [LaboratoryResultsResource]
 

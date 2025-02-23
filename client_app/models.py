@@ -1356,18 +1356,17 @@ class Surgery(models.Model):
         blank=True,
         help_text="Select the intent of the surgery (e.g., 'Curative', 'Palliative')"
     )
-    nodal_assessment = models.ForeignKey(
+    nodal_assessment = models.BooleanField(
+        null=True, 
+        blank=True,
+        help_text="Indicate whether nodal assessment was performed (check for Yes, leave unchecked for No)"
+    )
+    nodal_assessment_type = models.ForeignKey(
         'lookup.LookupNodalAssessmentType',
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
         help_text="Select the type of nodal assessment performed (e.g., 'Sentinel Node Biopsy', 'Axillary Dissection')"
-    )
-    nodal_assessment_type = models.CharField(
-        max_length=255,
-        null=True, 
-        blank=True,
-        help_text="If nodes were assessed, specify the type of assessment (e.g., 'Sentinel Node Biopsy', 'Axillary Dissection')"
     )
     reconstruction = models.BooleanField(
         null=True, 
