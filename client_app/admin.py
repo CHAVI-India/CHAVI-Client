@@ -170,7 +170,10 @@ class LookupNodalAssessmentTypeAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
-# Create Inline Models
+@admin.register(LookupSystemicTherapyRegimen)
+class LookupSystemicTherapyRegimenAdmin(ModelAdmin):
+    search_fields = ['label']
+    readonly_fields = ['code','label']
 
 
 class ImmunohistochemistryInline(StackedInline):
@@ -627,7 +630,7 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side','radiotherapy_course_type','reirradiation')]
         }),
         ('Description',{
-            'fields': [('radiotherapy_intent','radiotherapy_modality','radiotherapy_type','radiotherapy_machine'),('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
+            'fields': [('radiotherapy_intent','radiotherapy_modality'),('radiotherapy_type','radiotherapy_machine'),'radiotherapy_technique',('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
         }),
         ('DICOM Studies',{
             'fields': ['radiotherapy_dicom_study']
@@ -714,7 +717,7 @@ class SystemicTherapyExportResource(resources.ModelResource):
 @admin.register(SystemicTherapy)
 class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [SystemicTherapyScheduleInline]
-    autocomplete_fields = ['diagnosis']
+    autocomplete_fields = ['diagnosis','systemic_therapy_regimen']
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal =['systemic_therapy_dicom_study']
     fieldsets = (

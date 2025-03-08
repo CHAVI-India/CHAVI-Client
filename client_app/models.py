@@ -1153,7 +1153,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
     ]
 
     def __str__ (self):
-        return f"{self.chavi_radiotherapy_id}"
+        return f"{self.diagnosis} RT Course: {self.radiotherapy_course_type}-{self.radiotherapy_side}"
     class Meta:
         verbose_name = "Radiotherapy Course"
         verbose_name_plural="Radiotherapy Courses"
@@ -1388,7 +1388,7 @@ class Surgery(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.diagnosis.patient.patient_id}-{self.surgery_date}-{self.surgery_type}"
+        return f"{self.diagnosis}-{self.surgery_date}-{self.surgery_type}"
     class Meta:
         verbose_name_plural="Surgery"
         db_table="surgery"
@@ -1488,7 +1488,7 @@ class SystemicTherapy(DateValidationMixin, models.Model):
     ]
 
     def __str__ (self):
-        return f"{self.chavi_systemic_therapy_id}-{self.systemic_therapy_type}-{self.systemic_therapy_regimen}"
+        return f"{self.diagnosis}-{self.systemic_therapy_regimen}"
 
     class Meta:
         verbose_name= "Systemic Therapy Course"
