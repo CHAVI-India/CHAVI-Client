@@ -130,7 +130,7 @@ class Patient(DateValidationMixin, models.Model):
     date_of_birth = models.DateField(
         null=True,
         blank=True,
-        help_text="The patient's date of birth in YYYY-MM-DD format."
+        help_text="The patient's date of birth in DD/MM/YYYY format."
     )
     date_of_registration = models.DateField(
         null=True,
@@ -196,7 +196,7 @@ class DICOMStudy(models.Model):
     study_date = models.DateField(
         null = True,
         blank = True,
-        help_text="The date when this imaging study was performed. This is recorded as YYYY-MM-DD format (for example: 2023-12-25)."
+        help_text="The date when this imaging study was performed. This is recorded as DD/MM/YYYY format (for example: 2023-12-25)."
     )
     study_description = models.CharField(
         max_length = 255,
