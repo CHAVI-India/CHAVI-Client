@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load static %}
 
+
 {% block content %}
     {% if adminform.model_admin.guidance_text %}
     <div class="module grp-module p-3 mb-2 border rounded">
@@ -9,6 +10,11 @@
         {{ adminform.model_admin.guidance_text|safe }}
         </p>
     </div>
-    {% endif %}
+    <div>
+        {{ block.super }}
+    </div>
+    {% else %}
     {{ block.super }}
+    {% endif %}
+    {# Remove {{ block.super }} to avoid duplication #}
 {% endblock %}
