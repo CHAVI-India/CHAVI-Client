@@ -7,6 +7,8 @@ from pydicom import dcmread
 from datetime import datetime
 import shutil
 from ..models import DICOMStudy, Patient
+from django.http import HttpResponseRedirect
+from django.contrib import messages
 
 def process_dicom(modeladmin, request, queryset):
     '''
@@ -120,8 +122,11 @@ def process_dicom(modeladmin, request, queryset):
                         }
                     )
                     messages.success(request,f"Added DICOM study UID {uid} Data for {obj.patient.patient_id}")
+                    return HttpResponseRedirect(request.path)
+
                 except Exception as e:
-                    messages.error(request,f"Error adding DICOM data for Study")   
+                    messages.error(request,f"Error adding DICOM data for Study")
+                    return HttpResponseRedirect(request.path)   
 
         except zipfile.BadZipFile:
             messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
