@@ -276,6 +276,21 @@ class Outcome(models.Model):
         verbose_name_plural="Cancer Outcomes"
         db_table = 'outcome'
 
+class ModalityChoices(models.TextChoices):
+    ''' This is a lookup table for the lesion detection modality.'''
+    CT = "CT", 'CT'
+    MRI = "MRI", 'MRI'
+    PET = "PET", 'PET'
+    US = "US", 'US'
+    MR_PET = "MR_PET", 'MR_PET'
+    CT_PET = "CT_PET", 'CT_PET'
+    BONE_SCAN = "Bone Scan", 'Bone Scan'
+    FDG_PET = "FDG_PET", 'FDG_PET'
+    PSMA_PET = "PSMA_PET", 'PSMA_PET'
+    CLINICAL = "Clinical", 'Clinical'
+    XRAY = "X-ray", 'X-ray'
+    OTHER = "Other", 'Other'
+
 class Lesion(models.Model):
     ''' This table has information on the lesions / tumors that the patient has. Allows users to record information on the gross disease, nodal disease or distant metastases.'''
     chavi_lesion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -351,6 +366,21 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         help_text="The unit of measurement used for the lesion volume (e.g., 'cubic millimeters', 'cubic centimeters')"
+    )
+    lesion_detection_modality = models.CharField(
+        max_length=255,
+        choices=ModalityChoices.choices,
+        null=True,
+        blank=True,
+        help_text="The modality used to detect the lesion"
+    )
+    lesion_suv_max = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        validators=positive_decimal_validator,
+        help_text="The maximum SUV value of the lesion"
     )
     lesion_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -428,11 +458,26 @@ class LesionResponse(models.Model):
         blank=True,
         help_text="The unit of measurement used for the residual lesion volume (e.g., 'millimeters', 'centimeters')"
     )
+
+    lesion_response_suv_max = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        validators=positive_decimal_validator,
+    )
+    lesion_response_modality = models.CharField(
+        max_length=255,
+        choices=ModalityChoices.choices,
+        null=True,
+        blank=True,
+        help_text="The modality used to detect the lesion response"
+    )
     lesion_response_dicom_study = models.ManyToManyField(
         'DICOMStudy', blank = True, 
         related_name = 'lesion_response_dicom_study', 
         help_text="The DICOM study associated with the lesion response"
-    )
+    )    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -521,7 +521,7 @@ class LesionResource(resources.ModelResource):
     class Meta:
         model = Lesion
         import_id_fields = ['chavi_lesion_id']
-        fields = ['diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit']
+        fields = ['diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit','lesion_detection_modality','lesion_suv_max']
 
 class LesionExportResource(resources.ModelResource):
     class Meta:
@@ -532,6 +532,7 @@ class LesionExportResource(resources.ModelResource):
 @admin.register(Lesion)
 class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
+    list_display = ['diagnosis','lesion_site','lesion_type','lesion_detection_modality','lesion_suv_max']
     autocomplete_fields = ['diagnosis','lesion_site']
     filter_horizontal = ['lesion_dicom_study']
     fieldsets = (
@@ -542,9 +543,13 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields' : [('lesion_size_x_axis', 'lesion_size_y_axis', 'lesion_size_z_axis','lesion_size_unit'), ('lesion_volume','lesion_volume_unit')]
 
         }),
+        ('Lesion Detection Modality', {
+            'fields' : ['lesion_detection_modality','lesion_suv_max']
+        }),        
         ('DICOM Studies', {
             'fields' : ['lesion_dicom_study']
-        })
+        }),
+
     )   
     resource_classes = [LesionResource,LesionExportResource]
     def get_export_resource_class(self):
@@ -569,7 +574,7 @@ class LesionResponseResource(resources.ModelResource):
     class Meta:
         model = LesionResponse
         import_id_fields = ['chavi_lesion_response_id']
-        fields = ['lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit']
+        fields = ['lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit','lesion_response_modality','lesion_response_suv_max']
 
 class LesionResponseExportResource(resources.ModelResource):
     class Meta:
@@ -581,7 +586,7 @@ class LesionResponseExportResource(resources.ModelResource):
 class LesionResponseAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
     filter_horizontal = ['lesion_response_dicom_study']
-    list_display = ['lesion', 'lesion_response_date', 'lesion_response', 'residual_lesion_volume']
+    list_display = ['lesion__diagnosis', 'lesion_response_date', 'lesion_response', 'residual_lesion_volume']
     list_filter = ['lesion_response_date', 'lesion_response']
     resource_classes = [LesionResponseResource,LesionResponseExportResource]
     def get_export_resource_class(self):
