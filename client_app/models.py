@@ -5,6 +5,7 @@ import uuid
 from decimal import Decimal
 from django.forms import ValidationError
 from lookup.models import *
+from dateutil.relativedelta import relativedelta
 
 # Center Model configuration - singleton model using Solo
 # Validators
@@ -1723,7 +1724,7 @@ class Comorbidity(models.Model):
     date_of_comorbidity_diagnosis = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this comorbidity was first diagnosed (format:DD/MM/YYYY)"
+        help_text="This will be automatically calculated based on assessment date and duration"
     )
     date_of_comorbidity_assessment = models.DateField(
         null=True, 
@@ -1745,6 +1746,13 @@ class Comorbidity(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Calculate diagnosis date if we have both assessment date and duration
+        if self.date_of_comorbidity_assessment and self.duration_of_comorbidity:
+            # Subtract months from assessment date to get diagnosis date
+            self.date_of_comorbidity_diagnosis = self.date_of_comorbidity_assessment - relativedelta(months=self.duration_of_comorbidity)
+        super().save(*args, **kwargs)
 
     def __str__ (self):
         return f"{self.patient.patient_id} - {self.comorbidity_type}"

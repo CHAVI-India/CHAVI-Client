@@ -500,6 +500,32 @@ class ComorbidityAdmin (ModelAdmin, ImportExportModelAdmin):
     list_display = ['patient', 'comorbidity_type', 'date_of_comorbidity_diagnosis', 'created_at']
     list_filter = ['date_of_comorbidity_diagnosis', 'created_at']
     resource_classes = [ComorbidityResource]
+    readonly_fields = ['date_of_comorbidity_diagnosis']
+
+    fieldsets = (
+        ('Patient Information', {
+            'fields': ('patient', 'comorbidity_type')
+        }),
+        ('Dates and Duration', {
+            'fields': ('date_of_comorbidity_assessment', 'duration_of_comorbidity', 'date_of_comorbidity_diagnosis'),
+            'description': 'Enter the assessment date and duration in months. The diagnosis date will be automatically calculated when you save.'
+        }),
+        ('Status', {
+            'fields': ('comorbidity_resolved', 'medication_for_comorbidity')
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        """
+        Override save_model to show a message to the user about the calculated date
+        """
+        super().save_model(request, obj, form, change)
+        if obj.date_of_comorbidity_diagnosis:
+            self.message_user(
+                request,
+                f"Diagnosis date has been automatically calculated as {obj.date_of_comorbidity_diagnosis.strftime('%d/%m/%Y')}",
+                messages.SUCCESS
+            )
 
 
 # Create the Lesion Resource

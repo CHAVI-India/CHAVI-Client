@@ -6,7 +6,7 @@ cffi==1.17.1
 charset-normalizer==3.4.1
 cryptography==44.0.0
 diff-match-patch==20241021
-Django==5.1.4
+Django==5.1.8
 django-admin-index==4.0.0
 django-allauth==65.4.0
 django-allauth-ui==1.5.3
