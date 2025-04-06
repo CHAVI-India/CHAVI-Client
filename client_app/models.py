@@ -494,11 +494,26 @@ class Symptom(models.Model):
     chavi_symptom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     symptom = models.ForeignKey('lookup.LookupSymptoms', on_delete=models.PROTECT)
-    date_onset = models.DateField(null=True, blank=True)
-    date_resolution = models.DateField(null=True, blank=True)
-    severity = models.ForeignKey('lookup.LookupSeverity', on_delete=models.PROTECT, null=True, blank=True)
+    date_onset = models.DateField(null=True, blank=True, help_text="The date when the symptom first appeared")
+    date_symptom_assessment = models.DateField(null=True, blank=True, help_text="The date when the symptom was first assessed")
+    duration_of_symptom = models.PositiveIntegerField(null=True, blank=True, help_text="The duration of the symptom in months")
+    date_resolution = models.DateField(null=True, blank=True, help_text="The date when the symptom resolved")
+    severity = models.ForeignKey('lookup.LookupSeverity', on_delete=models.PROTECT, null=True, blank=True, help_text="The severity of the symptom")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Calculate diagnosis date if we have both assessment date and duration
+        if self.date_symptom_assessment and self.duration_of_symptom:
+            # Subtract months from assessment date to get diagnosis date
+            self.date_onset = self.date_symptom_assessment - relativedelta(months=self.duration_of_symptom)
+        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"{self.chavi_symptom_id}"
+    
+    class Meta:
+        verbose_name_plural = "Symptoms"
+        db_table = "symptom"
 
 class GermlineGenomicAlterations(models.Model):
     ''' This table will store information on the germline genomic alterations for the patient.'''

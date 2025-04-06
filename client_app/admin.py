@@ -1070,12 +1070,15 @@ class SymptomResource(resources.ModelResource):
     class Meta:
         model = Symptom
         import_id_fields = ['chavi_symptom_id']
-        fields = ['patient','symptom','date_onset','date_resolution','severity']
+        fields = ['patient','symptom','date_onset','date_symptom_assessment','duration_of_symptom','date_resolution','severity']
 @admin.register(Symptom)
 class SymptomAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','symptom']
     resource_classes = [SymptomResource]
+    readonly_fields = ['date_onset']
     list_display = ['patient','symptom','date_onset','date_resolution','severity']
+
+
 
 
 class PatientAssessmentResource(resources.ModelResource):
