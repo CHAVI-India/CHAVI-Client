@@ -1680,6 +1680,24 @@ class Comorbidity(models.Model):
         blank=True,
         help_text="Enter the date when this comorbidity was first diagnosed (format:DD/MM/YYYY)"
     )
+    date_of_comorbidity_assessment = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Enter the date when this comorbidity was last assessed (format:DD/MM/YYYY)"
+    )
+    duration_of_comorbidity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Enter the duration of the comorbidity in months"
+    )
+    comorbidity_resolved = models.BooleanField(
+        default=False,
+        help_text="Indicate if the comorbidity has been resolved"
+    )
+    medication_for_comorbidity = models.BooleanField(
+        default=False,
+        help_text="Indicate if the patient is currently taking medication for the comorbidity"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
