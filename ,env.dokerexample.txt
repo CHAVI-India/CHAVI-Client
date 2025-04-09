@@ -1,0 +1,22 @@
+SECRET_KEY = your-SECRET_KEY
+DJANGO_DEBUG = True
+DJANGO_ALLOWED_HOSTS = 127.0.0.1,localhost
+DJANGO_CSRF_TRUSTED_ORIGINS = http://localhost:8001,http://127.0.0.1:8001
+
+# Django DB
+DJANGO_DB_ENGINE = django.db.backends.postgresql # Add engine of the database
+DJANGO_DB_NAME = chaviclient # Add name of the database
+DJANGO_DB_USER = postgres # Add username of the database
+DJANGO_DB_PASSWORD = your-password # Add password of the database
+DJANGO_DB_HOST = chaviclient-database # Add host of the database
+DJANGO_DB_PORT = 5432 # Add port of the database
+
+# Postgres
+POSTGRES_USER = postgres
+POSTGRES_PASSWORD = your-password
+POSTGRES_DB = chaviclient
+
+# Django Superuser
+DJANGO_SUPERUSER_USERNAME = admin
+DJANGO_SUPERUSER_PASSWORD = admin
+DJANGO_SUPERUSER_EMAIL = admin@example.com

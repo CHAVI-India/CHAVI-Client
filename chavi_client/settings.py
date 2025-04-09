@@ -34,6 +34,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-%zvbz3$uzi$kvpd$2@5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+CSRF_TRUSTED_ORIGINS = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
 
 # Application definition
 
