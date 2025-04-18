@@ -247,10 +247,29 @@ UNFOLD = {
         "show_all_applications": False,  # Dropdown with all applications and models
         "navigation": [
             {
+                "title": _(""),
+                "collapsible": False,
+                "separator": False,
+                'items': [
+                    {
+                        "title": _("Patient Browser"),
+                        "icon": "search",
+                        "link": reverse_lazy("client_app:patient_search"),
+                    },
+                    {
+                        "title": _("Documentation"),
+                        "icon": "book",
+                        "link": "/docs",
+                    },
+                ]
+            },
+          
+            {
                 "title": _("Patient Data"),
-                "separator": False,  # Top border
+                "separator": True,  # Top border
                 "collapsible": True,  # Collapsible group of links
                 "items": [
+
                     {
                         "title": _("Patient"),
                         "icon": "people",

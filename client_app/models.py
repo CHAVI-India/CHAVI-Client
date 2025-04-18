@@ -65,9 +65,8 @@ class SiteConfiguration(models.Model):
     class Meta:
         verbose_name = "Site Configuration"
 
-# Lookup Models
 
-# Add a lookup for major cancer category, pathology, grade, focality, ihc result etc.Also ensure center and project IDs are PK. Additionally add a table for tumor markers. Gene changes in FISH include amplications, translocations and deletions.
+
 # Project Model
 
 # This function is used to get the default site configuration.
@@ -224,6 +223,9 @@ class DICOMStudy(models.Model):
 
     class Meta:
         verbose_name_plural = "DICOM Studies"
+
+
+
 
 # Clinical Data Models
 class Diagnosis(models.Model):
@@ -545,6 +547,16 @@ class TumorFocalityChoices(models.TextChoices):
     Unknown = "Unknown"
     NotApplicable = "Not Applicable"
 
+class SpecimenTypeChoices(models.TextChoices):
+    ''' This is a lookup table for the specimen type.'''
+    CORE_BIOPSY = "Core Biopsy", 'Core Biopsy'
+    EXCISION_BIOPSY = "Excision Biopsy", 'Excision Biopsy'
+    INCISIONAL_BIOPSY = "Incisional Biopsy", 'Incisional Biopsy'
+    SURGICAL_RESECTION = "Surgical Resection", 'Surgical Resection'
+    FINE_NEEDLE_ASPIRATION = "Fine Needle Aspiration", 'Fine Needle Aspiration'
+    LIQUID_BIOPSY = "Liquid Biopsy", 'Liquid Biopsy'
+    OTHER = "Other", 'Other'
+
 class Pathology(models.Model):
     ''' This a table which stores the pathology information related to a diagnosis.'''
 
@@ -561,6 +573,7 @@ class Pathology(models.Model):
     )
     specimen_type = models.CharField(
         max_length=500,
+        choices=SpecimenTypeChoices.choices,
         null=True, 
         blank=True,
         help_text="The type of specimen collected (e.g., 'Core Biopsy', 'Surgical Resection', 'Fine Needle Aspiration')"

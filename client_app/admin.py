@@ -327,13 +327,13 @@ class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','diagnosis','cancer_site','cancer_system']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
     list_filter = ['diagnostic_modality','patient__patient_id']
-    list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
+    list_display = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
         ('Diagnosis',{
-            'fields': ['patient','diagnosis',('diagnosis_date','diagnostic_modality')]
+            'fields': ['patient','presentation_type','diagnosis',('diagnosis_date','diagnostic_modality')]
         }),
         ('Presentation',{
-            "fields": ['cancer_system','cancer_site',('cancer_side','presentation_type')]
+            "fields": ['cancer_system','cancer_site',('cancer_side')]
         }),
         ('DICOM Studies',{
             'fields': ['diagnosis_dicom_study']
@@ -407,12 +407,36 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
-            'fields': ['diagnosis',('date_pathology','specimen_type'),('tumor_site','tumor_side'),('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit'),'tumor_focality']
+            'fields': ['diagnosis',('date_pathology','specimen_type'),'tumor_site','tumor_side']
         }),
         ('Histology',{
-            'fields': [('histological_type','histological_grade'),('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count'),('margin_status','closest_margin_distance','closest_margin_distance_unit'),('treatment_effect'),('primary_gleason_grade','secondary_gleason_grade')]
+            'fields': ['histological_type','histological_grade']
         }),
+     
+        ('Pathological Features',{
+            "classes": ['tab'],
+            'fields': [('lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion'),('necrosis','necrosis_percentage'),('mitotic_count')]
+        }),
+
+        ('Tumor Size',{
+            "classes": ['tab'],
+            'fields': [('greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2'),('tumor_dimesion_unit','tumor_focality')]
+        }),
+        ('Margins & Margin Status',{
+            "classes": ['tab'],
+            'fields': ['margin_status',('closest_margin_distance','closest_margin_distance_unit')]
+        }),
+        ('Treatment Effect',{
+            "classes": ['tab'],
+            'fields': ['treatment_effect']
+        }),
+
+        ('GleasonGrade',{
+            "classes": ['tab'],
+            'fields': [('primary_gleason_grade','secondary_gleason_grade')]
+        }),   
         ('Nodes',{
+            "classes": ['tab'],
             'fields': [('lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension'),('number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension')]
         }),
     )
