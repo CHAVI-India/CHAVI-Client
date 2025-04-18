@@ -61,6 +61,7 @@ class PatientSummaryView(TemplateView):
         laboratory_results = LaboratoryResults.objects.filter(patient=patient)
         patient_reported_outcomes = PatientReportedOutcome.objects.filter(patient=patient)
         patient_outcomes = PatientOutcome.objects.filter(patient=patient)
+        germline_mutations = GermlineGenomicAlterations.objects.filter(patient=patient)
         
         # Get counts for patient-related data
         comorbidities_count = comorbidities.count()
@@ -69,7 +70,7 @@ class PatientSummaryView(TemplateView):
         laboratory_results_count = laboratory_results.count()
         patient_reported_outcomes_count = patient_reported_outcomes.count()
         patient_outcomes_count = patient_outcomes.count()
-        
+        germline_mutations_count = germline_mutations.count()
         # Create a list to hold all diagnosis data with related objects and counts
         diagnosis_data = []
         
@@ -198,6 +199,10 @@ class PatientSummaryView(TemplateView):
         context['patient_symptoms'] = {
             'objects': symptoms,  # All symptoms are already filtered by patient
             'count': symptoms.count()
+        }
+        context['germline_mutations'] = {
+            'objects': germline_mutations,
+            'count': germline_mutations_count
         }
         
         return context
