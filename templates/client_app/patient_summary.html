@@ -289,9 +289,74 @@
                         <div class="diagnosis-section mb-4">
                           <h5 class="mb-3 border-bottom pb-2">Lesions</h5>
                           <div class="row">
-                            <!-- Placeholder for Lesion cards - We'll handle this later -->
                             <div class="col-12">
-                              <p class="text-muted">Lesion information will be added in a later phase.</p>
+                              {% for diag_item in diagnosis_data %}
+                                {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
+                                  <!-- Lesions header with count and add button -->
+                                  <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Lesions 
+                                      <span class="badge rounded-circle bg-{% if diag_item.diagnostic_data.lesions.count > 0 %}primary{% else %}secondary{% endif %}">
+                                        {{ diag_item.diagnostic_data.lesions.count }}
+                                      </span>
+                                    </h6>
+                                    <div>
+                                      <a href="{% url 'admin:client_app_lesion_changelist' %}?diagnosis__exact={{ diagnosis.chavi_diagnosis_id }}" class="btn btn-sm btn-primary me-2">
+                                        View All
+                                      </a>
+                                      <a href="{% url 'admin:client_app_lesion_add' %}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="btn btn-sm btn-success">
+                                        Add
+                                      </a>
+                                    </div>
+                                  </div>
+                                  
+                                  {% if diag_item.diagnostic_data.lesions.count > 0 %}
+                                    <div class="row">
+                                      {% for lesion_data in diag_item.diagnostic_data.lesions.lesions_with_responses %}
+                                        <div class="col-12 mb-3">
+                                          <div class="card">
+                                            <div class="card-header py-2 bg-light">
+                                              <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">
+                                                  Lesion: {{ lesion_data.lesion.lesion_site }} 
+                                                  {% if lesion_data.lesion.lesion_type %}
+                                                    ({{ lesion_data.lesion.lesion_type }})
+                                                  {% endif %}
+                                                </h6>
+                                                <a href="{% url 'admin:client_app_lesion_change' lesion_data.lesion.chavi_lesion_id %}" class="btn btn-sm btn-outline-primary">
+                                                  Edit
+                                                </a>
+                                              </div>
+                                            </div>
+                                            <div class="card-body py-2">
+                                              <!-- Lesion Responses with proper FK relation -->
+                                              <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                  <strong>Responses</strong>
+                                                  <span class="count-badge badge rounded-circle ms-2 {% if lesion_data.responses_count > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                                                    {{ lesion_data.responses_count }}
+                                                  </span>
+                                                </div>
+                                                <div>
+                                                  <a href="{% url 'admin:client_app_lesionresponse_changelist' %}?lesion__exact={{ lesion_data.lesion.chavi_lesion_id }}" class="btn btn-sm btn-primary">
+                                                    View
+                                                  </a>
+                                                  <a href="{% url 'admin:client_app_lesionresponse_add' %}?lesion={{ lesion_data.lesion.chavi_lesion_id }}" class="btn btn-sm btn-success">
+                                                    Add
+                                                  </a>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      {% endfor %}
+                                    </div>
+                                  {% else %}
+                                    <div class="alert alert-light">
+                                      No lesions have been recorded for this diagnosis.
+                                    </div>
+                                  {% endif %}
+                                {% endif %}
+                              {% endfor %}
                             </div>
                           </div>
                         </div>
