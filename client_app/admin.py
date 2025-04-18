@@ -48,6 +48,10 @@ from .services.patient_data_export import export_patient_data
 from allauth.account.decorators import secure_admin_login
 from .services.dicom_data_import_per_patient import process_dicom
 from .services.bulk_dicom_data_import import process_bulk_dicom
+from django.urls import path
+from .views import PatientSummaryView, PatientSearchView
+from django.urls import reverse
+from django.shortcuts import redirect
 
 # For Django AllAuth
 admin.autodiscover()
@@ -175,14 +179,12 @@ class LookupSystemicTherapyRegimenAdmin(ModelAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
 
-
 class ImmunohistochemistryInline(StackedInline):
     model = Immunohistochemistry
     autocomplete_fields =['protein_name']
     extra = 1
     tab = True
     
-
 class CytogeneticsInline(StackedInline):
     model = Cytogenetics
     autocomplete_fields =['gene','cytogentic_abnormality']
@@ -321,10 +323,10 @@ class DiagnosisExportResource(resources.ModelResource):
 # Create the Diagnosis Form Class
 @admin.register(Diagnosis)
 class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
-    search_fields = ['patient']
+    search_fields = ['patient__patient_id', 'chavi_diagnosis_id']
     autocomplete_fields = ['patient','diagnosis','cancer_site','cancer_system']
     filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
-    list_filter = ['diagnostic_modality']
+    list_filter = ['diagnostic_modality','patient__patient_id']
     list_fields = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
         ('Diagnosis',{
@@ -341,6 +343,18 @@ class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
         }),
     )
     resource_classes = [DiagnosisResource,DiagnosisExportResource]
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Override to allow filtering by patient__patient_id__exact"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Handle query parameters for related lookups
+        if 'patient__patient_id__exact' in request.GET:
+            patient_id = request.GET.get('patient__patient_id__exact')
+            queryset = queryset.filter(patient__patient_id=patient_id)
+        
+        return queryset, use_distinct
+    
     def get_export_resource_class(self):
         """
         Returns ResourceClass to use for export.
@@ -388,8 +402,8 @@ class PathologyExportResource(resources.ModelResource):
 class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline,GeneExpressionDataInline,EpigeneticDataInline]
     autocomplete_fields = ['diagnosis','tumor_site','histological_type']
-    search_fields = ['diagnosis__patient_id']
-    list_filter = ['date_pathology','tumor_side__label']
+    search_fields = ['diagnosis__patient__patient_id', 'diagnosis__patient_id']
+    list_filter = ['date_pathology','tumor_side__label','diagnosis__patient__patient_id']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
         ('Pathology',{
@@ -404,6 +418,18 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     )
     compressed_fields = True
     resource_classes = [PathologyResource,PathologyExportResource]
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Override to allow filtering by diagnosis__patient__patient_id__exact"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Handle query parameters for related lookups
+        if 'diagnosis__patient__patient_id__exact' in request.GET:
+            patient_id = request.GET.get('diagnosis__patient__patient_id__exact')
+            queryset = queryset.filter(diagnosis__patient__patient_id=patient_id)
+        
+        return queryset, use_distinct
+    
     def get_export_resource_class(self):
         """
         Returns ResourceClass to use for export.
@@ -449,7 +475,7 @@ class StageInformationExportResource(resources.ModelResource):
 class StageInformationAdmin (ModelAdmin, ImportExportModelAdmin):
     search = ['diagnosis__patient_id']
     autocomplete_fields = ['diagnosis','overall_stage']
-    list_filter = ['diagnosis','staging_system__label','stage_type','overall_stage']
+    list_filter = ['diagnosis__patient__patient_id','staging_system__label','stage_type','overall_stage']
     list_display = ['diagnosis__patient','staging_system__label','stage_type','overall_stage']
     fieldsets = (
         ('Stage Information',{
@@ -561,6 +587,7 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
     list_display = ['diagnosis','lesion_site','lesion_type','lesion_detection_modality','lesion_suv_max']
     autocomplete_fields = ['diagnosis','lesion_site']
     filter_horizontal = ['lesion_dicom_study']
+    list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Lesion', {
             'fields' : [('diagnosis','date_lesion_assessed'),('lesion_site','lesion_laterality','lesion_type')]
@@ -655,6 +682,8 @@ class RadiotherapyExportResource(resources.ModelResource):
 class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines=[RadiotherapyVolumeInline,RadiotherapyDoseVolumeDataInline]
     autocomplete_fields = ['diagnosis']
+    list_filter =['diagnosis__patient__patient_id']
+    search_fields = ['diagnosis__patient__patient_id', 'diagnosis__chavi_diagnosis_id']
     filter_horizontal = ['radiotherapy_dicom_study']
     fieldsets = (
         ('Radiotherapy',{
@@ -668,6 +697,18 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
         }),
     )
     resource_classes = [RadiotherapyResource,RadiotherapyExportResource]
+    
+    def get_search_results(self, request, queryset, search_term):
+        """Override to allow filtering by diagnosis__patient__patient_id__exact"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        # Handle query parameters for related lookups
+        if 'diagnosis__patient__patient_id__exact' in request.GET:
+            patient_id = request.GET.get('diagnosis__patient__patient_id__exact')
+            queryset = queryset.filter(diagnosis__patient__patient_id=patient_id)
+        
+        return queryset, use_distinct
+    
     def get_export_resource_class(self):
         """
         Returns ResourceClass to use for export.
@@ -700,6 +741,7 @@ class SurgeryResource(resources.ModelResource):
 @admin.register(Surgery)
 class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','surgery_type']
+    list_filter = ['diagnosis__patient__patient_id']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
@@ -751,6 +793,7 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','systemic_therapy_regimen']
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal =['systemic_therapy_dicom_study']
+    list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Systemic Therapy',{
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
@@ -797,7 +840,7 @@ class ConcomitantMedicationsAdmin (ModelAdmin, ImportExportModelAdmin):
     )
     resource_classes = [ConcomitantMedicationsResource]
     list_display = ['diagnosis', 'medication_name', 'medication_dose', 'date_medication_start_date', 'date_medication_end_date']
-    list_filter = ['date_medication_start_date', 'date_medication_end_date', 'medication_route']
+    list_filter = ['diagnosis__patient__patient_id','date_medication_start_date', 'date_medication_end_date', 'medication_route']
 
 
 # Create the Other Treatment Resource
@@ -828,7 +871,7 @@ class OtherTreatmentAdmin (ModelAdmin, ImportExportModelAdmin):
     )
     resource_classes = [OtherTreatmentResource]
     list_display = ['diagnosis', 'treatment', 'treatment_start_date', 'treatment_end_date']
-    list_filter = ['treatment_start_date', 'treatment_end_date']
+    list_filter = ['diagnosis__patient__patient_id','treatment_start_date', 'treatment_end_date']
 
 
 ## Create the Adverse Effects form class
@@ -859,6 +902,7 @@ class AdverseEffectsExportResource(resources.ModelResource):
 class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
     list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
+    list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Adverse Effects',{
             'fields':['diagnosis',('adverse_effect_start_date','adverse_effect_end_date')]
@@ -934,6 +978,7 @@ class OutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal = ['outcome_dicom_study']
+    list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Diagnosis',{
             'fields':[('diagnosis')]
@@ -1136,3 +1181,14 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
 @admin.register(Group)
 class GroupAdmin(BaseGroupAdmin, ModelAdmin):
     pass
+
+# Create a function to get the admin urls that we'll import in the project's urls.py
+def get_custom_admin_urls():
+    return [
+        path('patient-search/', 
+             admin.site.admin_view(lambda request: redirect('client_app:patient_search')), 
+             name='patient-search'),
+        path('patient-summary/', 
+             admin.site.admin_view(lambda request: redirect(f"{reverse('client_app:patient_summary')}?{request.GET.urlencode()}")), 
+             name='patient-summary'),
+    ]

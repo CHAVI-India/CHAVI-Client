@@ -18,14 +18,20 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.shortcuts import redirect
 from client_app.views import documentation_view
+from client_app.admin import get_custom_admin_urls
 
+# Add custom admin URLs to the admin site
+admin.site.get_urls = lambda: get_custom_admin_urls() + admin.site.__class__.get_urls(admin.site)
 
 urlpatterns = [
     # path('admin/doc/', include('django.contrib.admindocs.urls')), 
     # path('grappelli/', include('grappelli.urls')), # grappelli URLS    
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
-    path('', lambda request: redirect('account_login'), name='home'),
+    # Include client_app URLs with namespace
+    path('', include('client_app.urls')),
+    # After login, redirect to admin's patient search
+    path('home/', lambda request: redirect('admin:patient-search'), name='home'),
     # Documentation URLs
     re_path(r'^docs/(?P<path>.*)$', documentation_view, name='documentation'),
     path('docs/', documentation_view, name='documentation-index'),

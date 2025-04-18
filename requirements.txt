@@ -6,7 +6,7 @@ cffi==1.17.1
 charset-normalizer==3.4.1
 cryptography==44.0.0
 diff-match-patch==20241021
-Django==5.1.8
+Django==5.2
 django-admin-index==4.0.0
 django-allauth==65.4.0
 django-allauth-ui==1.5.3
@@ -16,7 +16,7 @@ django-extensions==3.2.3
 django-import-export==4.3.3
 django-ordered-model==3.7.4
 django-smart-selects==1.7.2
-django-unfold==0.48.0
+django-unfold==0.55.2
 django-widget-tweaks==1.5.0
 djangorestframework==3.15.2
 docutils==0.21.2

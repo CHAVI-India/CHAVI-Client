@@ -1,0 +1,229 @@
+{% extends 'unfold/layouts/base_simple.html' %}
+{% load i18n static %}
+
+{% block title %}Patient Search{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    /* Add button styles */
+    .add-button {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #28a745;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .add-button:hover {
+      background-color: #218838;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    /* Pagination styles */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      gap: 5px;
+    }
+    .pagination a,
+    .pagination .current {
+      display: inline-block;
+      padding: 8px 12px;
+      text-decoration: none;
+      border-radius: 4px;
+      color: #333;
+    }
+    .pagination a {
+      background-color: #e6e6e6;
+    }
+    .pagination a:hover {
+      background-color: #d6d6d6;
+    }
+    .pagination .current {
+      background-color: #79aec8;
+      color: white;
+    }
+    .pagination-info {
+      text-align: center;
+      margin-top: 10px;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    /* Existing styles */
+    .search-container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 30px;
+      background-color: #f5f5f5;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .search-title {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .search-form {
+      display: flex;
+      margin-bottom: 30px;
+      gap: 10px;
+    }
+    .search-input {
+      flex-grow: 1;
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 25px;
+      font-size: 16px;
+    }
+    .search-button {
+      padding: 10px 20px;
+      background-color: #79aec8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .search-button:hover {
+      background-color: #417690;
+    }
+    .error-message {
+      color: #e74c3c;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    .patients-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .patients-table th, 
+    .patients-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    .patients-table th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    .patients-table tr:hover {
+      background-color: #f9f9f9;
+    }
+    .patient-link {
+      color: #2980b9;
+      text-decoration: none;
+    }
+    .patient-link:hover {
+      text-decoration: underline;
+    }
+    .empty-data {
+      text-align: center;
+      color: #7f8c8d;
+      padding: 20px;
+    }
+  </style>
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+  <div class="header-row">
+    <div class="search-title">
+      <h2>Search Patient Records</h2>
+    </div>
+    <a href="{% url 'admin:client_app_patient_add' %}" class="add-button">
+      <i class="fas fa-plus"></i> Add New Patient
+    </a>
+  </div>
+  
+  <form method="get" class="search-form">
+    <input type="text" name="search" class="search-input" placeholder="Enter patient ID to search..." value="{{ search_term }}">
+    <button type="submit" class="search-button">Search</button>
+  </form>
+  
+  {% if error %}
+  <div class="error-message">
+    {{ error }}
+  </div>
+  {% endif %}
+  
+  <h3>Patient List</h3>
+  
+  {% if patients %}
+  <table class="patients-table">
+    <thead>
+      <tr>
+        <th>Patient ID</th>
+        <th>Gender</th>
+        <th>Date of Birth</th>
+        <th>Date of Registration</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for patient in patients %}
+      <tr>
+        <td>{{ patient.patient_id }}</td>
+        <td>{{ patient.gender }}</td>
+        <td>{{ patient.dob|date:"d/m/Y" }}</td>
+        <td>{{ patient.date_of_registration|date:"d/m/Y" }}</td>
+        <td>
+          <a href="{% url 'client_app:patient_summary' %}?patient_id={{ patient.patient_id }}" class="patient-link">View Summary</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  
+  <div class="pagination-info">
+    Showing {{ patients.start_index }} to {{ patients.end_index }} of {{ total_patients }} patients
+  </div>
+  
+  {% if patients.paginator.num_pages > 1 %}
+  <div class="pagination">
+    {% if patients.has_previous %}
+      <a href="?search={{ search_term }}&page=1">« First</a>
+      <a href="?search={{ search_term }}&page={{ patients.previous_page_number }}">‹ Previous</a>
+    {% endif %}
+    
+    {% for page_num in patients.paginator.page_range %}
+      {% if page_num == patients.number %}
+        <span class="current">{{ page_num }}</span>
+      {% elif page_num > patients.number|add:"-3" and page_num < patients.number|add:"3" %}
+        <a href="?search={{ search_term }}&page={{ page_num }}">{{ page_num }}</a>
+      {% endif %}
+    {% endfor %}
+    
+    {% if patients.has_next %}
+      <a href="?search={{ search_term }}&page={{ patients.next_page_number }}">Next ›</a>
+      <a href="?search={{ search_term }}&page={{ patients.paginator.num_pages }}">Last »</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  
+  {% else %}
+  <div class="empty-data">
+    No patients found. Please try a different search term.
+  </div>
+  {% endif %}
+</div>
+{% endblock %} 
