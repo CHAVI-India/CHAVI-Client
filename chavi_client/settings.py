@@ -48,14 +48,11 @@ INSTALLED_APPS = [
     # "unfold.contrib.simple_history",  # optional, if django-simple-history package is used
     # "django.contrib.admin",  # required    # 'jazzmin',
     'django.contrib.contenttypes',
-    # 'grappelli.dashboard',    
-    # 'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'django.contrib.admindocs' ,
     'django_extensions',
     'lookup',
     'client_app',
@@ -188,7 +185,7 @@ ALLAUTH_UI_THEME = "sunset"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/admin/'
 ACCOUNT_LOGIN_METHOD = 'username_email'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
