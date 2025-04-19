@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to CHAVI Client Documentation
-===================================
+=========================================
 The CHAVI Client is a web application that allows you to enter clinical data for patients to be enrolled in the CHAVI databank. The system allows entry of clinical data and linkage to DICOM and Project information. This information is then deidentified and uploaded into the CHAVI databank.
 
 This documentation is intended to provide a guide to the CHAVI Client and the data that can be entered into the system. You will find information on the different forms available for entering the data in the application.
@@ -22,6 +22,7 @@ Please note that the organization of the data may be different from the usual wa
    help_files/installation
    help_files/configuration
    help_files/tfa
+   help_files/example_data_entry_scenarios
    help_files/import_data
    help_files/clinical_data_import
    help_files/dicom_data_import

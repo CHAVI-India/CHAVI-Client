@@ -1,0 +1,194 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Example Data Entry Scenarios &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Importing Data" href="import_data.html" />
+    <link rel="prev" title="Two Factor Authentication" href="tfa.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Example Data Entry Scenarios</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#example-1">Example 1:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-2">Example 2:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-3">Example 3:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-4">Example 4:</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Example Data Entry Scenarios</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/example_data_entry_scenarios.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="example-data-entry-scenarios">
+<h1>Example Data Entry Scenarios<a class="headerlink" href="#example-data-entry-scenarios" title="Link to this heading"></a></h1>
+<p>In this section we will provide some examples of how data should be entered into the system for different clinical scenarios.</p>
+<section id="example-1">
+<h2>Example 1:<a class="headerlink" href="#example-1" title="Link to this heading"></a></h2>
+<p>A patient presents with a new diagnosis of metastatic prostate cancer and receives radiotherapy to the bone and the prostate gland a month apart.</p>
+<p>Steps for data entry:</p>
+<ol class="arabic simple">
+<li><p>Enter patient data.</p></li>
+<li><p>Enter the diagnosis as Prostate cancer and choose presentation as Metastatic.</p></li>
+<li><p>Enter the pathology data for the sites from where the pathology was collected. For example if the patient had a biopsy of the bone lesion and the prostate gland then two entries for the pathology form will be required. In this situation, both pathologies will be related to the same diagnosis.</p></li>
+<li><p>Since the patient has received radiotherapy to the bone and prostate as two seperate courses, two form entries will be required for the two courses of radiotherapy. However they will be related to the same diagnosis.</p></li>
+</ol>
+</section>
+<section id="example-2">
+<h2>Example 2:<a class="headerlink" href="#example-2" title="Link to this heading"></a></h2>
+<p>The same patient presents after a year with progression of the disease and liver metastases for which radiotherapy was planned.</p>
+<p>Steps for data entry:</p>
+<ol class="arabic simple">
+<li><p>Add a new diagnosis as Bone metastasis for the same patient (do not create a new patient record) and choose presentation as Metastatic.</p></li>
+<li><p>If the lesion characteristics for the liver lesion need to be recorded, you can add a new entry in the Lesion form for the corresponding diagnosis.</p></li>
+<li><p>Enter the radiotherapy data for the course of radiotherapy to the liver noting the anatomical site as Liver.</p></li>
+</ol>
+</section>
+<section id="example-3">
+<h2>Example 3:<a class="headerlink" href="#example-3" title="Link to this heading"></a></h2>
+<p>A patient presents with the diagnosis of a metastatic lung cancer and has received radiotherapy to the brain.</p>
+<p>Steps for data entry:</p>
+<ol class="arabic simple">
+<li><p>Enter patient data.</p></li>
+<li><p>Enter the diagnosis as Lung Cancer and choose presentation as Metastatic.</p></li>
+<li><p>Enter the pathology data for the site where the pathology was collected e.g. the Lung lesion.</p></li>
+<li><p>Enter the radiotherapy data for the course of radiotherapy to the brain noting the anatomical site as Brain.</p></li>
+</ol>
+</section>
+<section id="example-4">
+<h2>Example 4:<a class="headerlink" href="#example-4" title="Link to this heading"></a></h2>
+<p>A patient presents with synchronous breast cancer and endometrial cancer and received radiotherapy for both the sites.</p>
+<p>Steps for data entry:</p>
+<ol class="arabic simple">
+<li><p>Enter the patient data.</p></li>
+<li><p>Enter the diagnosis seperately for Breast cancer and endometrial cancer. Note that DICOM series can be independantly linked to each diagnoses.</p></li>
+<li><p>Enter the radiotherapy data for the course of radiotherapy to the corresponding diagnoses.</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tfa.html" class="btn btn-neutral float-left" title="Two Factor Authentication" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="import_data.html" class="btn btn-neutral float-right" title="Importing Data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
