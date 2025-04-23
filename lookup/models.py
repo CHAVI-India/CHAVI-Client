@@ -20,41 +20,41 @@ class LookupLaterality(LookupAbstract):
     '''This is a lookup table for the laterality i.e. Left, Right etc. ICD 11 codes are included for data sharing.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupICDCode(LookupAbstract):
     '''This is a lookup table with ICD 11 codes for the diagnosis.'''
     icd_version = models.DecimalField(max_digits=5, decimal_places=2, validators=positive_decimal_validator)
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupFMACode(LookupAbstract):
     '''This is a lookup table with Foundational Model of Anatomy codes for the Anatomical Site of the disease.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupPresentation(LookupAbstract):
     '''This is a lookup for presentation type.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupOutcomeType(LookupAbstract):
     '''This is a lookup table where outcome type like local recurrence, nodal recurrence etc are recorded.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupLesionType(LookupAbstract):
     '''This is a lookup table where lesion location type is recorded e.g. local, nodal, distant '''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupResponseType(LookupAbstract):
     '''This is a lookup table for the response type that the lesion has had. For example complete response, partial response, stable disease, progressive disease.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupProtein(models.Model):
     '''This is a lookup table for Protein Names.'''
@@ -72,25 +72,25 @@ class LookupGene(LookupAbstract):
     '''This is a lookup table for Gene Names.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupTreatmentIntent(LookupAbstract):
     '''This is a lookup table for Treatment Intent.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupTreatmentSequence(LookupAbstract):
     '''This is a lookup table for Treatment Sequence.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupSystemicAgent(LookupAbstract):
     '''This is a lookup table for Systemic Agents.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupVolumeUnits(LookupAbstract):
     '''This is a lookup table for units of measurement for use in the database for volume'''
@@ -136,7 +136,7 @@ class LookupDrugRoute(LookupAbstract):
     '''This is a lookup table for drug routes.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupCTCAEGrade(models.Model):
     '''This is a lookup table for the NCI Common Terminology of Adverse Effects grades.'''
@@ -155,50 +155,50 @@ class LookupOutcome(LookupAbstract):
     '''This is a lookup table for outcomes types.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupStagingSystem(LookupAbstract):
     '''This is a lookup table for staging systems.'''
     staging_system_version = models.CharField(max_length=255)
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupAJCCStagePrefix(LookupAbstract):
     '''This is a lookup table for AJCC stage prefixes.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupAJCCStageSuffix(LookupAbstract):
     '''This is a lookup table for AJCC stage suffixes.'''
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupAJCCTStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC T stage descriptors.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupAJCCNStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC N stage descriptors.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupAJCCMStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC M stage descriptors.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupStageDescriptor (LookupAbstract):
     ''' This is a lookup table for AJJC stage descriptors.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
 class LookupDiagnosticModality(LookupAbstract):
     ''' This is a lookup table for the diagnostic modality'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     class Meta:
         verbose_name_plural= "Diagnostic Modalities"
         db_table = 'lookup_diagnostic_modality'
@@ -206,7 +206,7 @@ class LookupDiagnosticModality(LookupAbstract):
 class LookupSystemicTherapyType(LookupAbstract):
     ''' This is a lookup table for the type of Systemic Therapy'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
     class Meta:
         verbose_name_plural = "Systemic Therapy Types"
@@ -215,7 +215,7 @@ class LookupSystemicTherapyType(LookupAbstract):
 class LookupRadiotherapyVolumeType(LookupAbstract):
     ''' This is a lookup table for the type of Radiotherapy Volume'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
 
     class Meta:
         verbose_name_plural = "Radiotherapy Volume Types"
@@ -223,7 +223,7 @@ class LookupRadiotherapyVolumeType(LookupAbstract):
 class LookupPathology(LookupAbstract):
     ''' This is a lookup table for the pathology.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Lookup Pathology"
@@ -231,7 +231,7 @@ class LookupPathology(LookupAbstract):
 class LookupGrade(LookupAbstract):
     ''' This is a lookup table for the grade of the pathology.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Grade"
@@ -239,7 +239,7 @@ class LookupGrade(LookupAbstract):
 class LookupPathologyDescriptors(LookupAbstract):
     ''' This is a lookup table for the descriptors of the pathology terms.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Pathology Descriptors"
@@ -247,7 +247,7 @@ class LookupPathologyDescriptors(LookupAbstract):
 class LookupMajorCancerCategory(LookupAbstract):
     ''' This is a lookup table for the major cancer category.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Major Cancer Category"
@@ -255,7 +255,7 @@ class LookupMajorCancerCategory(LookupAbstract):
 class LookupRadiotherapyModality(LookupAbstract):
     ''' This is a lookup table for the radiotherapy modality.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Radiotherapy Modality"
@@ -263,7 +263,7 @@ class LookupRadiotherapyModality(LookupAbstract):
 class LookupRadiotherapyType(LookupAbstract):
     ''' This is a lookup table for the radiotherapy type.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Radiotherapy Type" 
@@ -271,7 +271,7 @@ class LookupRadiotherapyType(LookupAbstract):
 class LookupRadiotherapyTechnique(LookupAbstract):
     ''' This is a lookup table for the radiotherapy technique.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Radiotherapy Techniques"
@@ -279,7 +279,7 @@ class LookupRadiotherapyTechnique(LookupAbstract):
 class LookupClinicalSignificance(LookupAbstract):
     ''' This is a lookup table for the clinical significance for genetic mutations.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Clinical Significance"
@@ -287,7 +287,7 @@ class LookupClinicalSignificance(LookupAbstract):
 class LookupIHCResult(LookupAbstract):
     ''' This is a lookup table for the IHC result.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "IHC Results"
@@ -295,7 +295,7 @@ class LookupIHCResult(LookupAbstract):
 class LookupIHCStainingIntensity(LookupAbstract):
     ''' This is a lookup table for the IHC staining intensity.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "IHC Staining Intensities"
@@ -303,7 +303,7 @@ class LookupIHCStainingIntensity(LookupAbstract):
 class LookupMarginStatus(LookupAbstract):
     ''' This is a lookup table for the margin status.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Margin Status"
@@ -311,7 +311,7 @@ class LookupMarginStatus(LookupAbstract):
 class LookupTreatmentEffect(LookupAbstract):
     ''' This is a lookup table for the treatment effect.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Treatment Effect"
@@ -319,7 +319,7 @@ class LookupTreatmentEffect(LookupAbstract):
 class LookupStagingType(LookupAbstract):
     ''' This is a lookup table for the staging type.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Staging Type"
@@ -327,7 +327,7 @@ class LookupStagingType(LookupAbstract):
 class LookupSystemicTherapyRegimen(LookupAbstract):
     ''' This is a lookup table for the systemic therapy regimen.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Systemic Therapy Regimen"
@@ -335,7 +335,7 @@ class LookupSystemicTherapyRegimen(LookupAbstract):
 class LookupRTLocation(LookupAbstract):
     ''' This is a lookup table for the anatomical location of radiotherapy volumes'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Anatomical Location"
@@ -343,7 +343,7 @@ class LookupRTLocation(LookupAbstract):
 class LookupLaboratoryTest(LookupAbstract):
     ''' This is a lookup table for the laboratory test.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Lookup Laboratory Tests"
@@ -351,7 +351,7 @@ class LookupLaboratoryTest(LookupAbstract):
 class LookupSymptoms(LookupAbstract):
     ''' This is a lookup table for the symptoms.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Symptoms"
@@ -359,7 +359,7 @@ class LookupSymptoms(LookupAbstract):
 class LookupSeverity(LookupAbstract):
     ''' This is a lookup table for the severity of the symptoms.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Severity"
@@ -367,7 +367,7 @@ class LookupSeverity(LookupAbstract):
 class LookupIHCAntibody(LookupAbstract):
     ''' This is a lookup table for the antibody used in immunohistochemistry.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "IHCAntibody"
@@ -375,7 +375,7 @@ class LookupIHCAntibody(LookupAbstract):
 class LookupComorbidity(LookupAbstract):
     ''' This is a lookup table for the comorbidity.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Comorbidity"
@@ -383,7 +383,7 @@ class LookupComorbidity(LookupAbstract):
 class LookupPerformanceStatus(LookupAbstract):
     ''' This is a lookup table for the performance status.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Performance Status"
@@ -391,7 +391,7 @@ class LookupPerformanceStatus(LookupAbstract):
 class LookupExpressionUnits(LookupAbstract):
     ''' This is a lookup table for the units of expression.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Expression Units"
@@ -399,7 +399,7 @@ class LookupExpressionUnits(LookupAbstract):
 class LookupCytogeneticAbnormality(LookupAbstract):
     ''' This is a lookup table for the cytogenetic abnormality.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Cytogenetic Abnormality"
@@ -407,7 +407,7 @@ class LookupCytogeneticAbnormality(LookupAbstract):
 class LookupEpigeneticAbnormalityType(LookupAbstract):
     ''' This is a lookup table for the type of epigenetic abnormality.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Epigenetic Abnormality Type"
@@ -417,7 +417,7 @@ class LookupSurgicalProcedures(LookupAbstract):
     description = models.TextField()
     
     def __str__(self):
-        return f"{self.code} - {self.label}: {self.description}"
+        return f"{self.label}: {self.description}"
     
     class Meta:
         verbose_name_plural = "Surgical Procedures"
@@ -426,7 +426,7 @@ class LookupSurgicalProcedures(LookupAbstract):
 class LookupNodalAssessmentType(LookupAbstract):
     ''' This is a lookup table for the type of nodal assessment.'''
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return f"{self.label}"
     
     class Meta:
         verbose_name_plural = "Nodal Assessment Type"             

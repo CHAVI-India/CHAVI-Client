@@ -238,6 +238,12 @@ class PatientResource(resources.ModelResource):
     class Meta:
         model = Patient
         import_id_fields = ['patient_id']
+        widgets = {
+            'date_of_birth': {'format': '%d/%m/%Y'},
+            'date_of_registration': {'format': '%d/%m/%Y'},
+            'date_chavi_consent': {'format': '%d/%m/%Y'},
+        }
+
 
 @admin.register(Patient)
 class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
@@ -312,7 +318,10 @@ class DiagnosisResource(resources.ModelResource):
     class Meta:
         model = Diagnosis
         import_id_fields = ['chavi_diagnosis_id']
-        fields = ['patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
+        fields = ['chavi_diagnosis_id','patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
+        widgets = {
+            'diagnosis_date': {'format': '%d/%m/%Y'},
+        }
 
 
 class DiagnosisExportResource(resources.ModelResource):
@@ -390,7 +399,10 @@ class PathologyResource(resources.ModelResource):
     class Meta:
         model = Pathology
         import_id_fields = ['chavi_pathology_id']
-        fields = ['diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension']
+        fields = ['chavi_pathology_id','diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension']
+        widgets = {
+            'date_pathology': {'format': '%d/%m/%Y'},
+        }
 
 class PathologyExportResource(resources.ModelResource):
     class Meta:
@@ -487,7 +499,10 @@ class StageInformationResource(resources.ModelResource):
     class Meta:
         model = StageInformation
         import_id_fields = ['chavi_stage_information_id']
-        fields = ['diagnosis','staging_system','stage_type','t_stage_prefix','t_stage','t_stage_suffix','n_stage_prefix','n_stage','n_stage_suffix','m_stage_prefix','m_stage','m_stage_suffix','overall_stage']
+        fields = ['chavi_stage_information_id','diagnosis','staging_system','stage_type','t_stage_prefix','t_stage','t_stage_suffix','n_stage_prefix','n_stage','n_stage_suffix','m_stage_prefix','m_stage','m_stage_suffix','overall_stage']
+        widgets = {
+            'date_of_staging_assessment': {'format': '%d/%m/%Y'},
+        }
 
 class StageInformationExportResource(resources.ModelResource):
     class Meta:
@@ -535,12 +550,16 @@ class ComorbidityResource(resources.ModelResource):
         row['chavi_comorbidity_id'] = str(uuid.uuid4())
 
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
 
     class Meta:
         model = Comorbidity
         import_id_fields = ['chavi_comorbidity_id']
-        fields = ['patient','comorbidity_type','created_at']
+        fields = ['chavi_comorbidity_id','patient','comorbidity_type','date_of_comorbidity_diagnosis','date_of_comorbidity_assessment','duration_of_comorbidity','comorbidity_resolved','medication_for_comorbidity']
+        widgets = {
+            'date_of_comorbidity_diagnosis': {'format': '%d/%m/%Y'},
+            'date_of_comorbidity_assessment': {'format': '%d/%m/%Y'},
+        }
 
 ## Create the Comorbidity Form
 
@@ -597,12 +616,15 @@ class LesionResource(resources.ModelResource):
     class Meta:
         model = Lesion
         import_id_fields = ['chavi_lesion_id']
-        fields = ['diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit','lesion_detection_modality','lesion_suv_max']
+        fields = ['chavi_lesion_id','diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit','lesion_detection_modality','lesion_suv_max']
+        widgets = {
+            'date_lesion_assessed': {'format': '%d/%m/%Y'},
+        }
 
 class LesionExportResource(resources.ModelResource):
     class Meta:
         model = Lesion
-        fields = ['diagnosis','chavi_lesion_id']
+        fields = ['chavi_lesion_id','diagnosis']
 
 ## Create the Lesion Form Class
 @admin.register(Lesion)
@@ -651,7 +673,10 @@ class LesionResponseResource(resources.ModelResource):
     class Meta:
         model = LesionResponse
         import_id_fields = ['chavi_lesion_response_id']
-        fields = ['lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit','lesion_response_modality','lesion_response_suv_max']
+        fields = ['chavi_lesion_response_id','lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit','lesion_response_modality','lesion_response_suv_max']
+        widgets = {
+            'lesion_response_date': {'format': '%d/%m/%Y'},
+        }
 
 class LesionResponseExportResource(resources.ModelResource):
     class Meta:
@@ -692,7 +717,11 @@ class RadiotherapyResource(resources.ModelResource):
     class Meta:
         model = Radiotherapy
         import_id_fields = ['chavi_radiotherapy_id']
-        fields = ['diagnosis','radiotherapy_start_date','radiotherapy_intent','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
+        fields = ['chavi_radiotherapy_id','diagnosis','radiotherapy_start_date','radiotherapy_intent','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
+        widgets = {
+            'radiotherapy_start_date': {'format': '%d/%m/%Y'},
+            'radiotherapy_end_date': {'format': '%d/%m/%Y'},
+        }
 
 class RadiotherapyExportResource(resources.ModelResource):
     class Meta:
@@ -758,7 +787,10 @@ class SurgeryResource(resources.ModelResource):
     class Meta:
         model = Surgery
         import_id_fields = ['chavi_surgery_id']
-        fields = ['diagnosis','surgery_date','surgery_side','surgery_type','surgery_intent','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
+        fields = ['chavi_surgery_id','diagnosis','surgery_date','surgery_side','surgery_type','surgery_intent','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
+        widgets = {
+            'surgery_date': {'format': '%d/%m/%Y'},
+        }
 
 
 ## Create the Surgery Form Class
@@ -803,12 +835,16 @@ class SystemicTherapyResource(resources.ModelResource):
     class Meta:
         model = SystemicTherapy
         import_id_fields = ['chavi_systemic_therapy_id']
-        fields = ['diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
+        fields = ['chavi_systemic_therapy_id','diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
+        widgets = {
+            'systemic_therapy_start_date': {'format': '%d/%m/%Y'},
+            'systemic_therapy_end_date': {'format': '%d/%m/%Y'},
+        }
 
 class SystemicTherapyExportResource(resources.ModelResource):
     class Meta:
         model = SystemicTherapy
-        fields = ['diagnosis','chavi_systemic_therapy_id']
+        fields = ['chavi_systemic_therapy_id','diagnosis']
 
 ## Create the Systemic Therapy Form Class
 @admin.register(SystemicTherapy)
@@ -851,7 +887,11 @@ class ConcomitantMedicationsResource(resources.ModelResource):
     class Meta:
         model = ConcomitantMedications
         import_id_fields = ['chavi_medication_id']
-        fields = ['diagnosis','medication_name','medication_route','medication_dose','medication_dose_units','date_medication_start_date','date_medication_end_date']
+        fields = ['chavi_medication_id','diagnosis','medication_name','medication_route','medication_dose','medication_dose_units','date_medication_start_date','date_medication_end_date']
+        widgets = {
+            'date_medication_start_date': {'format': '%d/%m/%Y'},
+            'date_medication_end_date': {'format': '%d/%m/%Y'},
+        }
 
 
 @admin.register(ConcomitantMedications)
@@ -882,7 +922,11 @@ class OtherTreatmentResource(resources.ModelResource):
     class Meta:
         model = OtherTreatment
         import_id_fields = ['chavi_treatment_id']
-        fields = ['diagnosis','treatment_intent','treatment_start_date','treatment_end_date','treatment']
+        fields = ['chavi_treatment_id','diagnosis','treatment_intent','treatment_start_date','treatment_end_date','treatment']
+        widgets = {
+            'treatment_start_date': {'format': '%d/%m/%Y'},
+            'treatment_end_date': {'format': '%d/%m/%Y'},
+        }
 
 ## Create the Other Treatment Form Class
 @admin.register(OtherTreatment)
@@ -914,7 +958,11 @@ class AdverseEffectsResource(resources.ModelResource):
     class Meta:
         model = AdverseEffects
         import_id_fields = ['chavi_adverse_effects_id']
-        fields = ['diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
+        fields = ['chavi_adverse_effects_id','diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
+        widgets = {
+            'adverse_effect_start_date': {'format': '%d/%m/%Y'},
+            'adverse_effect_end_date': {'format': '%d/%m/%Y'},
+        }
 
 class AdverseEffectsExportResource(resources.ModelResource):
     class Meta:
@@ -953,13 +1001,16 @@ class PatientOutcomeResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_patient_outcome_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     patient_status = fields.Field(attribute='patient_status',column_name='patient_status',widget=ForeignKeyWidget(LookupOutcome,field='label'))
     
     class Meta:
         model = PatientOutcome
         import_id_fields = ['chavi_patient_outcome_id']
-        fields = ['patient','patient_status','date_of_death','death_related_to_cancer_progression']
+        fields = ['chavi_patient_outcome_id','patient','patient_status','date_of_death','death_related_to_cancer_progression']
+        widgets = {
+            'date_of_death': {'format': '%d/%m/%Y'},
+        }
 
 class PatientOutcomeExportResource(resources.ModelResource):
     class Meta:
@@ -994,7 +1045,10 @@ class OutcomeResource(resources.ModelResource):
     class Meta:
         model = Outcome
         import_id_fields = ['chavi_outcome_id']
-        fields = ['diagnosis','date_outcome_assessed','outcome_type']
+        fields = ['chavi_outcome_id','diagnosis','date_outcome_assessed','outcome_type']
+        widgets = {
+            'date_outcome_assessed': {'format': '%d/%m/%Y'},
+        }
 
 ## Create the Outcome Form Class
 @admin.register(Outcome)
@@ -1028,14 +1082,15 @@ class PatientReportedOutcomeResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_pro_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     
     class Meta:
         model = PatientReportedOutcome
         import_id_fields = ['chavi_pro_id']
-        fields = ['patient','pro_assessment_date','pro_instrument','pro_scale','pro_question_id','pro_question','pro_answer','pro_score']
-
-
+        fields = ['chavi_pro_id','patient','pro_assessment_date','pro_instrument','pro_scale','pro_question_id','pro_question','pro_answer','pro_score']
+        widgets = {
+            'pro_assessment_date': {'format': '%d/%m/%Y'},
+        }
 
 ## Create the Patient Reported Outcome Form Class
 @admin.register(PatientReportedOutcome)
@@ -1087,13 +1142,16 @@ class LaboratoryResultsResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_laboratory_results_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     laboratory_test = fields.Field(attribute='laboratory_test',column_name='laboratory_test',widget=ForeignKeyWidget(LookupLaboratoryTest,field='label'))
 
     class Meta:
         model = LaboratoryResults
         import_id_fields = ['chavi_laboratory_result_id']
-        fields = ['patient','laboratory_test','result_date','result_value','result_unit']
+        fields = ['chavi_laboratory_result_id','patient','laboratory_test','result_date','result_value','result_unit']
+        widgets = {
+            'result_date': {'format': '%d/%m/%Y'},
+        }
         
 @admin.register(LaboratoryResults)
 class LaboratoryResultsAdmin(ModelAdmin,ImportExportModelAdmin):
@@ -1110,13 +1168,16 @@ class GermlineGenomicAlterationsResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_germline_genomic_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene,field='label'))
 
     class Meta:
         model = GermlineGenomicAlterations
         import_id_fields = ['chavi_germline_genomic_id']
-        fields = ['patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
+        fields = ['chavi_germline_genomic_id','patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
+        widgets = {
+            'date_test': {'format': '%d/%m/%Y'},
+        }
 
 @admin.register(GermlineGenomicAlterations)
 class GermlineGenomicAlterationsAdmin(ModelAdmin, ImportExportModelAdmin):
@@ -1133,13 +1194,18 @@ class SymptomResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_symptom_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     symptom = fields.Field(attribute='symptom',column_name='symptom',widget=ForeignKeyWidget(LookupSymptoms,field='label'))
     severity = fields.Field(attribute='severity',column_name='severity',widget=ForeignKeyWidget(LookupSeverity,field='label'))
     class Meta:
         model = Symptom
         import_id_fields = ['chavi_symptom_id']
-        fields = ['patient','symptom','date_onset','date_symptom_assessment','duration_of_symptom','date_resolution','severity']
+        fields = ['chavi_symptom_id','patient','symptom','date_onset','date_symptom_assessment','duration_of_symptom','date_resolution','severity']
+        widgets = {
+            'date_onset': {'format': '%d/%m/%Y'},
+            'date_symptom_assessment': {'format': '%d/%m/%Y'},
+            'date_resolution': {'format': '%d/%m/%Y'},
+        }
 @admin.register(Symptom)
 class SymptomAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient','symptom']
@@ -1158,13 +1224,16 @@ class PatientAssessmentResource(resources.ModelResource):
     def before_import_row(self,row,**kwargs):
         row['chavi_patient_assessment_id'] = str(uuid.uuid4())
 
-    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='chavi_patient_id'))
+    patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     performance_status = fields.Field(attribute='performance_status',column_name='performance_status',widget=ForeignKeyWidget(LookupPerformanceStatus,field='code'))
     
     class Meta:
         model = PatientAssessment
         import_id_fields = ['chavi_patient_assessment_id']
-        fields = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
+        fields = ['chavi_patient_assessment_id','patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
+        widgets = {
+            'date_assessment': {'format': '%d/%m/%Y'},
+        }
 @admin.register(PatientAssessment)
 class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
@@ -1175,7 +1244,7 @@ class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):
 # Register your models here.
 @admin.register(SiteConfiguration)
 class SiteConfigurationAdmin(ModelAdmin):
-    pass
+    list_display = ['chavi_center_id','center_name']
 
 @admin.register(BulkDICOMUpload)
 class BulkDICOMUploadAdmin(ModelAdmin):
