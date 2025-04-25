@@ -1129,7 +1129,7 @@ class DICOMStudyAdmin (ModelAdmin):
 class ProjectAdmin(ModelAdmin):
     inlines = [DICOMStudyProjectInline]
     readonly_fields = ['center']
-    list_display = ['chavi_project_id', 'center', 'created_at']
+    list_display = ['chavi_project_id', 'project_name', 'center', 'created_at']
     list_filter = ['center', 'created_at']
 
 # Create the Laboratory Results form Class
