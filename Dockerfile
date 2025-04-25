@@ -23,9 +23,12 @@ RUN groupadd -g 1000 appuser && \
     useradd -m -u 1000 -g appuser appuser && \
     mkdir /app && \
     mkdir -p /app/static && \
+    mkdir -p /app/media && \
     mkdir -p /app/logs && \
-    chown -R appuser:appuser /app
- 
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app/static && \
+    chmod -R 755 /app/media
+
 # Copy the Python dependencies from the builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
