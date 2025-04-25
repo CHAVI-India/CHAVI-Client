@@ -26,8 +26,8 @@ services:
       - .env      
     volumes:
       - chaviclient_app_data:/app
-      - ./media:/app/media
-      - ./static:/app/static
+      - ./media:/app/media:rw
+      - ./static:/app/static:rw
     command: ["./entrypoint.docker.sh"]
 
   chaviclient-proxy:
@@ -44,3 +44,4 @@ services:
 volumes:
   chaviclient_postgres_data:
   chaviclient_app_data:
+
