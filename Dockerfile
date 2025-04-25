@@ -19,9 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Production stage
 FROM python:3
  
-RUN useradd -m -r appuser && \
-   mkdir /app && \
-   chown -R appuser /app
+RUN groupadd -g 1000 appuser && \
+    useradd -m -u 1000 -g appuser appuser && \
+    mkdir /app && \
+    mkdir -p /app/static && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appuser /app
  
 # Copy the Python dependencies from the builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
