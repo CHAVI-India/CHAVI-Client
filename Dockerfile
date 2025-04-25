@@ -17,17 +17,11 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
  
 # Stage 2: Production stage
-FROM python:3
+FROM python:3.13-slim-bookworm
  
-RUN groupadd -g 1000 appuser && \
-    useradd -m -u 1000 -g appuser appuser && \
-    mkdir /app && \
-    mkdir -p /app/static && \
-    mkdir -p /app/media && \
-    mkdir -p /app/logs && \
-    chown -R appuser:appuser /app && \
-    chmod -R 755 /app/static && \
-    chmod -R 755 /app/media
+# Create app directory and set permissions
+RUN mkdir -p /app/static /app/media /app/logs && \
+    chmod -R 777 /app
 
 # Copy the Python dependencies from the builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
@@ -37,14 +31,11 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 WORKDIR /app
  
 # Copy application code
-COPY --chown=appuser:appuser . .
+COPY . .
  
 # Set environment variables to optimize Python
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1 
- 
-# Switch to non-root user
-USER appuser
  
 # Expose the application port
 EXPOSE 8000 

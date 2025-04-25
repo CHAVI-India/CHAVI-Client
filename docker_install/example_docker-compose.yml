@@ -28,6 +28,7 @@ services:
       - chaviclient_app_data:/app
       - ./media:/app/media
       - ./static:/app/static
+    user: "${UID:-1000}:${GID:-1000}"
     command: ["./entrypoint.docker.sh"]
 
   chaviclient-proxy:
