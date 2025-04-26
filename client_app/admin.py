@@ -39,7 +39,7 @@ from django.http import HttpResponse
 import json
 from django.contrib import messages
 from django.core.paginator import Paginator
-from import_export.widgets import ForeignKeyWidget
+from import_export.widgets import ForeignKeyWidget,ManyToManyWidget
 from import_export import fields
 from import_export.admin import ImportExportModelAdmin
 from unfold.contrib.import_export.forms import ExportForm, ImportForm, SelectableFieldsExportForm
@@ -314,11 +314,12 @@ class DiagnosisResource(resources.ModelResource):
     presentation_type = fields.Field(attribute='presentation_type',column_name='presentation_type',widget=ForeignKeyWidget(LookupPresentation,field='label'))
     cancer_site = fields.Field(attribute='cancer_site',column_name='cancer_site',widget=ForeignKeyWidget(LookupFMACode,field='label'))
     cancer_side = fields.Field(attribute='cancer_side',column_name='cancer_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
+    diagnosis_project = fields.Field(attribute='diagnosis_project',column_name='diagnosis_project',widget=ManyToManyWidget(Project,field='chavi_project_id'))
 
     class Meta:
         model = Diagnosis
         import_id_fields = ['chavi_diagnosis_id']
-        fields = ['chavi_diagnosis_id','patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side']
+        fields = ['chavi_diagnosis_id','patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side','diagnosis_project']
         widgets = {
             'diagnosis_date': {'format': '%d/%m/%Y'},
         }
