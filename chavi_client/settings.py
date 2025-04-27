@@ -36,6 +36,16 @@ DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
 CSRF_TRUSTED_ORIGINS = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
 
+# External API settings for lookup data
+LOOKUP_API_URL = os.environ.get('LOOKUP_API_URL', '')
+LOOKUP_API_KEY = os.environ.get('LOOKUP_API_KEY', '')
+LOOKUP_API_TIMEOUT = int(os.environ.get('LOOKUP_API_TIMEOUT', '30'))
+
+# Proxy settings
+HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
+HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
+NO_PROXY = os.environ.get('NO_PROXY', '')
+
 # Application definition
 
 INSTALLED_APPS = [

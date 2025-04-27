@@ -1,348 +1,452 @@
 from django.contrib import admin
 from lookup.models import *
 from unfold.admin import ModelAdmin
+from django.contrib import messages
+from unfold.decorators import action
+from lookup.services.sync_service import sync_model_from_api
+from lookup.api_mappings import get_api_mapping
 
 
 # Register all Lookup Models.
 
+# Base ModelAdmin class with disabled add permissions
+class ReadOnlyLookupAdmin(ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+        
+    def has_delete_permission(self, request, obj=None):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+    
+    @action(description="Sync selected models with external API")
+    def sync_with_api(self, request, queryset):
+        """
+        Sync the model data with the external API.
+        """
+        model = self.model
+        model_name = model._meta.verbose_name_plural.title()
+        model_name_lower = model._meta.model_name.lower()
+        
+        # Get API mapping for this model
+        api_mapping = get_api_mapping(model_name_lower)
+        api_endpoint = api_mapping['endpoint']
+        pk_field = api_mapping['pk_field']
+        
+        # Perform synchronization with API
+        created, updated, errors = sync_model_from_api(
+            model_class=model,
+            endpoint=api_endpoint,
+            pk_field=pk_field
+        )
+        
+        # Show results to user
+        if errors:
+            messages.error(
+                request, 
+                f"Sync completed with errors: {created} created, {updated} updated. "
+                f"Errors: {'; '.join(errors[:5])}{' ...' if len(errors) > 5 else ''}"
+            )
+        else:
+            messages.success(
+                request,
+                f"Successfully synced {model_name} with API: {created} created, {updated} updated."
+            )
 
 
 @admin.register(LookupLaterality)
-class LookupLateralityAdmin(ModelAdmin):
+class LookupLateralityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupICDCode)
-class LookupICDCodeAdmin (ModelAdmin):
+class LookupICDCodeAdmin (ReadOnlyLookupAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label','icd_version']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupFMACode)
-class LookupFMACodeAdmin (ModelAdmin):
+class LookupFMACodeAdmin (ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupPresentation)
-class LookupPresentationAdmin(ModelAdmin):
+class LookupPresentationAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupOutcomeType)
-class LookupOutcomeTypeAdmin(ModelAdmin):
+class LookupOutcomeTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupLesionType)
-class LookupLesionTypeAdmin(ModelAdmin):
+class LookupLesionTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupResponseType)
-class LookupResponseTypeAdmin(ModelAdmin):
+class LookupResponseTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 @admin.register(LookupProtein)
-class LookupProteinAdmin(ModelAdmin):
+class LookupProteinAdmin(ReadOnlyLookupAdmin):
     search_fields = ['protein_name']
     readonly_fields = ['code','gene_name','protein_name','all_gene_names','uniport_id']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupGene)
-class LookupGeneAdmin(ModelAdmin):
+class LookupGeneAdmin(ReadOnlyLookupAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupTreatmentIntent)
-class LookupTreatmentIntentAdmin(ModelAdmin):
+class LookupTreatmentIntentAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupTreatmentSequence)
-class LookupTreatmentSequenceAdmin(ModelAdmin):
+class LookupTreatmentSequenceAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupSystemicAgent)
-class LookupSystemicAgentAdmin(ModelAdmin):
+class LookupSystemicAgentAdmin(ReadOnlyLookupAdmin):
     search_fields = ['code','label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupVolumeUnits)
-class LookupVolumeUnitsAdmin(ModelAdmin):
+class LookupVolumeUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupSizeUnits)
-class LookupSizeUnitsAdmin(ModelAdmin):
+class LookupSizeUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupDoseUnits)
-class LookupDoseUnitsAdmin(ModelAdmin):
+class LookupDoseUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupLabResultsUnits)
-class LookupLabResultsUnitsAdmin(ModelAdmin):
+class LookupLabResultsUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupMassUnits)
-class LookupMassUnitsAdmin(ModelAdmin):
+class LookupMassUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupDrugRoute)
-class LookupDrugRouteAdmin(ModelAdmin):
+class LookupDrugRouteAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupCTCAEGrade)
-class LookupCTCAEGradeAdmin(ModelAdmin):
+class LookupCTCAEGradeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['ctcae_term','ctcae_grade']
     readonly_fields = ['code','ctcae_term','ctcae_grade','meddra_code','description']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupOutcome)
-class LookupOutcomeAdmin(ModelAdmin):
+class LookupOutcomeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupStagingSystem)
-class LookupStagingSystemAdmin(ModelAdmin):
+class LookupStagingSystemAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupAJCCStagePrefix)
-class LookupAJCCStagePrefixAdmin(ModelAdmin):
+class LookupAJCCStagePrefixAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 
 @admin.register(LookupAJCCStageSuffix)
-class LookupAJCCStageSuffixAdmin(ModelAdmin):
+class LookupAJCCStageSuffixAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupAJCCTStageDescriptor)
-class LookupAJCCTStageDescriptorAdmin(ModelAdmin):
+class LookupAJCCTStageDescriptorAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupAJCCNStageDescriptor)
-class LookupAJCCNStageDescriptorAdmin(ModelAdmin):
+class LookupAJCCNStageDescriptorAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupAJCCMStageDescriptor)
-class LookupAJCCMStageDescriptorAdmin(ModelAdmin):
+class LookupAJCCMStageDescriptorAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupStageDescriptor)
-class LookupStageDescriptorAdmin(ModelAdmin):
+class LookupStageDescriptorAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupDiagnosticModality)
-class LookupDiagnosticModalityAdmin(ModelAdmin):
+class LookupDiagnosticModalityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupSystemicTherapyType)
-class LookupSystemicTherapyTypeAdmin(ModelAdmin):
+class LookupSystemicTherapyTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupRadiotherapyVolumeType)
-class LookupRadiotherapyVolumeTypeAdmin(ModelAdmin):
+class LookupRadiotherapyVolumeTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupPathology)
-class LookupPathologyAdmin(ModelAdmin):
+class LookupPathologyAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupGrade)
-class LookupGradeAdmin(ModelAdmin):
+class LookupGradeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupPathologyDescriptors)
-class LookupPathologyDescriptorsAdmin(ModelAdmin):
+class LookupPathologyDescriptorsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupMajorCancerCategory)
-class LookupMajorCancerCategoryAdmin(ModelAdmin):
+class LookupMajorCancerCategoryAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupRadiotherapyModality)
-class LookupRadiotherapyModalityAdmin(ModelAdmin):
+class LookupRadiotherapyModalityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupRadiotherapyType)
-class LookupRadiotherapyTypeAdmin(ModelAdmin):
+class LookupRadiotherapyTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupRadiotherapyTechnique)
-class LookupRadiotherapyTechniqueAdmin(ModelAdmin):
+class LookupRadiotherapyTechniqueAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupClinicalSignificance)
-class LookupClinicalSignificanceAdmin(ModelAdmin):
+class LookupClinicalSignificanceAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupIHCResult)
-class LookupIHCResultAdmin(ModelAdmin):
+class LookupIHCResultAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupIHCStainingIntensity)
-class LookupIHCStainingIntensityAdmin(ModelAdmin):
+class LookupIHCStainingIntensityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupMarginStatus)
-class LookupMarginStatusAdmin(ModelAdmin):
+class LookupMarginStatusAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupTreatmentEffect)
-class LookupTreatmentEffectAdmin(ModelAdmin):
+class LookupTreatmentEffectAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
     
 
 @admin.register(LookupStagingType)
-class LookupStagingTypeAdmin(ModelAdmin):
+class LookupStagingTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupSystemicTherapyRegimen)
-class LookupSystemicTherapyRegimenAdmin(ModelAdmin):
+class LookupSystemicTherapyRegimenAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupRTLocation)
-class LookupRTLocationAdmin(ModelAdmin):
+class LookupRTLocationAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupLaboratoryTest)
-class LookupLaboratoryTestAdmin(ModelAdmin):
+class LookupLaboratoryTestAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupSymptoms)
-class LookupSymptomsAdmin(ModelAdmin):
+class LookupSymptomsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 
 @admin.register(LookupSeverity)
-class LookupSeverityAdmin(ModelAdmin):
+class LookupSeverityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupIHCAntibody)
-class LookupIHCAntibodyAdmin(ModelAdmin):
+class LookupIHCAntibodyAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupComorbidity)
-class LookupComorbidityAdmin(ModelAdmin):
+class LookupComorbidityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupPerformanceStatus)
-class LookupPerformanceStatusAdmin(ModelAdmin):
+class LookupPerformanceStatusAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupExpressionUnits)
-class LookupExpressionUnitsAdmin(ModelAdmin):
+class LookupExpressionUnitsAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 
 @admin.register(LookupCytogeneticAbnormality)
-class LookupCytogeneticAbnormalityAdmin(ModelAdmin):
+class LookupCytogeneticAbnormalityAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupEpigeneticAbnormalityType)
-class LookupEpigeneticAbnormalityTypeAdmin(ModelAdmin):
+class LookupEpigeneticAbnormalityTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupSurgicalProcedures)
-class LookupSurgicalProceduresAdmin(ModelAdmin):
+class LookupSurgicalProceduresAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 @admin.register(LookupNodalAssessmentType)
-class LookupNodalAssessmentTypeAdmin(ModelAdmin):
+class LookupNodalAssessmentTypeAdmin(ReadOnlyLookupAdmin):
     search_fields = ['label']
     readonly_fields = ['code','label']
+    actions = ['sync_with_api']
 
 
 
