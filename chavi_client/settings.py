@@ -216,7 +216,8 @@ ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']
 
 # Unfold Settings
 UNFOLD = {
-    "SITE_HEADER": "CHAVI Client Application",
+    "SITE_HEADER": "CHAVI Client",
+    "SITE_SUBHEADER": "Application for harmonization of data",
     "SITE_TITLE": "CHAVI Client Application",
     "SITE_BRAND": "CHAVI Client Application",
 
@@ -253,7 +254,7 @@ UNFOLD = {
     ],
 
     "SIDEBAR": {
-        "show_search": False,  # Search in applications and models names
+        "show_search": True,  # Search in applications and models names
         "show_all_applications": False,  # Dropdown with all applications and models
         "navigation": [
             {
@@ -271,6 +272,11 @@ UNFOLD = {
                         "icon": "book",
                         "link": "/docs",
                     },
+                    {
+                        "title": _("Site Configuration"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:client_app_siteconfiguration_changelist"),
+                    },                    
                 ]
             },
           
@@ -435,12 +441,12 @@ UNFOLD = {
                 ],
             },                           
             {
-                "title": _("Project"),
+                "title": _("Project List"),
                 "separator": True,  # Top border
                 "collapsible": True,  # Collapsible group of links
                 "items": [
                     {
-                        "title": _("Projects"),
+                        "title": _("List of Projects"),
                         "icon": "settings",
                         "link": reverse_lazy("admin:client_app_project_changelist"),
                     },
