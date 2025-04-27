@@ -446,6 +446,18 @@ UNFOLD = {
                     },
                                         
                 ],
+            },
+            {
+                "title": _("Lookup Data"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Lookup Data"),
+                        "icon": "settings",
+                        "link": "/admin/lookup/",
+                    }
+                ],
             },  
 
 

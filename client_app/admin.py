@@ -214,12 +214,12 @@ class DiagnosisResource(resources.ModelResource):
 
 
     patient = fields.Field(attribute='patient',column_name='patient_id',widget=ForeignKeyWidget(Patient,field='patient_id'))
-    cancer_system = fields.Field(attribute='cancer_system',column_name='cancer_system',widget=ForeignKeyWidget(LookupMajorCancerCategory,field='label'))
-    diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(LookupICDCode,field='label'))
-    diagnostic_modality = fields.Field(attribute='diagnostic_modality',column_name='diagnostic_modality',widget=ForeignKeyWidget(LookupDiagnosticModality,field='label'))
-    presentation_type = fields.Field(attribute='presentation_type',column_name='presentation_type',widget=ForeignKeyWidget(LookupPresentation,field='label'))
-    cancer_site = fields.Field(attribute='cancer_site',column_name='cancer_site',widget=ForeignKeyWidget(LookupFMACode,field='label'))
-    cancer_side = fields.Field(attribute='cancer_side',column_name='cancer_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
+    cancer_system = fields.Field(attribute='cancer_system',column_name='cancer_system',widget=ForeignKeyWidget(LookupMajorCancerCategory,field='code'))
+    diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(LookupICDCode,field='code'))
+    diagnostic_modality = fields.Field(attribute='diagnostic_modality',column_name='diagnostic_modality',widget=ForeignKeyWidget(LookupDiagnosticModality,field='code'))
+    presentation_type = fields.Field(attribute='presentation_type',column_name='presentation_type',widget=ForeignKeyWidget(LookupPresentation,field='code'))
+    cancer_site = fields.Field(attribute='cancer_site',column_name='cancer_site',widget=ForeignKeyWidget(LookupFMACode,field='code'))
+    cancer_side = fields.Field(attribute='cancer_side',column_name='cancer_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
     diagnosis_project = fields.Field(attribute='diagnosis_project',column_name='diagnosis_project',widget=ManyToManyWidget(Project,field='chavi_project_id'))
 
     class Meta:
@@ -289,18 +289,18 @@ class PathologyResource(resources.ModelResource):
 
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    tumor_site = fields.Field(attribute='tumor_site',column_name='tumor_site',widget=ForeignKeyWidget(LookupFMACode,field='label'))
-    tumor_side = fields.Field(attribute='tumor_side',column_name='tumor_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
-    histological_type = fields.Field(attribute='histological_type',column_name='histological_type',widget=ForeignKeyWidget(LookupPathology,field='label'))
-    histological_grade = fields.Field(attribute='histological_grade',column_name='histological_grade',widget=ForeignKeyWidget(LookupGrade,field='label'))
-    tumor_dimesion_unit = fields.Field(attribute='tumor_dimesion_unit',column_name='tumor_dimesion_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
-    lymphatic_vascular_invasion = fields.Field(attribute='lymphatic_vascular_invasion',column_name='lymphatic_vascular_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='label'))
-    perineural_invasion = fields.Field(attribute='perineural_invasion',column_name='perineural_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='label'))
-    dermal_lymphatic_vascular_invasion = fields.Field(attribute='dermal_lymphatic_vascular_invasion',column_name='dermal_lymphatic_vascular_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='label'))
-    necrosis = fields.Field(attribute='necrosis',column_name='necrosis',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='label'))
-    margin_status = fields.Field(attribute='margin_status',column_name='margin_status',widget=ForeignKeyWidget(LookupMarginStatus,field='label'))    
-    closest_margin_distance_unit = fields.Field(attribute='closest_margin_distance_unit',column_name='closest_margin_distance_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
-    treatment_effect = fields.Field(attribute='treatment_effect',column_name='treatment_effect',widget=ForeignKeyWidget(LookupTreatmentEffect,field='label'))
+    tumor_site = fields.Field(attribute='tumor_site',column_name='tumor_site',widget=ForeignKeyWidget(LookupFMACode,field='code'))
+    tumor_side = fields.Field(attribute='tumor_side',column_name='tumor_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
+    histological_type = fields.Field(attribute='histological_type',column_name='histological_type',widget=ForeignKeyWidget(LookupPathology,field='code'))
+    histological_grade = fields.Field(attribute='histological_grade',column_name='histological_grade',widget=ForeignKeyWidget(LookupGrade,field='code'))
+    tumor_dimesion_unit = fields.Field(attribute='tumor_dimesion_unit',column_name='tumor_dimesion_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
+    lymphatic_vascular_invasion = fields.Field(attribute='lymphatic_vascular_invasion',column_name='lymphatic_vascular_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='code'))
+    perineural_invasion = fields.Field(attribute='perineural_invasion',column_name='perineural_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='code'))
+    dermal_lymphatic_vascular_invasion = fields.Field(attribute='dermal_lymphatic_vascular_invasion',column_name='dermal_lymphatic_vascular_invasion',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='code'))
+    necrosis = fields.Field(attribute='necrosis',column_name='necrosis',widget=ForeignKeyWidget(LookupPathologyDescriptors,field='code'))
+    margin_status = fields.Field(attribute='margin_status',column_name='margin_status',widget=ForeignKeyWidget(LookupMarginStatus,field='code'))    
+    closest_margin_distance_unit = fields.Field(attribute='closest_margin_distance_unit',column_name='closest_margin_distance_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
+    treatment_effect = fields.Field(attribute='treatment_effect',column_name='treatment_effect',widget=ForeignKeyWidget(LookupTreatmentEffect,field='code'))
 
     
     class Meta:
@@ -390,18 +390,18 @@ class StageInformationResource(resources.ModelResource):
         row['chavi_stage_information_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    staging_system = fields.Field(attribute='staging_system',column_name='staging_system',widget=ForeignKeyWidget(LookupStagingSystem,field='label'))
-    stage_type = fields.Field(attribute='stage_type',column_name='stage_type',widget=ForeignKeyWidget(LookupStagingType,field='label'))
-    t_stage_prefix = fields.Field(attribute='t_stage_prefix',column_name='t_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='label'))
-    t_stage = fields.Field(attribute='t_stage',column_name='t_stage',widget=ForeignKeyWidget(LookupAJCCTStageDescriptor,field='label'))
-    t_stage_suffix = fields.Field(attribute='t_stage_suffix',column_name='t_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='label'))
-    n_stage_prefix = fields.Field(attribute='n_stage_prefix',column_name='n_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='label'))
-    n_stage = fields.Field(attribute='n_stage',column_name='n_stage',widget=ForeignKeyWidget(LookupAJCCNStageDescriptor,field='label'))
-    n_stage_suffix = fields.Field(attribute='n_stage_suffix',column_name='n_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='label'))
-    m_stage_prefix = fields.Field(attribute='m_stage_prefix',column_name='m_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='label'))
-    m_stage = fields.Field(attribute='m_stage',column_name='m_stage',widget=ForeignKeyWidget(LookupAJCCMStageDescriptor,field='label'))
-    m_stage_suffix = fields.Field(attribute='m_stage_suffix',column_name='m_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='label'))
-    overall_stage = fields.Field(attribute='overall_stage',column_name='overall_stage',widget=ForeignKeyWidget(LookupStageDescriptor,field='label'))    
+    staging_system = fields.Field(attribute='staging_system',column_name='staging_system',widget=ForeignKeyWidget(LookupStagingSystem,field='code'))
+    stage_type = fields.Field(attribute='stage_type',column_name='stage_type',widget=ForeignKeyWidget(LookupStagingType,field='code'))
+    t_stage_prefix = fields.Field(attribute='t_stage_prefix',column_name='t_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='code'))
+    t_stage = fields.Field(attribute='t_stage',column_name='t_stage',widget=ForeignKeyWidget(LookupAJCCTStageDescriptor,field='code'))
+    t_stage_suffix = fields.Field(attribute='t_stage_suffix',column_name='t_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='code'))
+    n_stage_prefix = fields.Field(attribute='n_stage_prefix',column_name='n_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='code'))
+    n_stage = fields.Field(attribute='n_stage',column_name='n_stage',widget=ForeignKeyWidget(LookupAJCCNStageDescriptor,field='code'))
+    n_stage_suffix = fields.Field(attribute='n_stage_suffix',column_name='n_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='code'))
+    m_stage_prefix = fields.Field(attribute='m_stage_prefix',column_name='m_stage_prefix',widget=ForeignKeyWidget(LookupAJCCStagePrefix,field='code'))
+    m_stage = fields.Field(attribute='m_stage',column_name='m_stage',widget=ForeignKeyWidget(LookupAJCCMStageDescriptor,field='code'))
+    m_stage_suffix = fields.Field(attribute='m_stage_suffix',column_name='m_stage_suffix',widget=ForeignKeyWidget(LookupAJCCStageSuffix,field='code'))
+    overall_stage = fields.Field(attribute='overall_stage',column_name='overall_stage',widget=ForeignKeyWidget(LookupStageDescriptor,field='code'))    
 
     class Meta:
         model = StageInformation
@@ -514,11 +514,11 @@ class LesionResource(resources.ModelResource):
         row['chavi_lesion_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    lesion_site = fields.Field(attribute='lesion_site',column_name='lesion_site',widget=ForeignKeyWidget(LookupFMACode,field='label'))
-    lesion_laterality = fields.Field(attribute='lesion_laterality',column_name='lesion_laterality',widget=ForeignKeyWidget(LookupLaterality,field='label'))
-    lesion_type = fields.Field(attribute='lesion_type',column_name='lesion_type',widget=ForeignKeyWidget(LookupLesionType,field='label'))
-    lesion_size_unit = fields.Field(attribute='lesion_size_unit',column_name='lesion_size_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
-    lesion_volume_unit = fields.Field(attribute='lesion_volume_unit',column_name='lesion_volume_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
+    lesion_site = fields.Field(attribute='lesion_site',column_name='lesion_site',widget=ForeignKeyWidget(LookupFMACode,field='code'))
+    lesion_laterality = fields.Field(attribute='lesion_laterality',column_name='lesion_laterality',widget=ForeignKeyWidget(LookupLaterality,field='code'))
+    lesion_type = fields.Field(attribute='lesion_type',column_name='lesion_type',widget=ForeignKeyWidget(LookupLesionType,field='code'))
+    lesion_size_unit = fields.Field(attribute='lesion_size_unit',column_name='lesion_size_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
+    lesion_volume_unit = fields.Field(attribute='lesion_volume_unit',column_name='lesion_volume_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
 
     class Meta:
         model = Lesion
@@ -573,9 +573,9 @@ class LesionResponseResource(resources.ModelResource):
         row['chavi_lesion_response_id'] = str(uuid.uuid4())
 
     lesion = fields.Field(attribute='lesion',column_name='lesion',widget=ForeignKeyWidget(Lesion,field='chavi_lesion_id'))
-    lesion_response = fields.Field(attribute='lesion_response',column_name='lesion_response',widget=ForeignKeyWidget(LookupResponseType,field='label'))
-    residual_lesion_size_unit = fields.Field(attribute='residual_lesion_size_unit',column_name='residual_lesion_size_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
-    residual_lesion_volume_unit = fields.Field(attribute='residual_lesion_volume_unit',column_name='residual_lesion_volume_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='label'))
+    lesion_response = fields.Field(attribute='lesion_response',column_name='lesion_response',widget=ForeignKeyWidget(LookupResponseType,field='code'))
+    residual_lesion_size_unit = fields.Field(attribute='residual_lesion_size_unit',column_name='residual_lesion_size_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
+    residual_lesion_volume_unit = fields.Field(attribute='residual_lesion_volume_unit',column_name='residual_lesion_volume_unit',widget=ForeignKeyWidget(LookupSizeUnits,field='code'))
 
     class Meta:
         model = LesionResponse
@@ -614,12 +614,12 @@ class RadiotherapyResource(resources.ModelResource):
         row['chavi_radiotherapy_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    radiotherapy_modality = fields.Field(attribute='radiotherapy_modality',column_name='radiotherapy_modality',widget=ForeignKeyWidget(LookupRadiotherapyModality,field='label'))
-    radiation_dose_units = fields.Field(attribute='radiation_dose_units',column_name='radiation_dose_units',widget=ForeignKeyWidget(LookupDoseUnits,field='label'))
-    radiotherapy_type = fields.Field(attribute='radiotherapy_type',column_name='radiotherapy_type',widget=ForeignKeyWidget(LookupRadiotherapyType,field='label'))
-    radiotherapy_technique = fields.Field(attribute='radiotherapy_technique',column_name='radiotherapy_technique',widget=ForeignKeyWidget(LookupRadiotherapyTechnique,field='label'))
-    radiotherapy_side = fields.Field(attribute='radiotherapy_side',column_name='radiotherapy_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
-    radiotherapy_intent = fields.Field(attribute='radiotherapy_intent',column_name='radiotherapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='label'))
+    radiotherapy_modality = fields.Field(attribute='radiotherapy_modality',column_name='radiotherapy_modality',widget=ForeignKeyWidget(LookupRadiotherapyModality,field='code'))
+    radiation_dose_units = fields.Field(attribute='radiation_dose_units',column_name='radiation_dose_units',widget=ForeignKeyWidget(LookupDoseUnits,field='code'))
+    radiotherapy_type = fields.Field(attribute='radiotherapy_type',column_name='radiotherapy_type',widget=ForeignKeyWidget(LookupRadiotherapyType,field='code'))
+    radiotherapy_technique = fields.Field(attribute='radiotherapy_technique',column_name='radiotherapy_technique',widget=ForeignKeyWidget(LookupRadiotherapyTechnique,field='code'))
+    radiotherapy_side = fields.Field(attribute='radiotherapy_side',column_name='radiotherapy_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
+    radiotherapy_intent = fields.Field(attribute='radiotherapy_intent',column_name='radiotherapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='code'))
 
     class Meta:
         model = Radiotherapy
@@ -687,9 +687,9 @@ class SurgeryResource(resources.ModelResource):
         row['chavi_surgery_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    surgery_side = fields.Field(attribute='surgery_side',column_name='surgery_side',widget=ForeignKeyWidget(LookupLaterality,field='label'))
-    surgery_type= fields.Field(attribute='surgery_type',column_name='surgery_type',widget=ForeignKeyWidget(LookupSurgicalProcedures,field='label'))
-    nodal_assessment_type = fields.Field(attribute='nodal_assessment_type',column_name='nodal_assessment_type',widget=ForeignKeyWidget(LookupNodalAssessmentType,field='label'))
+    surgery_side = fields.Field(attribute='surgery_side',column_name='surgery_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
+    surgery_type= fields.Field(attribute='surgery_type',column_name='surgery_type',widget=ForeignKeyWidget(LookupSurgicalProcedures,field='code'))
+    nodal_assessment_type = fields.Field(attribute='nodal_assessment_type',column_name='nodal_assessment_type',widget=ForeignKeyWidget(LookupNodalAssessmentType,field='code'))
 
     class Meta:
         model = Surgery
@@ -734,10 +734,10 @@ class SystemicTherapyResource(resources.ModelResource):
 
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    systemic_therapy_type = fields.Field(attribute='systemic_therapy_type',column_name='systemic_therapy_type',widget=ForeignKeyWidget(LookupSystemicTherapyType,field='label'))
-    systemic_therapy_sequence = fields.Field(attribute='systemic_therapy_sequence',column_name='systemic_therapy_sequence',widget=ForeignKeyWidget(LookupTreatmentSequence,field='label'))
-    systemic_therapy_regimen = fields.Field(attribute='systemic_therapy_regimen',column_name='systemic_therapy_regimen',widget=ForeignKeyWidget(LookupSystemicTherapyRegimen,field='label'))
-    systemic_therapy_intent = fields.Field(attribute='systemic_therapy_intent',column_name='systemic_therapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='label'))
+    systemic_therapy_type = fields.Field(attribute='systemic_therapy_type',column_name='systemic_therapy_type',widget=ForeignKeyWidget(LookupSystemicTherapyType,field='code'))
+    systemic_therapy_sequence = fields.Field(attribute='systemic_therapy_sequence',column_name='systemic_therapy_sequence',widget=ForeignKeyWidget(LookupTreatmentSequence,field='code'))
+    systemic_therapy_regimen = fields.Field(attribute='systemic_therapy_regimen',column_name='systemic_therapy_regimen',widget=ForeignKeyWidget(LookupSystemicTherapyRegimen,field='code'))
+    systemic_therapy_intent = fields.Field(attribute='systemic_therapy_intent',column_name='systemic_therapy_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='code'))
 
     class Meta:
         model = SystemicTherapy
@@ -789,7 +789,7 @@ class ConcomitantMedicationsResource(resources.ModelResource):
         row['chavi_medication_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    medication_dose_units = fields.Field(attribute='medication_dose_units',column_name='medication_dose_units',widget=ForeignKeyWidget(LookupDoseUnits,field='label'))
+    medication_dose_units = fields.Field(attribute='medication_dose_units',column_name='medication_dose_units',widget=ForeignKeyWidget(LookupDoseUnits,field='code'))
 
     class Meta:
         model = ConcomitantMedications
@@ -860,7 +860,7 @@ class AdverseEffectsResource(resources.ModelResource):
         row['chavi_adverse_effects_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    ctcae_grade_lookup = fields.Field(attribute='ctcae_grade_lookup',column_name='ctcae_grade_lookup',widget=ForeignKeyWidget(LookupCTCAEGrade,field='label'))
+    ctcae_grade_lookup = fields.Field(attribute='ctcae_grade_lookup',column_name='ctcae_grade_lookup',widget=ForeignKeyWidget(LookupCTCAEGrade,field='code'))
 
     class Meta:
         model = AdverseEffects
@@ -909,7 +909,7 @@ class PatientOutcomeResource(resources.ModelResource):
         row['chavi_patient_outcome_id'] = str(uuid.uuid4())
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
-    patient_status = fields.Field(attribute='patient_status',column_name='patient_status',widget=ForeignKeyWidget(LookupOutcome,field='label'))
+    patient_status = fields.Field(attribute='patient_status',column_name='patient_status',widget=ForeignKeyWidget(LookupOutcome,field='code'))
     
     class Meta:
         model = PatientOutcome
@@ -947,7 +947,7 @@ class OutcomeResource(resources.ModelResource):
         row['chavi_outcome_id'] = str(uuid.uuid4())
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
-    outcome_type = fields.Field(attribute='outcome_type',column_name='outcome_type',widget=ForeignKeyWidget(LookupOutcomeType,field='label'))
+    outcome_type = fields.Field(attribute='outcome_type',column_name='outcome_type',widget=ForeignKeyWidget(LookupOutcomeType,field='code'))
 
     class Meta:
         model = Outcome
@@ -1050,7 +1050,7 @@ class LaboratoryResultsResource(resources.ModelResource):
         row['chavi_laboratory_results_id'] = str(uuid.uuid4())
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
-    laboratory_test = fields.Field(attribute='laboratory_test',column_name='laboratory_test',widget=ForeignKeyWidget(LookupLaboratoryTest,field='label'))
+    laboratory_test = fields.Field(attribute='laboratory_test',column_name='laboratory_test',widget=ForeignKeyWidget(LookupLaboratoryTest,field='code'))
 
     class Meta:
         model = LaboratoryResults
@@ -1076,7 +1076,7 @@ class GermlineGenomicAlterationsResource(resources.ModelResource):
         row['chavi_germline_genomic_id'] = str(uuid.uuid4())
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
-    cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene,field='label'))
+    cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene,field='code'))
 
     class Meta:
         model = GermlineGenomicAlterations
@@ -1102,8 +1102,8 @@ class SymptomResource(resources.ModelResource):
         row['chavi_symptom_id'] = str(uuid.uuid4())
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
-    symptom = fields.Field(attribute='symptom',column_name='symptom',widget=ForeignKeyWidget(LookupSymptoms,field='label'))
-    severity = fields.Field(attribute='severity',column_name='severity',widget=ForeignKeyWidget(LookupSeverity,field='label'))
+    symptom = fields.Field(attribute='symptom',column_name='symptom',widget=ForeignKeyWidget(LookupSymptoms,field='code'))
+    severity = fields.Field(attribute='severity',column_name='severity',widget=ForeignKeyWidget(LookupSeverity,field='code'))
     class Meta:
         model = Symptom
         import_id_fields = ['chavi_symptom_id']
