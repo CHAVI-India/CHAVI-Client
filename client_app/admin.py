@@ -145,9 +145,9 @@ class PatientResource(resources.ModelResource):
         model = Patient
         import_id_fields = ['patient_id']
         widgets = {
-            'date_of_birth': {'format': '%d/%m/%Y'},
-            'date_of_registration': {'format': '%d/%m/%Y'},
-            'date_chavi_consent': {'format': '%d/%m/%Y'},
+            'date_of_birth': {'format': '%Y-%m-%d'},
+            'date_of_registration': {'format': '%Y-%m-%d'},
+            'date_chavi_consent': {'format': '%Y-%m-%d'},
         }
 
 
@@ -227,7 +227,7 @@ class DiagnosisResource(resources.ModelResource):
         import_id_fields = ['chavi_diagnosis_id']
         fields = ['chavi_diagnosis_id','patient','cancer_system','diagnosis','diagnosis_date','diagnostic_modality','presentation_type','cancer_site','cancer_side','diagnosis_project']
         widgets = {
-            'diagnosis_date': {'format': '%d/%m/%Y'},
+            'diagnosis_date': {'format': '%Y-%m-%d'},
         }
 
 
@@ -308,7 +308,7 @@ class PathologyResource(resources.ModelResource):
         import_id_fields = ['chavi_pathology_id']
         fields = ['chavi_pathology_id','diagnosis','date_pathology','specimen_type','tumor_site','tumor_side','greatest_dimension_of_tumor','additional_tumor_dimension_1','additional_tumor_dimension_2','tumor_dimesion_unit','tumor_focality','histological_type','histological_grade','lymphatic_vascular_invasion','perineural_invasion','dermal_lymphatic_vascular_invasion','necrosis','necrosis_percentage','mitotic_count','margin_status','closest_margin_distance','closest_margin_distance_unit','treatment_effect','primary_gleason_grade','secondary_gleason_grade','lymph_nodes_removed','lymph_nodes_in_specimen','lymph_node_extracapsular_extension','number_of_uninvolved_nodes','number_of_nodes_with_macrometastases','number_of_nodes_with_micrometastases','number_of_nodes_with_isolated_tumor_cells','number_of_nodes_with_extracapsular_extension']
         widgets = {
-            'date_pathology': {'format': '%d/%m/%Y'},
+            'date_pathology': {'format': '%Y-%m-%d'},
         }
 
 class PathologyExportResource(resources.ModelResource):
@@ -408,7 +408,7 @@ class StageInformationResource(resources.ModelResource):
         import_id_fields = ['chavi_stage_information_id']
         fields = ['chavi_stage_information_id','diagnosis','staging_system','stage_type','t_stage_prefix','t_stage','t_stage_suffix','n_stage_prefix','n_stage','n_stage_suffix','m_stage_prefix','m_stage','m_stage_suffix','overall_stage']
         widgets = {
-            'date_of_staging_assessment': {'format': '%d/%m/%Y'},
+            'date_of_staging_assessment': {'format': '%Y-%m-%d'},
         }
 
 class StageInformationExportResource(resources.ModelResource):
@@ -464,8 +464,8 @@ class ComorbidityResource(resources.ModelResource):
         import_id_fields = ['chavi_comorbidity_id']
         fields = ['chavi_comorbidity_id','patient','comorbidity_type','date_of_comorbidity_diagnosis','date_of_comorbidity_assessment','duration_of_comorbidity','comorbidity_resolved','medication_for_comorbidity']
         widgets = {
-            'date_of_comorbidity_diagnosis': {'format': '%d/%m/%Y'},
-            'date_of_comorbidity_assessment': {'format': '%d/%m/%Y'},
+            'date_of_comorbidity_diagnosis': {'format': '%Y-%m-%d'},
+            'date_of_comorbidity_assessment': {'format': '%Y-%m-%d'},
         }
 
 ## Create the Comorbidity Form
@@ -525,7 +525,7 @@ class LesionResource(resources.ModelResource):
         import_id_fields = ['chavi_lesion_id']
         fields = ['chavi_lesion_id','diagnosis','date_lesion_assessed','lesion_site','lesion_laterality','lesion_type','lesion_size_x_axis','lesion_size_y_axis','lesion_size_z_axis','lesion_size_unit','lesion_volume','lesion_volume_unit','lesion_detection_modality','lesion_suv_max']
         widgets = {
-            'date_lesion_assessed': {'format': '%d/%m/%Y'},
+            'date_lesion_assessed': {'format': '%Y-%m-%d'},
         }
 
 class LesionExportResource(resources.ModelResource):
@@ -582,7 +582,7 @@ class LesionResponseResource(resources.ModelResource):
         import_id_fields = ['chavi_lesion_response_id']
         fields = ['chavi_lesion_response_id','lesion','lesion_response_date','lesion_response','residual_lesion_size_x_axis','residual_lesion_size_y_axis','residual_lesion_size_z_axis','residual_lesion_size_unit','residual_lesion_volume','residual_lesion_volume_unit','lesion_response_modality','lesion_response_suv_max']
         widgets = {
-            'lesion_response_date': {'format': '%d/%m/%Y'},
+            'lesion_response_date': {'format': '%Y-%m-%d'},
         }
 
 class LesionResponseExportResource(resources.ModelResource):
@@ -626,8 +626,8 @@ class RadiotherapyResource(resources.ModelResource):
         import_id_fields = ['chavi_radiotherapy_id']
         fields = ['chavi_radiotherapy_id','diagnosis','radiotherapy_start_date','radiotherapy_intent','radiotherapy_end_date','radiotherapy_side','radiotherapy_course_type','reirradiation','radiotherapy_modality','radiotherapy_type','radiotherapy_machine','total_dose','radiation_dose_units','simultaneous_integrated_boost','simultaneous_integrated_boost_dose','total_fractions','fractions_per_day','radiotherapy_technique']
         widgets = {
-            'radiotherapy_start_date': {'format': '%d/%m/%Y'},
-            'radiotherapy_end_date': {'format': '%d/%m/%Y'},
+            'radiotherapy_start_date': {'format': '%Y-%m-%d'},
+            'radiotherapy_end_date': {'format': '%Y-%m-%d'},
         }
 
 class RadiotherapyExportResource(resources.ModelResource):
@@ -696,7 +696,7 @@ class SurgeryResource(resources.ModelResource):
         import_id_fields = ['chavi_surgery_id']
         fields = ['chavi_surgery_id','diagnosis','surgery_date','surgery_side','surgery_type','surgery_intent','nodal_assessment','nodal_assessment_type','reconstruction','type_reconstruction']
         widgets = {
-            'surgery_date': {'format': '%d/%m/%Y'},
+            'surgery_date': {'format': '%Y-%m-%d'},
         }
 
 
@@ -744,8 +744,8 @@ class SystemicTherapyResource(resources.ModelResource):
         import_id_fields = ['chavi_systemic_therapy_id']
         fields = ['chavi_systemic_therapy_id','diagnosis','systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent','systemic_therapy_regimen','cycles_delivered','systemic_therapy_start_date','systemic_therapy_end_date']
         widgets = {
-            'systemic_therapy_start_date': {'format': '%d/%m/%Y'},
-            'systemic_therapy_end_date': {'format': '%d/%m/%Y'},
+            'systemic_therapy_start_date': {'format': '%Y-%m-%d'},
+            'systemic_therapy_end_date': {'format': '%Y-%m-%d'},
         }
 
 class SystemicTherapyExportResource(resources.ModelResource):
@@ -796,8 +796,8 @@ class ConcomitantMedicationsResource(resources.ModelResource):
         import_id_fields = ['chavi_medication_id']
         fields = ['chavi_medication_id','diagnosis','medication_name','medication_route','medication_dose','medication_dose_units','date_medication_start_date','date_medication_end_date']
         widgets = {
-            'date_medication_start_date': {'format': '%d/%m/%Y'},
-            'date_medication_end_date': {'format': '%d/%m/%Y'},
+            'date_medication_start_date': {'format': '%Y-%m-%d'},
+            'date_medication_end_date': {'format': '%Y-%m-%d'},
         }
 
 
@@ -831,8 +831,8 @@ class OtherTreatmentResource(resources.ModelResource):
         import_id_fields = ['chavi_treatment_id']
         fields = ['chavi_treatment_id','diagnosis','treatment_intent','treatment_start_date','treatment_end_date','treatment']
         widgets = {
-            'treatment_start_date': {'format': '%d/%m/%Y'},
-            'treatment_end_date': {'format': '%d/%m/%Y'},
+            'treatment_start_date': {'format': '%Y-%m-%d'},
+            'treatment_end_date': {'format': '%Y-%m-%d'},
         }
 
 ## Create the Other Treatment Form Class
@@ -867,8 +867,8 @@ class AdverseEffectsResource(resources.ModelResource):
         import_id_fields = ['chavi_adverse_effects_id']
         fields = ['chavi_adverse_effects_id','diagnosis','adverse_effect_start_date','adverse_effect_end_date','ctcae_grade_lookup']
         widgets = {
-            'adverse_effect_start_date': {'format': '%d/%m/%Y'},
-            'adverse_effect_end_date': {'format': '%d/%m/%Y'},
+            'adverse_effect_start_date': {'format': '%Y-%m-%d'},
+            'adverse_effect_end_date': {'format': '%Y-%m-%d'},
         }
 
 class AdverseEffectsExportResource(resources.ModelResource):
@@ -916,7 +916,7 @@ class PatientOutcomeResource(resources.ModelResource):
         import_id_fields = ['chavi_patient_outcome_id']
         fields = ['chavi_patient_outcome_id','patient','patient_status','date_of_death','death_related_to_cancer_progression']
         widgets = {
-            'date_of_death': {'format': '%d/%m/%Y'},
+            'date_of_death': {'format': '%Y-%m-%d'},
         }
 
 class PatientOutcomeExportResource(resources.ModelResource):
@@ -954,7 +954,7 @@ class OutcomeResource(resources.ModelResource):
         import_id_fields = ['chavi_outcome_id']
         fields = ['chavi_outcome_id','diagnosis','date_outcome_assessed','outcome_type']
         widgets = {
-            'date_outcome_assessed': {'format': '%d/%m/%Y'},
+            'date_outcome_assessed': {'format': '%Y-%m-%d'},
         }
 
 ## Create the Outcome Form Class
@@ -996,7 +996,7 @@ class PatientReportedOutcomeResource(resources.ModelResource):
         import_id_fields = ['chavi_pro_id']
         fields = ['chavi_pro_id','patient','pro_assessment_date','pro_instrument','pro_scale','pro_question_id','pro_question','pro_answer','pro_score']
         widgets = {
-            'pro_assessment_date': {'format': '%d/%m/%Y'},
+            'pro_assessment_date': {'format': '%Y-%m-%d'},
         }
 
 ## Create the Patient Reported Outcome Form Class
@@ -1057,7 +1057,7 @@ class LaboratoryResultsResource(resources.ModelResource):
         import_id_fields = ['chavi_laboratory_result_id']
         fields = ['chavi_laboratory_result_id','patient','laboratory_test','result_date','result_value','result_unit']
         widgets = {
-            'result_date': {'format': '%d/%m/%Y'},
+            'result_date': {'format': '%Y-%m-%d'},
         }
         
 @admin.register(LaboratoryResults)
@@ -1083,7 +1083,7 @@ class GermlineGenomicAlterationsResource(resources.ModelResource):
         import_id_fields = ['chavi_germline_genomic_id']
         fields = ['chavi_germline_genomic_id','patient','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
         widgets = {
-            'date_test': {'format': '%d/%m/%Y'},
+            'date_test': {'format': '%Y-%m-%d'},
         }
 
 @admin.register(GermlineGenomicAlterations)
@@ -1109,9 +1109,9 @@ class SymptomResource(resources.ModelResource):
         import_id_fields = ['chavi_symptom_id']
         fields = ['chavi_symptom_id','patient','symptom','date_onset','date_symptom_assessment','duration_of_symptom','date_resolution','severity']
         widgets = {
-            'date_onset': {'format': '%d/%m/%Y'},
-            'date_symptom_assessment': {'format': '%d/%m/%Y'},
-            'date_resolution': {'format': '%d/%m/%Y'},
+            'date_onset': {'format': '%Y-%m-%d'},
+            'date_symptom_assessment': {'format': '%Y-%m-%d'},
+            'date_resolution': {'format': '%Y-%m-%d'},
         }
 @admin.register(Symptom)
 class SymptomAdmin(ModelAdmin, ImportExportModelAdmin):
@@ -1139,7 +1139,7 @@ class PatientAssessmentResource(resources.ModelResource):
         import_id_fields = ['chavi_patient_assessment_id']
         fields = ['chavi_patient_assessment_id','patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
         widgets = {
-            'date_assessment': {'format': '%d/%m/%Y'},
+            'date_assessment': {'format': '%Y-%m-%d'},
         }
 @admin.register(PatientAssessment)
 class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):

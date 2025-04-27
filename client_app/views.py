@@ -13,6 +13,10 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 # Create your views here.
 
+class HomePageView(TemplateView):
+    """View for the application homepage."""
+    template_name = "client_app/homepage.html"
+
 def documentation_view(request, path=''):
     """Serve the Sphinx documentation."""
     doc_root = os.path.join(settings.BASE_DIR, 'docs', '_build', 'html')

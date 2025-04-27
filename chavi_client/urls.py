@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.shortcuts import redirect
-from client_app.views import documentation_view
+from client_app.views import documentation_view, HomePageView
 from client_app.admin import get_custom_admin_urls
 
 # Add custom admin URLs to the admin site
@@ -30,8 +30,8 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
-    # After login, redirect to admin's patient search
-    path('home/', lambda request: redirect('admin:patient-search'), name='home'),
+    # Home URL now points to the homepage view instead of redirecting
+    path('home/', HomePageView.as_view(), name='home'),
     # Documentation URLs
     re_path(r'^docs/(?P<path>.*)$', documentation_view, name='documentation'),
     path('docs/', documentation_view, name='documentation-index'),
