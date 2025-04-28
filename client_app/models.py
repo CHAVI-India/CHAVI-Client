@@ -1462,7 +1462,7 @@ class Surgery(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__ (self):
-        return f"{self.diagnosis}-{self.surgery_date}-{self.surgery_type}"
+        return f"{self.diagnosis}-{self.surgery_date}"
     class Meta:
         verbose_name_plural="Surgery"
         db_table="surgery"
