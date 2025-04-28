@@ -705,6 +705,7 @@ class SurgeryResource(resources.ModelResource):
 class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','surgery_type']
     list_filter = ['diagnosis__patient__patient_id']
+    list_display= ['diagnosis__patient__patient_id','surgery_side','surgery_date','nodal_assessment']
     filter_horizontal = ['surgery_dicom_study']
     fieldsets = (
         ('Surgery', {
