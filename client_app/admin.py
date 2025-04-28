@@ -151,6 +151,7 @@ class PatientResource(resources.ModelResource):
         }
 
 
+
 @admin.register(Patient)
 class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
     actions = [export_patient_data]
@@ -205,13 +206,15 @@ class PatientDicomFileAdmin(ModelAdmin):
 
 ## Create the Diagnosis Resource
 class DiagnosisResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_diagnosis_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_diagnosis_id' not in dataset.headers:
+            dataset.headers.append('chavi_diagnosis_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_diagnosis_id'] = str(uuid.uuid4())
-
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_diagnosis_id' not in row or not row['chavi_diagnosis_id']:
+            row['chavi_diagnosis_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient_id',widget=ForeignKeyWidget(Patient,field='patient_id'))
     cancer_system = fields.Field(attribute='cancer_system',column_name='cancer_system',widget=ForeignKeyWidget(LookupMajorCancerCategory,field='code'))
@@ -280,13 +283,15 @@ class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
 
 ## Create the Pathology Form Class
 class PathologyResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_pathology_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_pathology_id' not in dataset.headers:
+            dataset.headers.append('chavi_pathology_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_pathology_id'] = str(uuid.uuid4())
-
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_pathology_id' not in row or not row['chavi_pathology_id']:
+            row['chavi_pathology_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     tumor_site = fields.Field(attribute='tumor_site',column_name='tumor_site',widget=ForeignKeyWidget(LookupFMACode,field='code'))
@@ -382,12 +387,15 @@ class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
 
 # Create the Stage Information Resource
 class StageInformationResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_stage_information_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_stage_information_id' not in dataset.headers:
+            dataset.headers.append('chavi_stage_information_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_stage_information_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_stage_information_id' not in row or not row['chavi_stage_information_id']:
+            row['chavi_stage_information_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     staging_system = fields.Field(attribute='staging_system',column_name='staging_system',widget=ForeignKeyWidget(LookupStagingSystem,field='code'))
@@ -449,13 +457,15 @@ class StageInformationAdmin (ModelAdmin, ImportExportModelAdmin):
 
 
 class ComorbidityResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_comorbidity_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_comorbidity_id' not in dataset.headers:
+            dataset.headers.append('chavi_comorbidity_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_comorbidity_id'] = str(uuid.uuid4())
-
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_comorbidity_id' not in row or not row['chavi_comorbidity_id']:
+            row['chavi_comorbidity_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
 
@@ -506,12 +516,15 @@ class ComorbidityAdmin (ModelAdmin, ImportExportModelAdmin):
 
 # Create the Lesion Resource
 class LesionResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_lesion_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_lesion_id' not in dataset.headers:
+            dataset.headers.append('chavi_lesion_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_lesion_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_lesion_id' not in row or not row['chavi_lesion_id']:
+            row['chavi_lesion_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     lesion_site = fields.Field(attribute='lesion_site',column_name='lesion_site',widget=ForeignKeyWidget(LookupFMACode,field='code'))
@@ -565,12 +578,15 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
         return LesionExportResource
 
 class LesionResponseResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_lesion_response_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_lesion_response_id' not in dataset.headers:
+            dataset.headers.append('chavi_lesion_response_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_lesion_response_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_lesion_response_id' not in row or not row['chavi_lesion_response_id']:
+            row['chavi_lesion_response_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     lesion = fields.Field(attribute='lesion',column_name='lesion',widget=ForeignKeyWidget(Lesion,field='chavi_lesion_id'))
     lesion_response = fields.Field(attribute='lesion_response',column_name='lesion_response',widget=ForeignKeyWidget(LookupResponseType,field='code'))
@@ -606,12 +622,15 @@ class LesionResponseAdmin (ModelAdmin, ImportExportModelAdmin):
 
 
 class RadiotherapyResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_radiotherapy_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_radiotherapy_id' not in dataset.headers:
+            dataset.headers.append('chavi_radiotherapy_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_radiotherapy_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_radiotherapy_id' not in row or not row['chavi_radiotherapy_id']:
+            row['chavi_radiotherapy_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     radiotherapy_modality = fields.Field(attribute='radiotherapy_modality',column_name='radiotherapy_modality',widget=ForeignKeyWidget(LookupRadiotherapyModality,field='code'))
@@ -679,12 +698,17 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
 ## Create the Surgery Resource
 class SurgeryResource(resources.ModelResource):
 
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_surgery_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        # Only append chavi_surgery_id if it's not already in headers
+        if 'chavi_surgery_id' not in dataset.headers:
+            dataset.headers.append('chavi_surgery_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_surgery_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        # Only generate new UUID if chavi_surgery_id is not present or empty
+        if 'chavi_surgery_id' not in row or not row['chavi_surgery_id']:
+            row['chavi_surgery_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     surgery_side = fields.Field(attribute='surgery_side',column_name='surgery_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
@@ -726,13 +750,15 @@ class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
 # Create the Systemic Therapy Resource
 class SystemicTherapyResource(resources.ModelResource):
 
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_systemic_therapy_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_systemic_therapy_id' not in dataset.headers:
+            dataset.headers.append('chavi_systemic_therapy_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_systemic_therapy_id'] = str(uuid.uuid4())
-
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_systemic_therapy_id' not in row or not row['chavi_systemic_therapy_id']:
+            row['chavi_systemic_therapy_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     systemic_therapy_type = fields.Field(attribute='systemic_therapy_type',column_name='systemic_therapy_type',widget=ForeignKeyWidget(LookupSystemicTherapyType,field='code'))
@@ -782,12 +808,15 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
 
 ## Create the ConcomitantMedications Form Class
 class ConcomitantMedicationsResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_medication_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_medication_id' not in dataset.headers:
+            dataset.headers.append('chavi_medication_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_medication_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_medication_id' not in row or not row['chavi_medication_id']:
+            row['chavi_medication_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     medication_dose_units = fields.Field(attribute='medication_dose_units',column_name='medication_dose_units',widget=ForeignKeyWidget(LookupDoseUnits,field='code'))
@@ -818,12 +847,15 @@ class ConcomitantMedicationsAdmin (ModelAdmin, ImportExportModelAdmin):
 # Create the Other Treatment Resource
 class OtherTreatmentResource(resources.ModelResource):
 
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_treatment_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_treatment_id' not in dataset.headers:
+            dataset.headers.append('chavi_treatment_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_treatment_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_treatment_id' not in row or not row['chavi_treatment_id']:
+            row['chavi_treatment_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     treatment_intent = fields.Field(attribute='treatment_intent',column_name='treatment_intent',widget=ForeignKeyWidget(LookupTreatmentIntent,field='chavi_treatment_intent_id'))
@@ -853,12 +885,15 @@ class OtherTreatmentAdmin (ModelAdmin, ImportExportModelAdmin):
 ## Create the Adverse Effects form class
 class AdverseEffectsResource(resources.ModelResource):
 
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_adverse_effects_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_adverse_effects_id' not in dataset.headers:
+            dataset.headers.append('chavi_adverse_effects_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_adverse_effects_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_adverse_effects_id' not in row or not row['chavi_adverse_effects_id']:
+            row['chavi_adverse_effects_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     ctcae_grade_lookup = fields.Field(attribute='ctcae_grade_lookup',column_name='ctcae_grade_lookup',widget=ForeignKeyWidget(LookupCTCAEGrade,field='code'))
@@ -902,12 +937,15 @@ class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
 
 class PatientOutcomeResource(resources.ModelResource):
     
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_patient_outcome_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_patient_outcome_id' not in dataset.headers:
+            dataset.headers.append('chavi_patient_outcome_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_patient_outcome_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_patient_outcome_id' not in row or not row['chavi_patient_outcome_id']:
+            row['chavi_patient_outcome_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     patient_status = fields.Field(attribute='patient_status',column_name='patient_status',widget=ForeignKeyWidget(LookupOutcome,field='code'))
@@ -940,12 +978,15 @@ class PatientOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
 
 # Create the Outcome Resource
 class OutcomeResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_outcome_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_outcome_id' not in dataset.headers:
+            dataset.headers.append('chavi_outcome_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_outcome_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_outcome_id' not in row or not row['chavi_outcome_id']:
+            row['chavi_outcome_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     outcome_type = fields.Field(attribute='outcome_type',column_name='outcome_type',widget=ForeignKeyWidget(LookupOutcomeType,field='code'))
@@ -983,12 +1024,15 @@ class OutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
 
 # Create the Patient Reported Outcome Resource
 class PatientReportedOutcomeResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_pro_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_pro_id' not in dataset.headers:
+            dataset.headers.append('chavi_pro_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_pro_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_pro_id' not in row or not row['chavi_pro_id']:
+            row['chavi_pro_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     
@@ -1043,12 +1087,15 @@ class ProjectAdmin(ModelAdmin):
 # Create the Laboratory Results form Class
 class LaboratoryResultsResource(resources.ModelResource):
 
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_laboratory_result_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_laboratory_result_id' not in dataset.headers:
+            dataset.headers.append('chavi_laboratory_result_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_laboratory_results_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_laboratory_result_id' not in row or not row['chavi_laboratory_result_id']:
+            row['chavi_laboratory_result_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     laboratory_test = fields.Field(attribute='laboratory_test',column_name='laboratory_test',widget=ForeignKeyWidget(LookupLaboratoryTest,field='code'))
@@ -1069,12 +1116,15 @@ class LaboratoryResultsAdmin(ModelAdmin,ImportExportModelAdmin):
 
 
 class GermlineGenomicAlterationsResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_germline_genomic_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_germline_genomic_id' not in dataset.headers:
+            dataset.headers.append('chavi_germline_genomic_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_germline_genomic_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_germline_genomic_id' not in row or not row['chavi_germline_genomic_id']:
+            row['chavi_germline_genomic_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene,field='code'))
@@ -1095,12 +1145,15 @@ class GermlineGenomicAlterationsAdmin(ModelAdmin, ImportExportModelAdmin):
 
 
 class SymptomResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_symptom_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_symptom_id' not in dataset.headers:
+            dataset.headers.append('chavi_symptom_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_symptom_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_symptom_id' not in row or not row['chavi_symptom_id']:
+            row['chavi_symptom_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     symptom = fields.Field(attribute='symptom',column_name='symptom',widget=ForeignKeyWidget(LookupSymptoms,field='code'))
@@ -1125,12 +1178,15 @@ class SymptomAdmin(ModelAdmin, ImportExportModelAdmin):
 
 
 class PatientAssessmentResource(resources.ModelResource):
-    def before_import(self,dataset,**kwargs):
-        dataset.headers.append('chavi_patient_assessment_id')
-        super().before_import(dataset,**kwargs)
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_patient_assessment_id' not in dataset.headers:
+            dataset.headers.append('chavi_patient_assessment_id')
+        super().before_import(dataset, **kwargs)
 
-    def before_import_row(self,row,**kwargs):
-        row['chavi_patient_assessment_id'] = str(uuid.uuid4())
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_patient_assessment_id' not in row or not row['chavi_patient_assessment_id']:
+            row['chavi_patient_assessment_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
 
     patient = fields.Field(attribute='patient',column_name='patient',widget=ForeignKeyWidget(Patient,field='patient_id'))
     performance_status = fields.Field(attribute='performance_status',column_name='performance_status',widget=ForeignKeyWidget(LookupPerformanceStatus,field='code'))
