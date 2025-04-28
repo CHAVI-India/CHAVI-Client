@@ -199,218 +199,185 @@ class LookupDiagnosticModality(LookupAbstract):
     ''' This is a lookup table for the diagnostic modality'''
     def __str__(self):
         return f"{self.label}"
-    class Meta:
-        verbose_name_plural= "Diagnostic Modalities"
-        db_table = 'lookup_diagnostic_modality'
+
 
 class LookupSystemicTherapyType(LookupAbstract):
     ''' This is a lookup table for the type of Systemic Therapy'''
     def __str__(self):
         return f"{self.label}"
 
-    class Meta:
-        verbose_name_plural = "Systemic Therapy Types"
-        db_table = 'lookup_systemic_therapy_type'
 
 class LookupRadiotherapyVolumeType(LookupAbstract):
     ''' This is a lookup table for the type of Radiotherapy Volume'''
     def __str__(self):
         return f"{self.label}"
 
-    class Meta:
-        verbose_name_plural = "Radiotherapy Volume Types"
+
 
 class LookupPathology(LookupAbstract):
     ''' This is a lookup table for the pathology.'''
     def __str__(self):
         return f"{self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Lookup Pathology"
+
 
 class LookupGrade(LookupAbstract):
     ''' This is a lookup table for the grade of the pathology.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Grade"
+
 
 class LookupPathologyDescriptors(LookupAbstract):
     ''' This is a lookup table for the descriptors of the pathology terms.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Pathology Descriptors"
 
 class LookupMajorCancerCategory(LookupAbstract):
     ''' This is a lookup table for the major cancer category.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Major Cancer Category"
+
 
 class LookupRadiotherapyModality(LookupAbstract):
     ''' This is a lookup table for the radiotherapy modality.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Radiotherapy Modality"
+
 
 class LookupRadiotherapyType(LookupAbstract):
     ''' This is a lookup table for the radiotherapy type.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Radiotherapy Type" 
+
 
 class LookupRadiotherapyTechnique(LookupAbstract):
     ''' This is a lookup table for the radiotherapy technique.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Radiotherapy Techniques"
+
 
 class LookupClinicalSignificance(LookupAbstract):
     ''' This is a lookup table for the clinical significance for genetic mutations.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Clinical Significance"
+
 
 class LookupIHCResult(LookupAbstract):
     ''' This is a lookup table for the IHC result.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "IHC Results"
+
 
 class LookupIHCStainingIntensity(LookupAbstract):
     ''' This is a lookup table for the IHC staining intensity.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "IHC Staining Intensities"
+
 
 class LookupMarginStatus(LookupAbstract):
     ''' This is a lookup table for the margin status.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Margin Status"
+
 
 class LookupTreatmentEffect(LookupAbstract):
     ''' This is a lookup table for the treatment effect.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Treatment Effect"
+
 
 class LookupStagingType(LookupAbstract):
     ''' This is a lookup table for the staging type.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Staging Type"
+
 
 class LookupSystemicTherapyRegimen(LookupAbstract):
     ''' This is a lookup table for the systemic therapy regimen.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Systemic Therapy Regimen"
+
 
 class LookupRTLocation(LookupAbstract):
     ''' This is a lookup table for the anatomical location of radiotherapy volumes'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Anatomical Location"
+
 
 class LookupLaboratoryTest(LookupAbstract):
     ''' This is a lookup table for the laboratory test.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Lookup Laboratory Tests"
+
 
 class LookupSymptoms(LookupAbstract):
     ''' This is a lookup table for the symptoms.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Symptoms"
 
 class LookupSeverity(LookupAbstract):
     ''' This is a lookup table for the severity of the symptoms.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Severity"
+
 
 class LookupIHCAntibody(LookupAbstract):
     ''' This is a lookup table for the antibody used in immunohistochemistry.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "IHCAntibody"
+
 
 class LookupComorbidity(LookupAbstract):
     ''' This is a lookup table for the comorbidity.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Comorbidity"
+
 
 class LookupPerformanceStatus(LookupAbstract):
     ''' This is a lookup table for the performance status.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Performance Status"
+
 
 class LookupExpressionUnits(LookupAbstract):
     ''' This is a lookup table for the units of expression.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Expression Units"
+
 
 class LookupCytogeneticAbnormality(LookupAbstract):
     ''' This is a lookup table for the cytogenetic abnormality.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Cytogenetic Abnormality"
+
 
 class LookupEpigeneticAbnormalityType(LookupAbstract):
     ''' This is a lookup table for the type of epigenetic abnormality.'''
     def __str__(self):
         return f"{self.label}"
     
-    class Meta:
-        verbose_name_plural = "Epigenetic Abnormality Type"
+
 
 class LookupSurgicalProcedures(LookupAbstract):
     ''' This is a lookup table for the surgical procedures.'''
@@ -419,14 +386,11 @@ class LookupSurgicalProcedures(LookupAbstract):
     def __str__(self):
         return f"{self.label}: {self.description}"
     
-    class Meta:
-        verbose_name_plural = "Surgical Procedures"
+
 
 
 class LookupNodalAssessmentType(LookupAbstract):
     ''' This is a lookup table for the type of nodal assessment.'''
     def __str__(self):
         return f"{self.label}"
-    
-    class Meta:
-        verbose_name_plural = "Nodal Assessment Type"             
+              
