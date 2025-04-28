@@ -688,7 +688,7 @@ class SurgeryResource(resources.ModelResource):
 
     diagnosis = fields.Field(attribute='diagnosis',column_name='diagnosis',widget=ForeignKeyWidget(Diagnosis,field='chavi_diagnosis_id'))
     surgery_side = fields.Field(attribute='surgery_side',column_name='surgery_side',widget=ForeignKeyWidget(LookupLaterality,field='code'))
-    surgery_type= fields.Field(attribute='surgery_type',column_name='surgery_type',widget=ForeignKeyWidget(LookupSurgicalProcedures,field='code'))
+    surgery_type= fields.Field(attribute='surgery_type',column_name='surgery_type',widget=ManyToManyWidget(LookupSurgicalProcedures,field='code'))
     nodal_assessment_type = fields.Field(attribute='nodal_assessment_type',column_name='nodal_assessment_type',widget=ForeignKeyWidget(LookupNodalAssessmentType,field='code'))
 
     class Meta:
