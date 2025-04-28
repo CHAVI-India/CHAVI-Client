@@ -1,0 +1,292 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Docker Installation Method &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Docker Installation Method</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/docker_installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="docker-installation-method">
+<h1>Docker Installation Method<a class="headerlink" href="#docker-installation-method" title="Link to this heading"></a></h1>
+<p>This method will install the Chavi application using Docker containers.</p>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<p>Docker Desktop:</p>
+<ul class="simple">
+<li><p>Docker Desktop is a platform for building, shipping, and running applications using containers.</p></li>
+<li><p>It provides a container runtime, a command line interface, and a platform for building and shipping containerized applications.</p></li>
+<li><p>It is available for Windows and macOS.</p></li>
+</ul>
+<p>Please refere to the official Docker documentation for installation instructions:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.docker.com/desktop/install/windows-install/">Docker Desktop for Windows</a></p></li>
+<li><p><a class="reference external" href="https://docs.docker.com/desktop/install/mac-install/">Docker Desktop for macOS</a></p></li>
+</ul>
+<p>After Docker Desktop is installed, you can start the Docker application. Please ensure that proxy settings are configured correctly in the Docker Desktop settings. Without this Docker Desktop will not be able to access the internet.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>Create a folder in a location where the CHAVI client application will be installed.
+Inside this folder, create the following three files:</p>
+<ul class="simple">
+<li><p>.env</p></li>
+<li><p>docker-compose.yml</p></li>
+<li><p>ngnix.conf</p></li>
+</ul>
+<p>The contents of the files are as follows:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres:17</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-database</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;5433:5432&quot;</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_postgres_data:/var/lib/postgresql/data</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">healthcheck</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">test</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;CMD-SHELL&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;pg_isready</span><span class="nv"> </span><span class="s">-U</span><span class="nv"> </span><span class="s">$${POSTGRES_USER}</span><span class="nv"> </span><span class="s">-d</span><span class="nv"> </span><span class="s">$${POSTGRES_DB}&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<span class="w">      </span><span class="nt">retries</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="w">  </span><span class="nt">chaviclient-django</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-django</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span><span class="w">      </span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;./entrypoint.docker.sh&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">chaviclient-proxy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nginx:latest</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-proxy</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;8001:80&quot;</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./nginx.conf:/etc/nginx/nginx.conf:ro</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/static:ro</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-django</span>
+<span class="nt">volumes</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient_postgres_data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient_app_data</span><span class="p">:</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sets the max number of simultaneous connections that can be opened by a worker process</span>
+events<span class="w"> </span><span class="o">{</span>
+<span class="w">   </span>worker_connections<span class="w"> </span><span class="m">1024</span><span class="p">;</span>
+<span class="o">}</span>
+
+http<span class="w"> </span><span class="o">{</span>
+<span class="w">   </span>server<span class="w"> </span><span class="o">{</span>
+<span class="w">       </span>include<span class="w"> </span>mime.types<span class="p">;</span>
+<span class="w">       </span>default_type<span class="w"> </span>application/octet-stream<span class="p">;</span>
+<span class="w">       </span>sendfile<span class="w"> </span>on<span class="p">;</span>
+<span class="w">       </span>keepalive_timeout<span class="w"> </span><span class="m">65</span><span class="p">;</span>
+<span class="w">       </span>listen<span class="w"> </span><span class="m">80</span><span class="p">;</span>
+<span class="w">       </span>client_max_body_size<span class="w"> </span>1024M<span class="p">;</span><span class="w"> </span><span class="c1"># Add this line to increase the maximum upload size to 1024MB</span>
+
+<span class="w">       </span><span class="c1"># Requests to /static/ are served directly from the /static/ directory</span>
+<span class="w">       </span>location<span class="w"> </span>/static/<span class="w"> </span><span class="o">{</span>
+<span class="w">           </span><span class="nb">alias</span><span class="w"> </span>/static/<span class="p">;</span>
+<span class="w">           </span>expires<span class="w"> </span>7d<span class="p">;</span>
+<span class="w">       </span><span class="o">}</span>
+
+<span class="w">       </span><span class="c1"># Configuration for serving media files</span>
+<span class="w">       </span><span class="c1"># location /media/ {</span>
+<span class="w">       </span><span class="c1">#     alias /home/app/web/mediafiles/;</span>
+<span class="w">       </span><span class="c1"># }</span>
+
+<span class="w">       </span><span class="c1"># Handles all other requests</span>
+<span class="w">       </span>location<span class="w"> </span>/<span class="w"> </span><span class="o">{</span>
+<span class="w">           </span><span class="c1"># Forward requests to Django application</span>
+<span class="w">           </span>proxy_pass<span class="w"> </span>http://chaviclient-django:8000<span class="p">;</span>
+
+<span class="w">           </span><span class="c1"># Pass important headers to Django for proper request handling</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>Host<span class="w"> </span><span class="nv">$host</span><span class="p">;</span><span class="w">                          </span><span class="c1"># Original host header</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Real-IP<span class="w"> </span><span class="nv">$remote_addr</span><span class="p">;</span><span class="w">             </span><span class="c1"># Client&#39;s real IP</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-For<span class="w"> </span><span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span><span class="w">  </span><span class="c1"># Chain of IP addresses</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-Proto<span class="w"> </span><span class="nv">$scheme</span><span class="p">;</span><span class="w">          </span><span class="c1"># Original protocol (http/https)</span>
+<span class="w">       </span><span class="o">}</span>
+<span class="w">   </span><span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">SECRET_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-SECRET_KEY
+<span class="nv">DJANGO_DEBUG</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>True
+<span class="nv">DJANGO_ALLOWED_HOSTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">127</span>.0.0.1,localhost
+<span class="nv">DJANGO_CSRF_TRUSTED_ORIGINS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>http://localhost:8001,http://127.0.0.1:8001
+
+<span class="c1"># Django DB</span>
+<span class="nv">DJANGO_DB_ENGINE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>django.db.backends.postgresql<span class="w"> </span><span class="c1"># Add engine of the database</span>
+<span class="nv">DJANGO_DB_NAME</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient<span class="w"> </span><span class="c1"># Add name of the database</span>
+<span class="nv">DJANGO_DB_USER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>postgres<span class="w"> </span><span class="c1"># Add username of the database</span>
+<span class="nv">DJANGO_DB_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-password<span class="w"> </span><span class="c1"># Add password of the database</span>
+<span class="nv">DJANGO_DB_HOST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient-database<span class="w"> </span><span class="c1"># Add host of the database</span>
+<span class="nv">DJANGO_DB_PORT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5432</span><span class="w"> </span><span class="c1"># Add port of the database</span>
+
+<span class="c1"># Postgres</span>
+<span class="nv">POSTGRES_USER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>postgres
+<span class="nv">POSTGRES_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-password
+<span class="nv">POSTGRES_DB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient
+
+<span class="c1"># Django Superuser</span>
+<span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin
+<span class="nv">DJANGO_SUPERUSER_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin
+<span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin@example.com
+
+
+<span class="c1"># API Settings for Lookup Data</span>
+<span class="nv">LOOKUP_API_URL</span><span class="o">=</span>http://backend.chavi.ai/api/v1/lookup/
+<span class="nv">LOOKUP_API_KEY</span><span class="o">=</span>secret-api-key-from-chavi-server
+<span class="nv">LOOKUP_API_TIMEOUT</span><span class="o">=</span><span class="m">120</span>
+<span class="nv">HTTP_PROXY</span><span class="o">=</span>http://yourproxy:port
+<span class="nv">HTTPS_PROXY</span><span class="o">=</span>http://yourproxy:port
+</pre></div>
+</div>
+<p>After these files have been created you can start editing the .env file. Ensure that the password fields are properly set. If a proxy is used for network access, please ensure that the proxy settings are configured correctly in the .env file.</p>
+<p>After the .env file has been edited, you can start the Docker containers by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

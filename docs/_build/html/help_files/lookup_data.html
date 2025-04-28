@@ -1,0 +1,1521 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lookup Data &mdash; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Lookup Tables in CHAVI client" href="lookup_tables.html" />
+    <link rel="prev" title="DICOM Data Import" href="dicom_data_import.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            CHAVI Client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Lookup Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#lookuplaterality">LookupLaterality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupicdcode">LookupICDCode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupfmacode">LookupFMACode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuppresentation">LookupPresentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupoutcometype">LookupOutcomeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuplesiontype">LookupLesionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupresponsetype">LookupResponseType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupprotein">LookupProtein</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupgene">LookupGene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuptreatmentintent">LookupTreatmentIntent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuptreatmentsequence">LookupTreatmentSequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsystemicagent">LookupSystemicAgent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupvolumeunits">LookupVolumeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsizeunits">LookupSizeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupdoseunits">LookupDoseUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuplabresultsunits">LookupLabResultsUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupmassunits">LookupMassUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupdrugroute">LookupDrugRoute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupctcaegrade">LookupCTCAEGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupoutcome">LookupOutcome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupstagingsystem">LookupStagingSystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupajccstageprefix">LookupAJCCStagePrefix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupajccstagesuffix">LookupAJCCStageSuffix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupajcctstagedescriptor">LookupAJCCTStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupajccnstagedescriptor">LookupAJCCNStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupajccmstagedescriptor">LookupAJCCMStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupstagedescriptor">LookupStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupdiagnosticmodality">LookupDiagnosticModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsystemictherapytype">LookupSystemicTherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupradiotherapyvolumetype">LookupRadiotherapyVolumeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuppathology">LookupPathology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupgrade">LookupGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuppathologydescriptors">LookupPathologyDescriptors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupmajorcancercategory">LookupMajorCancerCategory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupradiotherapymodality">LookupRadiotherapyModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupradiotherapytype">LookupRadiotherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupradiotherapytechnique">LookupRadiotherapyTechnique</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupclinicalsignificance">LookupClinicalSignificance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupihcresult">LookupIHCResult</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupihcstainingintensity">LookupIHCStainingIntensity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupmarginstatus">LookupMarginStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuptreatmenteffect">LookupTreatmentEffect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupstagingtype">LookupStagingType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsystemictherapyregimen">LookupSystemicTherapyRegimen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuprtlocation">LookupRTLocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookuplaboratorytest">LookupLaboratoryTest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsymptoms">LookupSymptoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupseverity">LookupSeverity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupihcantibody">LookupIHCAntibody</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupcomorbidity">LookupComorbidity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupperformancestatus">LookupPerformanceStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupexpressionunits">LookupExpressionUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupcytogeneticabnormality">LookupCytogeneticAbnormality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupepigeneticabnormalitytype">LookupEpigeneticAbnormalityType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupsurgicalprocedures">LookupSurgicalProcedures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lookupnodalassessmenttype">LookupNodalAssessmentType</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CHAVI Client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Lookup Data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/help_files/lookup_data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="lookup-data">
+<h1>Lookup Data<a class="headerlink" href="#lookup-data" title="Link to this heading"></a></h1>
+<p>This section describes the key fields that reference data from the lookup tables.</p>
+<section id="lookuplaterality">
+<h2>LookupLaterality<a class="headerlink" href="#lookuplaterality" title="Link to this heading"></a></h2>
+<p>Laterality defines the side of the body where the lesion is located.</p>
+<p>This is referenced by the following froms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>cancer_side</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion</p></td>
+<td><p>lesion_laterality</p></td>
+</tr>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>tumor_side</p></td>
+</tr>
+<tr class="row-odd"><td><p>RadiationTherapy</p></td>
+<td><p>radiotherapy_side</p></td>
+</tr>
+<tr class="row-even"><td><p>Surgery</p></td>
+<td><p>surgery_side</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all lateralities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/laterality/">https://backend.chavi.ai/api/v1/lookup/laterality/</a>
+The API endpoint to get the details of a specific laterality is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/laterality">https://backend.chavi.ai/api/v1/lookup/laterality</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupicdcode">
+<h2>LookupICDCode<a class="headerlink" href="#lookupicdcode" title="Link to this heading"></a></h2>
+<p>The ICD (International Classification of Diseases) code represents the standardized diagnosis codes for diseases.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>diagnosis</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all ICD codes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/icd-codes/">https://backend.chavi.ai/api/v1/lookup/icd-codes/</a>
+The API endpoint to get the details of a specific ICD code is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/icd-codes">https://backend.chavi.ai/api/v1/lookup/icd-codes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupfmacode">
+<h2>LookupFMACode<a class="headerlink" href="#lookupfmacode" title="Link to this heading"></a></h2>
+<p>The FMA (Foundational Model of Anatomy) code represents standardized anatomical site locations.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>cancer_site</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion</p></td>
+<td><p>lesion_site</p></td>
+</tr>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>tumor_site</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all FMA codes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/fma-codes/">https://backend.chavi.ai/api/v1/lookup/fma-codes/</a>
+The API endpoint to get the details of a specific FMA code is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/fma-codes">https://backend.chavi.ai/api/v1/lookup/fma-codes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuppresentation">
+<h2>LookupPresentation<a class="headerlink" href="#lookuppresentation" title="Link to this heading"></a></h2>
+<p>Defines the type of clinical presentation of cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>presentation_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all presentations is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/presentations/">https://backend.chavi.ai/api/v1/lookup/presentations/</a>
+The API endpoint to get the details of a specific presentation is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/presentations">https://backend.chavi.ai/api/v1/lookup/presentations</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupoutcometype">
+<h2>LookupOutcomeType<a class="headerlink" href="#lookupoutcometype" title="Link to this heading"></a></h2>
+<p>Defines types of outcomes for cancer treatment.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Outcome</p></td>
+<td><p>outcome_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all outcome types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/outcome-types/">https://backend.chavi.ai/api/v1/lookup/outcome-types/</a>
+The API endpoint to get the details of a specific outcome type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/outcome-types">https://backend.chavi.ai/api/v1/lookup/outcome-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuplesiontype">
+<h2>LookupLesionType<a class="headerlink" href="#lookuplesiontype" title="Link to this heading"></a></h2>
+<p>Defines the types or categories of lesions.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Lesion</p></td>
+<td><p>lesion_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all lesion types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/lesion-types/">https://backend.chavi.ai/api/v1/lookup/lesion-types/</a>
+The API endpoint to get the details of a specific lesion type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/lesion-types">https://backend.chavi.ai/api/v1/lookup/lesion-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupresponsetype">
+<h2>LookupResponseType<a class="headerlink" href="#lookupresponsetype" title="Link to this heading"></a></h2>
+<p>Defines how a lesion has responded to treatment.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LesionResponse</p></td>
+<td><p>lesion_response</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all response types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/response-types/">https://backend.chavi.ai/api/v1/lookup/response-types/</a>
+The API endpoint to get the details of a specific response type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/response-types">https://backend.chavi.ai/api/v1/lookup/response-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupprotein">
+<h2>LookupProtein<a class="headerlink" href="#lookupprotein" title="Link to this heading"></a></h2>
+<p>Defines protein names and identifiers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all proteins is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/proteins/">https://backend.chavi.ai/api/v1/lookup/proteins/</a>
+The API endpoint to get the details of a specific protein is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/proteins">https://backend.chavi.ai/api/v1/lookup/proteins</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupgene">
+<h2>LookupGene<a class="headerlink" href="#lookupgene" title="Link to this heading"></a></h2>
+<p>Defines gene names and codes for genomic data.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GermlineGenomicAlterations</p></td>
+<td><p>cosmic_gene_name</p></td>
+</tr>
+<tr class="row-odd"><td><p>Cytogenetics</p></td>
+<td><p>gene</p></td>
+</tr>
+<tr class="row-even"><td><p>SomaticGenomicAlterations</p></td>
+<td><p>cosmic_gene_name</p></td>
+</tr>
+<tr class="row-odd"><td><p>GeneExpressionData</p></td>
+<td><p>gene</p></td>
+</tr>
+<tr class="row-even"><td><p>EpigeneticData</p></td>
+<td><p>gene</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all genes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/genes/">https://backend.chavi.ai/api/v1/lookup/genes/</a>
+The API endpoint to get the details of a specific gene is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/genes">https://backend.chavi.ai/api/v1/lookup/genes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuptreatmentintent">
+<h2>LookupTreatmentIntent<a class="headerlink" href="#lookuptreatmentintent" title="Link to this heading"></a></h2>
+<p>Defines the purpose or goal of a specific treatment.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>OtherTreatment</p></td>
+<td><p>treatment_intent</p></td>
+</tr>
+<tr class="row-odd"><td><p>Radiotherapy</p></td>
+<td><p>radiotherapy_intent</p></td>
+</tr>
+<tr class="row-even"><td><p>Surgery</p></td>
+<td><p>surgery_intent</p></td>
+</tr>
+<tr class="row-odd"><td><p>SystemicTherapy</p></td>
+<td><p>systemic_therapy_intent</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all treatment intents is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-intents/">https://backend.chavi.ai/api/v1/lookup/treatment-intents/</a>
+The API endpoint to get the details of a specific treatment intent is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-intents">https://backend.chavi.ai/api/v1/lookup/treatment-intents</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuptreatmentsequence">
+<h2>LookupTreatmentSequence<a class="headerlink" href="#lookuptreatmentsequence" title="Link to this heading"></a></h2>
+<p>Defines the sequence in which treatments are administered.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SystemicTherapy</p></td>
+<td><p>systemic_therapy_sequence</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all treatment sequences is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-sequences/">https://backend.chavi.ai/api/v1/lookup/treatment-sequences/</a>
+The API endpoint to get the details of a specific treatment sequence is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-sequences">https://backend.chavi.ai/api/v1/lookup/treatment-sequences</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsystemicagent">
+<h2>LookupSystemicAgent<a class="headerlink" href="#lookupsystemicagent" title="Link to this heading"></a></h2>
+<p>Defines specific medications or agents used in systemic treatments.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SystemicTherapySchedule</p></td>
+<td><p>systemic_therapy_agent</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all systemic agents is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-agents/">https://backend.chavi.ai/api/v1/lookup/systemic-agents/</a>
+The API endpoint to get the details of a specific systemic agent is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-agents">https://backend.chavi.ai/api/v1/lookup/systemic-agents</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupvolumeunits">
+<h2>LookupVolumeUnits<a class="headerlink" href="#lookupvolumeunits" title="Link to this heading"></a></h2>
+<p>Defines units for volume measurements.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Lesion</p></td>
+<td><p>lesion_volume_unit</p></td>
+</tr>
+<tr class="row-odd"><td><p>LesionResponse</p></td>
+<td><p>residual_lesion_volume_unit</p></td>
+</tr>
+<tr class="row-even"><td><p>RadiotherapyDoseVolumeData</p></td>
+<td><p>volume_units</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all volume units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/volume-units/">https://backend.chavi.ai/api/v1/lookup/volume-units/</a>
+The API endpoint to get the details of a specific volume unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/volume-units">https://backend.chavi.ai/api/v1/lookup/volume-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsizeunits">
+<h2>LookupSizeUnits<a class="headerlink" href="#lookupsizeunits" title="Link to this heading"></a></h2>
+<p>Defines units for size or dimension measurements.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Lesion</p></td>
+<td><p>lesion_size_unit</p></td>
+</tr>
+<tr class="row-odd"><td><p>LesionResponse</p></td>
+<td><p>residual_lesion_size_unit</p></td>
+</tr>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>tumor_dimesion_unit</p></td>
+</tr>
+<tr class="row-odd"><td><p>Pathology</p></td>
+<td><p>closest_margin_distance_unit</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all size units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/size-units/">https://backend.chavi.ai/api/v1/lookup/size-units/</a>
+The API endpoint to get the details of a specific size unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/size-units">https://backend.chavi.ai/api/v1/lookup/size-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupdoseunits">
+<h2>LookupDoseUnits<a class="headerlink" href="#lookupdoseunits" title="Link to this heading"></a></h2>
+<p>Defines units for dose measurements in treatments.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Radiotherapy</p></td>
+<td><p>radiation_dose_units</p></td>
+</tr>
+<tr class="row-odd"><td><p>RadiotherapyVolume</p></td>
+<td><p>radiation_dose_units</p></td>
+</tr>
+<tr class="row-even"><td><p>RadiotherapyDoseVolumeData</p></td>
+<td><p>radiation_dose_units</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all dose units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/dose-units/">https://backend.chavi.ai/api/v1/lookup/dose-units/</a>
+The API endpoint to get the details of a specific dose unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/dose-units">https://backend.chavi.ai/api/v1/lookup/dose-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuplabresultsunits">
+<h2>LookupLabResultsUnits<a class="headerlink" href="#lookuplabresultsunits" title="Link to this heading"></a></h2>
+<p>Defines units for laboratory test results.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LaboratoryResults</p></td>
+<td><p>quantitative_result_unit</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all lab results units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/lab-results-units/">https://backend.chavi.ai/api/v1/lookup/lab-results-units/</a>
+The API endpoint to get the details of a specific lab results unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/lab-results-units">https://backend.chavi.ai/api/v1/lookup/lab-results-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupmassunits">
+<h2>LookupMassUnits<a class="headerlink" href="#lookupmassunits" title="Link to this heading"></a></h2>
+<p>Defines units for mass or weight measurements.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ConcomitantMedications</p></td>
+<td><p>medication_dose_units</p></td>
+</tr>
+<tr class="row-odd"><td><p>SystemicTherapySchedule</p></td>
+<td><p>systemic_therapy_dose_units</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all mass units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/mass-units/">https://backend.chavi.ai/api/v1/lookup/mass-units/</a>
+The API endpoint to get the details of a specific mass unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/mass-units">https://backend.chavi.ai/api/v1/lookup/mass-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupdrugroute">
+<h2>LookupDrugRoute<a class="headerlink" href="#lookupdrugroute" title="Link to this heading"></a></h2>
+<p>Defines methods of drug administration.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ConcomitantMedications</p></td>
+<td><p>medication_route</p></td>
+</tr>
+<tr class="row-odd"><td><p>SystemicTherapySchedule</p></td>
+<td><p>systemic_therapy_agent_route</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all drug routes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/drug-routes/">https://backend.chavi.ai/api/v1/lookup/drug-routes/</a>
+The API endpoint to get the details of a specific drug route is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/drug-routes">https://backend.chavi.ai/api/v1/lookup/drug-routes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupctcaegrade">
+<h2>LookupCTCAEGrade<a class="headerlink" href="#lookupctcaegrade" title="Link to this heading"></a></h2>
+<p>Defines standardized grades for adverse effects according to Common Terminology Criteria for Adverse Events.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AdverseEffects</p></td>
+<td><p>ctcae_grade_lookup</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all CTCAE grades is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ctcae-grades/">https://backend.chavi.ai/api/v1/lookup/ctcae-grades/</a>
+The API endpoint to get the details of a specific CTCAE grade is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ctcae-grades">https://backend.chavi.ai/api/v1/lookup/ctcae-grades</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupoutcome">
+<h2>LookupOutcome<a class="headerlink" href="#lookupoutcome" title="Link to this heading"></a></h2>
+<p>Defines possible patient outcomes.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PatientOutcome</p></td>
+<td><p>patient_status</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all outcomes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/outcomes/">https://backend.chavi.ai/api/v1/lookup/outcomes/</a>
+The API endpoint to get the details of a specific outcome is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/outcomes">https://backend.chavi.ai/api/v1/lookup/outcomes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupstagingsystem">
+<h2>LookupStagingSystem<a class="headerlink" href="#lookupstagingsystem" title="Link to this heading"></a></h2>
+<p>Defines the various systems used for cancer staging.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>staging_system</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all staging systems is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/staging-systems/">https://backend.chavi.ai/api/v1/lookup/staging-systems/</a>
+The API endpoint to get the details of a specific staging system is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/staging-systems">https://backend.chavi.ai/api/v1/lookup/staging-systems</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupajccstageprefix">
+<h2>LookupAJCCStagePrefix<a class="headerlink" href="#lookupajccstageprefix" title="Link to this heading"></a></h2>
+<p>Defines prefix modifiers for cancer staging according to the American Joint Committee on Cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>t_stage_prefix</p></td>
+</tr>
+<tr class="row-odd"><td><p>StageInformation</p></td>
+<td><p>n_stage_prefix</p></td>
+</tr>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>m_stage_prefix</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all AJCC stage prefixes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-stage-prefixes/">https://backend.chavi.ai/api/v1/lookup/ajcc-stage-prefixes/</a>
+The API endpoint to get the details of a specific AJCC stage prefix is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-stage-prefixes">https://backend.chavi.ai/api/v1/lookup/ajcc-stage-prefixes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupajccstagesuffix">
+<h2>LookupAJCCStageSuffix<a class="headerlink" href="#lookupajccstagesuffix" title="Link to this heading"></a></h2>
+<p>Defines suffix modifiers for cancer staging according to the American Joint Committee on Cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>t_stage_suffix</p></td>
+</tr>
+<tr class="row-odd"><td><p>StageInformation</p></td>
+<td><p>n_stage_suffix</p></td>
+</tr>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>m_stage_suffix</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all AJCC stage suffixes is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-stage-suffixes/">https://backend.chavi.ai/api/v1/lookup/ajcc-stage-suffixes/</a>
+The API endpoint to get the details of a specific AJCC stage suffix is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-stage-suffixes">https://backend.chavi.ai/api/v1/lookup/ajcc-stage-suffixes</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupajcctstagedescriptor">
+<h2>LookupAJCCTStageDescriptor<a class="headerlink" href="#lookupajcctstagedescriptor" title="Link to this heading"></a></h2>
+<p>Defines T (tumor) stage descriptors according to the American Joint Committee on Cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>t_stage</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all AJCC T stage descriptors is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-t-stage-descriptors/">https://backend.chavi.ai/api/v1/lookup/ajcc-t-stage-descriptors/</a>
+The API endpoint to get the details of a specific AJCC T stage descriptor is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-t-stage-descriptors">https://backend.chavi.ai/api/v1/lookup/ajcc-t-stage-descriptors</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupajccnstagedescriptor">
+<h2>LookupAJCCNStageDescriptor<a class="headerlink" href="#lookupajccnstagedescriptor" title="Link to this heading"></a></h2>
+<p>Defines N (node) stage descriptors according to the American Joint Committee on Cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>n_stage</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all AJCC N stage descriptors is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-n-stage-descriptors/">https://backend.chavi.ai/api/v1/lookup/ajcc-n-stage-descriptors/</a>
+The API endpoint to get the details of a specific AJCC N stage descriptor is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-n-stage-descriptors">https://backend.chavi.ai/api/v1/lookup/ajcc-n-stage-descriptors</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupajccmstagedescriptor">
+<h2>LookupAJCCMStageDescriptor<a class="headerlink" href="#lookupajccmstagedescriptor" title="Link to this heading"></a></h2>
+<p>Defines M (metastasis) stage descriptors according to the American Joint Committee on Cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>m_stage</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all AJCC M stage descriptors is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-m-stage-descriptors/">https://backend.chavi.ai/api/v1/lookup/ajcc-m-stage-descriptors/</a>
+The API endpoint to get the details of a specific AJCC M stage descriptor is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ajcc-m-stage-descriptors">https://backend.chavi.ai/api/v1/lookup/ajcc-m-stage-descriptors</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupstagedescriptor">
+<h2>LookupStageDescriptor<a class="headerlink" href="#lookupstagedescriptor" title="Link to this heading"></a></h2>
+<p>Defines overall cancer stage descriptors.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>overall_stage</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all stage descriptors is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/stage-descriptors/">https://backend.chavi.ai/api/v1/lookup/stage-descriptors/</a>
+The API endpoint to get the details of a specific stage descriptor is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/stage-descriptors">https://backend.chavi.ai/api/v1/lookup/stage-descriptors</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupdiagnosticmodality">
+<h2>LookupDiagnosticModality<a class="headerlink" href="#lookupdiagnosticmodality" title="Link to this heading"></a></h2>
+<p>Defines methods used to diagnose cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>diagnostic_modality</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all diagnostic modalities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/diagnostic-modalities/">https://backend.chavi.ai/api/v1/lookup/diagnostic-modalities/</a>
+The API endpoint to get the details of a specific diagnostic modality is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/diagnostic-modalities">https://backend.chavi.ai/api/v1/lookup/diagnostic-modalities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsystemictherapytype">
+<h2>LookupSystemicTherapyType<a class="headerlink" href="#lookupsystemictherapytype" title="Link to this heading"></a></h2>
+<p>Defines types of systemic therapies.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SystemicTherapy</p></td>
+<td><p>systemic_therapy_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all systemic therapy types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-therapy-types/">https://backend.chavi.ai/api/v1/lookup/systemic-therapy-types/</a>
+The API endpoint to get the details of a specific systemic therapy type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-therapy-types">https://backend.chavi.ai/api/v1/lookup/systemic-therapy-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupradiotherapyvolumetype">
+<h2>LookupRadiotherapyVolumeType<a class="headerlink" href="#lookupradiotherapyvolumetype" title="Link to this heading"></a></h2>
+<p>Defines types of volumes in radiotherapy.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RadiotherapyVolume</p></td>
+<td><p>volume_type</p></td>
+</tr>
+<tr class="row-odd"><td><p>RadiotherapyDoseVolumeData</p></td>
+<td><p>volume_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all radiotherapy volume types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-volume-types/">https://backend.chavi.ai/api/v1/lookup/radiotherapy-volume-types/</a>
+The API endpoint to get the details of a specific radiotherapy volume type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-volume-types">https://backend.chavi.ai/api/v1/lookup/radiotherapy-volume-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuppathology">
+<h2>LookupPathology<a class="headerlink" href="#lookuppathology" title="Link to this heading"></a></h2>
+<p>Defines histological classifications of tumors.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>histological_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all pathology types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/pathologies/">https://backend.chavi.ai/api/v1/lookup/pathologies/</a>
+The API endpoint to get the details of a specific pathology type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/pathologies">https://backend.chavi.ai/api/v1/lookup/pathologies</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupgrade">
+<h2>LookupGrade<a class="headerlink" href="#lookupgrade" title="Link to this heading"></a></h2>
+<p>Defines the degree of differentiation of tumor cells.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>histological_grade</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all grades is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/grades/">https://backend.chavi.ai/api/v1/lookup/grades/</a>
+The API endpoint to get the details of a specific grade is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/grades">https://backend.chavi.ai/api/v1/lookup/grades</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuppathologydescriptors">
+<h2>LookupPathologyDescriptors<a class="headerlink" href="#lookuppathologydescriptors" title="Link to this heading"></a></h2>
+<p>Defines various pathological features.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>lymphatic_vascular_invasion</p></td>
+</tr>
+<tr class="row-odd"><td><p>Pathology</p></td>
+<td><p>perineural_invasion</p></td>
+</tr>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>dermal_lymphatic_vascular_invasion</p></td>
+</tr>
+<tr class="row-odd"><td><p>Pathology</p></td>
+<td><p>necrosis</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all pathology descriptors is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/pathology-descriptors/">https://backend.chavi.ai/api/v1/lookup/pathology-descriptors/</a>
+The API endpoint to get the details of a specific pathology descriptor is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/pathology-descriptors">https://backend.chavi.ai/api/v1/lookup/pathology-descriptors</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupmajorcancercategory">
+<h2>LookupMajorCancerCategory<a class="headerlink" href="#lookupmajorcancercategory" title="Link to this heading"></a></h2>
+<p>Defines broad categories of cancer.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>cancer_system</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all major cancer categories is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/major-cancer-categories/">https://backend.chavi.ai/api/v1/lookup/major-cancer-categories/</a>
+The API endpoint to get the details of a specific major cancer category is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/major-cancer-categories">https://backend.chavi.ai/api/v1/lookup/major-cancer-categories</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupradiotherapymodality">
+<h2>LookupRadiotherapyModality<a class="headerlink" href="#lookupradiotherapymodality" title="Link to this heading"></a></h2>
+<p>Defines modalities used in radiotherapy.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Radiotherapy</p></td>
+<td><p>radiotherapy_modality</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all radiotherapy modalities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-modalities/">https://backend.chavi.ai/api/v1/lookup/radiotherapy-modalities/</a>
+The API endpoint to get the details of a specific radiotherapy modality is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-modalities">https://backend.chavi.ai/api/v1/lookup/radiotherapy-modalities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupradiotherapytype">
+<h2>LookupRadiotherapyType<a class="headerlink" href="#lookupradiotherapytype" title="Link to this heading"></a></h2>
+<p>Defines types of radiotherapy treatments.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Radiotherapy</p></td>
+<td><p>radiotherapy_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all radiotherapy types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-types/">https://backend.chavi.ai/api/v1/lookup/radiotherapy-types/</a>
+The API endpoint to get the details of a specific radiotherapy type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-types">https://backend.chavi.ai/api/v1/lookup/radiotherapy-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupradiotherapytechnique">
+<h2>LookupRadiotherapyTechnique<a class="headerlink" href="#lookupradiotherapytechnique" title="Link to this heading"></a></h2>
+<p>Defines techniques used to deliver radiation.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Radiotherapy</p></td>
+<td><p>radiotherapy_technique</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all radiotherapy techniques is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-techniques/">https://backend.chavi.ai/api/v1/lookup/radiotherapy-techniques/</a>
+The API endpoint to get the details of a specific radiotherapy technique is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/radiotherapy-techniques">https://backend.chavi.ai/api/v1/lookup/radiotherapy-techniques</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupclinicalsignificance">
+<h2>LookupClinicalSignificance<a class="headerlink" href="#lookupclinicalsignificance" title="Link to this heading"></a></h2>
+<p>Defines the clinical significance of genetic variants.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GermlineGenomicAlterations</p></td>
+<td><p>clinical_significance</p></td>
+</tr>
+<tr class="row-odd"><td><p>SomaticGenomicAlterations</p></td>
+<td><p>clinical_significance</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all clinical significances is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/clinical-significances/">https://backend.chavi.ai/api/v1/lookup/clinical-significances/</a>
+The API endpoint to get the details of a specific clinical significance is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/clinical-significances">https://backend.chavi.ai/api/v1/lookup/clinical-significances</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupihcresult">
+<h2>LookupIHCResult<a class="headerlink" href="#lookupihcresult" title="Link to this heading"></a></h2>
+<p>Defines results of immunohistochemistry tests.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Immunohistochemistry</p></td>
+<td><p>ihc_result</p></td>
+</tr>
+<tr class="row-odd"><td><p>Cytogenetics</p></td>
+<td><p>cytogenetic_result</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all IHC results is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-results/">https://backend.chavi.ai/api/v1/lookup/ihc-results/</a>
+The API endpoint to get the details of a specific IHC result is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-results">https://backend.chavi.ai/api/v1/lookup/ihc-results</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupihcstainingintensity">
+<h2>LookupIHCStainingIntensity<a class="headerlink" href="#lookupihcstainingintensity" title="Link to this heading"></a></h2>
+<p>Defines intensity levels of immunohistochemical staining.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Immunohistochemistry</p></td>
+<td><p>tumor_cell_staining_intensity</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all IHC staining intensities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-staining-intensities/">https://backend.chavi.ai/api/v1/lookup/ihc-staining-intensities/</a>
+The API endpoint to get the details of a specific IHC staining intensity is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-staining-intensities">https://backend.chavi.ai/api/v1/lookup/ihc-staining-intensities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupmarginstatus">
+<h2>LookupMarginStatus<a class="headerlink" href="#lookupmarginstatus" title="Link to this heading"></a></h2>
+<p>Defines the status of surgical margins.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>margin_status</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all margin statuses is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/margin-statuses/">https://backend.chavi.ai/api/v1/lookup/margin-statuses/</a>
+The API endpoint to get the details of a specific margin status is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/margin-statuses">https://backend.chavi.ai/api/v1/lookup/margin-statuses</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuptreatmenteffect">
+<h2>LookupTreatmentEffect<a class="headerlink" href="#lookuptreatmenteffect" title="Link to this heading"></a></h2>
+<p>Defines the effect of treatment on tumor cells.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>treatment_effect</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all treatment effects is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-effects/">https://backend.chavi.ai/api/v1/lookup/treatment-effects/</a>
+The API endpoint to get the details of a specific treatment effect is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/treatment-effects">https://backend.chavi.ai/api/v1/lookup/treatment-effects</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupstagingtype">
+<h2>LookupStagingType<a class="headerlink" href="#lookupstagingtype" title="Link to this heading"></a></h2>
+<p>Defines types of cancer staging.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>StageInformation</p></td>
+<td><p>stage_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all staging types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/staging-systems/">https://backend.chavi.ai/api/v1/lookup/staging-systems/</a>
+The API endpoint to get the details of a specific staging type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/staging-systems">https://backend.chavi.ai/api/v1/lookup/staging-systems</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsystemictherapyregimen">
+<h2>LookupSystemicTherapyRegimen<a class="headerlink" href="#lookupsystemictherapyregimen" title="Link to this heading"></a></h2>
+<p>Defines specific regimens for systemic therapy.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SystemicTherapy</p></td>
+<td><p>systemic_therapy_regimen</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all systemic therapy regimens is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-therapy-regimens/">https://backend.chavi.ai/api/v1/lookup/systemic-therapy-regimens/</a>
+The API endpoint to get the details of a specific systemic therapy regimen is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/systemic-therapy-regimens">https://backend.chavi.ai/api/v1/lookup/systemic-therapy-regimens</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuprtlocation">
+<h2>LookupRTLocation<a class="headerlink" href="#lookuprtlocation" title="Link to this heading"></a></h2>
+<p>Defines anatomical locations included in radiotherapy treatment volumes.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RadiotherapyVolume</p></td>
+<td><p>anatomical_locations</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all RT locations is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/rt-locations/">https://backend.chavi.ai/api/v1/lookup/rt-locations/</a>
+The API endpoint to get the details of a specific RT location is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/rt-locations">https://backend.chavi.ai/api/v1/lookup/rt-locations</a>/{code}/</p>
+</div>
+</section>
+<section id="lookuplaboratorytest">
+<h2>LookupLaboratoryTest<a class="headerlink" href="#lookuplaboratorytest" title="Link to this heading"></a></h2>
+<p>Defines types of laboratory tests.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LaboratoryResults</p></td>
+<td><p>laboratory_test</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all laboratory tests is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/laboratory-tests/">https://backend.chavi.ai/api/v1/lookup/laboratory-tests/</a>
+The API endpoint to get the details of a specific laboratory test is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/laboratory-tests">https://backend.chavi.ai/api/v1/lookup/laboratory-tests</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsymptoms">
+<h2>LookupSymptoms<a class="headerlink" href="#lookupsymptoms" title="Link to this heading"></a></h2>
+<p>Defines types of symptoms.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Symptom</p></td>
+<td><p>symptom</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all symptoms is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/symptoms/">https://backend.chavi.ai/api/v1/lookup/symptoms/</a>
+The API endpoint to get the details of a specific symptom is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/symptoms">https://backend.chavi.ai/api/v1/lookup/symptoms</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupseverity">
+<h2>LookupSeverity<a class="headerlink" href="#lookupseverity" title="Link to this heading"></a></h2>
+<p>Defines levels of symptom severity.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Symptom</p></td>
+<td><p>severity</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all severity levels is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/severities/">https://backend.chavi.ai/api/v1/lookup/severities/</a>
+The API endpoint to get the details of a specific severity level is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/severities">https://backend.chavi.ai/api/v1/lookup/severities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupihcantibody">
+<h2>LookupIHCAntibody<a class="headerlink" href="#lookupihcantibody" title="Link to this heading"></a></h2>
+<p>Defines antibodies used in immunohistochemistry tests.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Immunohistochemistry</p></td>
+<td><p>protein_name</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all IHC antibodies is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-antibodies/">https://backend.chavi.ai/api/v1/lookup/ihc-antibodies/</a>
+The API endpoint to get the details of a specific IHC antibody is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/ihc-antibodies">https://backend.chavi.ai/api/v1/lookup/ihc-antibodies</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupcomorbidity">
+<h2>LookupComorbidity<a class="headerlink" href="#lookupcomorbidity" title="Link to this heading"></a></h2>
+<p>Defines types of comorbidities.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Comorbidity</p></td>
+<td><p>comorbidity_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all comorbidities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/comorbidities/">https://backend.chavi.ai/api/v1/lookup/comorbidities/</a>
+The API endpoint to get the details of a specific comorbidity is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/comorbidities">https://backend.chavi.ai/api/v1/lookup/comorbidities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupperformancestatus">
+<h2>LookupPerformanceStatus<a class="headerlink" href="#lookupperformancestatus" title="Link to this heading"></a></h2>
+<p>Defines scales for assessing patient functional status.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PatientAssessment</p></td>
+<td><p>performance_status</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all performance statuses is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/performance-statuses/">https://backend.chavi.ai/api/v1/lookup/performance-statuses/</a>
+The API endpoint to get the details of a specific performance status is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/performance-statuses">https://backend.chavi.ai/api/v1/lookup/performance-statuses</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupexpressionunits">
+<h2>LookupExpressionUnits<a class="headerlink" href="#lookupexpressionunits" title="Link to this heading"></a></h2>
+<p>Defines units for gene expression data.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GeneExpressionData</p></td>
+<td><p>expression_units</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all expression units is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/expression-units/">https://backend.chavi.ai/api/v1/lookup/expression-units/</a>
+The API endpoint to get the details of a specific expression unit is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/expression-units">https://backend.chavi.ai/api/v1/lookup/expression-units</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupcytogeneticabnormality">
+<h2>LookupCytogeneticAbnormality<a class="headerlink" href="#lookupcytogeneticabnormality" title="Link to this heading"></a></h2>
+<p>Defines types of cytogenetic abnormalities.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Cytogenetics</p></td>
+<td><p>cytogentic_abnormality</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all cytogenetic abnormalities is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/cytogenetic-abnormalities/">https://backend.chavi.ai/api/v1/lookup/cytogenetic-abnormalities/</a>
+The API endpoint to get the details of a specific cytogenetic abnormality is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/cytogenetic-abnormalities">https://backend.chavi.ai/api/v1/lookup/cytogenetic-abnormalities</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupepigeneticabnormalitytype">
+<h2>LookupEpigeneticAbnormalityType<a class="headerlink" href="#lookupepigeneticabnormalitytype" title="Link to this heading"></a></h2>
+<p>Defines types of epigenetic abnormalities.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>EpigeneticData</p></td>
+<td><p>epigenetic_abnormality_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all epigenetic abnormality types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/epigenetic-abnormality-types/">https://backend.chavi.ai/api/v1/lookup/epigenetic-abnormality-types/</a>
+The API endpoint to get the details of a specific epigenetic abnormality type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/epigenetic-abnormality-types">https://backend.chavi.ai/api/v1/lookup/epigenetic-abnormality-types</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupsurgicalprocedures">
+<h2>LookupSurgicalProcedures<a class="headerlink" href="#lookupsurgicalprocedures" title="Link to this heading"></a></h2>
+<p>Defines types of surgical procedures.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Surgery</p></td>
+<td><p>surgery_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all surgical procedures is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/surgical-procedures/">https://backend.chavi.ai/api/v1/lookup/surgical-procedures/</a>
+The API endpoint to get the details of a specific surgical procedure is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/surgical-procedures">https://backend.chavi.ai/api/v1/lookup/surgical-procedures</a>/{code}/</p>
+</div>
+</section>
+<section id="lookupnodalassessmenttype">
+<h2>LookupNodalAssessmentType<a class="headerlink" href="#lookupnodalassessmenttype" title="Link to this heading"></a></h2>
+<p>Defines types of nodal assessment procedures.</p>
+<p>This is referenced by the following forms:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Form where this is used</p></th>
+<th class="head"><p>Field where this is used</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Surgery</p></td>
+<td><p>nodal_assessment_type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The API endpoint for this lookup to show the list of all nodal assessment types is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/nodal-assessment-types/">https://backend.chavi.ai/api/v1/lookup/nodal-assessment-types/</a>
+The API endpoint to get the details of a specific nodal assessment type is: <a class="reference external" href="https://backend.chavi.ai/api/v1/lookup/nodal-assessment-types">https://backend.chavi.ai/api/v1/lookup/nodal-assessment-types</a>/{code}/</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dicom_data_import.html" class="btn btn-neutral float-left" title="DICOM Data Import" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="lookup_tables.html" class="btn btn-neutral float-right" title="Lookup Tables in CHAVI client" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Tata Medical Center.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

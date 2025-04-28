@@ -3,6 +3,7 @@ Lookup Tables in CHAVI client
 
 The CHAVI client uses a number of lookup tables to store information that is used across multiple models. These lookup tables are used to ensure consistency and to reduce the amount of data that needs to be stored in the database. The lookup tables are also used to provide a standard set of options for users to select from when entering data.
 
+
 The following are the sources for the major lookup tables:
 
 Symptoms
