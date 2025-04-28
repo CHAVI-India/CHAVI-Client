@@ -664,6 +664,7 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     list_filter =['diagnosis__patient__patient_id']
     search_fields = ['diagnosis__patient__patient_id', 'diagnosis__chavi_diagnosis_id']
     filter_horizontal = ['radiotherapy_dicom_study']
+    list_display = ['diagnosis__patient__patient_id','radiotherapy_start_date','radiotherapy_end_date','radiotherapy_side','radiotherapy_intent','radiotherapy_modality','radiotherapy_type','total_dose','radiation_dose_units','total_fractions']
     fieldsets = (
         ('Radiotherapy',{
             'fields': ['diagnosis',('radiotherapy_start_date','radiotherapy_end_date'),( 'radiotherapy_side','radiotherapy_course_type','reirradiation')]
