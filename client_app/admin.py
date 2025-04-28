@@ -789,6 +789,7 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['diagnosis__diagnosis']
     filter_horizontal =['systemic_therapy_dicom_study']
     list_filter = ['diagnosis__patient__patient_id']
+    list_display = ['diagnosis__patient__patient_id', 'systemic_therapy_type', 'systemic_therapy_regimen', 'systemic_therapy_start_date', 'systemic_therapy_end_date', 'cycles_delivered']
     fieldsets = (
         ('Systemic Therapy',{
             'fields':['diagnosis',('systemic_therapy_start_date','systemic_therapy_end_date')]
@@ -917,7 +918,7 @@ class AdverseEffectsExportResource(resources.ModelResource):
 @admin.register(AdverseEffects)
 class AdverseEffectsAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','ctcae_grade_lookup']
-    list_fields = [ 'diagnosis', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
+    list_display = ['diagnosis__patient__patient_id', 'adverse_effect_start_date', 'adverse_effect_end_date', 'ctcae_grade_lookup']
     list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Adverse Effects',{
@@ -1234,10 +1235,12 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
     change_password_form = AdminPasswordChangeForm
+    list_display = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined']
 
 
 @admin.register(Group)
 class GroupAdmin(BaseGroupAdmin, ModelAdmin):
+    list_display = ['name']
     pass
 
 # Create a function to get the admin urls that we'll import in the project's urls.py
