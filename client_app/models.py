@@ -1641,8 +1641,8 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
     def __str__ (self):
         return f"{self.chavi_systemic_therapy_schedule_id}-{self.systemic_therapy_agent}-{self.systemic_therapy_agent_route}"
     class Meta:
-        verbose_name="Medication Detail"
-        verbose_name_plural="Medication Details"
+        verbose_name="Systemic Therapy Medication Detail"
+        verbose_name_plural="Systemic Therapy Medication Details"
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(DateValidationMixin, models.Model):

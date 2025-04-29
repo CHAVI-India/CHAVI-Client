@@ -22,7 +22,7 @@ from unfold.contrib.filters.admin import (
 from unfold.contrib.forms.widgets import ArrayWidget
 
 from chavi_client.settings import BASE_DIR
-from .models import *
+from client_app.models import *
 from lookup.models import *
 from pathlib import Path
 import tempfile
@@ -82,8 +82,6 @@ class SystemicTherapyScheduleInline(StackedInline):
         }),
 
     )
-       
-
 
 class ImmunohistochemistryInline(StackedInline):
     model = Immunohistochemistry
@@ -108,6 +106,7 @@ class GeneExpressionDataInline(StackedInline):
     autocomplete_fields = ['gene']
     extra = 1
     tab = True
+
 class EpigeneticDataInline(StackedInline):
     model = EpigeneticData
     autocomplete_fields = ['gene']
@@ -149,8 +148,6 @@ class PatientResource(resources.ModelResource):
             'date_of_registration': {'format': '%Y-%m-%d'},
             'date_chavi_consent': {'format': '%Y-%m-%d'},
         }
-
-
 
 @admin.register(Patient)
 class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
@@ -1205,6 +1202,240 @@ class PatientAssessmentAdmin(ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['patient']
     resource_classes = [PatientAssessmentResource]
     list_display = ['patient','date_assessment','height','weight','systolic_blood_pressure','diastolic_blood_pressure','pulse','respiratory_rate','performance_status','temperature']
+
+
+# Create import resources and register these models for inline models noted above
+
+# Systemic Therapy Schedule Resource
+class SystemicTherapyScheduleResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_systemic_therapy_schedule_id' not in dataset.headers:
+            dataset.headers.append('chavi_systemic_therapy_schedule_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_systemic_therapy_schedule_id' not in row or not row['chavi_systemic_therapy_schedule_id']:
+            row['chavi_systemic_therapy_schedule_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    systemic_therapy = fields.Field(attribute='systemic_therapy',column_name='systemic_therapy',widget=ForeignKeyWidget(SystemicTherapy, field='chavi_systemic_therapy_id'))
+    systemic_therapy_agent = fields.Field(attribute='systemic_therapy_agent',column_name='systemic_therapy_agent',widget=ForeignKeyWidget(LookupSystemicAgent, field='code'))
+    systemic_therapy_agent_route = fields.Field(attribute='systemic_therapy_agent_route',column_name='systemic_therapy_agent_route',widget=ForeignKeyWidget(LookupDrugRoute, field='code'))
+    systemic_therapy_dose_units = fields.Field(attribute='systemic_therapy_dose_units',column_name='systemic_therapy_dose_units',widget=ForeignKeyWidget(LookupMassUnits, field='code'))
+
+
+    class Meta:
+        model = SystemicTherapySchedule
+        import_id_fields = ['chavi_systemic_therapy_schedule_id']
+        fields = ['chavi_systemic_therapy_schedule_id','systemic_therapy','systemic_therapy_agent','systemic_therapy_agent_route','systemic_therapy_dose_units','systemic_therapy_dose_planned','systemic_therapy_dose_administered','systemic_therapy_agent_start_date','systemic_therapy_agent_end_date']
+        widget = {
+            'systemic_therapy_agent_start_date': {'format': "%Y-%m-%d"},
+            'systemic_therapy_agent_end_date': {'format': "%Y-%m-%d"},
+        }
+# Systemic Therapy Schedule Admin
+@admin.register(SystemicTherapySchedule)
+class SystemicTherapyScheduleAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [SystemicTherapyScheduleResource]
+
+# Immnuohistochemistry Resource
+class ImmnuohistochemistryResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_ihc_id' not in dataset.headers:
+            dataset.headers.append('chavi_ihc_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_ihc_id' not in row or not row['chavi_ihc_id']:
+            row['chavi_ihc_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    pathology = fields.Field(attribute='pathology',column_name='pathology',widget=ForeignKeyWidget(Pathology, field='chavi_pathology_id'))
+    protein_name = fields.Field(attribute='protein_name',column_name='protein_name',widget=ForeignKeyWidget(LookupIHCAntibody, field='code'))
+    ihc_result = fields.Field(attribute='ihc_result',column_name='ihc_result',widget=ForeignKeyWidget(LookupIHCResult, field='code'))
+
+    class Meta:
+        model = Immunohistochemistry
+        import_id_fields = ['chavi_ihc_id']
+        fields = ['chavi_ihc_id','pathology','date_ihc','protein_name','ihc_result','percentage_positive_tumor_cells','percentage_positive_immune_cells','tumor_cell_staining_intensity','immune_cell_staining_intensity']
+        widget = {
+            'date_ihc': {'format': "%Y-%m-%d"},
+        }
+
+# Immunohistochemistry Admin
+@admin.register(Immunohistochemistry)
+class ImmunohistochemistryAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [ImmnuohistochemistryResource]
+    
+# Cytogenetics Resource
+class CytogeneticsResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_cytogenetics_id' not in dataset.headers:
+            dataset.headers.append('chavi_cytogenetics_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_cytogenetics_id' not in row or not row['chavi_cytogenetics_id']:
+            row['chavi_cytogenetics_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    pathology = fields.Field(attribute='pathology',column_name='pathology',widget=ForeignKeyWidget(Pathology, field='chavi_pathology_id'))
+    gene = fields.Field(attribute='gene',column_name='gene',widget=ForeignKeyWidget(LookupGene, field='code'))
+    cytogenetic_abnormality = fields.Field(attribute='cytogenetic_abnormality',column_name='cytogenetic_abnormality',widget=ForeignKeyWidget(LookupCytogeneticAbnormality, field='code'))
+    cytogenetic_result = fields.Field(attribute='cytogenetic_result',column_name='cytogenetic_result',widget=ForeignKeyWidget(LookupIHCResult, field='code'))
+
+    class Meta:
+        model = Cytogenetics
+        import_id_fields = ['chavi_cytogenetics_id']
+        fields = ['chavi_cytogenetics_id','pathology','date_cytogenetics','gene','cytogenetic_abnormality','cytogenetic_result']    
+        widget = {
+            'date_cytogenetics': {'format': "%Y-%m-%d"},
+        }
+
+# Cytogenetics Admin
+@admin.register(Cytogenetics)
+class CytogeneticsAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [CytogeneticsResource]
+
+# Somatic Genomic Alterations Resource
+class SomaticGenomicAlterationsResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_somatic_genomic_id' not in dataset.headers:
+            dataset.headers.append('chavi_somatic_genomic_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_somatic_genomic_id' not in row or not row['chavi_somatic_genomic_id']:
+            row['chavi_somatic_genomic_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    pathology = fields.Field(attribute='pathology',column_name='pathology',widget=ForeignKeyWidget(Pathology, field='chavi_pathology_id'))
+    cosmic_gene_name = fields.Field(attribute='cosmic_gene_name',column_name='cosmic_gene_name',widget=ForeignKeyWidget(LookupGene, field='code'))
+    clinical_significance = fields.Field(attribute='clinical_significance',column_name='clinical_significance',widget=ForeignKeyWidget(LookupClinicalSignificance, field='code'))
+
+    class Meta:
+        model = SomaticGenomicAlterations
+        import_id_fields = ['chavi_somatic_genomic_id']
+        fields = ['chavi_somatic_genomic_id','pathology','date_test','cosmic_gene_name','reference_sequence','protein_modification','variant_type','allele_frequency','read_depth','clinical_significance']
+        widget = {
+            'date_test': {'format': "%Y-%m-%d"},
+        }
+
+# Somatic Genomic Alterations Admin
+@admin.register(SomaticGenomicAlterations)
+class SomaticGenomicAlterationsAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [SomaticGenomicAlterationsResource]
+
+# Gene Expression Data Resource
+class GeneExpressionDataResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_gene_expression_id' not in dataset.headers:
+            dataset.headers.append('chavi_gene_expression_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_gene_expression_id' not in row or not row['chavi_gene_expression_id']:
+            row['chavi_gene_expression_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    pathology = fields.Field(attribute='pathology',column_name='pathology',widget=ForeignKeyWidget(Pathology, field='chavi_pathology_id'))
+    gene = fields.Field(attribute='gene',column_name='gene',widget=ForeignKeyWidget(LookupGene, field='code'))
+    expression_units = fields.Field(attribute='expression_units',column_name='expression_units',widget=ForeignKeyWidget(LookupExpressionUnits, field='code'))
+    class Meta:
+        model = GeneExpressionData
+        import_id_fields = ['chavi_gene_expression_id']
+        fields = ['chavi_gene_expression_id','pathology','date_test','gene','expression_value','expression_units']
+        widget = {
+            'date_test': {'format': "%Y-%m-%d"},
+        }
+
+# Gene Expression Data Admin
+@admin.register(GeneExpressionData)
+class GeneExpressionDataAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [GeneExpressionDataResource]
+
+
+# Epigenetic Data Resource
+class EpigeneticDataResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'chavi_epigenetic_id' not in dataset.headers:
+            dataset.headers.append('chavi_epigenetic_id')
+        super().before_import(dataset, **kwargs)
+
+    def before_import_row(self, row, **kwargs):
+        if 'chavi_epigenetic_id' not in row or not row['chavi_epigenetic_id']:
+            row['chavi_epigenetic_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    pathology = fields.Field(attribute='pathology',column_name='pathology',widget=ForeignKeyWidget(Pathology, field='chavi_pathology_id'))
+    gene = fields.Field(attribute='gene',column_name='gene',widget=ForeignKeyWidget(LookupGene, field='code'))
+    epigenetic_abnormality_type = fields.Field(attribute='epigenetic_abnormality_type',column_name='epigenetic_abnormality_type',widget=ForeignKeyWidget(LookupEpigeneticAbnormalityType, field='code'))
+    class Meta:
+        model = EpigeneticData
+        import_id_fields = ['chavi_epigenetic_id']
+        fields = ['chavi_epigenetic_id','pathology','date_test','gene','epigenetic_abnormality_type','epigenetic_result']
+        widget = {
+            'date_test': {'format': "%Y-%m-%d"},
+        }
+
+# Epigenetic Data Admin
+@admin.register(EpigeneticData)
+class EpigeneticDataAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [EpigeneticDataResource]
+
+# Radiotherapy Volume Resource
+class RadiotherapyVolumeResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'radiotherapy_volume_id' not in dataset.headers:
+            dataset.headers.append('radiotherapy_volume_id')
+        super().before_import(dataset, **kwargs)
+        
+    def before_import_row(self, row, **kwargs):
+        if 'radiotherapy_volume_id' not in row or not row['radiotherapy_volume_id']:
+            row['radiotherapy_volume_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    radiotherapy = fields.Field(attribute='radiotherapy',column_name='radiotherapy',widget=ForeignKeyWidget(Radiotherapy, field='chavi_radiotherapy_id'))
+    volume_type = fields.Field(attribute='volume_type',column_name='volume_type',widget=ForeignKeyWidget(LookupRadiotherapyVolumeType, field='code'))
+    radiation_dose_units = fields.Field(attribute='radiation_dose_units',column_name='radiation_dose_units',widget=ForeignKeyWidget(LookupDoseUnits, field='code'))
+    anatomical_locations = fields.Field(attribute='anatomical_locations',column_name='anatomical_locations',widget=ManyToManyWidget(LookupRTLocation, field='code'))
+    
+    class Meta:
+        model = RadiotherapyVolume
+        import_id_fields = ['radiotherapy_volume_id']
+        fields = ['radiotherapy_volume_id','radiotherapy','volume_name','volume_type','volume_dose_prescribed','radiation_dose_units','volume_fractions','volume_radiotherapy_start_date','volume_radiotherapy_end_date','anatomical_locations']
+        widget = {
+            'volume_radiotherapy_start_date': {'format': "%Y-%m-%d"},
+            'volume_radiotherapy_end_date': {'format': "%Y-%m-%d"},
+        }
+        
+# Radiotherapy Volume Admin
+@admin.register(RadiotherapyVolume)
+class RadiotherapyVolumeAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [RadiotherapyVolumeResource]
+        
+# Radiotherapy Dose Volume Data Resource
+class RadiotherapyDoseVolumeDataResource(resources.ModelResource):
+    def before_import(self, dataset, **kwargs):
+        if 'radiotherapy_dose_volume_data_id' not in dataset.headers:
+            dataset.headers.append('radiotherapy_dose_volume_data_id')
+        super().before_import(dataset, **kwargs)
+        
+    def before_import_row(self, row, **kwargs):
+        if 'radiotherapy_dose_volume_data_id' not in row or not row['radiotherapy_dose_volume_data_id']:
+            row['radiotherapy_dose_volume_data_id'] = str(uuid.uuid4())
+        super().before_import_row(row, **kwargs)
+    radiotherapy = fields.Field(attribute='radiotherapy',column_name='radiotherapy',widget=ForeignKeyWidget(Radiotherapy, field='chavi_radiotherapy_id'))
+    volume_type = fields.Field(attribute='volume_type',column_name='volume_type',widget=ForeignKeyWidget(LookupRadiotherapyVolumeType, field='code'))
+    volume_units = fields.Field(attribute='volume_units',column_name='volume_units',widget=ForeignKeyWidget(LookupVolumeUnits, field='code'))
+    radiation_dose_units = fields.Field(attribute='radiation_dose_units',column_name='radiation_dose_units',widget=ForeignKeyWidget(LookupDoseUnits, field='code'))
+    class Meta:
+        model = RadiotherapyDoseVolumeData
+        import_id_fields = ['radiotherapy_dose_volume_data_id']
+        fields = ['radiotherapy_dose_volume_data_id','radiotherapy','volume_name','volume_type','volume_units','absolute_dose','relative_dose','volume_dose_prescribed','radiation_dose_units']
+
+# Radiotherapy Dose Volume Data Admin
+@admin.register(RadiotherapyDoseVolumeData)
+class RadiotherapyDoseVolumeDataAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_classes = [RadiotherapyDoseVolumeDataResource]
+        
+        
+        
+
+
+
 
 
 # Register your models here.

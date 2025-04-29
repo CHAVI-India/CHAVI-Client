@@ -276,7 +276,12 @@ UNFOLD = {
                         "title": _("Site Configuration"),
                         "icon": "settings",
                         "link": reverse_lazy("admin:client_app_siteconfiguration_changelist"),
-                    },                    
+                    },
+                    {
+                        "title": _("Projects"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:client_app_project_changelist"),
+                    }                    
                 ]
             },
           
@@ -440,19 +445,7 @@ UNFOLD = {
                                         
                 ],
             },                           
-            {
-                "title": _("Project List"),
-                "separator": True,  # Top border
-                "collapsible": True,  # Collapsible group of links
-                "items": [
-                    {
-                        "title": _("List of Projects"),
-                        "icon": "settings",
-                        "link": reverse_lazy("admin:client_app_project_changelist"),
-                    },
-                                        
-                ],
-            },
+
             {
                 "title": _("Lookup Data"),
                 "separator": True,  # Top border
@@ -465,7 +458,54 @@ UNFOLD = {
                     }
                 ],
             },  
-
+            {
+                "title": _("Data Imports for Other Tables"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                        {
+                            "title": _("Immunohistochemistry"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_immunohistochemistry_changelist"),
+                        },
+                        {
+                            "title": _("Cytogenetics"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_cytogenetics_changelist"),
+                        },
+                        {
+                            "title": _("Somatic Genomic Alterations"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_somaticgenomicalterations_changelist"),
+                        },
+                        {
+                            "title": _("Gene Expression Data"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_geneexpressiondata_changelist"),
+                        },
+                        {
+                            "title": _("Epigenetic Data"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_epigeneticdata_changelist"),
+                        },
+                        {
+                            "title": _("Systemic Therapy Schedule"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_systemictherapyschedule_changelist"),
+                        },                        
+                        {
+                            "title": _("Radiotherapy Volume"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_radiotherapyvolume_changelist"),
+                        },          
+                        {
+                            "title": _("Radiotherapy Dose Volume Data"),
+                            "icon": "settings",
+                            "link": reverse_lazy("admin:client_app_radiotherapydosevolumedata_changelist"),
+                        },                        
+                        
+                ],
+            },  
 
         ],
     },    

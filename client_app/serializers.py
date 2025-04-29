@@ -261,7 +261,7 @@ class RadiotherapySerializer(BaseSerializer):
         model = Radiotherapy
 
 class RadiotherapyVolumeSerializer(BaseSerializer):
-    radiotherapy_volume_id = serializers.SerializerMethodField()
+    chavi_radiotherapy_volume_id = serializers.SerializerMethodField()
     radiotherapy = HashedForeignKeyField(queryset=Radiotherapy.objects.all())
 
     def get_radiotherapy_volume_id(self, obj):
