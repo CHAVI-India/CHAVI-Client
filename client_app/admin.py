@@ -181,6 +181,7 @@ class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
 @admin.register(PatientDicomFile)
 class PatientDicomFileAdmin(ModelAdmin):
     search_fields =[ 'patient__patient_id']
+    autocomplete_fields = ['patient']
     list_display = ['patient', 'file', 'created_at', 'updated_at']
     list_filter = ['created_at', 'updated_at']
     fieldsets = (
