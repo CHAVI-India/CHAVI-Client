@@ -177,6 +177,45 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'staticfiles'),
 ]
 
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'debug.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'client_app': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -441,6 +480,11 @@ UNFOLD = {
                         'title': _("Bulk DICOM File Upload"),
                         'icon': 'folder_zip',
                         'link': reverse_lazy("admin:client_app_bulkdicomupload_changelist"),
+                    },
+                    {
+                        'title': _("Associate DICOM Files to Project"),
+                        'icon': 'settings',
+                        'link': reverse_lazy("admin:client_app_dicomstudyproject_changelist"),
                     },
                                         
                 ],

@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="{% url 'admin:jsi18n' %}"></script>
+    {{ form.media }}
+{% endblock %}
+
+{% block content %}
+    <div class="mb-8">
+        <p class="text-gray-600 dark:text-gray-400">{% trans "You have selected the following DICOM studies to associate with a project:" %}</p>
+        <ul class="list-disc list-inside mt-2">
+            {% for dicom_study in queryset %}
+            <li class="text-gray-700 dark:text-gray-300">{{ dicom_study }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <form action="{% url 'admin:client_app_dicomstudy_changelist' %}" method="post">
+        {% csrf_token %}
+        
+        {# Hidden fields required for admin action #}
+        <input type="hidden" name="action" value="associate_dicom_files_to_project" />
+        <input type="hidden" name="select_across" value="0" />
+        <input type="hidden" name="index" value="0" />
+        {% for dicom_study in queryset %}
+            <input type="hidden" name="_selected_action" value="{{ dicom_study.pk }}" />
+        {% endfor %}
+
+        <div class="aligned border border-base-200 mb-8 rounded pt-3 px-3 shadow-sm dark:border-base-800">
+            {% for field in form %}
+                {% include "unfold/helpers/field.html" with field=field %}
+            {% endfor %}
+        </div>
+
+        <div class="flex justify-end">
+            {% component "unfold/components/button.html" with submit=1 %}
+                {% trans "Associate DICOM Studies with Project" %}
+            {% endcomponent %}
+        </div>
+    </form>
+{% endblock %} 

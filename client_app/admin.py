@@ -44,14 +44,16 @@ from import_export import fields
 from import_export.admin import ImportExportModelAdmin
 from unfold.contrib.import_export.forms import ExportForm, ImportForm, SelectableFieldsExportForm
 from unfold.decorators import action
-from .services.patient_data_export import export_patient_data
+from client_app.services.patient_data_export import export_patient_data
 from allauth.account.decorators import secure_admin_login
-from .services.dicom_data_import_per_patient import process_dicom
-from .services.bulk_dicom_data_import import process_bulk_dicom
+from client_app.services.dicom_data_import_per_patient import process_dicom
+from client_app.services.bulk_dicom_data_import import process_bulk_dicom
+from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
 from django.urls import path
 from .views import PatientSummaryView, PatientSearchView
 from django.urls import reverse
 from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy as _
 
 # For Django AllAuth
 admin.autodiscover()
@@ -182,11 +184,12 @@ class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
 class PatientDicomFileAdmin(ModelAdmin):
     search_fields =[ 'patient__patient_id']
     autocomplete_fields = ['patient']
-    list_display = ['patient', 'file', 'created_at', 'updated_at']
+    list_display = ['patient', 'file', 'processed', 'created_at', 'updated_at']
+    readonly_fields = ['processing_log','created_at','updated_at','processed']
     list_filter = ['created_at', 'updated_at']
     fieldsets = (
         ('Patient DICOM File',{
-            'fields': ['patient','file']  
+            'fields': ['patient','file','processed','processing_log']  
         }),
     )
     actions = [
@@ -1062,7 +1065,7 @@ class PatientReportedOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
 
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
-class DICOMStudyAdmin (ModelAdmin):
+class DICOMStudyAdmin(ModelAdmin):
     search_fields = ['patient__patient_id']
     list_display = ['patient', 'study_date', 'study_description', 'series_descriptions']
     autocomplete_fields = ['patient']
@@ -1075,6 +1078,19 @@ class DICOMStudyAdmin (ModelAdmin):
         }),
     )
     list_filter = ['study_date', 'patient']
+    actions = ['associate_dicom_files_to_project']
+
+    def associate_dicom_files_to_project(self, request, queryset):
+        from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
+        return associate_dicom_files_to_project(self, request, queryset)
+    associate_dicom_files_to_project.short_description = _("Associate selected DICOM studies with a project")
+
+
+@admin.register(DICOMStudyProject)
+class DICOMStudyProjectAdmin(ModelAdmin):
+    list_display = ['dicom_study', 'project']
+    list_filter = ['project']
+
 
 ## Create the Project form Class
 @admin.register(Project)
@@ -1083,6 +1099,13 @@ class ProjectAdmin(ModelAdmin):
     readonly_fields = ['center']
     list_display = ['chavi_project_id', 'project_name', 'center', 'created_at']
     list_filter = ['center', 'created_at']
+    fieldsets = (
+        ('Project Information', {
+            'fields': ['chavi_project_id', 'project_name', 'center']
+        }),
+    )
+    search_fields = ['chavi_project_id', 'project_name']
+
 
 # Create the Laboratory Results form Class
 class LaboratoryResultsResource(resources.ModelResource):

@@ -111,21 +111,20 @@ def process_bulk_dicom(modeladmin, request, queryset):
                     request,
                     f"Successfully processed {processed_count} DICOM files"
                 )
-                return HttpResponseRedirect(request.path)
             
             if unmatched_patients:
                 messages.warning(
                     request,
                     f"No matching patients found for IDs: {', '.join(sorted(unmatched_patients))} ({unprocessed_count} files moved to unprocessed directory)"
                 )
-                return HttpResponseRedirect(request.path)
 
             if error_files:
                 messages.error(
                     request,
                     f"Failed to process {len(error_files)} files. First few errors: {', '.join(error_files[:3])}"
                 )
-                return HttpResponseRedirect(request.path)
+
+            return HttpResponseRedirect(request.path)
 
         except Exception as e:
             messages.error(request, f"Error processing upload {upload.id}: {str(e)}")

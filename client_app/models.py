@@ -175,6 +175,15 @@ class PatientDicomFile(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=["zip"])],
         help_text="Please upload a single zip file having the DICOM studies for a single patients. You can choose to upload multiple studies at the same time."
     ) 
+    processed = models.BooleanField(
+        default=False,
+        help_text="Indicates whether the DICOM file has been processed."
+    )
+    processing_log = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Log of the processing of the DICOM file."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -223,8 +232,6 @@ class DICOMStudy(models.Model):
 
     class Meta:
         verbose_name_plural = "DICOM Studies"
-
-
 
 
 # Clinical Data Models
@@ -1963,6 +1970,7 @@ class DICOMStudyProject(models.Model):
     dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name="Project for DICOM Study"

@@ -28,9 +28,21 @@ def process_dicom(modeladmin, request, queryset):
     processed_dir.mkdir(parents=True, exist_ok=True)
     
     for obj in queryset:
+        # Initialize processing statistics
+        processing_stats = {
+            'total_files': 0,
+            'successful_files': 0,
+            'failed_files': [],
+            'successful_studies': 0,
+            'failed_studies': []
+        }
+        
         # If the file is not there there raise an error.
         if not obj.file:
             messages.error(request, f"No file found for {obj.patient.patient_id}")
+            obj.processing_log = "Error: No file found"
+            obj.processed = True
+            obj.save()
             continue
 
         # Create the temporary directory where the files will be processed.    
@@ -55,6 +67,7 @@ def process_dicom(modeladmin, request, queryset):
             
             # Next we will process each DICOM file and extract the metadata
             dicom_files = [files for files in temp_dir.glob('**/*') if files.is_file()]
+            processing_stats['total_files'] = len(dicom_files)
 
             for file in dicom_files:
                 try:
@@ -102,8 +115,10 @@ def process_dicom(modeladmin, request, queryset):
 
                     # Add Study Instance UID, Modality and Study Description to sets prepared previously.
                     study_uids.add(study_instance_uid)
+                    processing_stats['successful_files'] += 1
 
                 except Exception as e:
+                    processing_stats['failed_files'].append(f"{file.name}: {str(e)}")
                     messages.error(request, f"Error processing DICOM file {file.name} for {obj.patient.patient_id}: {str(e)}")
                     continue        
             
@@ -121,15 +136,45 @@ def process_dicom(modeladmin, request, queryset):
                             'series_descriptions': series_desc_string,
                         }
                     )
+                    processing_stats['successful_studies'] += 1
                     messages.success(request,f"Added DICOM study UID {uid} Data for {obj.patient.patient_id}")
-                    return HttpResponseRedirect(request.path)
 
                 except Exception as e:
+                    processing_stats['failed_studies'].append(f"{uid}: {str(e)}")
                     messages.error(request,f"Error adding DICOM data for Study")
-                    return HttpResponseRedirect(request.path)   
+                    continue
+
+            # Create processing log
+            log_parts = [
+                f"Processing completed for {obj.patient.patient_id} \n",
+                f"Total files processed: {processing_stats['total_files']} \n",
+                f"Successfully processed files: {processing_stats['successful_files']} \n",
+                f"Failed files: {len(processing_stats['failed_files'])} \n",
+                f"Successfully processed studies: {processing_stats['successful_studies']} \n",
+                f"Failed studies: {len(processing_stats['failed_studies'])}"
+            ]
+            
+            if processing_stats['failed_files']:
+                log_parts.append("\nFailed files details:")
+                log_parts.extend(processing_stats['failed_files'])
+            
+            if processing_stats['failed_studies']:
+                log_parts.append("\nFailed studies details:")
+                log_parts.extend(processing_stats['failed_studies'])
+
+            # Update the PatientDicomFile object
+            obj.processing_log = "\n".join(log_parts)
+            obj.processed = True
+            obj.save()
+
+            return HttpResponseRedirect(request.path)
 
         except zipfile.BadZipFile:
-            messages.error(request, f"Invalid zip file for {obj.patient.patient_id}")
+            error_msg = f"Invalid zip file for {obj.patient.patient_id}"
+            messages.error(request, error_msg)
+            obj.processing_log = f"Error: {error_msg}"
+            obj.processed = True
+            obj.save()
             continue
 
 # Short description for the admin interface
