@@ -84,11 +84,6 @@ class PatientSerializer(BaseSerializer):
         exclude = BaseSerializer.Meta.exclude + ['chavi_consent','date_chavi_consent']
 
 class DICOMStudySerializer(BaseSerializer):
-    project_ids = serializers.SerializerMethodField()
-
-    def get_project_ids(self, obj):
-        return [dsp.project.chavi_project_id for dsp in obj.dicomstudyproject_set.all()]
-
     class Meta(BaseSerializer.Meta):
         model = DICOMStudy
         exclude = BaseSerializer.Meta.exclude + ['series_descriptions']
