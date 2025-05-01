@@ -1510,3 +1510,10 @@ def get_custom_admin_urls():
              admin.site.admin_view(lambda request: redirect(f"{reverse('client_app:patient_summary')}?{request.GET.urlencode()}")), 
              name='patient-summary'),
     ]
+
+
+@admin.register(UnprocessedDICOMStudies)
+class UnprocessedDICOMStudiesAdmin(ModelAdmin, ImportExportModelAdmin):
+    list_display = ['study_instance_uid', 'patient_id', 'dicom_patient_id', 'folder_path', 'status']
+    list_filter = ['status', 'dicom_patient_id']
+    search_fields = ['study_instance_uid', 'patient_id__patient_id', 'dicom_patient_id']

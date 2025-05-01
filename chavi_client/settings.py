@@ -486,6 +486,11 @@ UNFOLD = {
                         'icon': 'settings',
                         'link': reverse_lazy("admin:client_app_dicomstudyproject_changelist"),
                     },
+                    {
+                        'title': _("Unprocessed DICOM Studies"),
+                        'icon': 'settings',
+                        'link': reverse_lazy("admin:client_app_unprocesseddicomstudies_changelist"),
+                    },
                                         
                 ],
             },                           

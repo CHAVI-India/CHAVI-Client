@@ -2025,3 +2025,16 @@ class BulkDICOMUpload(models.Model):
         verbose_name = "Bulk DICOM Upload"
         verbose_name_plural = "Bulk DICOM Uploads"
 
+
+# This model will be used to store the data regarding unprocessed DICOM studies after bulk upload and allow users to match these with patients in the database and process them afterwards.
+class UnprocessedDICOMStudies(models.Model):
+    '''This model handles the unprocessed DICOM studies'''
+    study_instance_uid = models.CharField(max_length=64, primary_key=True)
+    dicom_patient_id = models.CharField(max_length=64, null=True, blank=True)
+    patient_id = models.ForeignKey(Patient, on_delete=models.CASCADE,null=True, blank=True)
+    folder_path = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=50, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    
