@@ -49,6 +49,7 @@ from allauth.account.decorators import secure_admin_login
 from client_app.services.dicom_data_import_per_patient import process_dicom
 from client_app.services.bulk_dicom_data_import import process_bulk_dicom
 from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
+from client_app.services.process_unprocessed_dicom import process_unprocessed_dicom
 from django.urls import path
 from .views import PatientSummaryView, PatientSearchView
 from django.urls import reverse
@@ -1514,6 +1515,18 @@ def get_custom_admin_urls():
 
 @admin.register(UnprocessedDICOMStudies)
 class UnprocessedDICOMStudiesAdmin(ModelAdmin, ImportExportModelAdmin):
-    list_display = ['study_instance_uid', 'patient_id', 'dicom_patient_id', 'folder_path', 'status']
+    list_display = ['dicom_patient_id', 'patient_id','study_instance_uid',  'status']
     list_filter = ['status', 'dicom_patient_id']
+    list_editable = ['patient_id']
     search_fields = ['study_instance_uid', 'patient_id__patient_id', 'dicom_patient_id']
+    actions = [process_unprocessed_dicom]
+    
+    def get_queryset(self, request):
+        """
+        Override to exclude 'Processed' entries by default.
+        """
+        queryset = super().get_queryset(request)
+        # Filter out entries with status = 'Processed' unless explicitly requested in filter
+        if not request.GET.get('status__exact'):
+            return queryset.exclude(status='Processed')
+        return queryset

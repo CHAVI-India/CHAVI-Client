@@ -2037,4 +2037,12 @@ class UnprocessedDICOMStudies(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        verbose_name = "Unprocessed DICOM Study"
+        verbose_name_plural = "Unprocessed DICOM Studies"
+        
+    def __str__(self):
+        return f"{self.study_instance_uid} - {self.dicom_patient_id}"
+    
+
     
