@@ -59,6 +59,7 @@ def process_dicom(modeladmin, request, queryset):
         study_descriptions = {}  # Dict of sets for descriptions
         study_dates = {}  # Dict of sets for dates
         series_descriptions = {}  # Dict of sets for series descriptions
+        modalities = {}  # Dict of sets for modalities
 
         try:
             # First we will extract all the files from the zip file
@@ -94,7 +95,15 @@ def process_dicom(modeladmin, request, queryset):
                         if study_instance_uid not in series_descriptions:
                             series_descriptions[study_instance_uid] = set()
                         # Add the series description to the set
-                        series_descriptions[study_instance_uid].add(ds.SeriesDescription)                    
+                        series_descriptions[study_instance_uid].add(ds.SeriesDescription)
+
+                    # Collect modalities with corresponding UID
+                    if hasattr(ds, 'Modality'):
+                        # Initialize a set for this study if it doesn't exist
+                        if study_instance_uid not in modalities:
+                            modalities[study_instance_uid] = set()
+                        # Add the modality to the set
+                        modalities[study_instance_uid].add(ds.Modality)
                     
                     # Get the SOP Instance UID. This will become the filename.
                     sop_instance_uid = ds.SOPInstanceUID
@@ -126,7 +135,7 @@ def process_dicom(modeladmin, request, queryset):
             for uid in study_uids:
                 try: 
                     series_desc_string = ', '.join(sorted(series_descriptions.get(uid, []))) if uid in series_descriptions else ''
-                    
+                    modalities_string = ', '.join(sorted(modalities.get(uid, []))) if uid in modalities else ''
                     DICOMStudy.objects.update_or_create(
                         patient=obj.patient,
                         study_instance_uid=uid,
@@ -134,6 +143,7 @@ def process_dicom(modeladmin, request, queryset):
                             'study_description': study_descriptions.get(uid),
                             'study_date': study_dates.get(uid),
                             'series_descriptions': series_desc_string,
+                            'study_modalities': modalities_string,
                         }
                     )
                     processing_stats['successful_studies'] += 1

@@ -1067,16 +1067,18 @@ class PatientReportedOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin(ModelAdmin):
     search_fields = ['patient__patient_id']
-    list_display = ['patient', 'study_date', 'study_description', 'series_descriptions']
+    list_display = ['patient', 'study_date', 'study_type','study_description', 'series_descriptions']
     autocomplete_fields = ['patient']
+    list_editable = ['study_type']
     fieldsets = (
         ('Patient',{
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','study_description','series_descriptions')]
+            'fields':[('study_instance_uid','study_type'),('study_description','study_modalities'),'series_descriptions']
         }),
     )
+    readonly_fields = ['patient','study_date','study_instance_uid','study_description','series_descriptions','study_modalities']
     list_filter = ['study_date', 'patient']
     actions = ['associate_dicom_files_to_project']
 

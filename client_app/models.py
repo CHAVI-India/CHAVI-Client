@@ -187,6 +187,20 @@ class PatientDicomFile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
+class StudyTypeChoices(models.TextChoices):
+    ''' This is a choice field for the type of study. '''
+    PRETREATMENT_DIAGNOSTIC_IMAGE = 'PRETREATMENT_DIAGNOSTIC_IMAGE', 'Pre-treatment Diagnostic Image'
+    PLANNING_IMAGE = 'PLANNING_IMAGE', 'Planning Image'
+    ON_TREATMENT_VERIFICATION_IMAGE = 'ON_TREATMENT_VERIFICATION_IMAGE', 'On-treatment Verification Image'
+    PLANNING_IMAGE_FOR_ADAPTIVE_TREATMENT = 'PLANNING_IMAGE_FOR_ADAPTIVE_TREATMENT', 'Planning Image for Adaptive Treatment'
+    POSTTREATMENT_THERAPY_RESPONSE_IMAGE = 'POSTTREATMENT_THERAPY_RESPONSE_IMAGE', 'Post-treatment Therapy Response Image'  
+    THERAPY_DELIVERY_IMAGE = 'THERAPY_DELIVERY_IMAGE', 'Therapy Delivery Image' 
+    THERAPY_QA_IMAGE = 'THERAPY_QA_IMAGE', 'Therapy QA Image'
+    POSTTREATMENT_DIAGNOSTIC_IMAGE = 'POSTTREATMENT_DIAGNOSTIC_IMAGE', 'Post-treatment Diagnostic Image'
+    OTHER = 'OTHER', 'Other'
+
+
 # DICOM Related Models
 class DICOMStudy(models.Model):
     ''' This is a table that stores information on the different DICOM studies that the patient has undergone. '''
@@ -212,6 +226,19 @@ class DICOMStudy(models.Model):
         null = True,
         blank = True, 
         help_text = "Description of the study Provided in the DICOM Data"
+    )
+    study_type = models.CharField(
+        max_length = 255,
+        choices = StudyTypeChoices.choices,
+        null = True,
+        blank = True,
+        help_text = "The type of study. This is a choice field that can be selected from the list of study types."
+    )
+    study_modalities = models.CharField(
+        max_length = 255,
+        null = True,
+        blank = True,
+        help_text = "The modalities inside the the study. "
     )
     series_descriptions = models.TextField(
         null = True,

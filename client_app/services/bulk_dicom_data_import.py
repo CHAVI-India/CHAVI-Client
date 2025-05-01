@@ -50,6 +50,9 @@ def process_bulk_dicom(modeladmin, request, queryset):
             dicom_files = [f for f in temp_dir.glob('**/*') if f.is_file()]
             processed_count = 0
             unprocessed_count = 0
+            
+            # Track study information
+            study_data = {}  # Dictionary to track study data with study_instance_uid as key
 
             for file_path in dicom_files:
                 try:
@@ -59,6 +62,39 @@ def process_bulk_dicom(modeladmin, request, queryset):
                     study_instance_uid = ds.StudyInstanceUID
                     sop_instance_uid = ds.SOPInstanceUID
                     
+                    # Initialize study data if not already present
+                    if study_instance_uid not in study_data:
+                        study_data[study_instance_uid] = {
+                            'patient_id': patient_id,
+                            'series_descriptions': set(),
+                            'modalities': set(),
+                            'study_description': None,
+                            'study_date': None
+                        }
+                    
+                    # Add modality to the set for this study
+                    study_data[study_instance_uid]['modalities'].add(modality)
+                    
+                    # Collect study description
+                    if hasattr(ds, 'StudyDescription') and ds.StudyDescription:
+                        study_data[study_instance_uid]['study_description'] = ds.StudyDescription
+                    
+                    # Collect series descriptions
+                    if hasattr(ds, 'SeriesDescription') and ds.SeriesDescription:
+                        study_data[study_instance_uid]['series_descriptions'].add(ds.SeriesDescription)
+                    
+                   # Collect Modalities
+                    if hasattr(ds, 'Modality') and ds.Modality:
+                        study_data[study_instance_uid]['modalities'].add(ds.Modality)
+
+                    # Collect study date
+                    if hasattr(ds, 'StudyDate') and ds.StudyDate:
+                        try:
+                            study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
+                            study_data[study_instance_uid]['study_date'] = study_date
+                        except ValueError:
+                            pass  # Skip invalid dates without message
+                    
                     try:
                         patient = Patient.objects.get(patient_id=patient_id)
                         
@@ -67,26 +103,6 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         study_dir.mkdir(parents=True, exist_ok=True)
                         
                         ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm")
-                        
-                        study_date = None
-                        if hasattr(ds, 'StudyDate') and ds.StudyDate:
-                            try:
-                                study_date = datetime.strptime(ds.StudyDate, '%Y%m%d').date()
-                            except ValueError:
-                                pass  # Skip invalid dates without message
-
-                        study_description = getattr(ds, 'StudyDescription', None)
-                        series_description = getattr(ds, 'SeriesDescription', None)
-                        
-                        DICOMStudy.objects.update_or_create(
-                            patient=patient,
-                            study_instance_uid=study_instance_uid,
-                            defaults={
-                                'study_description': study_description,
-                                'study_date': study_date,
-                                'series_descriptions': series_description
-                            }
-                        )
                         processed_count += 1
                         
                     except Patient.DoesNotExist:
@@ -98,6 +114,38 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         
                 except Exception as e:
                     error_files.append(f"{file_path.name}: {str(e)}")
+                    continue
+            
+            # Update database with study information for matched patients
+            for study_uid, data in study_data.items():
+                try:
+                    patient_id = data['patient_id']
+                    
+                    try:
+                        patient = Patient.objects.get(patient_id=patient_id)
+                        
+                        # Convert series descriptions from set to comma-separated string
+                        series_desc_string = ', '.join(sorted(data['series_descriptions'])) if data['series_descriptions'] else ''
+                        
+                        # Convert modalities from set to comma-separated string
+                        modalities_string = ', '.join(sorted(data['modalities'])) if data['modalities'] else ''
+                        
+                        DICOMStudy.objects.update_or_create(
+                            patient=patient,
+                            study_instance_uid=study_uid,
+                            defaults={
+                                'study_description': data['study_description'],
+                                'study_date': data['study_date'],
+                                'series_descriptions': series_desc_string,
+                                'study_modalities': modalities_string
+                            }
+                        )
+                    except Patient.DoesNotExist:
+                        # Skip studies without matching patients
+                        continue
+                        
+                except Exception as e:
+                    error_files.append(f"Error updating study {study_uid}: {str(e)}")
                     continue
 
             # Update upload status
