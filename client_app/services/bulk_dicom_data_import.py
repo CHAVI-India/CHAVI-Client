@@ -7,7 +7,7 @@ from pydicom import dcmread
 from datetime import datetime
 from django.utils import timezone
 import shutil
-from ..models import Patient, DICOMStudy
+from ..models import Patient, DICOMStudy, UnprocessedDICOMStudies
 from django.http import HttpResponseRedirect
 from django.contrib import messages
 
@@ -19,6 +19,7 @@ def process_bulk_dicom(modeladmin, request, queryset):
         - If patient exists: Move to patient's study directory in processed_dicom folder
         - If patient doesn't exist: Move to unprocessed directory
     3. Update database with study information for matched patients
+    4. Record unmatched studies in the UnprocessedDICOMStudies model
     '''
     def sanitize(path):
         return path.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
@@ -53,6 +54,8 @@ def process_bulk_dicom(modeladmin, request, queryset):
             
             # Track study information
             study_data = {}  # Dictionary to track study data with study_instance_uid as key
+            # Track unprocessed study folders
+            unprocessed_study_folders = {}  # study_instance_uid -> folder path
 
             for file_path in dicom_files:
                 try:
@@ -72,8 +75,9 @@ def process_bulk_dicom(modeladmin, request, queryset):
                             'study_date': None
                         }
                     
-                    # Add modality to the set for this study
-                    study_data[study_instance_uid]['modalities'].add(modality)
+                    # Collect modality
+                    if hasattr(ds, 'Modality') and ds.Modality:
+                        study_data[study_instance_uid]['modalities'].add(ds.Modality)
                     
                     # Collect study description
                     if hasattr(ds, 'StudyDescription') and ds.StudyDescription:
@@ -83,10 +87,6 @@ def process_bulk_dicom(modeladmin, request, queryset):
                     if hasattr(ds, 'SeriesDescription') and ds.SeriesDescription:
                         study_data[study_instance_uid]['series_descriptions'].add(ds.SeriesDescription)
                     
-                   # Collect Modalities
-                    if hasattr(ds, 'Modality') and ds.Modality:
-                        study_data[study_instance_uid]['modalities'].add(ds.Modality)
-
                     # Collect study date
                     if hasattr(ds, 'StudyDate') and ds.StudyDate:
                         try:
@@ -111,6 +111,9 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         ds.save_as(unprocessed_patient_dir / f"{sanitize(sop_instance_uid)}.dcm")
                         unprocessed_count += 1
                         unmatched_patients.add(patient_id)  # Track unique unmatched patients
+                        
+                        # Store folder path for unprocessed studies
+                        unprocessed_study_folders[study_instance_uid] = str(unprocessed_patient_dir)
                         
                 except Exception as e:
                     error_files.append(f"{file_path.name}: {str(e)}")
@@ -141,7 +144,17 @@ def process_bulk_dicom(modeladmin, request, queryset):
                             }
                         )
                     except Patient.DoesNotExist:
-                        # Skip studies without matching patients
+                        # Record unprocessed study in database
+                        if study_uid in unprocessed_study_folders:
+                            UnprocessedDICOMStudies.objects.update_or_create(
+                                study_instance_uid=study_uid,
+                                defaults={
+                                    'dicom_patient_id': patient_id,
+                                    'patient_id': None,  # Leave patient_id blank as requested
+                                    'folder_path': unprocessed_study_folders[study_uid],
+                                    'status': 'Unprocessed'
+                                }
+                            )
                         continue
                         
                 except Exception as e:
@@ -163,7 +176,7 @@ def process_bulk_dicom(modeladmin, request, queryset):
             if unmatched_patients:
                 messages.warning(
                     request,
-                    f"No matching patients found for IDs: {', '.join(sorted(unmatched_patients))} ({unprocessed_count} files moved to unprocessed directory)"
+                    f"No matching patients found for IDs: {', '.join(sorted(unmatched_patients))} ({unprocessed_count} files moved to unprocessed directory and recorded in database)"
                 )
 
             if error_files:
