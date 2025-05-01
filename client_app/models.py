@@ -281,7 +281,7 @@ class Diagnosis(models.Model):
     help_text="Select the side at which the cancer was present.")
     diagnostic_modality = models.ForeignKey('lookup.LookupDiagnosticModality',on_delete=models.PROTECT,null=True, blank=True,
     help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
-    diagnosis_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
+    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
     diagnosis_project = models.ManyToManyField('Project', blank = True, help_text="Select the project that was used to diagnose the cancer. You can select multiple projects.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -301,7 +301,7 @@ class Outcome(models.Model):
     help_text = "Date this Outcome was assessed or documented or confirmed.")
     outcome_type = models.ForeignKey('lookup.LookupOutcomeType', on_delete=models.PROTECT,
     help_text = "Select the Type of Outcome. If you wish to add another outcome then please create another instance of the form.")
-    outcome_dicom_study = models.ManyToManyField('DICOMStudy',blank = True, related_name = "outcome_dicom_study",help_text = "Select all DICOM Studies for this Disease Outcome")
+    study_instance_uid = models.ManyToManyField('DICOMStudy',blank = True, related_name = "outcome_dicom_study",help_text = "Select all DICOM Studies for this Disease Outcome")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -419,7 +419,7 @@ class Lesion(models.Model):
         validators=positive_decimal_validator,
         help_text="The maximum SUV value of the lesion"
     )
-    lesion_dicom_study = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
+    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -510,7 +510,7 @@ class LesionResponse(models.Model):
         blank=True,
         help_text="The modality used to detect the lesion response"
     )
-    lesion_response_dicom_study = models.ManyToManyField(
+    study_instance_uid = models.ManyToManyField(
         'DICOMStudy', blank = True, 
         related_name = 'lesion_response_dicom_study', 
         help_text="The DICOM study associated with the lesion response"
@@ -1248,7 +1248,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         blank=True,
         help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
     )
-    radiotherapy_dicom_study = models.ManyToManyField(
+    study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'radiotherapy_dicom_studies',
         help_text="Select the DICOM studies associated with this radiotherapy course"
@@ -1487,7 +1487,7 @@ class Surgery(models.Model):
         blank=True,
         help_text="If reconstruction was performed, specify the type (e.g., 'Implant-Based', 'Autologous Tissue', 'DIEP Flap')"
     )
-    surgery_dicom_study = models.ManyToManyField(
+    study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'surgery_dicom_studies',
         help_text="Select the DICOM studies associated with this surgical procedure"
@@ -1583,7 +1583,7 @@ class SystemicTherapy(DateValidationMixin, models.Model):
         help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
     )    
     cycles_delivered = models.PositiveIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
-    systemic_therapy_dicom_study = models.ManyToManyField(
+    study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'systemic_therapy_dicom_studies',
         help_text="Select the DICOM studies associated with this systemic therapy course"
@@ -1994,7 +1994,7 @@ class PatientAssessment(models.Model):
     
 class DICOMStudyProject(models.Model):
     '''This is a through table for relating DICOM studies to Projects'''
-    dicom_study = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
+    study_instance_uid = models.ForeignKey(DICOMStudy, on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2004,7 +2004,7 @@ class DICOMStudyProject(models.Model):
         verbose_name_plural="Projects for DICOM Study"
         constraints = [
             models.UniqueConstraint(
-                fields=['dicom_study', 'project'],
+                fields=['study_instance_uid', 'project'],
                 name='unique_dicom_study_project'
             )
         ]

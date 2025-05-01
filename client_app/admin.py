@@ -63,8 +63,8 @@ admin.site.login = secure_admin_login(admin.site.login)
 class DICOMStudyProjectInline(TabularInline):
     model = DICOMStudyProject
     extra = 1
-    search_fields = ['dicom_study']
-    autocomplete_fields = ['dicom_study']    
+    search_fields = ['study_instance_uid']
+    autocomplete_fields = ['study_instance_uid']    
 
 #endregion
 
@@ -245,7 +245,7 @@ class DiagnosisExportResource(resources.ModelResource):
 class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['patient__patient_id', 'chavi_diagnosis_id']
     autocomplete_fields = ['patient','diagnosis','cancer_site','cancer_system']
-    filter_horizontal = ['diagnosis_dicom_study','diagnosis_project']
+    filter_horizontal = ['study_instance_uid','diagnosis_project']
     list_filter = ['diagnostic_modality','patient__patient_id']
     list_display = ['patient','diagnosis','diagnosis_date','diagnostic_modality','presentation_type']
     fieldsets = (
@@ -256,7 +256,7 @@ class DiagnosisAdmin (ModelAdmin, ImportExportModelAdmin):
             "fields": ['cancer_system','cancer_site',('cancer_side')]
         }),
         ('DICOM Studies',{
-            'fields': ['diagnosis_dicom_study']
+            'fields': ['study_instance_uid']
         }),
         ('Projects',{
             'fields': ['diagnosis_project']
@@ -553,7 +553,7 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
     search_fields = ['diagnosis','lesion_site','lesion_type']
     list_display = ['diagnosis','lesion_site','lesion_type','lesion_detection_modality','lesion_suv_max']
     autocomplete_fields = ['diagnosis','lesion_site']
-    filter_horizontal = ['lesion_dicom_study']
+    filter_horizontal = ['study_instance_uid']
     list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Lesion', {
@@ -567,7 +567,7 @@ class LesionAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields' : ['lesion_detection_modality','lesion_suv_max']
         }),        
         ('DICOM Studies', {
-            'fields' : ['lesion_dicom_study']
+            'fields' : ['study_instance_uid']
         }),
 
     )   
@@ -611,7 +611,7 @@ class LesionResponseExportResource(resources.ModelResource):
 @admin.register(LesionResponse)
 class LesionResponseAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['lesion']
-    filter_horizontal = ['lesion_response_dicom_study']
+    filter_horizontal = ['study_instance_uid']
     list_display = ['lesion__diagnosis', 'lesion_response_date', 'lesion_response', 'residual_lesion_volume']
     list_filter = ['lesion_response_date', 'lesion_response']
     resource_classes = [LesionResponseResource,LesionResponseExportResource]
@@ -664,7 +664,7 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     list_filter =['diagnosis__patient__patient_id']
     search_fields = ['diagnosis__patient__patient_id', 'diagnosis__chavi_diagnosis_id']
-    filter_horizontal = ['radiotherapy_dicom_study']
+    filter_horizontal = ['study_instance_uid']
     list_display = ['diagnosis__patient__patient_id','radiotherapy_start_date','radiotherapy_end_date','radiotherapy_side','radiotherapy_intent','radiotherapy_modality','radiotherapy_type','total_dose','radiation_dose_units','total_fractions']
     fieldsets = (
         ('Radiotherapy',{
@@ -674,7 +674,7 @@ class RadiotherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields': [('radiotherapy_intent','radiotherapy_modality'),('radiotherapy_type','radiotherapy_machine'),'radiotherapy_technique',('total_dose','radiation_dose_units'),('simultaneous_integrated_boost','simultaneous_integrated_boost_dose'),('total_fractions','fractions_per_day')]
         }),
         ('DICOM Studies',{
-            'fields': ['radiotherapy_dicom_study']
+            'fields': ['study_instance_uid']
         }),
     )
     resource_classes = [RadiotherapyResource,RadiotherapyExportResource]
@@ -732,7 +732,7 @@ class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis','surgery_type']
     list_filter = ['diagnosis__patient__patient_id']
     list_display= ['diagnosis__patient__patient_id','surgery_side','surgery_date','nodal_assessment']
-    filter_horizontal = ['surgery_dicom_study']
+    filter_horizontal = ['study_instance_uid']
     fieldsets = (
         ('Surgery', {
             'fields':['diagnosis','surgery_date','surgery_intent']
@@ -744,7 +744,7 @@ class SurgeryAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields':['reconstruction','type_reconstruction']
         }),
         ('DICOM Studies',{
-            'fields': ['surgery_dicom_study']
+            'fields': ['study_instance_uid']
         }),        
     )
     resource_classes = [SurgeryResource]
@@ -788,7 +788,7 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [SystemicTherapyScheduleInline]
     autocomplete_fields = ['diagnosis','systemic_therapy_regimen']
     search_fields = ['diagnosis__diagnosis']
-    filter_horizontal =['systemic_therapy_dicom_study']
+    filter_horizontal =['study_instance_uid']
     list_filter = ['diagnosis__patient__patient_id']
     list_display = ['diagnosis__patient__patient_id', 'systemic_therapy_type', 'systemic_therapy_regimen', 'systemic_therapy_start_date', 'systemic_therapy_end_date', 'cycles_delivered']
     fieldsets = (
@@ -799,7 +799,7 @@ class SystemicTherapyAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields':[('systemic_therapy_type','systemic_therapy_sequence','systemic_therapy_intent'),('systemic_therapy_regimen','cycles_delivered')]
         }),
         ('DICOM Studies',{
-            'fields': ['systemic_therapy_dicom_study']
+            'fields': ['study_instance_uid']
         }),        
     )
     resource_classes = [SystemicTherapyResource,SystemicTherapyExportResource]
@@ -1007,7 +1007,7 @@ class OutcomeResource(resources.ModelResource):
 class OutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     autocomplete_fields = ['diagnosis']
     search_fields = ['diagnosis__diagnosis']
-    filter_horizontal = ['outcome_dicom_study']
+    filter_horizontal = ['study_instance_uid']
     list_filter = ['diagnosis__patient__patient_id']
     fieldsets = (
         ('Diagnosis',{
@@ -1017,7 +1017,7 @@ class OutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
             'fields':[('outcome_type','date_outcome_assessed')]
         }),
         ('Dicom Studies',{
-            'fields':[('outcome_dicom_study')]
+            'fields':[('study_instance_uid')]
         }),
     )
     resource_classes = [OutcomeResource]
@@ -1090,7 +1090,7 @@ class DICOMStudyAdmin(ModelAdmin):
 
 @admin.register(DICOMStudyProject)
 class DICOMStudyProjectAdmin(ModelAdmin):
-    list_display = ['dicom_study', 'project']
+    list_display = ['study_instance_uid', 'project']
     list_filter = ['project']
 
 
