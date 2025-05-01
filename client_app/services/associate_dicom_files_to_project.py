@@ -49,7 +49,7 @@ def associate_dicom_files_to_project(modeladmin, request: HttpRequest, queryset)
                 try:
                     logger.debug(f"Attempting to create association for DICOM study {dicom_study}")
                     association, created = DICOMStudyProject.objects.get_or_create(
-                        dicom_study=dicom_study,
+                        study_instance_uid=dicom_study,
                         project=project
                     )
                     if created:

@@ -392,8 +392,9 @@ class PatientAssessmentSerializer(BaseSerializer):
 
 
 class DICOMStudyProjectSerializer(BaseSerializer):
-    dicom_study = HashedForeignKeyField(queryset=DICOMStudy.objects.all())  # No hash_id_field needed
+    study_instance_uid = HashedForeignKeyField(queryset=DICOMStudy.objects.all())  # No hash_id_field needed
     project = HashedForeignKeyField(queryset=Project.objects.all())  # No hash_id_field needed
 
     class Meta(BaseSerializer.Meta):
-        model = DICOMStudyProject 
+        model = DICOMStudyProject
+        exclude = BaseSerializer.Meta.exclude + ['id'] 

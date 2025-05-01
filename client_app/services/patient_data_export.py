@@ -110,7 +110,7 @@ def export_patient_data(modeladmin, request, queryset):
 
             # Collect and serialize DICOM study projects
             # These represent the research projects associated with each DICOM study
-            dicom_study_projects = DICOMStudyProject.objects.filter(dicom_study__patient=patient)
+            dicom_study_projects = DICOMStudyProject.objects.filter(study_instance_uid__patient=patient)
             patient_data['dicom_study_projects'].extend(
                 DICOMStudyProjectSerializer(dicom_study_projects, many=True, context=context).data
             )
