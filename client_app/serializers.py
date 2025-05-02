@@ -86,7 +86,7 @@ class PatientSerializer(BaseSerializer):
 class DICOMStudySerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = DICOMStudy
-        exclude = BaseSerializer.Meta.exclude + ['series_descriptions']
+        exclude = BaseSerializer.Meta.exclude + ['series_descriptions','folder_path']
 
 class HashedForeignKeyField(PrimaryKeyRelatedField):
     """Custom field to hash foreign key values"""

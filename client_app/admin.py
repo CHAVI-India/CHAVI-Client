@@ -1076,17 +1076,22 @@ class DICOMStudyAdmin(ModelAdmin):
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','study_type'),('study_description','study_modalities'),'series_descriptions']
+            'fields':[('study_instance_uid','study_type'),('study_description','study_modalities'),'series_descriptions','folder_path']
         }),
     )
-    readonly_fields = ['patient','study_date','study_instance_uid','study_description','series_descriptions','study_modalities']
+    readonly_fields = ['patient','study_date','study_instance_uid','study_description','series_descriptions','study_modalities','folder_path']
     list_filter = ['study_date', 'patient']
-    actions = ['associate_dicom_files_to_project']
+    actions = ['associate_dicom_files_to_project', 'export_dicom_data']
 
     def associate_dicom_files_to_project(self, request, queryset):
         from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
         return associate_dicom_files_to_project(self, request, queryset)
     associate_dicom_files_to_project.short_description = _("Associate selected DICOM studies with a project")
+
+    def export_dicom_data(self, request, queryset):
+        from client_app.services.dicom_data_export import export_dicom_data
+        return export_dicom_data(self, request, queryset)
+    export_dicom_data.short_description = _("Export selected DICOM studies")
 
 
 @admin.register(DICOMStudyProject)

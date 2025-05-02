@@ -140,7 +140,8 @@ def process_bulk_dicom(modeladmin, request, queryset):
                                 'study_description': data['study_description'],
                                 'study_date': data['study_date'],
                                 'series_descriptions': series_desc_string,
-                                'study_modalities': modalities_string
+                                'study_modalities': modalities_string,
+                                'folder_path': str(study_dir.absolute())
                             }
                         )
                     except Patient.DoesNotExist:

@@ -245,6 +245,7 @@ class DICOMStudy(models.Model):
         blank = True,
         help_text = "Description of the series in the study. This is a text field that can store multiple series descriptions, separated by commas."
     )
+    folder_path = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

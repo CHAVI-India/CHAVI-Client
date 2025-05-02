@@ -144,6 +144,7 @@ def process_dicom(modeladmin, request, queryset):
                             'study_date': study_dates.get(uid),
                             'series_descriptions': series_desc_string,
                             'study_modalities': modalities_string,
+                            'folder_path': str(study_dir.absolute()),
                         }
                     )
                     processing_stats['successful_studies'] += 1
