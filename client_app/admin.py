@@ -94,7 +94,7 @@ class ImmunohistochemistryInline(StackedInline):
     
 class CytogeneticsInline(StackedInline):
     model = Cytogenetics
-    autocomplete_fields =['gene','cytogentic_abnormality']
+    autocomplete_fields =['gene','cytogenetic_abnormality']
     extra = 1
     tab = True
 
@@ -1267,6 +1267,7 @@ class SystemicTherapyScheduleResource(resources.ModelResource):
 @admin.register(SystemicTherapySchedule)
 class SystemicTherapyScheduleAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [SystemicTherapyScheduleResource]
+    autocomplete_fields=['systemic_therapy','systemic_therapy_agent','systemic_therapy_agent_route','systemic_therapy_dose_units']
 
 # Immnuohistochemistry Resource
 class ImmnuohistochemistryResource(resources.ModelResource):
@@ -1295,6 +1296,7 @@ class ImmnuohistochemistryResource(resources.ModelResource):
 @admin.register(Immunohistochemistry)
 class ImmunohistochemistryAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [ImmnuohistochemistryResource]
+    autocomplete_fields=['pathology','protein_name','ihc_result']
     
 # Cytogenetics Resource
 class CytogeneticsResource(resources.ModelResource):
@@ -1324,6 +1326,7 @@ class CytogeneticsResource(resources.ModelResource):
 @admin.register(Cytogenetics)
 class CytogeneticsAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [CytogeneticsResource]
+    autocomplete_fields=['pathology','gene','cytogenetic_abnormality']
 
 # Somatic Genomic Alterations Resource
 class SomaticGenomicAlterationsResource(resources.ModelResource):
@@ -1352,6 +1355,7 @@ class SomaticGenomicAlterationsResource(resources.ModelResource):
 @admin.register(SomaticGenomicAlterations)
 class SomaticGenomicAlterationsAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [SomaticGenomicAlterationsResource]
+    autocomplete_fields=['pathology','cosmic_gene_name']
 
 # Gene Expression Data Resource
 class GeneExpressionDataResource(resources.ModelResource):
@@ -1379,6 +1383,7 @@ class GeneExpressionDataResource(resources.ModelResource):
 @admin.register(GeneExpressionData)
 class GeneExpressionDataAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [GeneExpressionDataResource]
+    autocomplete_fields=['pathology','gene','expression_units']
 
 
 # Epigenetic Data Resource
@@ -1437,6 +1442,8 @@ class RadiotherapyVolumeResource(resources.ModelResource):
 @admin.register(RadiotherapyVolume)
 class RadiotherapyVolumeAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [RadiotherapyVolumeResource]
+    filter_horizontal = ['anatomical_locations']
+    autocomplete_fields=['radiotherapy','volume_type','radiation_dose_units']
         
 # Radiotherapy Dose Volume Data Resource
 class RadiotherapyDoseVolumeDataResource(resources.ModelResource):
@@ -1462,6 +1469,7 @@ class RadiotherapyDoseVolumeDataResource(resources.ModelResource):
 @admin.register(RadiotherapyDoseVolumeData)
 class RadiotherapyDoseVolumeDataAdmin(ModelAdmin, ImportExportModelAdmin):
     resource_classes = [RadiotherapyDoseVolumeDataResource]
+    autocomplete_fields=['radiotherapy','volume_type','volume_units','radiation_dose_units']
         
         
         

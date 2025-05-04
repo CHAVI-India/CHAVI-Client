@@ -911,7 +911,7 @@ class Cytogenetics(models.Model):
         on_delete=models.PROTECT,
         help_text="Select the gene that was tested for in this cytogenetics test"
     )
-    cytogentic_abnormality = models.ForeignKey(
+    cytogenetic_abnormality = models.ForeignKey(
         'lookup.LookupCytogeneticAbnormality',
         on_delete=models.PROTECT,
         null=True,
