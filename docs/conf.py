@@ -41,6 +41,3 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_pdj_theme'
 html_static_path = [sphinx_pdj_theme.get_html_theme_path()]
-html_theme_options = {
-    'style_external_links': True,
-}
