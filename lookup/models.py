@@ -354,7 +354,7 @@ class LookupComorbidity(LookupAbstract):
 class LookupPerformanceStatus(LookupAbstract):
     ''' This is a lookup table for the performance status.'''
     def __str__(self):
-        return f"{self.label}"
+        return f"{self.code}-{self.label}"
     
 
 

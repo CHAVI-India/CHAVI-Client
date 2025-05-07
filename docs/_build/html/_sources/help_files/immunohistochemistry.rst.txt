@@ -1,46 +1,52 @@
 Immunohistochemistry
-===================
+====================
 
 The Immunohistochemistry (IHC) module captures protein expression data from pathology specimens. This information is crucial for diagnosis, prognosis, and treatment planning.
 
+.. note::
+
+   Immunohistochemistry is linked to a pathology report and there can be multiple immunohistochemistry reports for a single pathology report. Pathology is in turn linked to a diagnosis.
+
+   Immunohistochemistry -> Pathology -> Diagnosis -> Patient
+
 Data Collection Fields
---------------------
+------------------------
 
-Basic Information
-^^^^^^^^^^^^^^^
-* **Pathology Link**: The pathology report this IHC testing is associated with
-* **Date of IHC**: When the IHC testing was performed
-* **Protein Name**: The protein that was tested (from standardized list)
+.. list-table:: Immunohistochemistry Fields
+   :header-rows: 1
+   :widths: auto
 
-Test Results
-^^^^^^^^^^
-* **IHC Result**: Overall result of the staining test
-* **Percentage Measurements**:
-    * Percentage of positive tumor cells (0-100%)
-    * Percentage of positive immune cells (0-100%)
-* **Staining Intensity**: Intensity of cellular staining
-* **Scoring Systems**:
-    * Allred Score (0-8)
-    * Combined Positive Score (CPS)
-    * Tumor Proportion Score (TPS) (0-100%)
+   * - Form Field Name
+     - Database Field Name
+     - Description
+   * - Pathology
+     - pathology
+     - The pathology report this immunohistochemistry test is associated with
+   * - Date of IHC
+     - date_ihc
+     - The date when the immunohistochemistry test was performed (format: DD/MM/YYYY)
+   * - Protein Name
+     - protein_name
+     - The antibody that was tested for in this immunohistochemistry test
+   * - IHC Result
+     - ihc_result
+     - The result of the IHC staining test overall
+   * - Percentage Positive Tumor Cells
+     - percentage_positive_tumor_cells
+     - The percentage of positive cells for IHC staining (0-100%)
+   * - Percentage Positive Immune Cells
+     - percentage_positive_immune_cells
+     - The percentage of positive immune cells for IHC staining (0-100%)
+   * - Tumor Cell Staining Intensity
+     - tumor_cell_staining_intensity
+     - The staining intensity of the cells for IHC staining
+   * - Allred Score
+     - allred_score
+     - The Allred score for IHC staining
+   * - CPS Score
+     - cps_score
+     - Number of Tumor and Immune Cells with Staining per 100 Tumor Cells (CPS)
+   * - TPS Score
+     - tps_score
+     - The Tumor Proportion Score for IHC staining in percentage (0-100%)
 
-Special Considerations
---------------------
-
-1. Result Recording:
-
-   #. Enter percentages as numbers between 0 and 100  
-   #. Use appropriate scoring system for each marker  
-   #. Document both intensity and proportion when required  
-
-2. Protein Selection:
-
-   #. Choose from standardized protein list  
-   #. Ensure correct protein is selected  
-   #. Note any special staining conditions  
-
-3. Multiple Markers:
-
-   #. Create separate entries for each protein tested  
-   #. Maintain consistent scoring methods  
-   #. Record all required scores for each marker  

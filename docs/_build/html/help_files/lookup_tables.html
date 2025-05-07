@@ -1,59 +1,548 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="../">
-<head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lookup Tables in CHAVI client &mdash; CHAVI Client 1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  
-      <script src="../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="../_static/js/theme.js"></script>
+    <title>Lookup Tables in CHAVI client &#8212; CHAVI Client 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8e8a900e" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/pdj.css?v=12f78f94" />
+
+<link rel="stylesheet" href="../_static/css/darker.css" type="text/css"
+      media="(prefers-color-scheme: dark)"/>
+    <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'/>
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/pdj.js"></script>
+
+    <script type="module" src="../_static/js/dark-mode-toggle.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Patient Demographics" href="patient_demographics.html" />
     <link rel="prev" title="Lookup Data" href="lookup_data.html" /> 
-</head>
+  </head>  <body class="wy-body-for-nav" role="document"> 
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+<section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
 
-          
-          
-          <a href="../index.html" class="icon icon-home">
-            CHAVI Client
-          </a>
+  <nav class="wy-nav-top" id="barra-mobile" role="navigation" aria-label="top navigation">
+    <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+    <a href="#">CHAVI Client </a>
+  </nav>
+
+  <div class="wy-nav-content">
+    <div class="fundo-claro">
+    </div>
+    <div class="fundo-escuro">
+    </div>
+
+    <div class="rst-content">
+      <div role="navigation" aria-label="breadcrumbs navigation">
+      </div>
+      <div role="main" class="">
+
+	<div id="content" class="hfeed entry-container hentry">
+      	  <div id="dark-mode-toggle-container">
+	    <dark-mode-toggle appearance="toggle" class="slider" dark="" light="">
+	    </dark-mode-toggle>
+	  </div>
+  <section id="lookup-tables-in-chavi-client">
+<h1>Lookup Tables in CHAVI client<a class="headerlink" href="#lookup-tables-in-chavi-client" title="Link to this heading">¶</a></h1>
+<p>The CHAVI client uses a number of lookup tables to store information that is used across multiple models. These lookup tables are used to ensure consistency and to reduce the amount of data that needs to be stored in the database. The lookup tables are also used to provide a standard set of options for users to select from when entering data.</p>
+<p>The following are the sources for the major lookup tables:</p>
+<section id="symptoms">
+<h2>Symptoms<a class="headerlink" href="#symptoms" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the Symptom Ontology available at <a class="reference external" href="https://bioportal.bioontology.org/ontologies/SYMP">https://bioportal.bioontology.org/ontologies/SYMP</a></p>
+</section>
+<section id="anatomical-sites">
+<h2>Anatomical Sites<a class="headerlink" href="#anatomical-sites" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the ICD-0-3.1 Topography ontology. This is available at <a class="reference external" href="https://data.bioontology.org/ontologies/OCD-O-3_TOPO/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv">https://data.bioontology.org/ontologies/OCD-O-3_TOPO/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv</a></p>
+</section>
+<section id="histology-types">
+<h2>Histology Types<a class="headerlink" href="#histology-types" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the ICD-11 Histology types. The codes begin with the keyword “XH”.</p>
+</section>
+<section id="diagnosis-types">
+<h2>Diagnosis Types<a class="headerlink" href="#diagnosis-types" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the ICD-11 Neoplasms section. The codes start with 2. We have excluded codes with a . in them to exclude diagnosis where an anatomical site is appended.</p>
+</section>
+<section id="laterality">
+<h2>Laterality<a class="headerlink" href="#laterality" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the ICD-11 Laterality section. There are only 4 codes for this - XK9J, XK9K, XK8G and XK70.</p>
+</section>
+<section id="grades">
+<h2>Grades<a class="headerlink" href="#grades" title="Link to this heading">¶</a></h2>
+<p>This table is derived from the ICD-11 Grades section. However codes are manually created.</p>
+</section>
+<section id="pathology-descriptors">
+<h2>Pathology Descriptors<a class="headerlink" href="#pathology-descriptors" title="Link to this heading">¶</a></h2>
+<p>This table has  key terms in pathology like lvsi, necrosis, etc. These are usually, “Present”, “Absent”, “Indeterminate”, “Not Specified”, “Not Applicable”, “Not Identified”.</p>
+</section>
+<section id="major-cancer-sites">
+<h2>Major Cancer Sites<a class="headerlink" href="#major-cancer-sites" title="Link to this heading">¶</a></h2>
+<p>These are manually created and coded. There are 16 categories as follows:
+#. Hematological Neoplasms
+#. Central Nervous System (CNS) Neoplasms
+#. Head Neck Neoplasms
+#. Thoracic Neoplasms
+#. Breast Neoplasms
+#. Male Genital System Neoplasms
+#. Female Genital System Neoplasms
+#. Endocrine Gland Neoplasms
+#. Soft Tissue &amp; Bone Neoplasms
+#. Skin Neoplasms
+#. Gastrointestinal Neoplasms
+#. Urological Neoplasms
+#. Hepatobiliary System Neoplasms
+#. Exocrine Gland Neoplasms
+#. Neoplasms of Unknown Origin (Unknown Primary)</p>
+</section>
+<section id="radiotherapy-modalities">
+<h2>Radiotherapy Modalities<a class="headerlink" href="#radiotherapy-modalities" title="Link to this heading">¶</a></h2>
+<p>This section is also manually defined and has the following components:</p>
+<ol class="arabic simple">
+<li><p>Photon EBRT</p></li>
+<li><p>Brachytherapy</p></li>
+<li><p>Proton EBRT</p></li>
+<li><p>Carbon Ion EBRT</p></li>
+<li><p>Electron Beam EBRT</p></li>
+<li><p>Neutron EBRT</p></li>
+</ol>
+</section>
+<section id="radiotherapy-treatment-type">
+<h2>Radiotherapy Treatment Type<a class="headerlink" href="#radiotherapy-treatment-type" title="Link to this heading">¶</a></h2>
+<p>This section has the types of radiotherapy. Again this list has been manually created. The following are the components in the list:
+#. Definitive
+#. Adjuvant
+#. Neoadjuvant
+#. Palliative
+#. Induction
+#. Reinduction
+#. Postoperative
+#. Preoperative
+#. Chemosensitizing</p>
+</section>
+<section id="radiotherapy-technqiues">
+<h2>Radiotherapy Technqiues<a class="headerlink" href="#radiotherapy-technqiues" title="Link to this heading">¶</a></h2>
+<p>This table has also been manually created and has the following components:
+#. Conventional
+#. Intensity Modulated Radiation Therapy
+#. Volumetric Modulated Arc Therapy
+#. Image Guided Radiation Therapy
+#. Stereotactic Radiation Therapy
+#. Intensity Modulated Brachytherapy
+#. Electron Beam Therapy
+#. Spatially Fractionated Radiation Therapy
+#. Microbeam Radiation Therapy
+#. 3D Conformal Radiation Therapy
+#. Total Body Irradiation
+#. Total Marrow Irradiation
+#. Total Skin Electron Therapy
+#. Hemibody Irradiation
+#. Spot scanning Intensity Modulated Particle Therapy
+#. Filter based Intensity Modulated Particle Therapy
+#. Stereotactic Radiosurgery
+#. Stereotactic Body Radiation Therapy
+#. Intracavitary Brachytherapy
+#. Interstitial Brachytherapy
+#. Intraoperative Radiation Therapy
+#. Intraoperative Brachytherapy
+#. Intraluminal Brachytherapy
+#. Surface Mould Brachytherapy</p>
+</section>
+<section id="adverse-effect">
+<h2>Adverse Effect<a class="headerlink" href="#adverse-effect" title="Link to this heading">¶</a></h2>
+<p>The adverse effects lookup is from the CTCAE 5.0 grading system. There is one modification that in addition to the MedDRA code which defines the type of toxicity we concatenate the grade of toxicity for uniqueness. This data comes in a excel format. The URL from which the file is obtained is <a class="reference external" href="https://ctep.cancer.gov/protocoldevelopment/electronic_applications/docs/CTCAE_v5.0.xlsx">https://ctep.cancer.gov/protocoldevelopment/electronic_applications/docs/CTCAE_v5.0.xlsx</a></p>
+</section>
+<section id="ihc-protein-list">
+<h2>IHC Protein list<a class="headerlink" href="#ihc-protein-list" title="Link to this heading">¶</a></h2>
+<p>This is a manually curated list of antibodies commonly used for IHC derived from the catalog of different vendors. The lookup table is available at : <a class="reference external" href="https://docs.google.com/spreadsheets/d/1n04ABIRFHlzdKMqhRef5CepD7ws60d_GCYt3gZSa2as/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1n04ABIRFHlzdKMqhRef5CepD7ws60d_GCYt3gZSa2as/edit?usp=sharing</a></p>
+</section>
+<section id="comorbidity">
+<h2>Comorbidity<a class="headerlink" href="#comorbidity" title="Link to this heading">¶</a></h2>
+<p>For Comorbidity we have used the list of diseases in ACE 27 and CCI to get a modified list of comorbidities. This is available at the sheet : <a class="reference external" href="https://docs.google.com/spreadsheets/d/1QBsTNgZBWdORteiOKpK9q_ZND89UOI2sTCwF4fUBrdY/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1QBsTNgZBWdORteiOKpK9q_ZND89UOI2sTCwF4fUBrdY/edit?usp=sharing</a></p>
+</section>
+<section id="gene-names">
+<h2>Gene Names<a class="headerlink" href="#gene-names" title="Link to this heading">¶</a></h2>
+<p>Gene names will be downloaded from the following URL:
+<a class="reference external" href="https://www.genenames.org/cgi-bin/download/custom?col=gd_hgnc_id&amp;col=gd_app_sym&amp;col=gd_app_name&amp;col=gd_prev_sym&amp;col=gd_name_aliases&amp;status=Approved&amp;hgnc_dbtag=on&amp;order_by=gd_app_sym_sort&amp;format=text&amp;submit=submit">https://www.genenames.org/cgi-bin/download/custom?col=gd_hgnc_id&amp;col=gd_app_sym&amp;col=gd_app_name&amp;col=gd_prev_sym&amp;col=gd_name_aliases&amp;status=Approved&amp;hgnc_dbtag=on&amp;order_by=gd_app_sym_sort&amp;format=text&amp;submit=submit</a> This is a website that has gene names and corresponding HGNC IDs for more than 40,000 genes which include coding and non-coding genes.</p>
+</section>
+<section id="gene-expression-units">
+<h2>Gene Expression Units<a class="headerlink" href="#gene-expression-units" title="Link to this heading">¶</a></h2>
+<p>Gene expression units lookup will be created  next. This is derived from the following URL: <a class="reference external" href="https://www.reneshbedre.com/blog/expression_units.html">https://www.reneshbedre.com/blog/expression_units.html</a>:</p>
+<ol class="arabic simple">
+<li><p>CPM = ‘Counts per million’</p></li>
+<li><p>RPKM = ‘Reads per kilobase per million’</p></li>
+<li><p>FPKM = ‘Fragments per kilobase per million’</p></li>
+<li><p>TPM = ‘Transcripts per million’</p></li>
+<li><p>RSEM = ‘Relative log expression’</p></li>
+<li><p>DESEQ2 = ‘DESeq2’</p></li>
+<li><p>TMM = ‘Trimmed mean of M-values’</p></li>
+<li><p>SCnorm = ‘Scale-invariant normalization’</p></li>
+<li><p>GeTMM = ‘Gene length correct TMM’</p></li>
+<li><p>ComBat_Seq = ‘ComBat-Seq Batch effect adjustment method’</p></li>
+</ol>
+</section>
+<section id="presentation">
+<h2>Presentation<a class="headerlink" href="#presentation" title="Link to this heading">¶</a></h2>
+<p>This is a manually created table with the following components:</p>
+<ol class="arabic simple">
+<li><p>Primary</p></li>
+<li><p>Recurrent</p></li>
+<li><p>Metastatic</p></li>
+<li><p>Second Primary</p></li>
+</ol>
+<p>Codes are derived from the NCIT codes for the above terms.</p>
+</section>
+<section id="disease-outcomes">
+<h2>Disease Outcomes<a class="headerlink" href="#disease-outcomes" title="Link to this heading">¶</a></h2>
+<p>Disease outcomes are collected from the Cancer Care: Treatment Outcome Ontology available from download at : <a class="reference external" href="https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary">https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary</a></p>
+</section>
+<section id="lesion-response">
+<h2>Lesion Response<a class="headerlink" href="#lesion-response" title="Link to this heading">¶</a></h2>
+<p>Lesion response categories are collected from the Cancer Care: Treatment Outcome Ontology available from download at : <a class="reference external" href="https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary">https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary</a></p>
+</section>
+<section id="lesion-type">
+<h2>Lesion Type<a class="headerlink" href="#lesion-type" title="Link to this heading">¶</a></h2>
+<p>Lesion type categories are created manually. The following categories are present:
+#. Local
+#. Nodal
+#. Metastatic</p>
+<p>Corresponding NCIT codes are used.</p>
+</section>
+<section id="treatment-intent">
+<h2>Treatment Intent<a class="headerlink" href="#treatment-intent" title="Link to this heading">¶</a></h2>
+<p>The Treatment intent categories are created manually and have the following components:
+#. Curative
+#. Palliative</p>
+<p>Corresponding NCIT codes are used.</p>
+</section>
+<section id="treatment-sequencing">
+<h2>Treatment Sequencing<a class="headerlink" href="#treatment-sequencing" title="Link to this heading">¶</a></h2>
+<p>This data is from the NCIT <a class="reference external" href="https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C158877">https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C158877</a> under  Cancer Therapeutic Procedure</p>
+</section>
+<section id="drug-route">
+<h2>Drug Route<a class="headerlink" href="#drug-route" title="Link to this heading">¶</a></h2>
+<p>Drug route is from the <a class="reference external" href="https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C45246">https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C45246</a> NCIT Dosage form by Route of Administration</p>
+</section>
+<section id="units-of-measure">
+<h2>Units of Measure<a class="headerlink" href="#units-of-measure" title="Link to this heading">¶</a></h2>
+<p>Various units of measure like units of volume, mass, length, radiation dose, drug dose and percentage have been created. These are manually created and codes correspond to the usual unit abbreviations used.</p>
+</section>
+<section id="patient-outcome">
+<h2>Patient Outcome<a class="headerlink" href="#patient-outcome" title="Link to this heading">¶</a></h2>
+<p>This is created manually and has the following categories:</p>
+<ol class="arabic simple">
+<li><p>Alive</p></li>
+<li><p>Dead</p></li>
+<li><p>Unknown</p></li>
+</ol>
+<p>Codes are taken from the corresponding NCIT codes.</p>
+</section>
+<section id="staging">
+<h2>Staging<a class="headerlink" href="#staging" title="Link to this heading">¶</a></h2>
+<p>Staging related lookup tables have been created manually. These codes for these categories are accepted abbreviations for the categories.</p>
+</section>
+<section id="staging-system">
+<h2>Staging System<a class="headerlink" href="#staging-system" title="Link to this heading">¶</a></h2>
+<p>In addition to the usual staging systems like AJCC and FIGO staging systems we have also incorporated specialized staging systems for pediatric tumors taken from <a class="reference external" href="https://cancerqld.blob.core.windows.net/content/docs/childhood-cancer-staging-for-population-registries.pdf">https://cancerqld.blob.core.windows.net/content/docs/childhood-cancer-staging-for-population-registries.pdf</a></p>
+</section>
+<section id="systemic-therapy-type">
+<h2>Systemic Therapy Type<a class="headerlink" href="#systemic-therapy-type" title="Link to this heading">¶</a></h2>
+<p>This is created manually and has the following categories:</p>
+<ol class="arabic simple">
+<li><p>Chemotherapy</p></li>
+<li><p>Immunotherapy</p></li>
+<li><p>Targeted Therapy</p></li>
+<li><p>Hormone Therapy</p></li>
+<li><p>Bone Marrow Transplant</p></li>
+<li><p>CART Therapy</p></li>
+<li><p>Monoclonal Antibody</p></li>
+</ol>
+<p>The codes are obtained from the corresponding NCIT codes.</p>
+</section>
+<section id="anticancer-drugs">
+<h2>Anticancer Drugs<a class="headerlink" href="#anticancer-drugs" title="Link to this heading">¶</a></h2>
+<p>The list of anticancer drugs from the <a class="reference external" href="https://www.anticancerfund.org/en/database-cancer-drugs">https://www.anticancerfund.org/en/database-cancer-drugs</a> has been used for this lookup table. This database   is a curated listing of licensed cancer drugs produced by the Anticancer Fund. Source data comes from the NCI, FDA, EMA and other data sources. The intention is to provide researchers, clinicians and regulators with an easily filtered database of licensed drugs used in the treatment of cancer. Drugs which are used in cancer treatments to alleviate symptoms or other supportive care uses or which are used for diagnostic purposes are not included. Investigational agents and experimental treatments being used in clinical trials are also not included.</p>
+</section>
+<section id="clinical-significance">
+<h2>Clinical Significance<a class="headerlink" href="#clinical-significance" title="Link to this heading">¶</a></h2>
+<p>Clinical significance of the genetic alterations have been classified manually as follows:</p>
+<ol class="arabic simple">
+<li><p>Pathogenic</p></li>
+<li><p>Likely Pathogenic</p></li>
+<li><p>Benign</p></li>
+<li><p>Likely Benign</p></li>
+<li><p>Variant of Unknown Significance</p></li>
+<li><p>Not reported</p></li>
+</ol>
+</section>
+<section id="ihc-and-cytogenetics-results-m-values">
+<h2>IHC and Cytogenetics Results M-values<a class="headerlink" href="#ihc-and-cytogenetics-results-m-values" title="Link to this heading">¶</a></h2>
+<p>These are also created manually as follows:</p>
+<ol class="arabic simple">
+<li><p>Positive</p></li>
+<li><p>Negative</p></li>
+<li><p>Equivocal</p></li>
+<li><p>Indeterminate</p></li>
+<li><p>Not Reported</p></li>
+<li><p>Intact</p></li>
+<li><p>Loss</p></li>
+<li><p>Null</p></li>
+</ol>
+<p>Codes are generated manually.</p>
+</section>
+<section id="ihc-staining-intensity">
+<h2>IHC Staining Intensity<a class="headerlink" href="#ihc-staining-intensity" title="Link to this heading">¶</a></h2>
+<p>IHC staining intensity are categorized into the following categories:
+#. Strong
+#. Moderate
+#. Weak
+#. Indeterminate</p>
+<p>Codes are generated manually.</p>
+</section>
+<section id="resection-margin-status">
+<h2>Resection Margin Status<a class="headerlink" href="#resection-margin-status" title="Link to this heading">¶</a></h2>
+<p>The resection margin status codes are also created manually and have the following categories:</p>
+<ol class="arabic simple">
+<li><p>R0</p></li>
+<li><p>R1</p></li>
+<li><p>R2</p></li>
+<li><p>Indeterminate</p></li>
+</ol>
+</section>
+<section id="treatment-effect">
+<h2>Treatment Effect<a class="headerlink" href="#treatment-effect" title="Link to this heading">¶</a></h2>
+<p>Treatment effect codes are also created manually. These have the following categories:</p>
+<ol class="arabic simple">
+<li><p>Present</p></li>
+<li><p>Absent</p></li>
+<li><p>Not Applicable</p></li>
+</ol>
+</section>
+<section id="severity">
+<h2>Severity<a class="headerlink" href="#severity" title="Link to this heading">¶</a></h2>
+<p>Severity lookup codes are created manually and have the following values:</p>
+<ol class="arabic simple">
+<li><p>Mild</p></li>
+<li><p>Moderate</p></li>
+<li><p>Severe</p></li>
+<li><p>Unknown</p></li>
+</ol>
+</section>
+<section id="performance-status">
+<h2>Performance status<a class="headerlink" href="#performance-status" title="Link to this heading">¶</a></h2>
+<p>Performance status lookups are created manually with compontents of the ECOG and KPS systems.</p>
+</section>
+<section id="surgery-procedures">
+<h2>Surgery Procedures<a class="headerlink" href="#surgery-procedures" title="Link to this heading">¶</a></h2>
+<p>This is taken from the NCIT database under the semantic types “Therapeutic or Preventive Procedures” and filtering the definitions by the following terms:</p>
+<ol class="arabic simple">
+<li><p>surgical</p></li>
+<li><p>surgery</p></li>
+<li><p>resection</p></li>
+<li><p>excision</p></li>
+<li><p>anastomosis</p></li>
+<li><p>biopsy</p></li>
+<li><p>adenectomy</p></li>
+<li><p>reconstruction</p></li>
+</ol>
+<p>This ensures that all surgical procedures are included.</p>
+</section>
+<section id="nodal-assessment-type">
+<h2>Nodal Assessment Type<a class="headerlink" href="#nodal-assessment-type" title="Link to this heading">¶</a></h2>
+<p>This lookup table has manually created values:
+#. Sentinel Lymph Node biopsy
+#. Lymph node biopsy
+#. Lymphadenectomy
+#. Complete Lymph node dissection
+#. Radical Lymph node dissection
+#. Regional Lymph node dissection
+#. Lymph node sampling
+#. Other type of lymph node assessment.</p>
+<p>Note that for some codes the codes are created manually as there are no corresponding NCIT codes.</p>
+</section>
+<section id="systemic-therapy-regimen">
+<h2>Systemic Therapy Regimen<a class="headerlink" href="#systemic-therapy-regimen" title="Link to this heading">¶</a></h2>
+<p>This is also derived from the NCIT ontology. We have filtered the Preferred Label column for words which end with the word Regimen.</p>
+</section>
+<section id="radiotherapy-volumes">
+<h2>Radiotherapy Volumes<a class="headerlink" href="#radiotherapy-volumes" title="Link to this heading">¶</a></h2>
+<p>Radiotherapy volumes are considered differently as they have overlapping anatomical sites which are usually treated. Download from here  <a class="reference external" href="https://docs.google.com/spreadsheets/d/16Lgk3kyeu3VoriD4zHaje3MZm04mfZ8O7UqHFNl3jMc/edit?usp=sharing">https://docs.google.com/spreadsheets/d/16Lgk3kyeu3VoriD4zHaje3MZm04mfZ8O7UqHFNl3jMc/edit?usp=sharing</a></p>
+</section>
+<section id="laboratory-tests">
+<h2>Laboratory Tests<a class="headerlink" href="#laboratory-tests" title="Link to this heading">¶</a></h2>
+<p>Laboratory tests are obtained from the LOINC data. We have selected the chemistry, hematology, serology and microbiological test as they are not represented in pathology. The URL for the download is <a class="reference external" href="https://data.bioontology.org/ontologies/LOINC/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv">https://data.bioontology.org/ontologies/LOINC/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv</a></p>
+</section>
+<section id="cytogenetic-abnormality">
+<h2>Cytogenetic Abnormality<a class="headerlink" href="#cytogenetic-abnormality" title="Link to this heading">¶</a></h2>
+<p>Cytogentic abnormalty data is obtained from the Mitelman database. This is available at <a class="reference external" href="https://mitelmandatabase.isb-cgc.org/result">https://mitelmandatabase.isb-cgc.org/result</a>. The recurrent chromosome aberration table has been downloaded manually and de-duplicated. As the database does not have a unique ID for each chromosome aberration, a unique ID has been generated. The datasheet is avaialble at <a class="reference external" href="https://docs.google.com/spreadsheets/d/1pbUKWSRypNWnVFkYmlEkM8o-_ElwL11KH8JnPC4nq0w/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1pbUKWSRypNWnVFkYmlEkM8o-_ElwL11KH8JnPC4nq0w/edit?usp=sharing</a></p>
+</section>
+</section>
+
+
+	</div>
+      </div>
+
+      
+      <footer>
+  
+  <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+    
+    <a href="patient_demographics.html" class="btn btn-neutral float-right" title="Patient Demographics">Next <span class="fa fa-arrow-circle-right"></span></a>
+    
+    
+    <a href="lookup_data.html" class="btn btn-neutral" title="Lookup Data"><span class="fa fa-arrow-circle-left"></span>Previous</a>
+    
+  </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+      &copy; Copyright 2025, Tata Medical Center.
+    </p>
+  </div>
+
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/jucacrispim/sphinx_pdj_theme">theme</a> provided by <a href="https://poraodojuca.dev">Porão do Juca</a>.
+
+</footer>
+      
+
+      <div class="clearer"></div>
+    </div>
+  </div>
+
+</section>
+
+<nav data-toggle="wy-nav-shift" class="wy-nav-side">
+  <div class="wy-side-nav-search">
+    
+    <a href="../index.html" class="fa fa-home"> CHAVI Client </a>
+    
+    
+    <div role="search">
+      
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="text" name="q" placeholder="Search" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+      
+    </div>
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    
+      
+      
+	  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#environment-setup">Environment Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#linux-installation">Linux Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#windows-installation">Windows Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#accessing-the-application">Accessing the Application</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="docker_installation.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docker_installation.html#installation">Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#initial-site-configuration">Initial Site Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#user-groups-and-permissions">User Groups and Permissions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#creating-users">Creating Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#security-recommendations">Security Recommendations</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
-<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
-<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-1">Example 1:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-2">Example 2:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="import_data.html#using-the-import-feature">Using the Import Feature</a></li>
+<li class="toctree-l2"><a class="reference internal" href="import_data.html#special-considerations">Special Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="import_data.html#example-csv-format">Example CSV Format</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dicom_data_import.html#single-patient-dicom-upload">Single Patient DICOM Upload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dicom_data_import.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dicom_data_import.html#important-notes">Important Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuplaterality">LookupLaterality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupicdcode">LookupICDCode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupfmacode">LookupFMACode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuppresentation">LookupPresentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupoutcometype">LookupOutcomeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuplesiontype">LookupLesionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupresponsetype">LookupResponseType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupprotein">LookupProtein</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupgene">LookupGene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuptreatmentintent">LookupTreatmentIntent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuptreatmentsequence">LookupTreatmentSequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsystemicagent">LookupSystemicAgent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupvolumeunits">LookupVolumeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsizeunits">LookupSizeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupdoseunits">LookupDoseUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuplabresultsunits">LookupLabResultsUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupmassunits">LookupMassUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupdrugroute">LookupDrugRoute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupctcaegrade">LookupCTCAEGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupoutcome">LookupOutcome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupstagingsystem">LookupStagingSystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupajccstageprefix">LookupAJCCStagePrefix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupajccstagesuffix">LookupAJCCStageSuffix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupajcctstagedescriptor">LookupAJCCTStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupajccnstagedescriptor">LookupAJCCNStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupajccmstagedescriptor">LookupAJCCMStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupstagedescriptor">LookupStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupdiagnosticmodality">LookupDiagnosticModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsystemictherapytype">LookupSystemicTherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupradiotherapyvolumetype">LookupRadiotherapyVolumeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuppathology">LookupPathology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupgrade">LookupGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuppathologydescriptors">LookupPathologyDescriptors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupmajorcancercategory">LookupMajorCancerCategory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupradiotherapymodality">LookupRadiotherapyModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupradiotherapytype">LookupRadiotherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupradiotherapytechnique">LookupRadiotherapyTechnique</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupclinicalsignificance">LookupClinicalSignificance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupihcresult">LookupIHCResult</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupihcstainingintensity">LookupIHCStainingIntensity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupmarginstatus">LookupMarginStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuptreatmenteffect">LookupTreatmentEffect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupstagingtype">LookupStagingType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsystemictherapyregimen">LookupSystemicTherapyRegimen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuprtlocation">LookupRTLocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookuplaboratorytest">LookupLaboratoryTest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsymptoms">LookupSymptoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupseverity">LookupSeverity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupihcantibody">LookupIHCAntibody</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupcomorbidity">LookupComorbidity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupperformancestatus">LookupPerformanceStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupexpressionunits">LookupExpressionUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupcytogeneticabnormality">LookupCytogeneticAbnormality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupepigeneticabnormalitytype">LookupEpigeneticAbnormalityType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupsurgicalprocedures">LookupSurgicalProcedures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup_data.html#lookupnodalassessmenttype">LookupNodalAssessmentType</a></li>
+</ul>
+</li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Lookup Tables in CHAVI client</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#symptoms">Symptoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#anatomical-sites">Anatomical Sites</a></li>
@@ -99,423 +588,151 @@
 <li class="toctree-l2"><a class="reference internal" href="#cytogenetic-abnormality">Cytogenetic Abnormality</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a></li>
-<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
-<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
-<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
-<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
-<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
-<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
-<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
-<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
-<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
-<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="patient_demographics.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="patient_demographics.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="diagnosis.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diagnosis.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lesion.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lesion.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lesion_response.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lesion_response.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pathology.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pathology.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="adverse_effects.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adverse_effects.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="surgery.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surgery.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="other_treatment.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="other_treatment.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="symptoms.html#data-collection-fields">Data Collection Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="stage_information.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stage_information.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="comorbidities.html#data-collection-fields">Data Collection Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="patient_reported_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="patient_reported_outcomes.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dicom_study.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dicom_study.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="patient_assessment.html#data-collection-fields">Data Collection Fields</a></li>
+</ul>
+</li>
 </ul>
 
-        </div>
-      </div>
-    </nav>
+      
+    
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">CHAVI Client</a>
-      </nav>
-
-      <div class="wy-nav-content">
-        <div class="rst-content style-external-links">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Lookup Tables in CHAVI client</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/help_files/lookup_tables.rst.txt" rel="nofollow"> View page source</a>
-      </li>
-  </ul>
-  <hr/>
-</div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="lookup-tables-in-chavi-client">
-<h1>Lookup Tables in CHAVI client<a class="headerlink" href="#lookup-tables-in-chavi-client" title="Link to this heading"></a></h1>
-<p>The CHAVI client uses a number of lookup tables to store information that is used across multiple models. These lookup tables are used to ensure consistency and to reduce the amount of data that needs to be stored in the database. The lookup tables are also used to provide a standard set of options for users to select from when entering data.</p>
-<p>The following are the sources for the major lookup tables:</p>
-<section id="symptoms">
-<h2>Symptoms<a class="headerlink" href="#symptoms" title="Link to this heading"></a></h2>
-<p>This table is derived from the Symptom Ontology available at <a class="reference external" href="https://bioportal.bioontology.org/ontologies/SYMP">https://bioportal.bioontology.org/ontologies/SYMP</a></p>
-</section>
-<section id="anatomical-sites">
-<h2>Anatomical Sites<a class="headerlink" href="#anatomical-sites" title="Link to this heading"></a></h2>
-<p>This table is derived from the ICD-0-3.1 Topography ontology. This is available at <a class="reference external" href="https://data.bioontology.org/ontologies/OCD-O-3_TOPO/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv">https://data.bioontology.org/ontologies/OCD-O-3_TOPO/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv</a></p>
-</section>
-<section id="histology-types">
-<h2>Histology Types<a class="headerlink" href="#histology-types" title="Link to this heading"></a></h2>
-<p>This table is derived from the ICD-11 Histology types. The codes begin with the keyword “XH”.</p>
-</section>
-<section id="diagnosis-types">
-<h2>Diagnosis Types<a class="headerlink" href="#diagnosis-types" title="Link to this heading"></a></h2>
-<p>This table is derived from the ICD-11 Neoplasms section. The codes start with 2. We have excluded codes with a . in them to exclude diagnosis where an anatomical site is appended.</p>
-</section>
-<section id="laterality">
-<h2>Laterality<a class="headerlink" href="#laterality" title="Link to this heading"></a></h2>
-<p>This table is derived from the ICD-11 Laterality section. There are only 4 codes for this - XK9J, XK9K, XK8G and XK70.</p>
-</section>
-<section id="grades">
-<h2>Grades<a class="headerlink" href="#grades" title="Link to this heading"></a></h2>
-<p>This table is derived from the ICD-11 Grades section. However codes are manually created.</p>
-</section>
-<section id="pathology-descriptors">
-<h2>Pathology Descriptors<a class="headerlink" href="#pathology-descriptors" title="Link to this heading"></a></h2>
-<p>This table has  key terms in pathology like lvsi, necrosis, etc. These are usually, “Present”, “Absent”, “Indeterminate”, “Not Specified”, “Not Applicable”, “Not Identified”.</p>
-</section>
-<section id="major-cancer-sites">
-<h2>Major Cancer Sites<a class="headerlink" href="#major-cancer-sites" title="Link to this heading"></a></h2>
-<p>These are manually created and coded. There are 16 categories as follows:
-#. Hematological Neoplasms
-#. Central Nervous System (CNS) Neoplasms
-#. Head Neck Neoplasms
-#. Thoracic Neoplasms
-#. Breast Neoplasms
-#. Male Genital System Neoplasms
-#. Female Genital System Neoplasms
-#. Endocrine Gland Neoplasms
-#. Soft Tissue &amp; Bone Neoplasms
-#. Skin Neoplasms
-#. Gastrointestinal Neoplasms
-#. Urological Neoplasms
-#. Hepatobiliary System Neoplasms
-#. Exocrine Gland Neoplasms
-#. Neoplasms of Unknown Origin (Unknown Primary)</p>
-</section>
-<section id="radiotherapy-modalities">
-<h2>Radiotherapy Modalities<a class="headerlink" href="#radiotherapy-modalities" title="Link to this heading"></a></h2>
-<p>This section is also manually defined and has the following components:</p>
-<ol class="arabic simple">
-<li><p>Photon EBRT</p></li>
-<li><p>Brachytherapy</p></li>
-<li><p>Proton EBRT</p></li>
-<li><p>Carbon Ion EBRT</p></li>
-<li><p>Electron Beam EBRT</p></li>
-<li><p>Neutron EBRT</p></li>
-</ol>
-</section>
-<section id="radiotherapy-treatment-type">
-<h2>Radiotherapy Treatment Type<a class="headerlink" href="#radiotherapy-treatment-type" title="Link to this heading"></a></h2>
-<p>This section has the types of radiotherapy. Again this list has been manually created. The following are the components in the list:
-#. Definitive
-#. Adjuvant
-#. Neoadjuvant
-#. Palliative
-#. Induction
-#. Reinduction
-#. Postoperative
-#. Preoperative
-#. Chemosensitizing</p>
-</section>
-<section id="radiotherapy-technqiues">
-<h2>Radiotherapy Technqiues<a class="headerlink" href="#radiotherapy-technqiues" title="Link to this heading"></a></h2>
-<p>This table has also been manually created and has the following components:
-#. Conventional
-#. Intensity Modulated Radiation Therapy
-#. Volumetric Modulated Arc Therapy
-#. Image Guided Radiation Therapy
-#. Stereotactic Radiation Therapy
-#. Intensity Modulated Brachytherapy
-#. Electron Beam Therapy
-#. Spatially Fractionated Radiation Therapy
-#. Microbeam Radiation Therapy
-#. 3D Conformal Radiation Therapy
-#. Total Body Irradiation
-#. Total Marrow Irradiation
-#. Total Skin Electron Therapy
-#. Hemibody Irradiation
-#. Spot scanning Intensity Modulated Particle Therapy
-#. Filter based Intensity Modulated Particle Therapy
-#. Stereotactic Radiosurgery
-#. Stereotactic Body Radiation Therapy
-#. Intracavitary Brachytherapy
-#. Interstitial Brachytherapy
-#. Intraoperative Radiation Therapy
-#. Intraoperative Brachytherapy
-#. Intraluminal Brachytherapy
-#. Surface Mould Brachytherapy</p>
-</section>
-<section id="adverse-effect">
-<h2>Adverse Effect<a class="headerlink" href="#adverse-effect" title="Link to this heading"></a></h2>
-<p>The adverse effects lookup is from the CTCAE 5.0 grading system. There is one modification that in addition to the MedDRA code which defines the type of toxicity we concatenate the grade of toxicity for uniqueness. This data comes in a excel format. The URL from which the file is obtained is <a class="reference external" href="https://ctep.cancer.gov/protocoldevelopment/electronic_applications/docs/CTCAE_v5.0.xlsx">https://ctep.cancer.gov/protocoldevelopment/electronic_applications/docs/CTCAE_v5.0.xlsx</a></p>
-</section>
-<section id="ihc-protein-list">
-<h2>IHC Protein list<a class="headerlink" href="#ihc-protein-list" title="Link to this heading"></a></h2>
-<p>This is a manually curated list of antibodies commonly used for IHC derived from the catalog of different vendors. The lookup table is available at : <a class="reference external" href="https://docs.google.com/spreadsheets/d/1n04ABIRFHlzdKMqhRef5CepD7ws60d_GCYt3gZSa2as/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1n04ABIRFHlzdKMqhRef5CepD7ws60d_GCYt3gZSa2as/edit?usp=sharing</a></p>
-</section>
-<section id="comorbidity">
-<h2>Comorbidity<a class="headerlink" href="#comorbidity" title="Link to this heading"></a></h2>
-<p>For Comorbidity we have used the list of diseases in ACE 27 and CCI to get a modified list of comorbidities. This is available at the sheet : <a class="reference external" href="https://docs.google.com/spreadsheets/d/1QBsTNgZBWdORteiOKpK9q_ZND89UOI2sTCwF4fUBrdY/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1QBsTNgZBWdORteiOKpK9q_ZND89UOI2sTCwF4fUBrdY/edit?usp=sharing</a></p>
-</section>
-<section id="gene-names">
-<h2>Gene Names<a class="headerlink" href="#gene-names" title="Link to this heading"></a></h2>
-<p>Gene names will be downloaded from the following URL:
-<a class="reference external" href="https://www.genenames.org/cgi-bin/download/custom?col=gd_hgnc_id&amp;col=gd_app_sym&amp;col=gd_app_name&amp;col=gd_prev_sym&amp;col=gd_name_aliases&amp;status=Approved&amp;hgnc_dbtag=on&amp;order_by=gd_app_sym_sort&amp;format=text&amp;submit=submit">https://www.genenames.org/cgi-bin/download/custom?col=gd_hgnc_id&amp;col=gd_app_sym&amp;col=gd_app_name&amp;col=gd_prev_sym&amp;col=gd_name_aliases&amp;status=Approved&amp;hgnc_dbtag=on&amp;order_by=gd_app_sym_sort&amp;format=text&amp;submit=submit</a> This is a website that has gene names and corresponding HGNC IDs for more than 40,000 genes which include coding and non-coding genes.</p>
-</section>
-<section id="gene-expression-units">
-<h2>Gene Expression Units<a class="headerlink" href="#gene-expression-units" title="Link to this heading"></a></h2>
-<p>Gene expression units lookup will be created  next. This is derived from the following URL: <a class="reference external" href="https://www.reneshbedre.com/blog/expression_units.html">https://www.reneshbedre.com/blog/expression_units.html</a>:</p>
-<ol class="arabic simple">
-<li><p>CPM = ‘Counts per million’</p></li>
-<li><p>RPKM = ‘Reads per kilobase per million’</p></li>
-<li><p>FPKM = ‘Fragments per kilobase per million’</p></li>
-<li><p>TPM = ‘Transcripts per million’</p></li>
-<li><p>RSEM = ‘Relative log expression’</p></li>
-<li><p>DESEQ2 = ‘DESeq2’</p></li>
-<li><p>TMM = ‘Trimmed mean of M-values’</p></li>
-<li><p>SCnorm = ‘Scale-invariant normalization’</p></li>
-<li><p>GeTMM = ‘Gene length correct TMM’</p></li>
-<li><p>ComBat_Seq = ‘ComBat-Seq Batch effect adjustment method’</p></li>
-</ol>
-</section>
-<section id="presentation">
-<h2>Presentation<a class="headerlink" href="#presentation" title="Link to this heading"></a></h2>
-<p>This is a manually created table with the following components:</p>
-<ol class="arabic simple">
-<li><p>Primary</p></li>
-<li><p>Recurrent</p></li>
-<li><p>Metastatic</p></li>
-<li><p>Second Primary</p></li>
-</ol>
-<p>Codes are derived from the NCIT codes for the above terms.</p>
-</section>
-<section id="disease-outcomes">
-<h2>Disease Outcomes<a class="headerlink" href="#disease-outcomes" title="Link to this heading"></a></h2>
-<p>Disease outcomes are collected from the Cancer Care: Treatment Outcome Ontology available from download at : <a class="reference external" href="https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary">https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary</a></p>
-</section>
-<section id="lesion-response">
-<h2>Lesion Response<a class="headerlink" href="#lesion-response" title="Link to this heading"></a></h2>
-<p>Lesion response categories are collected from the Cancer Care: Treatment Outcome Ontology available from download at : <a class="reference external" href="https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary">https://bioportal.bioontology.org/ontologies/CCTOO/?p=summary</a></p>
-</section>
-<section id="lesion-type">
-<h2>Lesion Type<a class="headerlink" href="#lesion-type" title="Link to this heading"></a></h2>
-<p>Lesion type categories are created manually. The following categories are present:
-#. Local
-#. Nodal
-#. Metastatic</p>
-<p>Corresponding NCIT codes are used.</p>
-</section>
-<section id="treatment-intent">
-<h2>Treatment Intent<a class="headerlink" href="#treatment-intent" title="Link to this heading"></a></h2>
-<p>The Treatment intent categories are created manually and have the following components:
-#. Curative
-#. Palliative</p>
-<p>Corresponding NCIT codes are used.</p>
-</section>
-<section id="treatment-sequencing">
-<h2>Treatment Sequencing<a class="headerlink" href="#treatment-sequencing" title="Link to this heading"></a></h2>
-<p>This data is from the NCIT <a class="reference external" href="https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C158877">https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C158877</a> under  Cancer Therapeutic Procedure</p>
-</section>
-<section id="drug-route">
-<h2>Drug Route<a class="headerlink" href="#drug-route" title="Link to this heading"></a></h2>
-<p>Drug route is from the <a class="reference external" href="https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C45246">https://bioportal.bioontology.org/ontologies/NCIT?p=classes&amp;conceptid=http%3A%2F%2Fncicb.nci.nih.gov%2Fxml%2Fowl%2FEVS%2FThesaurus.owl%23C45246</a> NCIT Dosage form by Route of Administration</p>
-</section>
-<section id="units-of-measure">
-<h2>Units of Measure<a class="headerlink" href="#units-of-measure" title="Link to this heading"></a></h2>
-<p>Various units of measure like units of volume, mass, length, radiation dose, drug dose and percentage have been created. These are manually created and codes correspond to the usual unit abbreviations used.</p>
-</section>
-<section id="patient-outcome">
-<h2>Patient Outcome<a class="headerlink" href="#patient-outcome" title="Link to this heading"></a></h2>
-<p>This is created manually and has the following categories:</p>
-<ol class="arabic simple">
-<li><p>Alive</p></li>
-<li><p>Dead</p></li>
-<li><p>Unknown</p></li>
-</ol>
-<p>Codes are taken from the corresponding NCIT codes.</p>
-</section>
-<section id="staging">
-<h2>Staging<a class="headerlink" href="#staging" title="Link to this heading"></a></h2>
-<p>Staging related lookup tables have been created manually. These codes for these categories are accepted abbreviations for the categories.</p>
-</section>
-<section id="staging-system">
-<h2>Staging System<a class="headerlink" href="#staging-system" title="Link to this heading"></a></h2>
-<p>In addition to the usual staging systems like AJCC and FIGO staging systems we have also incorporated specialized staging systems for pediatric tumors taken from <a class="reference external" href="https://cancerqld.blob.core.windows.net/content/docs/childhood-cancer-staging-for-population-registries.pdf">https://cancerqld.blob.core.windows.net/content/docs/childhood-cancer-staging-for-population-registries.pdf</a></p>
-</section>
-<section id="systemic-therapy-type">
-<h2>Systemic Therapy Type<a class="headerlink" href="#systemic-therapy-type" title="Link to this heading"></a></h2>
-<p>This is created manually and has the following categories:</p>
-<ol class="arabic simple">
-<li><p>Chemotherapy</p></li>
-<li><p>Immunotherapy</p></li>
-<li><p>Targeted Therapy</p></li>
-<li><p>Hormone Therapy</p></li>
-<li><p>Bone Marrow Transplant</p></li>
-<li><p>CART Therapy</p></li>
-<li><p>Monoclonal Antibody</p></li>
-</ol>
-<p>The codes are obtained from the corresponding NCIT codes.</p>
-</section>
-<section id="anticancer-drugs">
-<h2>Anticancer Drugs<a class="headerlink" href="#anticancer-drugs" title="Link to this heading"></a></h2>
-<p>The list of anticancer drugs from the <a class="reference external" href="https://www.anticancerfund.org/en/database-cancer-drugs">https://www.anticancerfund.org/en/database-cancer-drugs</a> has been used for this lookup table. This database   is a curated listing of licensed cancer drugs produced by the Anticancer Fund. Source data comes from the NCI, FDA, EMA and other data sources. The intention is to provide researchers, clinicians and regulators with an easily filtered database of licensed drugs used in the treatment of cancer. Drugs which are used in cancer treatments to alleviate symptoms or other supportive care uses or which are used for diagnostic purposes are not included. Investigational agents and experimental treatments being used in clinical trials are also not included.</p>
-</section>
-<section id="clinical-significance">
-<h2>Clinical Significance<a class="headerlink" href="#clinical-significance" title="Link to this heading"></a></h2>
-<p>Clinical significance of the genetic alterations have been classified manually as follows:</p>
-<ol class="arabic simple">
-<li><p>Pathogenic</p></li>
-<li><p>Likely Pathogenic</p></li>
-<li><p>Benign</p></li>
-<li><p>Likely Benign</p></li>
-<li><p>Variant of Unknown Significance</p></li>
-<li><p>Not reported</p></li>
-</ol>
-</section>
-<section id="ihc-and-cytogenetics-results-m-values">
-<h2>IHC and Cytogenetics Results M-values<a class="headerlink" href="#ihc-and-cytogenetics-results-m-values" title="Link to this heading"></a></h2>
-<p>These are also created manually as follows:</p>
-<ol class="arabic simple">
-<li><p>Positive</p></li>
-<li><p>Negative</p></li>
-<li><p>Equivocal</p></li>
-<li><p>Indeterminate</p></li>
-<li><p>Not Reported</p></li>
-<li><p>Intact</p></li>
-<li><p>Loss</p></li>
-<li><p>Null</p></li>
-</ol>
-<p>Codes are generated manually.</p>
-</section>
-<section id="ihc-staining-intensity">
-<h2>IHC Staining Intensity<a class="headerlink" href="#ihc-staining-intensity" title="Link to this heading"></a></h2>
-<p>IHC staining intensity are categorized into the following categories:
-#. Strong
-#. Moderate
-#. Weak
-#. Indeterminate</p>
-<p>Codes are generated manually.</p>
-</section>
-<section id="resection-margin-status">
-<h2>Resection Margin Status<a class="headerlink" href="#resection-margin-status" title="Link to this heading"></a></h2>
-<p>The resection margin status codes are also created manually and have the following categories:</p>
-<ol class="arabic simple">
-<li><p>R0</p></li>
-<li><p>R1</p></li>
-<li><p>R2</p></li>
-<li><p>Indeterminate</p></li>
-</ol>
-</section>
-<section id="treatment-effect">
-<h2>Treatment Effect<a class="headerlink" href="#treatment-effect" title="Link to this heading"></a></h2>
-<p>Treatment effect codes are also created manually. These have the following categories:</p>
-<ol class="arabic simple">
-<li><p>Present</p></li>
-<li><p>Absent</p></li>
-<li><p>Not Applicable</p></li>
-</ol>
-</section>
-<section id="severity">
-<h2>Severity<a class="headerlink" href="#severity" title="Link to this heading"></a></h2>
-<p>Severity lookup codes are created manually and have the following values:</p>
-<ol class="arabic simple">
-<li><p>Mild</p></li>
-<li><p>Moderate</p></li>
-<li><p>Severe</p></li>
-<li><p>Unknown</p></li>
-</ol>
-</section>
-<section id="performance-status">
-<h2>Performance status<a class="headerlink" href="#performance-status" title="Link to this heading"></a></h2>
-<p>Performance status lookups are created manually with compontents of the ECOG and KPS systems.</p>
-</section>
-<section id="surgery-procedures">
-<h2>Surgery Procedures<a class="headerlink" href="#surgery-procedures" title="Link to this heading"></a></h2>
-<p>This is taken from the NCIT database under the semantic types “Therapeutic or Preventive Procedures” and filtering the definitions by the following terms:</p>
-<ol class="arabic simple">
-<li><p>surgical</p></li>
-<li><p>surgery</p></li>
-<li><p>resection</p></li>
-<li><p>excision</p></li>
-<li><p>anastomosis</p></li>
-<li><p>biopsy</p></li>
-<li><p>adenectomy</p></li>
-<li><p>reconstruction</p></li>
-</ol>
-<p>This ensures that all surgical procedures are included.</p>
-</section>
-<section id="nodal-assessment-type">
-<h2>Nodal Assessment Type<a class="headerlink" href="#nodal-assessment-type" title="Link to this heading"></a></h2>
-<p>This lookup table has manually created values:
-#. Sentinel Lymph Node biopsy
-#. Lymph node biopsy
-#. Lymphadenectomy
-#. Complete Lymph node dissection
-#. Radical Lymph node dissection
-#. Regional Lymph node dissection
-#. Lymph node sampling
-#. Other type of lymph node assessment.</p>
-<p>Note that for some codes the codes are created manually as there are no corresponding NCIT codes.</p>
-</section>
-<section id="systemic-therapy-regimen">
-<h2>Systemic Therapy Regimen<a class="headerlink" href="#systemic-therapy-regimen" title="Link to this heading"></a></h2>
-<p>This is also derived from the NCIT ontology. We have filtered the Preferred Label column for words which end with the word Regimen.</p>
-</section>
-<section id="radiotherapy-volumes">
-<h2>Radiotherapy Volumes<a class="headerlink" href="#radiotherapy-volumes" title="Link to this heading"></a></h2>
-<p>Radiotherapy volumes are considered differently as they have overlapping anatomical sites which are usually treated. Download from here  <a class="reference external" href="https://docs.google.com/spreadsheets/d/16Lgk3kyeu3VoriD4zHaje3MZm04mfZ8O7UqHFNl3jMc/edit?usp=sharing">https://docs.google.com/spreadsheets/d/16Lgk3kyeu3VoriD4zHaje3MZm04mfZ8O7UqHFNl3jMc/edit?usp=sharing</a></p>
-</section>
-<section id="laboratory-tests">
-<h2>Laboratory Tests<a class="headerlink" href="#laboratory-tests" title="Link to this heading"></a></h2>
-<p>Laboratory tests are obtained from the LOINC data. We have selected the chemistry, hematology, serology and microbiological test as they are not represented in pathology. The URL for the download is <a class="reference external" href="https://data.bioontology.org/ontologies/LOINC/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv">https://data.bioontology.org/ontologies/LOINC/download?apikey=8b5b7825-538d-40e0-9e9e-5ab9274a9aeb&amp;download_format=csv</a></p>
-</section>
-<section id="cytogenetic-abnormality">
-<h2>Cytogenetic Abnormality<a class="headerlink" href="#cytogenetic-abnormality" title="Link to this heading"></a></h2>
-<p>Cytogentic abnormalty data is obtained from the Mitelman database. This is available at <a class="reference external" href="https://mitelmandatabase.isb-cgc.org/result">https://mitelmandatabase.isb-cgc.org/result</a>. The recurrent chromosome aberration table has been downloaded manually and de-duplicated. As the database does not have a unique ID for each chromosome aberration, a unique ID has been generated. The datasheet is avaialble at <a class="reference external" href="https://docs.google.com/spreadsheets/d/1pbUKWSRypNWnVFkYmlEkM8o-_ElwL11KH8JnPC4nq0w/edit?usp=sharing">https://docs.google.com/spreadsheets/d/1pbUKWSRypNWnVFkYmlEkM8o-_ElwL11KH8JnPC4nq0w/edit?usp=sharing</a></p>
-</section>
-</section>
-
-
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="lookup_data.html" class="btn btn-neutral float-left" title="Lookup Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="patient_demographics.html" class="btn btn-neutral float-right" title="Patient Demographics" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>&#169; Copyright 2025, Tata Medical Center.</p>
   </div>
+  &nbsp;
+</nav>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
-
-</footer>
-        </div>
-      </div>
-    </section>
-  </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
-
-</body>
+  </body>
 </html>

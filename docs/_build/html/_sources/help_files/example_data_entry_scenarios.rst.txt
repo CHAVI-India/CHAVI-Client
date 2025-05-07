@@ -4,7 +4,7 @@ Example Data Entry Scenarios
 In this section we will provide some examples of how data should be entered into the system for different clinical scenarios.
 
 Example 1:
----------
+------------
 
 A patient presents with a new diagnosis of metastatic prostate cancer and receives radiotherapy to the bone and the prostate gland a month apart.
 
@@ -26,7 +26,7 @@ Steps for data entry:
 #. Enter the radiotherapy data for the course of radiotherapy to the liver noting the anatomical site as Liver.
 
 Example 3:
-----------
+------------
 
 A patient presents with the diagnosis of a metastatic lung cancer and has received radiotherapy to the brain.
 
@@ -48,9 +48,14 @@ Steps for data entry:
 #. Enter the diagnosis seperately for Breast cancer and endometrial cancer. Note that DICOM series can be independantly linked to each diagnoses.
 #. Enter the radiotherapy data for the course of radiotherapy to the corresponding diagnoses. 
 
+Example 5:
+------------
 
+A patient presents with a bilateral breast cancer and undergoes bilateral mastectomy. 
 
+Steps for data entry:
 
-
-
-
+#. Enter the patient data. 
+#. Enter two seperate diagnoses - one for the left breast and one for the right breast.  
+#. Enter the surgery data for the mastectomy on the right and left breast seperately. 
+#. Enter the pathology information for the left and right breast separately. 

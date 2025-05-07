@@ -37,6 +37,7 @@ Please note that the organization of the data may be different from the usual wa
    help_files/immunohistochemistry
    help_files/cytogenetics
    help_files/somatic_genomic_alterations
+   help_files/germline_mutation_data
    help_files/adverse_effects
    help_files/systemic_therapy
    help_files/systemic_therapy_drug_schedule

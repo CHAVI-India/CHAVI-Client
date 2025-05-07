@@ -9,6 +9,8 @@
 import os
 import sys
 import django
+import sphinx_pdj_theme
+
 sys.path.insert(0, os.path.abspath('..'))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'chavi_client.settings'
 django.setup()
@@ -37,8 +39,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_theme = 'sphinx_pdj_theme'
+html_static_path = [sphinx_pdj_theme.get_html_theme_path()]
 html_theme_options = {
     'style_external_links': True,
 }
