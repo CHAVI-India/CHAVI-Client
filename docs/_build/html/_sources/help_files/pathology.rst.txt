@@ -12,7 +12,15 @@ As the pathology form can collect report from various types of specimen, all fie
    Pathology -> Diagnosis -> Patient
 ..   
 
+.. note::
 
+   The immunohistochemistry, cytogenetics, gene expression and somatic genomic alterations modules are linked to the pathology report and are available as tabs in the pathology form. This allows the data to be easily linked to the main pathology. You can enter multiple data for these related tables.
+
+   Immunohistochemistry -> Pathology -> Diagnosis -> Patient
+   Cytogenetics -> Pathology -> Diagnosis -> Patient
+   Gene Expression -> Pathology -> Diagnosis -> Patient
+   Somatic Genomic Alterations -> Pathology -> Diagnosis -> Patient
+..   
 
 Data Collection Fields
 -----------------------

@@ -56,6 +56,14 @@
 <p>Pathology is linked to a diagnosis and there can be multiple pathologies for a single diagnosis. Diagnosis is in turn linked to a patient ID.</p>
 <p>Pathology -&gt; Diagnosis -&gt; Patient</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The immunohistochemistry, cytogenetics, gene expression and somatic genomic alterations modules are linked to the pathology report and are available as tabs in the pathology form. This allows the data to be easily linked to the main pathology. You can enter multiple data for these related tables.</p>
+<p>Immunohistochemistry -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Cytogenetics -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Gene Expression -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Somatic Genomic Alterations -&gt; Pathology -&gt; Diagnosis -&gt; Patient</p>
+</div>
 <section id="data-collection-fields">
 <h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
 <table class="docutils align-default" id="id1">
@@ -449,12 +457,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a><ul>
@@ -543,7 +549,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>

@@ -1,39 +1,38 @@
 Epigenetic Modifications
-=======================
+===============================
 
-The Epigenetic Modifications module captures data about epigenetic changes identified in pathology specimens. This information helps understand regulatory modifications that affect gene expression.
+The Epigenetic Modifications module captures data about epigenetic changes identified in pathology specimens. This information helps understand regulatory modifications that affect gene expression. Multiple epigenetic test results can be entered for a pathology depending on the data collection requirements.
+
+.. note::
+
+   Epigenetic Modifications are linked to a pathology report and there can be multiple epigenetic tests for a single pathology report. Pathology is in turn linked to a diagnosis.
+
+   Epigenetic Modifications -> Pathology -> Diagnosis -> Patient
 
 Data Collection Fields
---------------------
+------------------------
 
-Test Information
-^^^^^^^^^^^^^^
-* **Date of Test**: The date when the epigenetic testing was performed
-* **Pathology Reference**: Link to the pathology report this epigenetic data is associated with
+.. list-table:: Epigenetic Modifications Fields
+   :header-rows: 1
+   :widths: auto
 
-Epigenetic Details
-^^^^^^^^^^^^^^^
-* **Gene**: The gene affected by the epigenetic modification
-* **Epigenetic Abnormality Type**: The type of epigenetic change observed (e.g., DNA methylation, histone modification)
-* **Epigenetic Result**: The specific findings or results of the epigenetic testing
+   * - Form Field Name
+     - Database Field Name
+     - Description
+   * - Pathology
+     - pathology
+     - The pathology report this epigenetic data is associated with
+   * - Date of Test
+     - date_test
+     - The date when the epigenetic test was performed (format: DD/MM/YYYY)
+   * - Gene
+     - gene
+     - The gene that was tested for in this epigenetic data
+   * - Epigenetic Abnormality Type
+     - epigenetic_abnormality_type
+     - The type of epigenetic abnormality if applicable
+   * - Epigenetic Result
+     - epigenetic_result
+     - The result of the epigenetic test
 
-Special Considerations
---------------------
 
-1. Abnormality types:
-
-   #. Select from standardized list of epigenetic modifications
-   #. Multiple modifications can be recorded for the same gene
-   #. Document the testing methodology used
-
-2. Result documentation:
-
-   #. Be specific about the nature of the modification
-   #. Include quantitative measurements when available
-   #. Note any clinical significance if known
-
-3. Quality control:
-
-   #. Document any technical limitations
-   #. Note any validation methods used
-   #. Record any relevant control samples

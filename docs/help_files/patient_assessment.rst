@@ -11,8 +11,6 @@ The Patient Assessment module records physical measurements and clinical assessm
 ..    
 
 
-
-
 Data Collection Fields
 ------------------------
 

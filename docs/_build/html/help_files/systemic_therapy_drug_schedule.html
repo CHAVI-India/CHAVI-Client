@@ -50,44 +50,52 @@
   <section id="systemic-therapy-drug-schedule">
 <h1>Systemic Therapy Drug Schedule<a class="headerlink" href="#systemic-therapy-drug-schedule" title="Link to this heading">¶</a></h1>
 <p>The Systemic Therapy Drug Schedule module details the specific medications and dosing schedules within a systemic therapy course.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Systemic Therapy Drug Schedule module is linked to a systemic therapy course and there can be multiple drug schedules for a single course.</p>
+<p>Systemic Therapy Drug Schedule -&gt; Systemic Therapy -&gt; Diagnosis -&gt; Patient</p>
+</div>
 <section id="data-collection-fields">
 <h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
-<section id="drug-information">
-<h3>Drug Information<a class="headerlink" href="#drug-information" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Systemic Therapy Link</strong>: The treatment course this schedule belongs to</p></li>
-<li><p><strong>Agent</strong>: Specific medication being administered</p></li>
-<li><p><strong>Route</strong>: Method of administration</p></li>
-</ul>
-</section>
-<section id="dosing-details">
-<h3>Dosing Details<a class="headerlink" href="#dosing-details" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Planned Dose</strong>: Intended medication dose</p></li>
-<li><p><strong>Administered Dose</strong>: Actual dose given</p></li>
-<li><p><strong>Dose Units</strong>: Units of measurement</p></li>
-</ul>
-</section>
-<section id="timeline">
-<h3>Timeline<a class="headerlink" href="#timeline" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Start Date</strong>: When this medication was started</p></li>
-<li><p><strong>End Date</strong>: When this medication was completed</p></li>
-</ul>
-</section>
-</section>
-<section id="special-considerations">
-<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading">¶</a></h2>
-<ol class="arabic simple">
-<li><p>Dose Recording:
-* Document both planned and actual doses
-* Use consistent units
-* Note any dose modifications</p></li>
-<li><p>Schedule Tracking:
-* Record all medications in combination
-* Note timing of administration
-* Document treatment breaks</p></li>
-</ol>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Systemic Therapy Schedule Fields</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form Field Name</p></th>
+<th class="head"><p>Database Field Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Therapy Agent</p></td>
+<td><p>systemic_therapy_agent</p></td>
+<td><p>The specific medication or agent used in this treatment</p></td>
+</tr>
+<tr class="row-odd"><td><p>Administration Route</p></td>
+<td><p>systemic_therapy_agent_route</p></td>
+<td><p>How the medication was administered (e.g., oral, intravenous, subcutaneous)</p></td>
+</tr>
+<tr class="row-even"><td><p>Agent Start Date</p></td>
+<td><p>systemic_therapy_agent_start_date</p></td>
+<td><p>The date when this specific medication was started (format: DD/MM/YYYY)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Agent End Date</p></td>
+<td><p>systemic_therapy_agent_end_date</p></td>
+<td><p>The date when this specific medication was stopped (format: DD/MM/YYYY)</p></td>
+</tr>
+<tr class="row-even"><td><p>Planned Dose</p></td>
+<td><p>systemic_therapy_dose_planned</p></td>
+<td><p>The planned dose for this medication</p></td>
+</tr>
+<tr class="row-odd"><td><p>Administered Dose</p></td>
+<td><p>systemic_therapy_dose_administered</p></td>
+<td><p>The actual dose of medication that was administered</p></td>
+</tr>
+<tr class="row-even"><td><p>Dose Units</p></td>
+<td><p>systemic_therapy_dose_units</p></td>
+<td><p>The units used for the dose (e.g., mg, mg/m², mg/kg)</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 
@@ -179,6 +187,7 @@
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-2">Example 2:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-5">Example 5:</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
@@ -308,14 +317,12 @@
 <li class="toctree-l2"><a class="reference internal" href="diagnosis.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion_response.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion_response.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a><ul>
@@ -325,17 +332,18 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="germline_mutation_data.html#data-collection-fields">Data Collection Fields</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a><ul>
@@ -345,52 +353,42 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Systemic Therapy Drug Schedule</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="surgery.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="surgery.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="other_treatment.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="other_treatment.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a><ul>
@@ -399,7 +397,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="stage_information.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="stage_information.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a><ul>
@@ -408,7 +405,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a><ul>
@@ -423,12 +419,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>

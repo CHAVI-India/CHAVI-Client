@@ -1,39 +1,42 @@
 Radiation Volume
-=============
+===================
 
-The Radiation Volume module captures information about specific anatomical volumes targeted during radiation therapy.
+The Radiation Volume module captures information about specific anatomical volumes targeted during radiation therapy. Each radiation course can have multiple volumes which were treated. This allows for recording heterogenous dose prescriptions like sequential boost, simultaneous boost etc. Addtionally brachytherapy volumes can be recorded. 
+
+.. note::
+
+   Radiation Volume is linked to a radiation course and there can be multiple volumes for a single course.
+
+   Radiation Volume -> Radiation Therapy -> Diagnosis -> Patient
 
 Data Collection Fields
---------------------
+------------------------
 
-Volume Definition
-^^^^^^^^^^^^^
-* **Radiotherapy Link**: Associated radiation therapy course
-* **Volume Name**: Identifier for this treatment volume
-* **Volume Type**: Classification (e.g., PTV, CTV, OAR)
+.. list-table:: Radiation Therapy Volume Fields
+   :header-rows: 1
+   :widths: auto
 
-Treatment Parameters
-^^^^^^^^^^^^^^^^
-* **Prescribed Dose**: Planned dose for this volume
-* **Number of Fractions**: Treatment sessions for this volume
-* **Dose Units**: Units for radiation measurement
-
-Anatomical Information
-^^^^^^^^^^^^^^^^^^
-* **Anatomical Locations**: Specific areas included in volume
-* **Treatment Dates**:
-    * Volume start date
-    * Volume end date
-
-Special Considerations
---------------------
-
-1. Volume Definition:
-    #. Use standard naming conventions
-    #. Document included structures
-    #. Note any modifications
-
-2. Treatment Planning:
-    #. Record prescribed doses accurately
-    #. Document fractionation schedule
-    #. Track completion of planned treatment 
+   * - Form Field Name
+     - Database Field Name
+     - Description
+   * - Volume Name
+     - volume_name
+     - A name or description for this volume
+   * - Volume Type
+     - volume_type
+     - The type of volume (e.g., PTV, CTV, OAR)
+   * - Prescribed Dose
+     - volume_dose_prescribed
+     - The prescribed dose for this volume
+   * - Volume Fractions
+     - volume_fractions
+     - The number of fractions for this volume
+   * - Volume Start Date
+     - volume_radiotherapy_start_date
+     - The start date for this volume (format: DD/MM/YYYY)
+   * - Volume End Date
+     - volume_radiotherapy_end_date
+     - The end date for this volume (format: DD/MM/YYYY)
+   * - Anatomical Locations
+     - anatomical_locations
+     - The anatomical locations included in this volume

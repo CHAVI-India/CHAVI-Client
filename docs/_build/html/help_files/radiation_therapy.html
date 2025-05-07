@@ -49,89 +49,99 @@
 	  </div>
   <section id="radiation-therapy">
 <h1>Radiation Therapy<a class="headerlink" href="#radiation-therapy" title="Link to this heading">¶</a></h1>
-<p>The Radiation Therapy module captures information about radiation treatments. This includes details about treatment planning, delivery, and monitoring of radiation therapy courses.</p>
+<p>The Radiation Therapy module captures information about radiation treatment courses. This includes details about treatment planning, delivery, and monitoring of radiation therapy courses. Multiple radiation therapy courses can be recorded for a single diagnosis. For each course, separate forms are provided to record the volumes where the treatment was delivered and the dose volume data obtained from DVH if it is desired to be stored.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Radiation Therapy is linked to a diagnosis and there can be multiple radiation therapy courses for a single diagnosis. Each course can have multiple volumes and dose volume data.</p>
+<p>Radiation Therapy -&gt; Diagnosis -&gt; Patient</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Radiation Therapy module is linked to the Radiation Volume module and the Dose Volume Data module.</p>
+<p>Radiation Volume -&gt; Radiation Therapy -&gt; Diagnosis -&gt; Patient</p>
+<p>Dose Volume Data -&gt; Radiation Therapy -&gt; Diagnosis -&gt; Patient</p>
+</div>
 <section id="data-collection-fields">
 <h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
-<section id="course-information">
-<h3>Course Information<a class="headerlink" href="#course-information" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Diagnosis Link</strong>: The diagnosis this treatment is associated with</p></li>
-<li><p><strong>Course Type</strong>: Primary or Boost treatment</p></li>
-<li><p><strong>Modality</strong>: Type of radiation therapy (e.g., External Beam, Brachytherapy)</p></li>
-<li><p><strong>Reirradiation</strong>: Whether this is a repeat treatment to a previously irradiated area</p></li>
-</ul>
-</section>
-<section id="treatment-details">
-<h3>Treatment Details<a class="headerlink" href="#treatment-details" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Total Dose</strong>: Total radiation dose for the course</p></li>
-<li><p><strong>Total Fractions</strong>: Number of treatment sessions</p></li>
-<li><p><strong>Dose Units</strong>: Units for radiation measurement</p></li>
-<li><p><strong>Fractions per Day</strong>: Number of daily treatments</p></li>
-<li><p><strong>Treatment Side</strong>: Laterality of treatment</p></li>
-</ul>
-</section>
-<section id="technical-information">
-<h3>Technical Information<a class="headerlink" href="#technical-information" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Type</strong>: Treatment type (e.g., Definitive, Palliative)</p></li>
-<li><p><strong>Technique</strong>: Delivery method (e.g., IMRT, VMAT)</p></li>
-<li><p><strong>Machine</strong>: Treatment delivery system</p></li>
-<li><dl class="simple">
-<dt><strong>Timeline</strong>:</dt><dd><ul>
-<li><p>Start date</p></li>
-<li><p>End date</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p><strong>Associated DICOM Studies</strong>: Related imaging studies</p></li>
-</ul>
-</section>
-<section id="volume-information">
-<h3>Volume Information<a class="headerlink" href="#volume-information" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><dl class="simple">
-<dt><strong>Volume Details</strong>:</dt><dd><ul>
-<li><p>Volume name</p></li>
-<li><p>Volume type (e.g., PTV, CTV, OAR)</p></li>
-<li><p>Prescribed dose</p></li>
-<li><p>Number of fractions</p></li>
-<li><p>Anatomical locations</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt><strong>Dose Volume Data</strong>:</dt><dd><ul>
-<li><p>Volume measurements</p></li>
-<li><p>Dose measurements</p></li>
-<li><p>Relative and absolute values</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-</ul>
-</section>
-</section>
-<section id="special-considerations">
-<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading">¶</a></h2>
-<ol class="arabic simple">
-<li><p>Treatment Planning:</p>
-<ol class="arabic simple">
-<li><p>Record all treated volumes</p></li>
-<li><p>Document dose constraints</p></li>
-<li><p>Track treatment completion</p></li>
-</ol>
-</li>
-<li><p>Course Tracking:</p>
-<ol class="arabic simple">
-<li><p>Note any treatment breaks</p></li>
-<li><p>Document dose modifications</p></li>
-<li><p>Record treatment completion status</p></li>
-</ol>
-</li>
-</ol>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Radiation Therapy Fields</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form Field Name</p></th>
+<th class="head"><p>Database Field Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>diagnosis</p></td>
+<td><p>The diagnosis that this treatment is associated with</p></td>
+</tr>
+<tr class="row-odd"><td><p>Course Type</p></td>
+<td><p>radiotherapy_course_type</p></td>
+<td><p>The type of radiotherapy course (Primary or Boost)</p></td>
+</tr>
+<tr class="row-even"><td><p>Modality</p></td>
+<td><p>radiotherapy_modality</p></td>
+<td><p>The modality of the radiotherapy</p></td>
+</tr>
+<tr class="row-odd"><td><p>Reirradiation</p></td>
+<td><p>reirradiation</p></td>
+<td><p>Indicate if this is a reirradiation course</p></td>
+</tr>
+<tr class="row-even"><td><p>Total Dose</p></td>
+<td><p>total_dose</p></td>
+<td><p>The total radiation dose delivered during the entire course of treatment</p></td>
+</tr>
+<tr class="row-odd"><td><p>Total Fractions</p></td>
+<td><p>total_fractions</p></td>
+<td><p>The total number of fractions delivered for the complete course</p></td>
+</tr>
+<tr class="row-even"><td><p>Simultaneous Integrated Boost</p></td>
+<td><p>simultaneous_integrated_boost</p></td>
+<td><p>Indicate if this course had a simultaneous integrated boost</p></td>
+</tr>
+<tr class="row-odd"><td><p>Boost Dose</p></td>
+<td><p>simultaneous_integrated_boost_dose</p></td>
+<td><p>The dose of the simultaneous integrated boost</p></td>
+</tr>
+<tr class="row-even"><td><p>Radiation Dose Units</p></td>
+<td><p>radiation_dose_units</p></td>
+<td><p>The units used to measure the radiation dose (e.g., ‘Gy’, ‘cGy’)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Treatment Intent</p></td>
+<td><p>radiotherapy_intent</p></td>
+<td><p>The intent of the radiotherapy treatment (e.g., ‘Curative’, ‘Palliative’)</p></td>
+</tr>
+<tr class="row-even"><td><p>Treatment Type</p></td>
+<td><p>radiotherapy_type</p></td>
+<td><p>The type of radiotherapy treatment</p></td>
+</tr>
+<tr class="row-odd"><td><p>Treatment Technique</p></td>
+<td><p>radiotherapy_technique</p></td>
+<td><p>The technique used to deliver the radiation</p></td>
+</tr>
+<tr class="row-even"><td><p>Fractions per Day</p></td>
+<td><p>fractions_per_day</p></td>
+<td><p>The number of treatment sessions delivered per day</p></td>
+</tr>
+<tr class="row-odd"><td><p>Treatment Side</p></td>
+<td><p>radiotherapy_side</p></td>
+<td><p>Which side of the body is being treated</p></td>
+</tr>
+<tr class="row-even"><td><p>Treatment Machine</p></td>
+<td><p>radiotherapy_machine</p></td>
+<td><p>The name or model of the radiation therapy machine used</p></td>
+</tr>
+<tr class="row-odd"><td><p>Start Date</p></td>
+<td><p>radiotherapy_start_date</p></td>
+<td><p>The date when the treatment was started (format: DD/MM/YYYY)</p></td>
+</tr>
+<tr class="row-even"><td><p>End Date</p></td>
+<td><p>radiotherapy_end_date</p></td>
+<td><p>The date when the treatment was completed (format: DD/MM/YYYY)</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 
@@ -223,6 +233,7 @@
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-2">Example 2:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-5">Example 5:</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
@@ -352,14 +363,12 @@
 <li class="toctree-l2"><a class="reference internal" href="diagnosis.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion_response.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion_response.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a><ul>
@@ -369,17 +378,18 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="germline_mutation_data.html#data-collection-fields">Data Collection Fields</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a><ul>
@@ -399,27 +409,22 @@
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Radiation Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="surgery.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="surgery.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
@@ -434,7 +439,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a><ul>
@@ -467,12 +471,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>

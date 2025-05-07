@@ -1,60 +1,62 @@
 Stage Information
-================
+==========================
 
-The Stage Information module records the cancer staging details for each diagnosis. This information is crucial for determining the extent of disease and treatment planning.
+The Stage Information module records the cancer staging details for each diagnosis. This information is crucial for determining the extent of disease and treatment planning. Multiple staging records can be maintained for a single diagnosis to track changes over time.
+
+.. note::
+
+   Stage Information is linked to a diagnosis and there can be multiple staging records for a single diagnosis. This allows tracking of stage changes over time.
+
+   Stage Information -> Diagnosis -> Patient
 
 Data Collection Fields
---------------------
+------------------------
 
-Staging System
-^^^^^^^^^^^^
-* **Staging System**: The classification system used (e.g., TNM 8th Edition, FIGO)
-* **Stage Type**: Type of staging information (e.g., clinical, pathological)
+.. list-table:: Stage Information Fields
+   :header-rows: 1
+   :widths: auto
 
-TNM Classification
-^^^^^^^^^^^^^^^
-* **T Stage**: Description of the primary tumor
-    * Prefix: Clinical (c) or Pathological (p)
-    * Category: T0, T1, T2, T3, T4
-    * Suffix: Modifiers (a, b, c) if applicable
+   * - Form Field Name
+     - Database Field Name
+     - Description
+   * - Diagnosis
+     - diagnosis
+     - The diagnosis this staging information is associated with
+   * - Staging System
+     - staging_system
+     - The staging system used (e.g., 'TNM 8th Edition', 'FIGO')
+   * - Stage Type
+     - stage_type
+     - The type of staging information
+   * - T Stage Prefix
+     - t_stage_prefix
+     - The prefix modifiers for the T stage (e.g., 'c' for clinical, 'p' for pathological)
+   * - T Stage
+     - t_stage
+     - The T stage describing the primary tumor (e.g., 'T1', 'T2', 'T3', 'T4')
+   * - T Stage Suffix
+     - t_stage_suffix
+     - Any suffix modifiers for the T stage (e.g., 'a', 'b', 'c')
+   * - N Stage Prefix
+     - n_stage_prefix
+     - Any prefix modifiers for the N stage (e.g., 'c' for clinical, 'p' for pathological)
+   * - N Stage
+     - n_stage
+     - The N stage describing lymph node involvement (e.g., 'N0', 'N1', 'N2', 'N3')
+   * - N Stage Suffix
+     - n_stage_suffix
+     - Any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')
+   * - M Stage Prefix
+     - m_stage_prefix
+     - Any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)
+   * - M Stage
+     - m_stage
+     - The M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')
+   * - M Stage Suffix
+     - m_stage_suffix
+     - Any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')
+   * - Overall Stage
+     - overall_stage
+     - The overall stage grouping (e.g., 'Stage I', 'Stage II', 'Stage III', 'Stage IV')
 
-* **N Stage**: Description of regional lymph node involvement
-    * Prefix: Clinical (c) or Pathological (p)
-    * Category: N0, N1, N2, N3
-    * Suffix: Modifiers (a, b, c) if applicable
 
-* **M Stage**: Description of distant metastasis
-    * Prefix: Clinical (c) or Pathological (p)
-    * Category: M0, M1
-    * Suffix: Modifiers (a, b, c) if applicable
-
-Overall Stage
-^^^^^^^^^^^
-* **Overall Stage**: Combined stage grouping (e.g., Stage I, Stage II, Stage III, Stage IV)
-
-Special Considerations
---------------------
-
-1. Staging accuracy:
-
-   #. Use the most current staging system version
-   #. Document the basis for staging (clinical vs. pathological)
-   #. Update staging as new information becomes available
-
-2. TNM documentation:
-
-   #. Include all relevant prefixes and suffixes
-   #. Document any uncertainty in staging
-   #. Note any special circumstances affecting staging
-
-3. Multiple primaries:
-
-   #. Stage each primary tumor separately
-   #. Clearly link staging to specific diagnosis
-   #. Document any interactions between multiple primaries
-
-4. Stage migration:
-
-   #. Record dates of staging changes
-   #. Document reasons for stage changes
-   #. Maintain history of previous staging

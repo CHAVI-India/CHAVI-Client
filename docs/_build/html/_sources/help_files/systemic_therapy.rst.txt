@@ -1,63 +1,46 @@
 Systemic Therapy
-==============
+==================
 
-The Systemic Therapy module captures information about medication-based cancer treatments. This includes chemotherapy, targeted therapy, immunotherapy, and hormone therapy regimens.
+The Systemic Therapy module captures information about medication-based cancer treatments. This includes chemotherapy, targeted therapy, immunotherapy, and hormone therapy regimens. Multiple systemic therapy courses can be recorded for a single diagnosis.
+To record details of cycles of chemotherapy, please use the Systemic Therapy Drug Schedule module.
+
+.. note::
+
+   Systemic Therapy is linked to a diagnosis and there can be multiple systemic therapy courses for a single diagnosis. Each course can have multiple drug schedules.
+
+   Systemic Therapy -> Diagnosis -> Patient
 
 Data Collection Fields
---------------------
+------------------------
 
-Course Information
-^^^^^^^^^^^^^^^
-* **Diagnosis Link**: The diagnosis this treatment is associated with
-* **Therapy Type**: Category of systemic therapy (e.g., Chemotherapy, Immunotherapy)
-* **Treatment Sequence**: Order of therapy (e.g., Neoadjuvant, Adjuvant)
-* **Treatment Regimen**: Standard protocol or combination being used
+.. list-table:: Systemic Therapy Fields
+   :header-rows: 1
+   :widths: auto
 
-Treatment Timeline
-^^^^^^^^^^^^^^^
-* **Start Date**: When the treatment course began
-* **End Date**: When the treatment course completed
-* **Cycles Delivered**: Number of treatment cycles completed
-* **Associated DICOM Studies**: Imaging studies related to this treatment
-
-Drug Schedule Details
-^^^^^^^^^^^^^^^^^
-* **Agent Information**:
-    * Specific medication/agent used
-    * Route of administration
-    * Start and end dates for each agent
-* **Dosing Information**:
-    * Planned dose
-    * Administered dose
-    * Units of measurement
-
-Special Considerations
---------------------
-
-1. Treatment Cycles:
-
-   #. Record number of cycles completed  
-   #. Document any dose modifications  
-   #. Note reasons for early discontinuation  
-
-2. Multiple Agents:
-
-   #. Create entries for each drug in combination  
-   #. Track individual drug schedules  
-   #. Document relative timing of agents  
-
-3. Dose Recording:
-
-   #. Use consistent units  
-   #. Note both planned and actual doses  
-   #. Record any dose adjustments  
-
-2. Multiple Agents:
-   * Create entries for each drug in combination
-   * Track individual drug schedules
-   * Document relative timing of agents
-
-3. Dose Recording:
-   * Use consistent units
-   * Note both planned and actual doses
-   * Record any dose adjustments 
+   * - Form Field Name
+     - Database Field Name
+     - Description
+   * - Diagnosis
+     - diagnosis
+     - The diagnosis that this treatment is associated with
+   * - Therapy Type
+     - systemic_therapy_type
+     - The type of systemic therapy
+   * - Treatment Intent
+     - systemic_therapy_intent
+     - The intent of the systemic therapy
+   * - Treatment Sequence
+     - systemic_therapy_sequence
+     - The sequence for the systemic therapy
+   * - Treatment Regimen
+     - systemic_therapy_regimen
+     - The regimen for the systemic therapy
+   * - Start Date
+     - systemic_therapy_start_date
+     - The date when the treatment was started (format: DD/MM/YYYY)
+   * - End Date
+     - systemic_therapy_end_date
+     - The date when the treatment was completed (format: DD/MM/YYYY)
+   * - Cycles Delivered
+     - cycles_delivered
+     - Total number of cycles delivered if applicable

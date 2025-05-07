@@ -49,50 +49,45 @@
 	  </div>
   <section id="gene-expression-data">
 <h1>Gene Expression Data<a class="headerlink" href="#gene-expression-data" title="Link to this heading">¶</a></h1>
-<p>The Gene Expression Data module collects information about gene expression testing performed on pathology specimens. This data helps understand the molecular characteristics of tumors.</p>
+<p>The Gene Expression Data module collects information about gene expression testing performed on pathology specimens. This data helps understand the molecular characteristics of tumors. Multiple gene expression tests can be recorded for a single pathology report.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Gene Expression Data is linked to a pathology report and there can be multiple gene expression tests for a single pathology report. Pathology is in turn linked to a diagnosis.</p>
+<p>Gene Expression Data -&gt; Pathology -&gt; Diagnosis -&gt; Patient</p>
+</div>
 <section id="data-collection-fields">
 <h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
-<section id="test-information">
-<h3>Test Information<a class="headerlink" href="#test-information" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Date of Test</strong>: The date when the gene expression test was performed</p></li>
-<li><p><strong>Pathology Reference</strong>: Link to the pathology report this gene expression data is associated with</p></li>
-</ul>
-</section>
-<section id="gene-expression-details">
-<h3>Gene Expression Details<a class="headerlink" href="#gene-expression-details" title="Link to this heading">¶</a></h3>
-<ul class="simple">
-<li><p><strong>Gene</strong>: The specific gene tested for expression levels, selected from standardized gene list</p></li>
-<li><p><strong>Expression Value</strong>: The quantitative measurement of gene expression</p></li>
-<li><p><strong>Expression Units</strong>: The units used to measure gene expression (e.g., FPKM, TPM, counts)</p></li>
-</ul>
-</section>
-</section>
-<section id="special-considerations">
-<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading">¶</a></h2>
-<ol class="arabic simple">
-<li><p>Expression values:</p>
-<ol class="arabic simple">
-<li><p>Must be positive numbers</p></li>
-<li><p>Should be recorded with appropriate precision</p></li>
-<li><p>Units should be consistent within testing methods</p></li>
-</ol>
-</li>
-<li><p>Gene selection:</p>
-<ol class="arabic simple">
-<li><p>Use standardized gene names from the lookup list</p></li>
-<li><p>Multiple genes can be tested from the same specimen</p></li>
-<li><p>Document any specific testing platform or methodology used</p></li>
-</ol>
-</li>
-<li><p>Data quality:</p>
-<ol class="arabic simple">
-<li><p>Ensure values are properly normalized if required</p></li>
-<li><p>Document any quality control metrics if available</p></li>
-<li><p>Note any technical limitations or concerns</p></li>
-</ol>
-</li>
-</ol>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Gene Expression Data Fields</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form Field Name</p></th>
+<th class="head"><p>Database Field Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Pathology</p></td>
+<td><p>pathology</p></td>
+<td><p>The pathology report this gene expression data is associated with</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date of Test</p></td>
+<td><p>date_test</p></td>
+<td><p>The date when the gene expression test was performed (format: DD/MM/YYYY)</p></td>
+</tr>
+<tr class="row-even"><td><p>Gene</p></td>
+<td><p>gene</p></td>
+<td><p>The gene that was tested for in this gene expression data</p></td>
+</tr>
+<tr class="row-odd"><td><p>Expression Value</p></td>
+<td><p>expression_value</p></td>
+<td><p>The expression value of the gene</p></td>
+</tr>
+<tr class="row-even"><td><p>Expression Units</p></td>
+<td><p>expression_units</p></td>
+<td><p>The units of expression</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 
@@ -184,6 +179,7 @@
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-2">Example 2:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-5">Example 5:</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
@@ -313,14 +309,12 @@
 <li class="toctree-l2"><a class="reference internal" href="diagnosis.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lesion_response.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="lesion_response.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a><ul>
@@ -330,17 +324,18 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="immunohistochemistry.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cytogenetics.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="somatic_genomic_alterations.html#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="germline_mutation_data.html#data-collection-fields">Data Collection Fields</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a><ul>
@@ -360,27 +355,22 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="surgery.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="surgery.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concomitant_medications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
@@ -395,7 +385,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="laboratory_results.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a><ul>
@@ -428,12 +417,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="epigenetic_modifications.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Gene Expression Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>
