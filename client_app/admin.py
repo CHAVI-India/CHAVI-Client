@@ -1488,8 +1488,8 @@ class SiteConfigurationAdmin(ModelAdmin):
 
 @admin.register(BulkDICOMUpload)
 class BulkDICOMUploadAdmin(ModelAdmin):
-    list_display = ['created_at', 'processed_at', 'status']
-    readonly_fields = ['created_at', 'processed_at', 'status']
+    list_display = ['file','created_at', 'processed_at', 'status']
+    readonly_fields = ['file','created_at', 'processed_at', 'status']
     actions = [process_bulk_dicom]
     change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
