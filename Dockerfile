@@ -30,8 +30,9 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 # Set the working directory
 WORKDIR /app
  
-# Copy application code
+# Copy application code and config files
 COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser gunicorn.conf.py /app/gunicorn.conf.py
  
 # Set environment variables to optimize Python
 ENV PYTHONDONTWRITEBYTECODE=1
