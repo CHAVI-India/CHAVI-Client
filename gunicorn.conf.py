@@ -1,9 +1,5 @@
 import multiprocessing
-import logging
-
-# Enable debug logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('gunicorn.error')
+import os
 
 # Server socket
 bind = "0.0.0.0:8000"
@@ -18,9 +14,9 @@ timeout = 300
 keepalive = 65
 
 # Logging
-accesslog = '-'
-errorlog = '-'
-loglevel = 'debug'
+accesslog = '/app/logs/gunicorn-access.log'
+errorlog = '/app/logs/gunicorn-error.log'
+loglevel = 'info'
 
 # Process naming
 proc_name = 'chaviclient'
@@ -39,10 +35,11 @@ certfile = None
 
 # Server hooks
 def on_starting(server):
-    logger.debug("Server starting with config: %s", server.cfg)
+    # Ensure log directory exists
+    os.makedirs('/app/logs', exist_ok=True)
 
 def on_reload(server):
-    logger.debug("Server reloading with config: %s", server.cfg)
+    pass
 
 def on_exit(server):
-    logger.debug("Server exiting") 
+    pass 

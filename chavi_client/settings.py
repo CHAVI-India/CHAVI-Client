@@ -190,6 +190,10 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'detailed': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} [File: {pathname}:{lineno}]',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
@@ -198,8 +202,13 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'debug.log'),
-            'formatter': 'verbose',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'formatter': 'detailed',
+        },
+        'dicom_import': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'dicom_import.log'),
+            'formatter': 'detailed',
         },
     },
     'loggers': {
@@ -213,8 +222,17 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'client_app.services.bulk_dicom_data_import': {
+            'handlers': ['console', 'dicom_import'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
+
+# Create logs directory if it doesn't exist
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

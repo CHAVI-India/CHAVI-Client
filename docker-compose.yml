@@ -28,6 +28,7 @@ services:
       - app_data:/app
       - ./media:/app/media
       - ./static:/app/static
+      - ./logs:/app/logs
     command: ["./entrypoint.docker.sh"]
 
   chaviclient-proxy:
