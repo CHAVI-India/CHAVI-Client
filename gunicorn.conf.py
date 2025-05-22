@@ -10,8 +10,8 @@ workers = 3
 worker_class = 'gthread'
 threads = 3
 worker_connections = 1000
-timeout = 300
-keepalive = 65
+timeout = 3600
+keepalive = 3600
 
 # Logging
 accesslog = '/app/logs/gunicorn-access.log'

@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models.functions import Substr, Concat
-from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator, ValidationError
 import uuid
 from decimal import Decimal
 from django.forms import ValidationError
@@ -20,6 +20,14 @@ allred_score_validator = [
     MinValueValidator('0'), 
     MaxValueValidator('8')
 ]
+
+def validate_file_size(value):
+    """Validator to ensure file size doesn't exceed 10GB"""
+    filesize = value.size
+    max_size = 10 * 1024 * 1024 * 1024  # 10GB in bytes
+    
+    if filesize > max_size:
+        raise ValidationError(f"File size cannot exceed 10GB. Current file size: {filesize / (1024*1024*1024):.2f}GB")
 
 # Validate date so that start date comes before or on end date
 class DateValidationMixin:
@@ -2015,8 +2023,11 @@ class BulkDICOMUpload(models.Model):
     '''This model handles bulk uploads of DICOM files from multiple patients. It matches the DICOM files to existing patients based on the Patient ID found in the DICOM metadata.'''
     file = models.FileField(
         upload_to='bulk_dicom_files',
-        validators=[FileExtensionValidator(allowed_extensions=["zip"])],
-        help_text="Upload a zip file containing DICOM studies from multiple patients. Files will be processed and sorted based on Patient IDs found in DICOM metadata."
+        validators=[
+            FileExtensionValidator(allowed_extensions=["zip"]),
+            validate_file_size
+        ],
+        help_text="Upload a zip file containing DICOM studies from multiple patients. Files will be processed and sorted based on Patient IDs found in DICOM metadata. Maximum file size: 10GB."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
