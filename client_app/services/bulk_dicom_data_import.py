@@ -119,7 +119,7 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         study_dir = patient_dir / sanitize(study_instance_uid)
                         study_dir.mkdir(parents=True, exist_ok=True)
                         
-                        ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm")
+                        ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm", enforce_file_format=True)
                         processed_count += 1
                         logger.debug(f"Saved processed DICOM file to: {study_dir}")
                         

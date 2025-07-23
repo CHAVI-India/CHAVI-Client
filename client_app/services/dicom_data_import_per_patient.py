@@ -120,7 +120,7 @@ def process_dicom(modeladmin, request, queryset):
                     study_dir = Path(save_path) / folder_path
                     study_dir.mkdir(exist_ok=True, parents=True)
                     # Save the DICOM file
-                    ds.save_as(study_dir / f"{file_path}.dcm")
+                    ds.save_as(study_dir / f"{file_path}.dcm", enforce_file_format=True)
 
                     # Add Study Instance UID, Modality and Study Description to sets prepared previously.
                     study_uids.add(study_instance_uid)
