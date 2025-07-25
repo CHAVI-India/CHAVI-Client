@@ -1,10 +1,10 @@
 Configuration Guide
-=================
+======================
 
 This guide explains how to configure the application after installation. The configuration involves setting up your site information and configuring user permissions.
 
 Initial Site Configuration
-------------------------
+-----------------------------
 
 1. Access the Django Admin Interface:
    
@@ -34,7 +34,7 @@ Initial Site Configuration
 
 
 User Groups and Permissions
--------------------------
+------------------------------
 
 The system requires two main user groups with specific permissions:
 
@@ -111,7 +111,7 @@ Creating Users
    * Save the user
 
 Security Recommendations
-----------------------
+---------------------------
 
 1. Password Policy:
    

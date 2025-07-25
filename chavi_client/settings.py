@@ -500,8 +500,8 @@ UNFOLD = {
                         'link': reverse_lazy("admin:client_app_bulkdicomupload_changelist"),
                     },
                     {
-                        'title': _("Associate DICOM Files to Project"),
-                        'icon': 'settings',
+                        'title': _("DICOM Studies Associated with Projects"),
+                        'icon': 'link',
                         'link': reverse_lazy("admin:client_app_dicomstudyproject_changelist"),
                     },
                     {

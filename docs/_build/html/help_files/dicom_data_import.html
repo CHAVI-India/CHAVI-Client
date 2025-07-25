@@ -78,21 +78,12 @@
 <section id="processing-details">
 <h3>Processing Details:<a class="headerlink" href="#processing-details" title="Link to this heading">¶</a></h3>
 <p>The system will:</p>
-<ul>
+<ol class="arabic simple">
 <li><p>Extract all DICOM files from the ZIP</p></li>
 <li><p>Verify and standardize the Patient ID in DICOM metadata</p></li>
 <li><p>Create a directory structure: <code class="docutils literal notranslate"><span class="pre">Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm</span></code></p></li>
-<li><p>Extract and store study information in the database:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>Study Instance UID</p></li>
-<li><p>Study Date</p></li>
-<li><p>Study Description</p></li>
-<li><p>Series Descriptions</p></li>
-</ul>
-</div></blockquote>
-</li>
-</ul>
+<li><p>Extract and store study information in the database:</p></li>
+</ol>
 <p>After that the folder will be zipped. The zipped file is ready for de-identification.</p>
 </section>
 </section>
@@ -113,33 +104,18 @@
 <section id="id2">
 <h3>Processing Details:<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
 <p>The system will:</p>
-<ul>
+<ol class="arabic simple">
 <li><p>Extract all DICOM files from the ZIP</p></li>
-<li><p>For each DICOM file:</p>
-<blockquote>
-<div><ul>
+<li><p>For each DICOM file:</p></li>
 <li><p>Read the Patient ID from DICOM metadata</p></li>
 <li><p>Check if the patient exists in the system</p></li>
-<li><p>If patient exists:</p>
-<blockquote>
-<div><ul class="simple">
+<li><p>If patient exists:</p></li>
 <li><p>Save to patient’s directory</p></li>
 <li><p>Update DICOM study information in database</p></li>
-</ul>
-</div></blockquote>
-</li>
-<li><p>If patient doesn’t exist:</p>
-<blockquote>
-<div><ul class="simple">
+<li><p>If patient doesn’t exist:</p></li>
 <li><p>Move files to “Unprocessed_DICOM” directory</p></li>
 <li><p>Log as unprocessed</p></li>
-</ul>
-</div></blockquote>
-</li>
-</ul>
-</div></blockquote>
-</li>
-</ul>
+</ol>
 </section>
 <section id="directory-structure">
 <h3>Directory Structure:<a class="headerlink" href="#directory-structure" title="Link to this heading">¶</a></h3>
@@ -253,6 +229,7 @@
 <li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="docker_installation.html#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docker_installation.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docker_installation.html#updating-the-software">Updating the Software</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a><ul>
@@ -269,6 +246,18 @@
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-5">Example 5:</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#single-patient-import">Single Patient Import</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#associate-dicom-studies-with-project">Associate DICOM studies with Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#adding-study-type-information">Adding Study Type information</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database backup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="database_backup.html#restoring-the-database">Restoring the Database</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
@@ -434,27 +423,22 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
@@ -467,12 +451,10 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="other_treatment.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="other_treatment.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
@@ -485,7 +467,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="stage_information.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="stage_information.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a><ul>
@@ -494,7 +475,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a><ul>
@@ -513,7 +493,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>

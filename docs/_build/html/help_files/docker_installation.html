@@ -133,9 +133,9 @@ http<span class="w"> </span><span class="o">{</span>
 <span class="w">       </span>include<span class="w"> </span>mime.types<span class="p">;</span>
 <span class="w">       </span>default_type<span class="w"> </span>application/octet-stream<span class="p">;</span>
 <span class="w">       </span>sendfile<span class="w"> </span>on<span class="p">;</span>
-<span class="w">       </span>keepalive_timeout<span class="w"> </span><span class="m">65</span><span class="p">;</span>
+<span class="w">       </span>keepalive_timeout<span class="w"> </span><span class="m">3600</span><span class="p">;</span>
 <span class="w">       </span>listen<span class="w"> </span><span class="m">80</span><span class="p">;</span>
-<span class="w">       </span>client_max_body_size<span class="w"> </span>1024M<span class="p">;</span><span class="w"> </span><span class="c1"># Add this line to increase the maximum upload size to 1024MB</span>
+<span class="w">       </span>client_max_body_size<span class="w"> </span>10G<span class="p">;</span><span class="w"> </span><span class="c1"># Add this line to increase the maximum upload size to 1024MB</span>
 
 <span class="w">       </span><span class="c1"># Requests to /static/ are served directly from the /static/ directory</span>
 <span class="w">       </span>location<span class="w"> </span>/static/<span class="w"> </span><span class="o">{</span>
@@ -158,6 +158,11 @@ http<span class="w"> </span><span class="o">{</span>
 <span class="w">           </span>proxy_set_header<span class="w"> </span>X-Real-IP<span class="w"> </span><span class="nv">$remote_addr</span><span class="p">;</span><span class="w">             </span><span class="c1"># Client&#39;s real IP</span>
 <span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-For<span class="w"> </span><span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span><span class="w">  </span><span class="c1"># Chain of IP addresses</span>
 <span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-Proto<span class="w"> </span><span class="nv">$scheme</span><span class="p">;</span><span class="w">          </span><span class="c1"># Original protocol (http/https)</span>
+
+<span class="w">           </span><span class="c1"># Add timeout settings for long-running requests</span>
+<span class="w">           </span>proxy_read_timeout<span class="w"> </span>3600s<span class="p">;</span>
+<span class="w">           </span>proxy_connect_timeout<span class="w"> </span>3600s<span class="p">;</span>
+<span class="w">           </span>proxy_send_timeout<span class="w"> </span>3600s<span class="p">;</span>
 <span class="w">       </span><span class="o">}</span>
 <span class="w">   </span><span class="o">}</span>
 <span class="o">}</span>
@@ -197,6 +202,21 @@ http<span class="w"> </span><span class="o">{</span>
 </div>
 <p>After these files have been created you can start editing the .env file. Ensure that the password fields are properly set. If a proxy is used for network access, please ensure that the proxy settings are configured correctly in the .env file.</p>
 <p>After the .env file has been edited, you can start the Docker containers by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+<section id="updating-the-software">
+<h2>Updating the Software<a class="headerlink" href="#updating-the-software" title="Link to this heading">¶</a></h2>
+<p>Before any update, please take a backup of the database. To do so please refer to the <span class="xref std std-ref">database_backup</span> page.</p>
+<p>Stop all running containers in the Docker Desktop application.</p>
+<p>After the backup has been taken, you will have to delete the old image and pull the new image.</p>
+<p>In Docker desktop, please go to the images section and delete the old image for the CHAVI client. After this is deleted, we would suggest also that you delete the volume created for the chaviclient. However DO NOT delete the volume created for the database.</p>
+<p>Once this is done you can pull the new image by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>pull
+</pre></div>
+</div>
+<p>After the image has been pulled, you can start the containers by running the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
 </pre></div>
 </div>
@@ -276,6 +296,7 @@ http<span class="w"> </span><span class="o">{</span>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Docker Installation Method</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#updating-the-software">Updating the Software</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a><ul>
@@ -292,6 +313,18 @@ http<span class="w"> </span><span class="o">{</span>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-3">Example 3:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-4">Example 4:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example_data_entry_scenarios.html#example-5">Example 5:</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#single-patient-import">Single Patient Import</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#associate-dicom-studies-with-project">Associate DICOM studies with Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="handling_dicom_data.html#adding-study-type-information">Adding Study Type information</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database backup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="database_backup.html#restoring-the-database">Restoring the Database</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data</a><ul>
@@ -457,27 +490,22 @@ http<span class="w"> </span><span class="o">{</span>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="systemic_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="systemic_therapy_drug_schedule.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_therapy.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="radiation_dose_volume.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a><ul>
@@ -490,12 +518,10 @@ http<span class="w"> </span><span class="o">{</span>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="other_treatment.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="other_treatment.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cancer_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a><ul>
@@ -508,7 +534,6 @@ http<span class="w"> </span><span class="o">{</span>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="stage_information.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="stage_information.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a><ul>
@@ -517,7 +542,6 @@ http<span class="w"> </span><span class="o">{</span>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="patient_outcomes.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a><ul>
@@ -536,7 +560,6 @@ http<span class="w"> </span><span class="o">{</span>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="gene_expression_data.html#special-considerations">Special Considerations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a><ul>

@@ -48,4 +48,32 @@ After the .env file has been edited, you can start the Docker containers by runn
 .. code-block:: bash
 
    docker-compose up -d
+..
+
+Updating the Software
+----------------------
+
+Before any update, please take a backup of the database. To do so please refer to the :ref:`database_backup` page.
+
+Stop all running containers in the Docker Desktop application.
+
+After the backup has been taken, you will have to delete the old image and pull the new image. 
+
+In Docker desktop, please go to the images section and delete the old image for the CHAVI client. After this is deleted, we would suggest also that you delete the volume created for the chaviclient. However DO NOT delete the volume created for the database. 
+
+Once this is done you can pull the new image by running the following command:
+
+.. code-block:: bash
+
+   docker-compose pull
+..
+
+After the image has been pulled, you can start the containers by running the following command:
+
+.. code-block:: bash
+
+   docker-compose up -d
+..
+   
+
 

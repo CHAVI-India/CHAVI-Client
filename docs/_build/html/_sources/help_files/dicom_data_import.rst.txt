@@ -1,5 +1,5 @@
 DICOM Data Import
-================
+=====================
 
 The CHAVI application supports two methods for importing DICOM studies:
 
@@ -7,7 +7,7 @@ The CHAVI application supports two methods for importing DICOM studies:
 2. Bulk DICOM Upload for Multiple Patients
 
 Single Patient DICOM Upload
---------------------------
+-------------------------------
 
 This method is used when you have DICOM studies for a single patient.
 
@@ -28,19 +28,15 @@ Steps:
 7. Use the "Extract and Process DICOM File and extract metadata" action
 
 Processing Details:
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 The system will:
 
-* Extract all DICOM files from the ZIP
-* Verify and standardize the Patient ID in DICOM metadata
-* Create a directory structure: ``Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm``
-* Extract and store study information in the database:
-   
-   * Study Instance UID
-   * Study Date
-   * Study Description
-   * Series Descriptions
+#. Extract all DICOM files from the ZIP
+#. Verify and standardize the Patient ID in DICOM metadata
+#. Create a directory structure: ``Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm``
+#. Extract and store study information in the database:
+
 
 After that the folder will be zipped. The zipped file is ready for de-identification.
 
@@ -64,23 +60,19 @@ Processing Details:
 
 The system will:
 
-* Extract all DICOM files from the ZIP
-* For each DICOM file:
-   
-   * Read the Patient ID from DICOM metadata
-   * Check if the patient exists in the system
-   * If patient exists:
-      
-      * Save to patient's directory
-      * Update DICOM study information in database
-   
-   * If patient doesn't exist:
-      
-      * Move files to "Unprocessed_DICOM" directory
-      * Log as unprocessed
+#. Extract all DICOM files from the ZIP
+#. For each DICOM file:
+#. Read the Patient ID from DICOM metadata
+#. Check if the patient exists in the system
+#. If patient exists:
+#. Save to patient's directory
+#. Update DICOM study information in database
+#. If patient doesn't exist:
+#. Move files to "Unprocessed_DICOM" directory
+#. Log as unprocessed
 
 Directory Structure:
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 For processed files:
 ::
@@ -98,7 +90,7 @@ For processed files:
                 └── SOP_Instance_UID.dcm
 
 Important Notes
--------------
+----------------------
 
 * Always verify that DICOM files are properly anonymized before upload
 * For single patient uploads, ensure all DICOM files belong to the correct patient

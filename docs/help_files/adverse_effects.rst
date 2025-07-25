@@ -1,13 +1,13 @@
 Adverse Effects
-=============
+=================
 
 The Adverse Effects module captures information about treatment-related complications and toxicities. This data helps monitor patient safety, guide treatment modifications, and document the overall treatment experience.
 
 Data Collection Fields
---------------------
+-------------------------
 
 Basic Information
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 * **Diagnosis Link**: The diagnosis this adverse effect is associated with
 * **CTCAE Grade**: Standardized grade from Common Terminology Criteria for Adverse Events
     * Includes specific term
@@ -16,12 +16,12 @@ Basic Information
     * Description
 
 Temporal Information
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 * **Start Date**: When the adverse effect was first noticed
 * **End Date**: When the adverse effect resolved (if applicable)
 
 Special Considerations
---------------------
+----------------------
 
 1. Grading System:
 

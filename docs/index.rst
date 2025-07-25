@@ -24,6 +24,9 @@ Please note that the organization of the data may be different from the usual wa
    help_files/configuration
    help_files/tfa
    help_files/example_data_entry_scenarios
+   help_files/handling_dicom_data
+   help_files/suggested_data_entry_flow
+   help_files/database_backup
    help_files/import_data
    help_files/clinical_data_import
    help_files/dicom_data_import

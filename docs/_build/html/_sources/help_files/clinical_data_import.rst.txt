@@ -1,5 +1,5 @@
 Clinical Data Import using the CHAVI Client
-=================================
+============================================
 
 The CHAVI Client allows you to import data from a CSV file. In order to do this you need to ensure that the data you are importing is in the correct format. The order of the columns in the CSV file is important and must match the order of the columns in the CHAVI Client. Importing is done through the Django Admin interface. Each list page will have an Import button that will allow you to import data from a CSV file. Clicking the IMPORT button will bring up a page where you can see the fields that will be imported and the order of the columns in the CSV file. 
 
