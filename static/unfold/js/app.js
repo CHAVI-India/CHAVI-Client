@@ -26,6 +26,67 @@ const sortRecords = (e) => {
 };
 
 /*************************************************************
+ * Search form
+ *************************************************************/
+function searchForm() {
+  return {
+    applyShortcut(event) {
+      if (
+        event.key === "/" &&
+        document.activeElement.tagName.toLowerCase() !== "input" &&
+        document.activeElement.tagName.toLowerCase() !== "textarea" &&
+        !document.activeElement.isContentEditable
+      ) {
+        event.preventDefault();
+        this.$refs.searchInput.focus();
+      }
+    },
+  };
+}
+
+/*************************************************************
+ * Search dropdown
+ *************************************************************/
+function searchDropdown() {
+  return {
+    openSearchResults: true,
+    currentIndex: 0,
+    applyShortcut(event) {
+      if (
+        event.key === "t" &&
+        document.activeElement.tagName.toLowerCase() !== "input" &&
+        document.activeElement.tagName.toLowerCase() !== "textarea" &&
+        !document.activeElement.isContentEditable
+      ) {
+        event.preventDefault();
+        this.$refs.searchInput.focus();
+      }
+    },
+    nextItem() {
+      if (this.currentIndex < this.maxItem()) {
+        this.currentIndex++;
+      }
+    },
+    prevItem() {
+      if (this.currentIndex > 0) {
+        this.currentIndex--;
+      }
+    },
+    maxItem() {
+      return document.getElementById("search-results").querySelectorAll("li")
+        .length;
+    },
+    selectItem() {
+      const items = document
+        .getElementById("search-results")
+        .querySelectorAll("li");
+
+      window.location = items[this.currentIndex - 1].querySelector("a").href;
+    },
+  };
+}
+
+/*************************************************************
  * Warn without saving
  *************************************************************/
 const warnWithoutSaving = () => {
