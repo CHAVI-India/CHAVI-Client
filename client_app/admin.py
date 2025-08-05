@@ -328,7 +328,7 @@ class PathologyExportResource(resources.ModelResource):
 class PathologyAdmin (ModelAdmin, ImportExportModelAdmin):
     inlines = [ImmunohistochemistryInline,CytogeneticsInline,SomaticGenomicAlterationsInline,GeneExpressionDataInline,EpigeneticDataInline]
     autocomplete_fields = ['diagnosis','tumor_site','histological_type']
-    search_fields = ['diagnosis__patient__patient_id', 'diagnosis__patient_id']
+    search_fields = ['diagnosis__patient__patient_id', 'diagnosis__chavi_diagnosis_id']
     list_filter = ['date_pathology','tumor_side__label','diagnosis__patient__patient_id']
     list_display = ['diagnosis__patient_id','diagnosis','date_pathology','tumor_site__label','tumor_side__label','histological_type','lymph_nodes_in_specimen']
     fieldsets = (
