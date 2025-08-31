@@ -252,7 +252,7 @@ ALLAUTH_UI_THEME = "sunset"
 
 
 # AllAuth settings
-ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/admin/'
