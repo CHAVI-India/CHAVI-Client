@@ -1,3 +1,19 @@
+def sanitize_filename(filename):
+    """
+    Sanitize filename by replacing problematic characters that could create subdirectories
+    or cause file system issues.
+    """
+    import re
+    # Replace forward slashes and other problematic characters with underscores
+    sanitized = re.sub(r'[/\\:*?"<>|]', '_', filename)
+    # Remove any leading/trailing whitespace and dots
+    sanitized = sanitized.strip('. ')
+    # Ensure the filename is not empty
+    if not sanitized:
+        sanitized = 'unknown'
+    return sanitized
+
+
 def export_dicom_data(modeladmin, request, queryset):
     '''
     This function will export the dicom data into a single zip file for all the objects selected in the DICOMStudy model where there is a valid folder_path
@@ -48,8 +64,9 @@ def export_dicom_data(modeladmin, request, queryset):
                             try:
                                 # Get the relative path from the study folder to maintain folder structure
                                 rel_path = file_path.relative_to(study_path)
-                                # Create the full path in the zip including patient ID and study UID
-                                arcname = f"{study.patient.patient_id}/{study.study_instance_uid}/{rel_path}"
+                                # Create the full path in the zip including sanitized patient ID and study UID
+                                sanitized_patient_id = sanitize_filename(study.patient.patient_id)
+                                arcname = f"{sanitized_patient_id}/{study.study_instance_uid}/{rel_path}"
                                 # Add the file to the zip, preserving its relative path
                                 zipf.write(file_path, arcname)
                                 total_files += 1
