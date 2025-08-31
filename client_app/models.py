@@ -600,6 +600,7 @@ class TumorFocalityChoices(models.TextChoices):
 class SpecimenTypeChoices(models.TextChoices):
     ''' This is a lookup table for the specimen type.'''
     CORE_BIOPSY = "Core Biopsy", 'Core Biopsy'
+    PUNCH_BIOPSY = "Punch Biopsy", 'Punch Biopsy'
     EXCISION_BIOPSY = "Excision Biopsy", 'Excision Biopsy'
     INCISIONAL_BIOPSY = "Incisional Biopsy", 'Incisional Biopsy'
     SURGICAL_RESECTION = "Surgical Resection", 'Surgical Resection'
