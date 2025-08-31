@@ -233,6 +233,29 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4 mb-3">
+            <div class="card">
+              <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>DICOM Studies</strong>
+                    <span class="count-badge badge rounded-circle ms-2 {% if dicom_studies.count > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                      {{ dicom_studies.count }}
+                    </span>
+                  </div>
+                  <div>
+                    <a href="{% url 'admin:client_app_dicomstudy_changelist' %}?patient__exact={{ patient }}" class="btn btn-sm btn-primary">
+                      View
+                    </a>
+                    <a href="{% url 'admin:client_app_patientdicomfile_add' %}?patient={{ patient }}" class="btn btn-sm btn-success">
+                      Add
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>          
         </div>
       </div>

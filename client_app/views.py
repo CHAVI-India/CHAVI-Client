@@ -70,6 +70,7 @@ class PatientSummaryView(TemplateView):
         patient_reported_outcomes = PatientReportedOutcome.objects.filter(patient=patient)
         patient_outcomes = PatientOutcome.objects.filter(patient=patient)
         germline_mutations = GermlineGenomicAlterations.objects.filter(patient=patient)
+        dicom_studies = DICOMStudy.objects.filter(patient=patient)
         
         # Get counts for patient-related data
         comorbidities_count = comorbidities.count()
@@ -79,6 +80,7 @@ class PatientSummaryView(TemplateView):
         patient_reported_outcomes_count = patient_reported_outcomes.count()
         patient_outcomes_count = patient_outcomes.count()
         germline_mutations_count = germline_mutations.count()
+        dicom_studies_count = dicom_studies.count()
         # Create a list to hold all diagnosis data with related objects and counts
         diagnosis_data = []
         
@@ -211,6 +213,10 @@ class PatientSummaryView(TemplateView):
         context['germline_mutations'] = {
             'objects': germline_mutations,
             'count': germline_mutations_count
+        }
+        context['dicom_studies'] = {
+            'objects': dicom_studies,
+            'count': dicom_studies_count
         }
         
         return context
