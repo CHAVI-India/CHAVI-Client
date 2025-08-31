@@ -251,11 +251,24 @@ MEDIA_URL = '/media/'
 ALLAUTH_UI_THEME = "sunset"
 
 
+# Email Configuration
+# For development: prints emails to console instead of sending them
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# For production, uncomment and configure these settings:
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+# EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+# EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+# EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+# DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@yoursite.com')
+
 # AllAuth settings
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/admin/'
+LOGIN_REDIRECT_URL = '/'
 ACCOUNT_LOGIN_METHOD = 'username_email'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
@@ -264,11 +277,9 @@ ACCOUNT_PRESERVE_USERNAME_CASING = False
 ACCOUNT_USERNAME_MIN_LENGTH = 5
 ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']
 
-# Grappelli Settings
+# Custom error handlers (works in both DEBUG and production modes)
+HANDLER403 = 'client_app.views.custom_403_view'
 
-# GRAPPELLI_INDEX_DASHBOARD = 'chavi_client.dashboard.CustomIndexDashboard'
-# GRAPPELLI_ADMIN_TITLE = 'CHAVI Client Application'
-# GRAPPELLI_CLEAN_INPUT_TYPES = True
 
 
 # Unfold Settings

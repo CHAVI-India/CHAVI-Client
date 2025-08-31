@@ -13,6 +13,10 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 # Create your views here.
 
+def custom_403_view(request, exception=None):
+    """Custom 403 error page view that works in both DEBUG and production modes."""
+    return render(request, '403.html', status=403)
+
 class HomePageView(TemplateView):
     """View for the application homepage."""
     template_name = "client_app/homepage.html"

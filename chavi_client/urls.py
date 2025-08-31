@@ -19,6 +19,7 @@ from django.urls import path, include, re_path
 from django.shortcuts import redirect
 from client_app.views import documentation_view, HomePageView
 from client_app.admin import get_custom_admin_urls
+from django.conf import settings
 
 # Add custom admin URLs to the admin site
 admin.site.get_urls = lambda: get_custom_admin_urls() + admin.site.__class__.get_urls(admin.site)
@@ -36,3 +37,9 @@ urlpatterns = [
     re_path(r'^docs/(?P<path>.*)$', documentation_view, name='documentation'),
     path('docs/', documentation_view, name='documentation-index'),
 ]
+
+# Configure custom error handlers
+if settings.DEBUG:
+    # In DEBUG mode, we need to explicitly set the handler
+    from client_app.views import custom_403_view
+    handler403 = custom_403_view
