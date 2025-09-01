@@ -1,5 +1,5 @@
 # Stage 1: Base build stage
-FROM python:alpine AS builder
+FROM python:3-slim-bookworm AS builder
  
 # Create the app directory
 RUN mkdir /app
@@ -17,7 +17,7 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
  
 # Stage 2: Production stage
-FROM python:alpine
+FROM python:3-slim-bookworm
  
 RUN useradd -m -r appuser && \
    mkdir /app && \
