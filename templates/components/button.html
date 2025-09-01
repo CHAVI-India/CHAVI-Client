@@ -1,0 +1,53 @@
+{% comment %}
+Reusable button component
+Usage: {% include 'components/button.html' with text='Button Text' href='/url/' style='primary' icon='fas fa-icon' %}
+Styles: primary, secondary, success, danger, warning, info
+{% endcomment %}
+
+{% if href %}
+<a href="{{ href }}" 
+   class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 
+          {% if style == 'primary' or not style %}
+              bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent
+          {% elif style == 'secondary' %}
+              bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300
+          {% elif style == 'success' %}
+              bg-green-600 text-white hover:bg-green-700 border-transparent
+          {% elif style == 'danger' %}
+              bg-red-600 text-white hover:bg-red-700 border-transparent
+          {% elif style == 'warning' %}
+              bg-yellow-500 text-white hover:bg-yellow-600 border-transparent
+          {% elif style == 'info' %}
+              bg-blue-600 text-white hover:bg-blue-700 border-transparent
+          {% elif style == 'outline' %}
+              bg-transparent text-chavi-primary border-chavi-primary hover:bg-chavi-primary hover:text-white
+          {% endif %}
+          disabled:opacity-50 disabled:pointer-events-none"
+   {% if target %}target="{{ target }}"{% endif %}>
+    {% if icon %}<i class="{{ icon }}"></i>{% endif %}
+    {{ text }}
+</a>
+{% else %}
+<button type="{{ type|default:'button' }}" 
+        class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 
+               {% if style == 'primary' or not style %}
+                   bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent
+               {% elif style == 'secondary' %}
+                   bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300
+               {% elif style == 'success' %}
+                   bg-green-600 text-white hover:bg-green-700 border-transparent
+               {% elif style == 'danger' %}
+                   bg-red-600 text-white hover:bg-red-700 border-transparent
+               {% elif style == 'warning' %}
+                   bg-yellow-500 text-white hover:bg-yellow-600 border-transparent
+               {% elif style == 'info' %}
+                   bg-blue-600 text-white hover:bg-blue-700 border-transparent
+               {% elif style == 'outline' %}
+                   bg-transparent text-chavi-primary border-chavi-primary hover:bg-chavi-primary hover:text-white
+               {% endif %}
+               disabled:opacity-50 disabled:pointer-events-none"
+        {% if onclick %}onclick="{{ onclick }}"{% endif %}>
+    {% if icon %}<i class="{{ icon }}"></i>{% endif %}
+    {{ text }}
+</button>
+{% endif %}

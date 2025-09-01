@@ -1,105 +1,88 @@
-{% extends "unfold/layouts/base.html" %}
-{% load static %}
-{% load admin_urls i18n unfold %}
+{% extends "base.html" %}
 
+{% block title %}Welcome to CHAVI Client{% endblock %}
 
-{% block breadcrumbs %}{% if not is_popup %}
-    <div class="px-4 lg:px-8">
-        <div class="container mb-6 mx-auto -my-3 lg:mb-12">
-            <ul class="flex flex-wrap">
-                {% url 'admin:index' as link %}
-                {% trans 'Home' as name %}
-                {% include 'unfold/helpers/breadcrumb_item.html' with link=link name=name %}
-
-            </ul>
-        </div>
-    </div>
-{% endif %}{% endblock %}
-
-{% block title %}Welcome to Chavi Client{% endblock %}
+{# Define URL variables at the top #}
+{% url 'account_login' as login_url %}
+{% url 'client_app:patient_search' as search_url %}
+{% url 'admin:index' as admin_url %}
+{% url 'documentation-index' as docs_url %}
 
 {% block content %}
-    {% component "unfold/components/container.html" %}
-        <div class="mb-6">
-            {% component "unfold/components/title.html" %}
-                Welcome to Chavi Client
-            {% endcomponent %}
-            
-            {% component "unfold/components/text.html" %}
-                This application is designed to help you to collect patient data which can be then be de-identified and exported to the CHAVI server.
-            {% endcomponent %}
+<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Hero Section -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-chavi-gray mb-4">Welcome to CHAVI Client</h1>
+        <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+            This application is designed to help you collect patient data which can then be de-identified and exported to the CHAVI server.
+        </p>
+    </div>
+    
+    <!-- Main Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+        {% if not user.is_authenticated %}
+        <!-- Login Card -->
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-chavi-gray">Login</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600 leading-relaxed mb-4">Login to access the CHAVI client system and manage patient data.</p>
+                {% include 'components/button.html' with text='Login' href=login_url icon='fas fa-sign-in-alt' style='primary' %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Patient Search Card -->
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-chavi-gray">Patient Search</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600 leading-relaxed mb-4">Search for patients that exist in the CHAVI database and view their information.</p>
+                <a href="{% url 'client_app:patient_search' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                    <i class="fas fa-search"></i>
+                    Search Patients
+                </a>
+            </div>
         </div>
         
-        <div class="flex flex-col gap-4">
-            {% if not user.is_authenticated %}
-                {% component "unfold/components/card.html" with class="bg-white dark:bg-gray-800 shadow-sm" %}
-                    {% component "unfold/components/title.html" %}
-                        Login
-                    {% endcomponent %}
-                    
-                    {% component "unfold/components/text.html" %}
-                        Login to access the CHAVI client system and manage patient data.
-                    {% endcomponent %}
-                    
-                    <div class="mt-4">
-                        {% url 'account_login' as login_url %}
-                        <a href="{{ login_url }}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
-                            Login
-                        </a>
-                    </div>
-                {% endcomponent %}
-            {% endif %}
-            
-            {% component "unfold/components/card.html" with class="bg-white dark:bg-gray-800 shadow-sm" %}
-                {% component "unfold/components/title.html" %}
-                    Patient Search
-                {% endcomponent %}
-                
-                {% component "unfold/components/text.html" %}
-                    This page allows you to search for patients that exist in the CHAVI database.
-                {% endcomponent %}
-                
-                <div class="mt-4">
-                    {% url 'admin:patient-search' as search_url %}
-                    <a href="{{ search_url }}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
-                        Search Patients
-                    </a>
-                </div>
-            {% endcomponent %}
-            
-            {% component "unfold/components/card.html" with class="bg-white dark:bg-gray-800 shadow-sm" %}
-                {% component "unfold/components/title.html" %}
-                    Admin Dashboard
-                {% endcomponent %}
-                
-                {% component "unfold/components/text.html" %}
-                    This page allows you to access the main administrative dashboard.
-                {% endcomponent %}
-                
-                <div class="mt-4">
-                    {% url 'admin:index' as admin_url %}
-                    <a href="{{ admin_url }}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600">
-                        Admin Panel
-                    </a>
-                </div>
-            {% endcomponent %}
-            
-            {% component "unfold/components/card.html" with class="bg-white dark:bg-gray-800 shadow-sm" %}
-                {% component "unfold/components/title.html" %}
-                    Documentation
-                {% endcomponent %}
-                
-                {% component "unfold/components/text.html" %}
-                    View detailed documentation about the system and its features.
-                {% endcomponent %}
-                
-                <div class="mt-4">
-                    {% url 'documentation-index' as doc_url %}
-                    <a href="{{ doc_url }}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600" target="_blank">
-                        View Docs
-                    </a>
-                </div>
-            {% endcomponent %}
+        <!-- Admin Dashboard Card -->
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-chavi-gray">Admin Dashboard</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600 leading-relaxed mb-4">Access the main administrative dashboard to manage the system and user accounts.</p>
+                <a href="{% url 'admin:index' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                    <i class="fas fa-cog"></i>
+                    Admin Panel
+                </a>
+            </div>
         </div>
-    {% endcomponent %}
+        
+        <!-- Documentation Card -->
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-chavi-gray">Documentation</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600 leading-relaxed mb-4">View detailed documentation about the system features and how to use them effectively.</p>
+                <a href="{% url 'documentation-index' %}" target="_blank" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                    <i class="fas fa-book"></i>
+                    View Docs
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats or Additional Info Section -->
+    <div class="bg-gradient-to-r from-chavi-primary to-chavi-secondary rounded-lg p-8 text-white text-center">
+        <h2 class="text-2xl font-bold mb-4">CHAVI Data Collection System</h2>
+        <p class="text-lg opacity-90">
+            Secure, efficient, and compliant patient data management for research purposes.
+        </p>
+    </div>
+</div>
+
 {% endblock %}

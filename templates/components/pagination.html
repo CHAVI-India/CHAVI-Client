@@ -1,0 +1,69 @@
+{% comment %}
+Reusable pagination component
+Usage: {% include 'components/pagination.html' with page_obj=patients search_term=search_term %}
+{% endcomment %}
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="flex flex-col items-center space-y-4 mt-8">
+    <!-- Pagination Info -->
+    <div class="text-sm text-gray-600">
+        Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} results
+    </div>
+    
+    <!-- Pagination Controls -->
+    <nav class="flex items-center space-x-1">
+        {% if page_obj.has_previous %}
+            <a href="?{% if search_term %}search={{ search_term }}&{% endif %}page=1" 
+               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+            <a href="?{% if search_term %}search={{ search_term }}&{% endif %}page={{ page_obj.previous_page_number }}" 
+               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border-t border-b border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                <i class="fas fa-angle-left"></i>
+            </a>
+        {% else %}
+            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-300 rounded-l-md cursor-not-allowed">
+                <i class="fas fa-angle-double-left"></i>
+            </span>
+            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border-t border-b border-gray-300 cursor-not-allowed">
+                <i class="fas fa-angle-left"></i>
+            </span>
+        {% endif %}
+        
+        {% for page_num in page_obj.paginator.page_range %}
+            {% if page_num == page_obj.number %}
+                <span class="px-3 py-2 text-sm font-medium text-white bg-chavi-primary border border-chavi-primary">
+                    {{ page_num }}
+                </span>
+            {% elif page_num > page_obj.number|add:"-3" and page_num < page_obj.number|add:"3" %}
+                <a href="?{% if search_term %}search={{ search_term }}&{% endif %}page={{ page_num }}" 
+                   class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border-t border-b border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                    {{ page_num }}
+                </a>
+            {% elif page_num == page_obj.number|add:"-3" or page_num == page_obj.number|add:"3" %}
+                <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-white border-t border-b border-gray-300">
+                    ...
+                </span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+            <a href="?{% if search_term %}search={{ search_term }}&{% endif %}page={{ page_obj.next_page_number }}" 
+               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border-t border-b border-gray-300 hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                <i class="fas fa-angle-right"></i>
+            </a>
+            <a href="?{% if search_term %}search={{ search_term }}&{% endif %}page={{ page_obj.paginator.num_pages }}" 
+               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+        {% else %}
+            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border-t border-b border-gray-300 cursor-not-allowed">
+                <i class="fas fa-angle-right"></i>
+            </span>
+            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-300 rounded-r-md cursor-not-allowed">
+                <i class="fas fa-angle-double-right"></i>
+            </span>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}

@@ -1,0 +1,44 @@
+{% comment %}
+Reusable table component
+Usage: {% include 'components/table.html' with headers=headers rows=rows %}
+{% endcomment %}
+
+<div class="overflow-x-auto bg-white rounded-lg shadow-md">
+    <table class="min-w-full divide-y divide-gray-200">
+        {% if headers %}
+        <thead class="bg-gray-50">
+            <tr>
+                {% for header in headers %}
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {{ header }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        {% endif %}
+        
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% if rows %}
+                {% for row in rows %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    {% for cell in row %}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ cell|safe }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="{{ headers|length|default:1 }}" class="px-6 py-4 text-center text-sm text-gray-500">
+                        {% if empty_message %}
+                            {{ empty_message }}
+                        {% else %}
+                            No data available
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

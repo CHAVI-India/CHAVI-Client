@@ -1,2 +1,10 @@
 components:
-  card: 'admin/client_app/card.html'
+  # Reusable Tailwind CSS components
+  button: 'components/button.html'
+  card: 'components/card.html'
+  table: 'components/table.html'
+  form: 'components/form.html'
+  pagination: 'components/pagination.html'
+  
+  # Legacy component (keeping for backward compatibility)
+  legacy_card: 'admin/client_app/card.html'
