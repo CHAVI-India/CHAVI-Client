@@ -28,7 +28,7 @@ def documentation_view(request, path=''):
         path = 'index.html'
     return serve(request, path, document_root=doc_root)
 
-class PatientSummaryView(TemplateView):
+class PatientSummaryView(LoginRequiredMixin, TemplateView):
     """View for displaying patient summary and related data."""
     template_name = "client_app/patient_summary.html"
     
@@ -221,7 +221,7 @@ class PatientSummaryView(TemplateView):
         
         return context
 
-class PatientSearchView(TemplateView):
+class PatientSearchView(LoginRequiredMixin, TemplateView):
     """View for searching patients and redirecting to their summary page."""
     template_name = "client_app/patient_search.html"
     patients_per_page = 20
