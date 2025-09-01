@@ -18,7 +18,7 @@
     
     <!-- Search Section -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        {% include 'components/form.html' with search_form=True search_placeholder='Enter patient ID to search...' search_value=search_term %}
+        {% include 'components/custom_form.html' with search_form=True search_placeholder='Enter patient ID to search...' search_value=search_term %}
         
         {% if error %}
         <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
