@@ -56,7 +56,6 @@ def export_dicom_data(modeladmin, request, queryset):
                     messages.warning(request, f"Study folder {study.folder_path} does not exist. Skipping.")
                     skipped_studies += 1
                     continue
-                
                 try:
                     # Add all files and subfolders to the zip
                     for file_path in study_path.rglob('*'):
