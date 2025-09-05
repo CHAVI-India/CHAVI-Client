@@ -2019,12 +2019,6 @@ class DICOMStudyProject(models.Model):
     class Meta:
         verbose_name="Project for DICOM Study"
         verbose_name_plural="Projects for DICOM Study"
-        constraints = [
-            models.UniqueConstraint(
-                fields=['study_instance_uid', 'project'],
-                name='unique_dicom_study_project'
-            )
-        ]
 
 # Model created for handling bulk uploads of DICOM files from multiple patients. It matches the DICOM files to existing patients based on the Patient ID found in the DICOM metadata.
 class BulkDICOMUpload(models.Model):
