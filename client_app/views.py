@@ -30,7 +30,7 @@ def documentation_view(request, path=''):
 
 class PatientSummaryView(LoginRequiredMixin, TemplateView):
     """View for displaying patient summary and related data."""
-    template_name = "client_app/patient_summary.html"
+    template_name = "client_app/patient_summary_new.html"
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
