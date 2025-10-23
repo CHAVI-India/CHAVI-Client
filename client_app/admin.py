@@ -55,6 +55,7 @@ from .views import PatientSummaryView, PatientSearchView
 from django.urls import reverse
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
+from .resources import UnifiedClinicalDataResource
 
 # For Django AllAuth
 admin.autodiscover()
@@ -141,6 +142,7 @@ class RadiotherapyDoseVolumeDataInline(TabularInline):
 
 # Add Model classes
 
+
 ## Create the Patient Form Class along with the export import configuration
 class PatientResource(resources.ModelResource):
     class Meta:
@@ -159,7 +161,7 @@ class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
     search_fields = ['patient_id']
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
     filter_horizontal = ['patient_project']
-    resource_classes = [PatientResource]
+    resource_classes = [PatientResource, UnifiedClinicalDataResource]
     fieldsets = (
         ('Demographics',{
             'fields': ['patient_id',('gender','center'),('date_of_birth','date_of_registration')]
