@@ -2056,6 +2056,121 @@ class UnprocessedDICOMStudies(models.Model):
         
     def __str__(self):
         return f"{self.study_instance_uid} - {self.dicom_patient_id}"
+
+
+# Model to track bulk DICOM upload sessions for the frontend workflow
+class BulkDICOMUploadSession(models.Model):
+    '''This model tracks bulk DICOM upload sessions for the frontend workflow with manual patient matching'''
+    session_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uploaded_file = models.FileField(
+        upload_to='bulk_dicom_sessions',
+        validators=[FileExtensionValidator(allowed_extensions=["zip"])],
+        help_text="Uploaded zip file containing DICOM studies from multiple patients"
+    )
+    temp_directory = models.CharField(max_length=500, null=True, blank=True, help_text="Temporary directory path for extracted files")
+    
+    class StatusChoices(models.TextChoices):
+        UPLOADED = 'UPLOADED', 'Uploaded'
+        EXTRACTED = 'EXTRACTED', 'Extracted'
+        ANALYZED = 'ANALYZED', 'Analyzed'
+        MATCHING = 'MATCHING', 'Awaiting Manual Matching'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
+        PROCESSING = 'PROCESSING', 'Processing'
+        COMPLETED = 'COMPLETED', 'Completed'
+        FAILED = 'FAILED', 'Failed'
+    
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.UPLOADED
+    )
+    
+    uploaded_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='bulk_dicom_sessions'
+    )
+    
+    # Statistics
+    total_studies = models.IntegerField(default=0)
+    auto_matched_studies = models.IntegerField(default=0)
+    manual_match_required = models.IntegerField(default=0)
+    unmatched_studies = models.IntegerField(default=0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    error_log = models.TextField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "Bulk DICOM Upload Session"
+        verbose_name_plural = "Bulk DICOM Upload Sessions"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Session {self.session_id} - {self.status}"
+
+
+# Model to track individual studies within a bulk upload session
+class BulkDICOMStudyMatch(models.Model):
+    '''This model tracks individual DICOM studies within a bulk upload session and their patient matching status'''
+    match_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        BulkDICOMUploadSession,
+        on_delete=models.CASCADE,
+        related_name='study_matches'
+    )
+    
+    study_instance_uid = models.CharField(max_length=255)
+    dicom_patient_id = models.CharField(max_length=255)
+    
+    # Study metadata
+    study_description = models.CharField(max_length=255, null=True, blank=True)
+    study_date = models.DateField(null=True, blank=True)
+    modalities = models.CharField(max_length=255, null=True, blank=True)
+    series_descriptions = models.TextField(null=True, blank=True)
+    file_count = models.IntegerField(default=0)
+    
+    # Matching information
+    class MatchStatus(models.TextChoices):
+        AUTO_MATCHED = 'AUTO_MATCHED', 'Automatically Matched'
+        MANUAL_MATCH_REQUIRED = 'MANUAL_MATCH_REQUIRED', 'Manual Match Required'
+        MANUALLY_MATCHED = 'MANUALLY_MATCHED', 'Manually Matched'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
+        UNMATCHED = 'UNMATCHED', 'Unmatched'
+        PROCESSED = 'PROCESSED', 'Processed'
+    
+    match_status = models.CharField(
+        max_length=30,
+        choices=MatchStatus.choices,
+        default=MatchStatus.MANUAL_MATCH_REQUIRED
+    )
+    
+    matched_patient = models.ForeignKey(
+        Patient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bulk_study_matches'
+    )
+    
+    # Folder path where DICOM files are stored temporarily
+    temp_folder_path = models.CharField(max_length=500, null=True, blank=True)
+    
+    # Final folder path after processing
+    final_folder_path = models.CharField(max_length=500, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Bulk DICOM Study Match"
+        verbose_name_plural = "Bulk DICOM Study Matches"
+        unique_together = ['session', 'study_instance_uid']
+    
+    def __str__(self):
+        return f"{self.study_instance_uid} - {self.dicom_patient_id} ({self.match_status})"
     
 
     

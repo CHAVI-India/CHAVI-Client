@@ -7,9 +7,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from unfold.views import UnfoldModelAdminViewMixin
 from .models import *
 from django.urls import reverse, reverse_lazy
-from django.http import Http404
-from django.contrib import admin
+from django.http import Http404, JsonResponse
+from django.contrib import admin, messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from .services.frontend_bulk_dicom_import import extract_and_analyze_upload, process_confirmed_matches
+from django.db import transaction
 
 # Create your views here.
 
@@ -274,5 +276,279 @@ class PatientSearchView(LoginRequiredMixin, TemplateView):
             'error': 'Please enter a patient ID',
             'patients': Patient.objects.all().order_by('-created_at')[:self.patients_per_page]
         })
+
+
+# Bulk DICOM Upload Views
+
+class BulkDICOMUploadView(LoginRequiredMixin, TemplateView):
+    """View for uploading bulk DICOM zip files"""
+    template_name = "client_app/bulk_dicom_upload.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "Bulk DICOM Upload"
+        return context
+    
+    def post(self, request):
+        """Handle file upload"""
+        if 'dicom_file' not in request.FILES:
+            messages.error(request, "No file uploaded")
+            return redirect('client_app:bulk_dicom_upload')
+        
+        uploaded_file = request.FILES['dicom_file']
+        
+        # Validate file extension
+        if not uploaded_file.name.endswith('.zip'):
+            messages.error(request, "Only ZIP files are allowed")
+            return redirect('client_app:bulk_dicom_upload')
+        
+        try:
+            # Create upload session
+            session = BulkDICOMUploadSession.objects.create(
+                uploaded_file=uploaded_file,
+                uploaded_by=request.user,
+                status=BulkDICOMUploadSession.StatusChoices.UPLOADED
+            )
+            
+            # Extract and analyze the upload
+            result = extract_and_analyze_upload(session)
+            
+            if result['success']:
+                messages.success(request, f"Upload analyzed: {result['total_studies']} studies found")
+                return redirect('client_app:bulk_dicom_matching', session_id=session.session_id)
+            else:
+                messages.error(request, f"Error analyzing upload: {result['error']}")
+                return redirect('client_app:bulk_dicom_upload')
+                
+        except Exception as e:
+            messages.error(request, f"Error processing upload: {str(e)}")
+            return redirect('client_app:bulk_dicom_upload')
+
+
+class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
+    """View for matching DICOM studies to patients"""
+    template_name = "client_app/bulk_dicom_matching.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        session_id = self.kwargs.get('session_id')
+        
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        
+        # Get all study matches for this session
+        study_matches = BulkDICOMStudyMatch.objects.filter(session=session).order_by('match_status', 'dicom_patient_id')
+        
+        # Separate auto-matched and manual match required
+        auto_matched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED)
+        manual_required = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED)
+        manually_matched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.MANUALLY_MATCHED)
+        
+        # Get all patients for the select2 dropdown
+        patients = Patient.objects.all().order_by('patient_id')
+        
+        context.update({
+            'title': 'Match DICOM Studies to Patients',
+            'session': session,
+            'auto_matched': auto_matched,
+            'manual_required': manual_required,
+            'manually_matched': manually_matched,
+            'patients': patients,
+            'total_studies': study_matches.count(),
+        })
+        
+        return context
+    
+    def post(self, request, session_id):
+        """Handle patient matching"""
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        
+        # Get all study matches that need manual matching
+        manual_matches = BulkDICOMStudyMatch.objects.filter(
+            session=session,
+            match_status=BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED
+        )
+        
+        matched_count = 0
+        unmatched_count = 0
+        
+        for study_match in manual_matches:
+            # Check if a patient was selected for this study
+            patient_id = request.POST.get(f'patient_{study_match.match_id}')
+            
+            if patient_id:
+                # Patient selected - mark as manually matched
+                try:
+                    patient = Patient.objects.get(patient_id=patient_id)
+                    study_match.matched_patient = patient
+                    study_match.match_status = BulkDICOMStudyMatch.MatchStatus.MANUALLY_MATCHED
+                    study_match.save()
+                    matched_count += 1
+                except Patient.DoesNotExist:
+                    messages.error(request, f"Patient {patient_id} not found")
+            else:
+                # No patient selected - mark as unmatched
+                study_match.match_status = BulkDICOMStudyMatch.MatchStatus.UNMATCHED
+                study_match.matched_patient = None
+                study_match.save()
+                unmatched_count += 1
+        
+        if matched_count > 0:
+            messages.success(request, f"Successfully matched {matched_count} studies")
+        
+        if unmatched_count > 0:
+            messages.info(request, f"{unmatched_count} studies marked as unmatched and will be moved to unprocessed folder")
+        
+        # All studies have been processed, proceed to confirmation
+        session.status = BulkDICOMUploadSession.StatusChoices.MATCHING
+        session.save()
+        return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
+
+
+class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
+    """View for confirming patient matches before processing"""
+    template_name = "client_app/bulk_dicom_confirmation.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        session_id = self.kwargs.get('session_id')
+        
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        
+        # Get all study matches
+        study_matches = BulkDICOMStudyMatch.objects.filter(session=session)
+        
+        # Categorize studies
+        auto_matched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED)
+        manually_matched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.MANUALLY_MATCHED)
+        unmatched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED)
+        
+        context.update({
+            'title': 'Confirm Patient Matches',
+            'session': session,
+            'auto_matched': auto_matched,
+            'manually_matched': manually_matched,
+            'unmatched': unmatched,
+            'total_studies': study_matches.count(),
+        })
+        
+        return context
+    
+    def post(self, request, session_id):
+        """Handle confirmation and process the studies"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"POST request received for session {session_id}")
+        logger.info(f"POST data: {request.POST}")
+        
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        
+        action = request.POST.get('action')
+        logger.info(f"Action: {action}")
+        
+        if action == 'confirm':
+            try:
+                # Mark all matched studies as confirmed
+                with transaction.atomic():
+                    # Confirm auto-matched studies
+                    auto_count = BulkDICOMStudyMatch.objects.filter(
+                        session=session,
+                        match_status=BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED
+                    ).update(match_status=BulkDICOMStudyMatch.MatchStatus.CONFIRMED)
+                    logger.info(f"Confirmed {auto_count} auto-matched studies")
+                    
+                    # Confirm manually matched studies
+                    manual_count = BulkDICOMStudyMatch.objects.filter(
+                        session=session,
+                        match_status=BulkDICOMStudyMatch.MatchStatus.MANUALLY_MATCHED
+                    ).update(match_status=BulkDICOMStudyMatch.MatchStatus.CONFIRMED)
+                    logger.info(f"Confirmed {manual_count} manually matched studies")
+                    
+                    # Mark remaining as unmatched
+                    unmatched_count = BulkDICOMStudyMatch.objects.filter(
+                        session=session,
+                        match_status=BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED
+                    ).update(match_status=BulkDICOMStudyMatch.MatchStatus.UNMATCHED)
+                    logger.info(f"Marked {unmatched_count} studies as unmatched")
+                    
+                    session.status = BulkDICOMUploadSession.StatusChoices.CONFIRMED
+                    session.save()
+                    logger.info("Session status updated to CONFIRMED")
+                
+                # Process the confirmed matches
+                logger.info("Starting to process confirmed matches")
+                result = process_confirmed_matches(session)
+                logger.info(f"Processing result: {result}")
+                
+                if result['success']:
+                    messages.success(
+                        request,
+                        f"Processing complete! {result['processed']} studies processed, "
+                        f"{result['unprocessed']} moved to unprocessed folder"
+                    )
+                    return redirect('client_app:bulk_dicom_complete', session_id=session.session_id)
+                else:
+                    messages.error(request, f"Error during processing: {result['error']}")
+                    return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
+                    
+            except Exception as e:
+                logger.error(f"Exception in confirmation POST: {str(e)}", exc_info=True)
+                messages.error(request, f"Error: {str(e)}")
+                return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
+        
+        elif action == 'back':
+            return redirect('client_app:bulk_dicom_matching', session_id=session.session_id)
+        
+        logger.warning(f"No valid action found, redirecting back to confirmation")
+        return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
+
+
+class BulkDICOMCompleteView(LoginRequiredMixin, TemplateView):
+    """View showing completion status of bulk DICOM upload"""
+    template_name = "client_app/bulk_dicom_complete.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        session_id = self.kwargs.get('session_id')
+        
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        
+        # Get processing statistics
+        study_matches = BulkDICOMStudyMatch.objects.filter(session=session)
+        processed = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.PROCESSED)
+        unmatched = study_matches.filter(match_status=BulkDICOMStudyMatch.MatchStatus.UNMATCHED)
+        
+        context.update({
+            'title': 'Upload Complete',
+            'session': session,
+            'processed': processed,
+            'unmatched': unmatched,
+            'total_studies': study_matches.count(),
+        })
+        
+        return context
+
+
+# AJAX endpoint for patient search in select2
+class PatientSearchAPIView(LoginRequiredMixin, View):
+    """API endpoint for searching patients (for Select2)"""
+    
+    def get(self, request):
+        search_term = request.GET.get('q', '')
+        
+        if search_term:
+            patients = Patient.objects.filter(patient_id__icontains=search_term)[:20]
+        else:
+            patients = Patient.objects.all()[:20]
+        
+        results = [
+            {
+                'id': patient.patient_id,
+                'text': f"{patient.patient_id} - {patient.gender or 'N/A'}"
+            }
+            for patient in patients
+        ]
+        
+        return JsonResponse({'results': results})
 
 

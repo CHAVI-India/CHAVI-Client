@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Bulk DICOM Upload</h1>
+            <p class="text-gray-600">Upload a ZIP file containing DICOM studies from multiple patients</p>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="{% if message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} border px-4 py-3 rounded relative mb-4" role="alert">
+                <span class="block sm:inline">{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Upload Form -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="dicom_file">
+                        Select ZIP File
+                    </label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-chavi-primary transition-colors">
+                        <input type="file" name="dicom_file" id="dicom_file" accept=".zip" required
+                               class="hidden" onchange="updateFileName(this)">
+                        <label for="dicom_file" class="cursor-pointer">
+                            <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Click to select a ZIP file or drag and drop</p>
+                            <p class="text-sm text-gray-500">Maximum file size: 10GB</p>
+                            <p id="fileName" class="text-sm text-chavi-primary font-semibold mt-2"></p>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-blue-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Upload Instructions</h3>
+                            <div class="mt-2 text-sm text-blue-700">
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>Upload a ZIP file containing DICOM studies from multiple patients</li>
+                                    <li>The system will automatically match studies with existing patients based on Patient ID</li>
+                                    <li>You will be able to manually match unmatched studies in the next step</li>
+                                    <li>Studies that cannot be matched will be moved to the unprocessed folder</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <a href="{% url 'client_app:homepage' %}" 
+                       class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>Cancel
+                    </a>
+                    <button type="submit" id="uploadBtn"
+                            class="bg-chavi-gradient text-white font-bold py-2 px-6 rounded hover:shadow-lg transition-all">
+                        <i class="fas fa-upload mr-2"></i>Upload and Analyze
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Processing Indicator -->
+        <div id="processingIndicator" class="hidden mt-6 bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-chavi-primary mr-4"></div>
+                <div>
+                    <p class="text-lg font-semibold text-gray-700">Processing your upload...</p>
+                    <p class="text-sm text-gray-500">This may take a few minutes depending on file size</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateFileName(input) {
+        const fileName = input.files[0]?.name;
+        const fileNameDisplay = document.getElementById('fileName');
+        if (fileName) {
+            fileNameDisplay.textContent = `Selected: ${fileName}`;
+        }
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        document.getElementById('uploadBtn').disabled = true;
+        document.getElementById('processingIndicator').classList.remove('hidden');
+    });
+
+    // Drag and drop functionality
+    const dropZone = document.querySelector('.border-dashed');
+    const fileInput = document.getElementById('dicom_file');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.classList.add('border-chavi-primary', 'bg-blue-50');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('border-chavi-primary', 'bg-blue-50');
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        fileInput.files = files;
+        updateFileName(fileInput);
+    }
+</script>
+{% endblock %}

@@ -7,5 +7,14 @@ urlpatterns = [
     path('', views.HomePageView.as_view(), name='homepage'),
     path('patient-search/', views.PatientSearchView.as_view(), name='patient_search'),
     path('patient-summary/', views.PatientSummaryView.as_view(), name='patient_summary'),
+    
+    # Bulk DICOM Upload URLs
+    path('bulk-dicom-upload/', views.BulkDICOMUploadView.as_view(), name='bulk_dicom_upload'),
+    path('bulk-dicom-matching/<uuid:session_id>/', views.BulkDICOMMatchingView.as_view(), name='bulk_dicom_matching'),
+    path('bulk-dicom-confirmation/<uuid:session_id>/', views.BulkDICOMConfirmationView.as_view(), name='bulk_dicom_confirmation'),
+    path('bulk-dicom-complete/<uuid:session_id>/', views.BulkDICOMCompleteView.as_view(), name='bulk_dicom_complete'),
+    
+    # API endpoint for patient search (Select2)
+    path('api/patient-search/', views.PatientSearchAPIView.as_view(), name='api_patient_search'),
 ]
 

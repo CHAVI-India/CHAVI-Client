@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - CHAVI Client{% endblock %}
+
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Match DICOM Studies to Patients</h1>
+            <p class="text-gray-600">Review automatic matches and manually match remaining studies</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mb-8 bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">1</div>
+                    <span class="ml-2 font-semibold text-chavi-primary">Upload</span>
+                </div>
+                <div class="flex-1 h-1 bg-chavi-primary mx-4"></div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">2</div>
+                    <span class="ml-2 font-semibold text-chavi-primary">Match Studies</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-300 mx-4"></div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <span class="ml-2 text-gray-600">Confirm</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-300 mx-4"></div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">4</div>
+                    <span class="ml-2 text-gray-600">Complete</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="{% if message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} border px-4 py-3 rounded relative mb-4" role="alert">
+                <span class="block sm:inline">{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm text-gray-600">Auto-Matched</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ auto_matched.count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm text-gray-600">Manual Match Required</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ manual_required.count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-clipboard-list text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm text-gray-600">Total Studies</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ total_studies }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" id="matchingForm">
+            {% csrf_token %}
+
+            <!-- Auto-Matched Studies -->
+            {% if auto_matched %}
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                    Automatically Matched Studies ({{ auto_matched.count }})
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">These studies were automatically matched to existing patients based on Patient ID</p>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for study in auto_matched %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        {{ study.matched_patient.patient_id }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Manually Matched Studies -->
+            {% if manually_matched %}
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-user-check text-blue-600 mr-2"></i>
+                    Manually Matched Studies ({{ manually_matched.count }})
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">These studies have been manually matched to patients</p>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for study in manually_matched %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ study.matched_patient.patient_id }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Manual Match Required -->
+            {% if manual_required %}
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                    Studies Requiring Manual Matching ({{ manual_required.count }})
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Please select a patient for each study or leave unmatched to move to unprocessed folder</p>
+                
+                <div class="space-y-4">
+                    {% for study in manual_required %}
+                    <div class="border border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-2">Study Information</h3>
+                                <dl class="space-y-1 text-sm">
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">DICOM Patient ID:</dt>
+                                        <dd class="text-gray-900">{{ study.dicom_patient_id }}</dd>
+                                    </div>
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">Study UID:</dt>
+                                        <dd class="text-gray-900 truncate">{{ study.study_instance_uid }}</dd>
+                                    </div>
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">Description:</dt>
+                                        <dd class="text-gray-900">{{ study.study_description|default:"N/A" }}</dd>
+                                    </div>
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">Study Date:</dt>
+                                        <dd class="text-gray-900">{{ study.study_date|default:"N/A" }}</dd>
+                                    </div>
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">Modalities:</dt>
+                                        <dd class="text-gray-900">{{ study.modalities|default:"N/A" }}</dd>
+                                    </div>
+                                    <div class="flex">
+                                        <dt class="font-medium text-gray-600 w-32">Files:</dt>
+                                        <dd class="text-gray-900">{{ study.file_count }}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-2">Match to Patient</h3>
+                                <label for="patient_{{ study.match_id }}" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Select Patient (or leave blank for unprocessed)
+                                </label>
+                                <select name="patient_{{ study.match_id }}" id="patient_{{ study.match_id }}" 
+                                        class="patient-select w-full">
+                                    <option value="">-- Leave Unmatched --</option>
+                                    {% for patient in patients %}
+                                    <option value="{{ patient.patient_id }}">{{ patient.patient_id }} - {{ patient.gender|default:"N/A" }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between">
+                <a href="{% url 'client_app:bulk_dicom_upload' %}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Cancel
+                </a>
+                <button type="submit"
+                        class="bg-chavi-gradient text-white font-bold py-2 px-6 rounded hover:shadow-lg transition-all">
+                    <i class="fas fa-arrow-right mr-2"></i>Continue to Confirmation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (required for Select2) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Initialize Select2 on all patient select dropdowns
+        $('.patient-select').select2({
+            placeholder: '-- Search for a patient --',
+            allowClear: true,
+            width: '100%',
+            ajax: {
+                url: '{% url "client_app:api_patient_search" %}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                },
+                cache: true
+            }
+        });
+    });
+</script>
+{% endblock %}
