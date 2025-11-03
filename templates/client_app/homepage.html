@@ -51,6 +51,7 @@
         </div>
         
         <!-- Bulk DICOM Upload Card -->
+        {% if user.is_authenticated %}
         <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-lg font-semibold text-chavi-gray">Bulk DICOM Upload</h3>
@@ -63,6 +64,7 @@
                 </a>
             </div>
         </div>
+        {% endif %}
         
         <!-- Admin Dashboard Card -->
         <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">

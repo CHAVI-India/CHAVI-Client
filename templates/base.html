@@ -52,6 +52,11 @@
                         <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-search mr-2"></i>Patient Search
                         </a>
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                            <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
+                        </a>
+                        {% endif %}
                         <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-cog mr-2"></i>Administration
                         </a>
@@ -106,6 +111,11 @@
                 <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-search mr-2"></i>Patient Search
                 </a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
+                </a>
+                {% endif %}
                 <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-cog mr-2"></i>Administration
                 </a>
