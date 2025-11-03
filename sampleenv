@@ -8,3 +8,10 @@ DJANGO_DB_USER=postgres # Add username of the database
 DJANGO_DB_PASSWORD=sample_password # Add password of the database
 DJANGO_DB_HOST=localhost # Add host of the database
 DJANGO_DB_PORT=5432 # Add port of the database
+
+# API Settings for Lookup Data
+LOOKUP_API_URL = https://backend.chavi.ai/api/v1/lookup/
+LOOKUP_API_KEY =  Key-From-CHAVI-Backend
+LOOKUP_API_TIMEOUT =  120
+#HTTP_PROXY = 
+#HTTPS_PROXY =

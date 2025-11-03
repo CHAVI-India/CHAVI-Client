@@ -29,6 +29,8 @@ urlpatterns = [
     # path('grappelli/', include('grappelli.urls')), # grappelli URLS    
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
+    # API endpoints
+    path('api/lookup/', include('lookup.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Home URL now points to the homepage view instead of redirecting

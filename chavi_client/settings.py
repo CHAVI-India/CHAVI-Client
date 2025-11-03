@@ -58,13 +58,14 @@ INSTALLED_APPS = [
     # "unfold.contrib.simple_history",  # optional, if django-simple-history package is used
     # "django.contrib.admin",  # required    # 'jazzmin',
     'django.contrib.contenttypes',
-    'django.contrib.admin',
     'django.contrib.auth',
+    'django.contrib.admin',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
     'django_extensions',
+    'rest_framework',
     'lookup',
     'client_app',
     'django_cleanup.apps.CleanupConfig',
@@ -591,4 +592,15 @@ UNFOLD = {
 
 }
 
-
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Public read-only access to lookup data
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 100,
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+}
