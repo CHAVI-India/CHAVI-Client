@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'client_app'  # This defines the namespace
@@ -16,5 +16,8 @@ urlpatterns = [
     
     # API endpoint for patient search (Select2)
     path('api/patient-search/', views.PatientSearchAPIView.as_view(), name='api_patient_search'),
+    
+    # Lookup API endpoints
+    path('api/lookup_data/', include('lookup.urls')),
 ]
 
