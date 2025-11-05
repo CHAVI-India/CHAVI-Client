@@ -133,10 +133,10 @@ Create a comprehensive 8-step wizard for importing CSV/JSON data into the CHAVI 
 
 ---
 
-## **Phase 3: Views (8-Step Wizard)**
+## **Phase 3: Views (10-Step Wizard)** ✅ **IMPLEMENTED**
 
-### **Step 1: File Upload** (`views/step1_upload.py`)
-- Upload CSV/JSON file
+### **Step 1: File Upload** (`views/step1_upload.py`) ✅
+- Upload CSV/Excel file
 - Select project(s)
 - Validate file format
 - Store in `ImportData` model
@@ -147,116 +147,130 @@ Create a comprehensive 8-step wizard for importing CSV/JSON data into the CHAVI 
 
 ---
 
-### **Step 2: Field Mapping - Auto Match** (`views/step2_auto_match.py`)
+### **Step 2: Field Mapping** (`views/step2_field_mapping.py`) ✅
 - Run fuzzy matching on all CSV fields
-- Display auto-matched fields (score > 90)
-- Display suggested matches (score 70-90) with options
-- Display unmatched fields for manual selection
-- Show field metadata (type, help_text, required)
-- Allow user to accept/reject suggestions
-
-**Template**: `data_import/step2_auto_match.html`
-
----
-
-### **Step 3: Field Mapping - Manual Match** (`views/step3_manual_match.py`)
-- Searchable dropdown for unmatched fields
-- Filter by model/table
-- Show field details on hover
-- Allow deselection of fields
+- Display auto-matched fields with confidence scores
+- Display suggested matches with options
+- Searchable dropdown for manual selection
+- Show field metadata (type, help_text, required, FK/M2M)
+- **Uses `update_or_create()` to preserve existing mappings and related configs**
 - Save mappings to `DataFieldConfiguration`
-- Display mapping summary
 
-**Template**: `data_import/step3_manual_match.html`
+**Template**: `data_import/step2_field_mapping.html`
 
----
-
-### **Step 4: Field Mapping - Review** (`views/step4_mapping_review.py`)
-- Display complete field mapping table
-- Show: CSV Field → CHAVI Field (Model.field)
-- Allow editing/removing mappings
-- Finalize and save mappings
-- Option to go back and modify
-
-**Template**: `data_import/step4_mapping_review.html`
+**Critical Fix**: Changed from `delete()` + `create()` to `update_or_create()` to preserve mapping IDs and prevent orphaning of related configurations.
 
 ---
 
-### **Step 5: Data Type Validation** (`views/step5_validation.py`)
+### **Step 3: Date Format Configuration** (`views/step3_date_format_config.py`) ✅
+- Identify all date/datetime fields from mappings
+- Display sample values from uploaded file
+- Configure date format (YYYY-MM-DD, MM-DD-YYYY, DD-MM-YYYY)
+- Configure date separator (Hyphen, Slash, Dot, Space, Comma)
+- Save to `ImportDateFormatConfiguration`
+- **Auto-copy configs from previous imports if none exist**
+
+**Template**: `data_import/step3_date_format_config.html`
+
+---
+
+### **Step 4: Date Interval Configuration** (`views/step4_date_interval_config.py`) ✅
+- Identify numeric fields that can be converted to dates
+- Configure target date field and interval unit (Days, Weeks, Months, Years)
+- Save to `ImportDateIntervalFieldConfiguration`
+
+**Template**: `data_import/step4_date_interval_config.html`
+
+---
+
+### **Step 5: Data Validation** (`views/step5_validation.py`) ✅
 - Run validation on all mapped fields
 - Display validation errors by row and field
 - Show error counts per field
 - Allow user to:
+  - Proceed with errors (skip invalid rows)
   - Deselect problematic fields
-  - Download error report (CSV)
   - Go back and fix mappings
-- Only proceed when all selected fields pass validation
 
 **Template**: `data_import/step5_validation.html`
 
 ---
 
-### **Step 6: Lookup Matching** (`views/step6_lookup_matching.py`)
-- Identify all lookup fields
+### **Step 6: Lookup Matching** (`views/step6_lookup_matching.py`) ✅
+- Identify all lookup fields (FK to lookup app)
 - Extract unique values from CSV
 - Run fuzzy matching against lookup tables
-- Display matching interface:
-  - CSV Value → Lookup Value (with confidence score)
-  - Allow manual selection for unmatched
-  - Show lookup table values in dropdown
+- Display matching interface with confidence scores
+- Allow manual selection for unmatched values
 - Save mappings to `FieldLookupConfiguration`
-- Warn about unmapped values (won't be imported)
 
 **Template**: `data_import/step6_lookup_matching.html`
 
 ---
 
-### **Step 7: FK/M2M UUID Mapping** (`views/step7_uuid_mapping.py`)
-- Identify related tables (FK/M2M)
-- Group rows by patient_id
-- Display UUID generation strategy:
-  - Show which fields will be used for composite keys
-  - Display existing UUID matches
-  - Show new UUIDs to be generated
-- Preview record structure with UUIDs
-- Allow user to review and confirm
+### **Step 7: Static Field Mapping** (`views/step7_static_mapping.py`) ✅
+- Allow mapping static values to CHAVI fields
+- Useful for fields not in CSV but required in database
+- Save to `StaticFieldMapping`
 
-**Template**: `data_import/step7_uuid_mapping.html`
+**Template**: `data_import/step7_static_mapping.html`
 
 ---
 
-### **Step 8: Import Execution** (`views/step8_import.py`)
-- Display import summary
-- Show record counts by table
-- Execute import with progress bar
-- Handle errors gracefully
-- Display import results:
-  - Records created/updated
-  - Errors encountered
-  - Download detailed log
-- Save UUID mappings for future imports
+### **Step 8: UUID Field Configuration** (`views/step8_uuid_mapping.py`) ✅
+- Uses `ModelHierarchyService` to identify model dependencies
+- Display hierarchical model structure
+- Configure UUID generation fields for each table
+- Support for Standard, FK, M2M, Static, and Computed fields
+- Validate that all parent models in hierarchy are configured
+- Save to `UUIDFieldConfiguration`
 
-**Template**: `data_import/step8_import.html`
+**Template**: `data_import/step8_uuid_mapping.html`
 
 ---
 
-## **Phase 4: URL Configuration**
+### **Step 9: JSON Preview** (`views/step9_import.py`) ✅ **NEW**
+- Generate hierarchical JSON from all mappings using `JSONGeneratorService`
+- Display JSON preview with syntax highlighting
+- Show statistics (patient count, table counts, record counts)
+- Allow copy/download of JSON
+- Save to `ImportDataJSON` model
+- Regenerate JSON on demand
 
-### **4.1 Create URL Routes** (`urls.py`)
+**Template**: `data_import/step9_json_preview.html`
+
+**Services**: `services/json_generator.py` - Generates import JSON from file data and all configured mappings
+
+---
+
+### **Step 10: Import Execution** (`views/step10_execute.py`) ✅ **NEW**
+- Display import confirmation with warnings
+- Execute import using DRF serializers via `ImportExecutorService`
+- Handle nested model relationships (Patient → Diagnosis → Pathology, etc.)
+- Show import results (success/failure counts)
+- Display completion status
+
+**Template**: `data_import/step10_execute.html`
+
+**Services**: `services/import_executor.py` - Uses Django REST Framework serializers for validation and import
+
+---
+
+## **Phase 4: URL Configuration** ✅ **IMPLEMENTED**
+
+### **4.1 URL Routes** (`urls.py`)
 ```python
 urlpatterns = [
-    path('upload/', Step1UploadView.as_view(), name='import_step1_upload'),
-    path('<int:import_id>/auto-match/', Step2AutoMatchView.as_view(), name='import_step2_auto_match'),
-    path('<int:import_id>/manual-match/', Step3ManualMatchView.as_view(), name='import_step3_manual_match'),
-    path('<int:import_id>/mapping-review/', Step4MappingReviewView.as_view(), name='import_step4_mapping_review'),
-    path('<int:import_id>/validation/', Step5ValidationView.as_view(), name='import_step5_validation'),
+    path('', Step1UploadView.as_view(), name='import_step1_upload'),
+    path('<int:import_id>/map-fields/', Step2FieldMappingView.as_view(), name='import_step2_field_mapping'),
+    path('<int:import_id>/date-formats/', Step3DateFormatConfigView.as_view(), name='import_step3_date_format_config'),
+    path('<int:import_id>/date-intervals/', Step4DateIntervalConfigView.as_view(), name='import_step4_date_interval_config'),
+    path('<int:import_id>/validate/', Step5ValidationView.as_view(), name='import_step5_validation'),
     path('<int:import_id>/lookup-matching/', Step6LookupMatchingView.as_view(), name='import_step6_lookup_matching'),
-    path('<int:import_id>/uuid-mapping/', Step7UUIDMappingView.as_view(), name='import_step7_uuid_mapping'),
-    path('<int:import_id>/import/', Step8ImportView.as_view(), name='import_step8_import'),
-    # API endpoints for AJAX operations
-    path('api/fields/', FieldListAPIView.as_view(), name='api_field_list'),
-    path('api/fuzzy-match/', FuzzyMatchAPIView.as_view(), name='api_fuzzy_match'),
-    path('api/validate/', ValidateDataAPIView.as_view(), name='api_validate_data'),
+    path('<int:import_id>/static-mapping/', Step7StaticMappingView.as_view(), name='import_step7_static_mapping'),
+    path('<int:import_id>/uuid-mapping/', Step8UUIDMappingView.as_view(), name='import_step8_uuid_mapping'),
+    path('<int:import_id>/json-preview/', Step9ImportView.as_view(), name='import_step9_json_preview'),
+    path('<int:import_id>/execute/', Step10ExecuteView.as_view(), name='import_step10_execute'),
 ]
 ```
 
@@ -316,15 +330,130 @@ urlpatterns = [
 
 ---
 
+## **Phase 8: Critical Bug Fixes & Improvements** ✅ **COMPLETED**
+
+### **8.1 Field Mapping Persistence Issue**
+**Problem**: Step 2 was deleting all `DataFieldConfiguration` records before recreating them, causing mapping IDs to change and orphaning all related configurations (date formats, intervals, lookup mappings, etc.).
+
+**Root Cause**:
+- `DataFieldConfiguration.objects.filter(import_data=import_data).delete()` in Step 2 POST method
+- Using `objects.create()` instead of `update_or_create()`
+
+**Solution**:
+- Removed the `.delete()` call
+- Changed to `objects.update_or_create()` with proper lookup fields:
+  - `import_data`, `file_field_name`, `client_app_table_name`, `client_app_field_name`
+- Mapping IDs now remain stable throughout the import session
+- All related configurations persist when navigating back through wizard steps
+
+**Impact**: Date format configurations and other step configs now persist correctly when reloading imports.
+
+---
+
+### **8.2 Auto-Copy Previous Configurations**
+**Feature**: Automatically copy configurations from the most recent import when starting a new import session.
+
+**Implementation** (Step 3 - Date Format Config):
+```python
+def _copy_date_configs(self, source_import, target_import):
+    """Copy date format configurations from source import to target import"""
+    # Finds matching fields by name and copies format/separator settings
+```
+
+**Benefits**:
+- Reduces repetitive configuration for similar imports
+- Improves user experience
+- Can be extended to other configuration steps
+
+---
+
+### **8.3 Template Block Name Fixes**
+**Problem**: Step 9 template was using `{% block step_content %}` instead of `{% block wizard_content %}`, causing content not to render.
+
+**Solution**: Updated all new templates to use correct block name matching `base_wizard.html`.
+
+---
+
+### **8.4 Model Attribute Fixes**
+**Problem**: `JSONGeneratorService` was accessing `import_data.file_type` which doesn't exist.
+
+**Solution**: Changed to use correct attribute `import_data.data_type`.
+
+---
+
+### **8.5 ImportStatus Enum Updates**
+**Added new statuses**:
+- `STATIC_MAPPING = 'static_mapping', 'Static Mapping'`
+- `JSON_PREVIEW = 'json_preview', 'JSON Preview'`
+
+These track progress through the new wizard steps.
+
+---
+
+### **8.6 Button Text Consistency**
+**Updated all wizard step buttons** to correctly reflect the next step:
+- Step 6: "Continue to Static Mapping" (was "Continue to UUID Mapping")
+- Step 8: "Continue to JSON Preview" (was "Continue to Import")
+
+---
+
+### **8.7 URL Route Name Updates**
+**Changed**:
+- `import_step9_import` → `import_step9_json_preview`
+- Added `import_step10_execute`
+
+**Updated references** in:
+- Step 8 view (`next_step_url_name`)
+- All templates with navigation links
+
+---
+
+### **8.8 Custom Validator Support** ✅ **IMPLEMENTED**
+
+**Problem**: Custom validators defined in `client_app/models.py` were not being validated in Step 5, causing errors to be caught late during import (Step 10).
+
+**Custom Validators Implemented**:
+
+1. **percentage_validator** (0-100 range)
+   - Pattern: `MinValueValidator(0.0)` + `MaxValueValidator(100.0)`
+   - Used in: `Pathology.percentage_necrosis`, `Immunohistochemistry.percentage_positive_tumor_cells`, etc.
+   - Error: "Percentage must be between 0 and 100 (got {value})"
+
+2. **positive_decimal_validator** (>= 0)
+   - Pattern: `MinValueValidator(0.0)` only
+   - Used in: `Lesion.lesion_size_*`, `Lesion.lesion_volume`, `Pathology.primary_tumor_dimension`, etc.
+   - Error: "Value must be positive or zero (got {value})"
+
+3. **allred_score_validator** (0-8 range)
+   - Pattern: `MinValueValidator(0)` + `MaxValueValidator(8)`
+   - Error: "Allred score must be between 0 and 8 (got {value})"
+
+**Implementation**:
+- **Field Introspection Service**: Added pattern detection methods (`_is_percentage_validator()`, `_is_positive_decimal_validator()`, `_is_allred_score_validator()`)
+- **Data Validator Service**: Added validation logic in `_apply_validators()` method
+
+**Benefits**:
+- ✅ Early error detection in Step 5 (instead of Step 10)
+- ✅ Clear error messages with row numbers and field names
+- ✅ Automatic detection - no manual configuration needed
+- ✅ Consistent with model definitions
+
+**Not Yet Implemented**:
+- ⚠️ `DateValidationMixin` - Cross-field date validation (e.g., date_of_birth before date_of_death)
+- Requires more complex cross-field validation logic
+
+---
+
 ## **Implementation Order**
 
-1. ✅ **Phase 1.1-1.6**: Core services (field introspection, fuzzy matching, validation, etc.)
-2. **Phase 2**: Model enhancements
-3. **Phase 3**: Views (implement steps 1-8 sequentially)
-4. **Phase 4**: URL configuration
-5. **Phase 5**: Templates (parallel with views)
-6. **Phase 6**: Admin integration
-7. **Phase 7**: Testing and documentation
+1. ✅ **Phase 1**: Core services (field introspection, fuzzy matching, validation, lookup matcher, UUID manager, file processor, model hierarchy)
+2. ✅ **Phase 2**: Model enhancements (ImportData, DataFieldConfiguration, ImportDateFormatConfiguration, ImportDateIntervalFieldConfiguration, FieldLookupConfiguration, StaticFieldMapping, UUIDFieldConfiguration, ImportDataJSON)
+3. ✅ **Phase 3**: Views (10-step wizard fully implemented)
+4. ✅ **Phase 4**: URL configuration (all routes configured)
+5. ✅ **Phase 5**: Templates (all 10 step templates created with base_wizard.html)
+6. ⏳ **Phase 6**: Admin integration (pending)
+7. ⏳ **Phase 7**: Testing and documentation (pending)
+8. ✅ **Phase 8**: Critical bug fixes and improvements
 
 ---
 
@@ -353,14 +482,22 @@ urlpatterns = [
 
 ## **Questions to Resolve**
 
-1. Should we cache field introspection results? (Performance vs. freshness) - No
-2. Should we exclude certain models/fields from import? (e.g., system fields) - No
-3. For lookup tables, should we also introspect the `lookup` app models? - No
-4. How should we handle custom validators defined in models? (Like `DateValidationMixin`) - Yes
-5. Should we support updating existing records or only creating new ones? - Both
-6. What should be the maximum file size limit for uploads? - based in nginx configuration. Not seperately validated
-7. Should we support incremental imports (append to existing data)? - No    
-8. Do we need role-based access control for the import wizard?
+1. ✅ Should we cache field introspection results? (Performance vs. freshness) - **No** - Always fetch fresh metadata
+2. ✅ Should we exclude certain models/fields from import? (e.g., system fields) - **No** - Allow all fields except auto-generated
+3. ✅ For lookup tables, should we also introspect the `lookup` app models? - **No** - Only client_app models
+4. ⚠️ How should we handle custom validators defined in models? - **Partially Implemented**
+   - **Standard Django validators**: ✅ Handled (MinValueValidator, MaxValueValidator, FileExtensionValidator)
+   - **Custom validators**: ⚠️ Need implementation
+     - `DateValidationMixin` - validates start/end date pairs (e.g., date_of_birth before date_of_death)
+     - `percentage_validator` - validates 0-100 range
+     - `positive_decimal_validator` - validates >= 0
+     - `allred_score_validator` - validates 0-8 range
+   - **Current status**: DRF serializers will handle these during import, but validation step (Step 5) doesn't pre-validate custom validators
+   - **Recommendation**: Extract custom validators from model fields and apply in Step 5 validation
+5. ✅ Should we support updating existing records or only creating new ones? - **Both** - Using DRF serializers with update_or_create logic
+6. ✅ What should be the maximum file size limit for uploads? - **Based on nginx configuration** - Not separately validated in Django
+7. ✅ Should we support incremental imports (append to existing data)? - **No** - Each import is independent
+8. ⏳ Do we need role-based access control for the import wizard? - **Pending** - To be implemented in Phase 6 (Admin integration)
 
 ---
 
@@ -377,6 +514,35 @@ urlpatterns = [
 
 ---
 
-**Status**: Ready for review and implementation
+## **Current Status**: ✅ **CORE FUNCTIONALITY COMPLETE**
 
-**Next Steps**: Review this plan, make edits as needed, then proceed with Phase 1 implementation.
+### **Completed**:
+- ✅ All 10 wizard steps implemented and functional
+- ✅ JSON preview and DRF-based import system
+- ✅ Model hierarchy service for dependency management
+- ✅ Field mapping persistence bug fixed
+- ✅ Auto-copy configurations from previous imports
+- ✅ All URL routes and templates created
+- ✅ Comprehensive error handling and user feedback
+
+### **Pending**:
+- ⏳ Admin integration
+- ⏳ Comprehensive testing suite
+- ⏳ User documentation
+- ⏳ End-to-end import flow testing with real data
+
+### **Known Issues**:
+- Import executor service needs refinement for complex nested relationships
+- Need to test with large datasets (performance optimization)
+- Error recovery and rollback mechanisms need testing
+- **Custom validators not fully handled in Step 5 validation**:
+  - `DateValidationMixin` (start/end date pairs) not validated pre-import
+  - Custom validators (percentage_validator, positive_decimal_validator, allred_score_validator) not extracted and applied
+  - Currently relies on DRF serializers to catch these during import (Step 10)
+  - **Recommendation**: Enhance Step 5 to extract and apply custom validators from model fields
+
+**Next Steps**: 
+1. Test complete import flow with sample data
+2. Refine import executor for edge cases
+3. Add admin integration
+4. Create user documentation

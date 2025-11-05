@@ -256,7 +256,23 @@ class FieldIntrospectionService:
         if not hasattr(field, 'validators'):
             return field_validators
         
-        for validator in field.validators:
+        # Detect custom validator patterns from client_app.models
+        validator_list = field.validators
+        
+        # Check for percentage_validator pattern (MinValue 0, MaxValue 100)
+        if self._is_percentage_validator(validator_list):
+            field_validators.append({'type': 'percentage_validator'})
+        
+        # Check for positive_decimal_validator pattern (MinValue 0)
+        elif self._is_positive_decimal_validator(validator_list):
+            field_validators.append({'type': 'positive_decimal_validator'})
+        
+        # Check for allred_score_validator pattern (MinValue 0, MaxValue 8)
+        elif self._is_allred_score_validator(validator_list):
+            field_validators.append({'type': 'allred_score_validator'})
+        
+        # Extract standard validators
+        for validator in validator_list:
             validator_info = {
                 'type': validator.__class__.__name__,
             }
@@ -287,6 +303,55 @@ class FieldIntrospectionService:
                 continue
         
         return field_validators
+    
+    def _is_percentage_validator(self, validator_list) -> bool:
+        """Check if validator list matches percentage_validator pattern (0-100)."""
+        from decimal import Decimal
+        has_min_0 = False
+        has_max_100 = False
+        
+        for v in validator_list:
+            if isinstance(v, validators.MinValueValidator):
+                if v.limit_value == Decimal('0.0') or v.limit_value == 0:
+                    has_min_0 = True
+            if isinstance(v, validators.MaxValueValidator):
+                if v.limit_value == Decimal('100.0') or v.limit_value == 100:
+                    has_max_100 = True
+        
+        return has_min_0 and has_max_100
+    
+    def _is_positive_decimal_validator(self, validator_list) -> bool:
+        """Check if validator list matches positive_decimal_validator pattern (>= 0)."""
+        from decimal import Decimal
+        
+        # Must have MinValue 0 and NOT have MaxValue 100 (to distinguish from percentage)
+        has_min_0 = False
+        has_max_100 = False
+        
+        for v in validator_list:
+            if isinstance(v, validators.MinValueValidator):
+                if v.limit_value == Decimal('0.0') or v.limit_value == 0:
+                    has_min_0 = True
+            if isinstance(v, validators.MaxValueValidator):
+                if v.limit_value == Decimal('100.0') or v.limit_value == 100:
+                    has_max_100 = True
+        
+        return has_min_0 and not has_max_100
+    
+    def _is_allred_score_validator(self, validator_list) -> bool:
+        """Check if validator list matches allred_score_validator pattern (0-8)."""
+        has_min_0 = False
+        has_max_8 = False
+        
+        for v in validator_list:
+            if isinstance(v, validators.MinValueValidator):
+                if str(v.limit_value) == '0':
+                    has_min_0 = True
+            if isinstance(v, validators.MaxValueValidator):
+                if str(v.limit_value) == '8':
+                    has_max_8 = True
+        
+        return has_min_0 and has_max_8
     
     def get_fields_by_model(self, model_name: str) -> List[Dict]:
         """Get all fields for a specific model."""

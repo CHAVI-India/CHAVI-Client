@@ -454,6 +454,46 @@ class DataValidatorService:
                         errors.append(
                             f"Row {row_num}, Field '{source_field}': Invalid URL '{value}'"
                         )
+                
+                # Custom validators from client_app.models
+                elif validator_type == 'percentage_validator':
+                    # Validates 0-100 range
+                    try:
+                        decimal_val = Decimal(str(value))
+                        if decimal_val < Decimal('0.0') or decimal_val > Decimal('100.0'):
+                            errors.append(
+                                f"Row {row_num}, Field '{source_field}': Percentage must be between 0 and 100 (got {value})"
+                            )
+                    except (ValueError, InvalidOperation):
+                        errors.append(
+                            f"Row {row_num}, Field '{source_field}': Invalid percentage value '{value}'"
+                        )
+                
+                elif validator_type == 'positive_decimal_validator':
+                    # Validates >= 0
+                    try:
+                        decimal_val = Decimal(str(value))
+                        if decimal_val < Decimal('0.0'):
+                            errors.append(
+                                f"Row {row_num}, Field '{source_field}': Value must be positive or zero (got {value})"
+                            )
+                    except (ValueError, InvalidOperation):
+                        errors.append(
+                            f"Row {row_num}, Field '{source_field}': Invalid decimal value '{value}'"
+                        )
+                
+                elif validator_type == 'allred_score_validator':
+                    # Validates 0-8 range
+                    try:
+                        int_val = int(value)
+                        if int_val < 0 or int_val > 8:
+                            errors.append(
+                                f"Row {row_num}, Field '{source_field}': Allred score must be between 0 and 8 (got {value})"
+                            )
+                    except (ValueError, TypeError):
+                        errors.append(
+                            f"Row {row_num}, Field '{source_field}': Invalid Allred score value '{value}'"
+                        )
             
             except Exception as e:
                 logger.error(f"Error applying validator {validator_type}: {e}")
