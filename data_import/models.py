@@ -23,6 +23,14 @@ class ImportStatus(models.TextChoices):
     COMPLETED = 'completed', 'Completed'
     FAILED = 'failed', 'Failed'
 
+class DataFormatType(models.TextChoices):
+    '''
+    This is a choice field for the type of data format in the file.
+    '''
+    SINGLE_INSTANCE_PER_PATIENT = 'Single Instance Per Patient', 'Single Instance Per Patient'
+    MULTIPLE_INSTANCES_PER_PATIENT = 'Multiple Instances Per Patient', 'Multiple Instances or Repeating Instances Per Patient'
+
+
 class ImportData(models.Model):
     '''
     This is a model to store information about the file being uploaded and track import progress.
@@ -32,6 +40,14 @@ class ImportData(models.Model):
         max_length=10, 
         choices=DataType.choices,
         help_text="The type of file to be imported."
+    )
+    data_format_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        default=DataFormatType.SINGLE_INSTANCE_PER_PATIENT,
+        choices=DataFormatType.choices,
+        help_text="The format of the data in the file."
     )
     file = models.FileField(
         upload_to='import_data/',
@@ -255,14 +271,9 @@ class ImportDateFormatConfiguration(models.Model):
     class Meta:
         verbose_name = "Date Format Configuration"
         verbose_name_plural = "Date Format Configurations"
-        db_table = "date_format_configuration"
-        indexes = [
-            models.Index(fields=['import_data', 'date_format']),
-        ]
-        unique_together = [['import_data', 'date_format']] 
     
     def __str__(self):
-        return f"{self.import_data}: {self.date_format}"
+        return f"{self.data_field_configuration.file_field_name}: {self.date_format}"
     
 
 
