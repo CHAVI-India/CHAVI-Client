@@ -714,7 +714,7 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         # Filter by project through DICOMStudyProject
         if project_filter:
             study_list = study_list.filter(
-                dicomstudy__dicomstudyproject__project__chavi_project_id=project_filter
+                dicomstudyproject__project__chavi_project_id=project_filter
             ).distinct()
         
         # Order by most recent
