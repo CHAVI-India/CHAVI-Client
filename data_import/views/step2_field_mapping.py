@@ -24,7 +24,7 @@ class Step2FieldMappingView(WizardStepMixin, TemplateView):
     step_title = "Map Fields"
     step_status = ImportStatus.FIELD_MAPPING
     template_name = 'data_import/step2_field_mapping.html'
-    next_step_url_name = 'import_step3_validation'
+    next_step_url_name = 'import_step3_date_format_config'
     previous_step_url_name = None
     
     def get(self, request, *args, **kwargs):

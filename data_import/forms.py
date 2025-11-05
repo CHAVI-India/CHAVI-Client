@@ -3,7 +3,7 @@ Forms for the data import wizard.
 """
 from django import forms
 from django.core.validators import FileExtensionValidator
-from data_import.models import DataType, ImportData, DataFieldConfiguration
+from data_import.models import DataType, ImportData, DataFieldConfiguration, DataFormatType
 from client_app.models import Project
 
 
@@ -11,6 +11,27 @@ class FileUploadForm(forms.Form):
     """
     Form for uploading CSV/JSON files in Step 1.
     """
+    
+    import_data_title = forms.CharField(
+        label="Import Title",
+        help_text="Give this import session a descriptive title for easy identification.",
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g., Patient Data Import - January 2024',
+        })
+    )
+    
+    data_format_type = forms.ChoiceField(
+        label="Data Format",
+        choices=DataFormatType.choices,
+        initial=DataFormatType.SINGLE_INSTANCE_PER_PATIENT,
+        help_text="Specify whether each patient has a single record or multiple/repeating records in the file.",
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+        })
+    )
     
     file = forms.FileField(
         label="Select File",

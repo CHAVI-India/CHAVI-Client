@@ -1,0 +1,130 @@
+{% extends 'data_import/base_wizard.html' %}
+{% load static %}
+
+{% block step_content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-rocket mr-2 text-chavi-primary"></i>
+            Execute Import
+        </h2>
+
+        {% if is_completed %}
+        <!-- Import Completed -->
+        <div class="bg-green-50 border-l-4 border-green-500 p-6 rounded mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-check-circle text-green-500 text-3xl mr-4"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-green-900 mb-2">Import Completed Successfully!</h3>
+                    <p class="text-green-800">
+                        Your data has been successfully imported into the system.
+                    </p>
+                    {% if total_patients %}
+                    <p class="text-green-700 mt-2">
+                        <strong>{{ total_patients }}</strong> patient record(s) processed.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+            <a href="{% url 'data_import:import_list' %}" 
+               class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded">
+                <i class="fas fa-list mr-2"></i>
+                View All Imports
+            </a>
+            <a href="{% url 'data_import:import_upload' %}" 
+               class="px-6 py-2 bg-chavi-primary hover:bg-chavi-primary-dark text-white rounded">
+                <i class="fas fa-plus mr-2"></i>
+                Start New Import
+            </a>
+        </div>
+
+        {% elif is_failed %}
+        <!-- Import Failed -->
+        <div class="bg-red-50 border-l-4 border-red-500 p-6 rounded mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-circle text-red-500 text-3xl mr-4"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-red-900 mb-2">Import Failed</h3>
+                    <p class="text-red-800">
+                        There was an error during the import process. Please check the error messages above and try again.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+            <a href="{% url 'data_import:import_step9_json_preview' import_data.id %}" 
+               class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to JSON Preview
+            </a>
+            <form method="post" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded">
+                    <i class="fas fa-redo mr-2"></i>
+                    Retry Import
+                </button>
+            </form>
+        </div>
+
+        {% else %}
+        <!-- Ready to Import -->
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-info-circle text-blue-500 text-3xl mr-4"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-blue-900 mb-2">Ready to Import</h3>
+                    <p class="text-blue-800 mb-3">
+                        You are about to import your data into the system. This process will:
+                    </p>
+                    <ul class="list-disc list-inside text-blue-800 space-y-1 ml-4">
+                        <li>Create new patient records</li>
+                        <li>Import all associated clinical data</li>
+                        <li>Establish relationships between records</li>
+                        <li>Validate all data according to model constraints</li>
+                    </ul>
+                    {% if total_patients %}
+                    <p class="text-blue-700 mt-3 font-medium">
+                        <i class="fas fa-users mr-2"></i>
+                        {{ total_patients }} patient record(s) will be processed.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning -->
+        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-triangle text-yellow-500 text-xl mr-3"></i>
+                <div>
+                    <p class="text-yellow-800 font-medium">Important</p>
+                    <p class="text-yellow-700 text-sm mt-1">
+                        This operation cannot be undone. Please ensure you have reviewed the JSON preview and that all data is correct before proceeding.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+            <a href="{% url 'data_import:import_step9_json_preview' import_data.id %}" 
+               class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Preview
+            </a>
+            <form method="post" class="inline" onsubmit="return confirm('Are you sure you want to proceed with the import? This action cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold shadow-lg">
+                    <i class="fas fa-play mr-2"></i>
+                    Execute Import
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

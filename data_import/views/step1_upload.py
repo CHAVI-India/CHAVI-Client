@@ -40,12 +40,16 @@ class Step1UploadView(WizardStepMixin, FormView):
         """
         try:
             # Get form data
+            import_data_title = form.cleaned_data['import_data_title']
+            data_format_type = form.cleaned_data['data_format_type']
             uploaded_file = form.cleaned_data['file']
             data_type = form.cleaned_data['data_type']
             projects = form.cleaned_data['projects']
             
             # Create ImportData record
             import_data = ImportData.objects.create(
+                import_data_title=import_data_title,
+                data_format_type=data_format_type,
                 data_type=data_type,
                 file=uploaded_file,
                 status=ImportStatus.UPLOADED,

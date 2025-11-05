@@ -59,7 +59,7 @@ class WizardStepMixin(LoginRequiredMixin):
         context.update({
             'step_number': self.step_number,
             'step_title': self.step_title,
-            'total_steps': 8,
+            'total_steps': 9,
             'next_step_url_name': f'data_import:{self.next_step_url_name}' if self.next_step_url_name else None,
             'previous_step_url_name': f'data_import:{self.previous_step_url_name}' if self.previous_step_url_name else None,
             'wizard_steps': self.get_wizard_steps(),
@@ -77,10 +77,13 @@ class WizardStepMixin(LoginRequiredMixin):
         steps = [
             {'number': 1, 'title': 'Upload File', 'status': ImportStatus.UPLOADED},
             {'number': 2, 'title': 'Map Fields', 'status': ImportStatus.FIELD_MAPPING},
-            {'number': 3, 'title': 'Validate Data', 'status': ImportStatus.VALIDATING},
-            {'number': 4, 'title': 'Lookup Matching', 'status': ImportStatus.LOOKUP_MATCHING},
-            {'number': 5, 'title': 'UUID Mapping', 'status': ImportStatus.UUID_MAPPING},
-            {'number': 6, 'title': 'Import', 'status': ImportStatus.IMPORTING},
+            {'number': 3, 'title': 'Date Formats', 'status': ImportStatus.DATE_FORMAT_CONFIG},
+            {'number': 4, 'title': 'Date Intervals', 'status': ImportStatus.DATE_INTERVAL_CONFIG},
+            {'number': 5, 'title': 'Validate Data', 'status': ImportStatus.VALIDATING},
+            {'number': 6, 'title': 'Lookup Matching', 'status': ImportStatus.LOOKUP_MATCHING},
+            {'number': 7, 'title': 'Static Mapping', 'status': ImportStatus.FIELD_MAPPING},
+            {'number': 8, 'title': 'UUID Mapping', 'status': ImportStatus.UUID_MAPPING},
+            {'number': 9, 'title': 'Import', 'status': ImportStatus.IMPORTING},
         ]
         
         # Mark current step

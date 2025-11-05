@@ -16,9 +16,13 @@ class ImportStatus(models.TextChoices):
     '''
     UPLOADED = 'uploaded', 'Uploaded'
     FIELD_MAPPING = 'field_mapping', 'Field Mapping'
+    DATE_FORMAT_CONFIG = 'date_format_config', 'Date Format Configuration'
+    DATE_INTERVAL_CONFIG = 'date_interval_config', 'Date Interval Configuration'
     VALIDATING = 'validating', 'Validating'
     LOOKUP_MATCHING = 'lookup_matching', 'Lookup Matching'
+    STATIC_MAPPING = 'static_mapping', 'Static Mapping'
     UUID_MAPPING = 'uuid_mapping', 'UUID Mapping'
+    JSON_PREVIEW = 'json_preview', 'JSON Preview'
     IMPORTING = 'importing', 'Importing'
     COMPLETED = 'completed', 'Completed'
     FAILED = 'failed', 'Failed'
@@ -49,6 +53,8 @@ class ImportData(models.Model):
         choices=DataFormatType.choices,
         help_text="The format of the data in the file."
     )
+    import_data_title = models.CharField(max_length=255,null=True,blank=True,
+    help_text="The title of the import data.")
     file = models.FileField(
         upload_to='import_data/',
         null=True,
@@ -189,6 +195,27 @@ class DataFieldConfiguration(models.Model):
             return f"{self.file_field_name} → {self.client_app_table_name}.{self.client_app_field_name}"
         return self.file_field_name or f"Field Mapping #{self.id}"
 
+class UUIDFieldConfiguration(models.Model):
+    '''
+    This model stores the configuration of which fields should be used to generate/match UUIDs for each table.
+    This is the user's choice in Step 8 of the import wizard.
+    '''
+    id = models.AutoField(primary_key=True)
+    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='uuid_field_configurations', help_text="The import data to which this UUID field configuration belongs.")
+    table_name = models.CharField(max_length=255, help_text="The table name in the client_app models (e.g., 'patient', 'diagnosis').")
+    uuid_fields = models.TextField(help_text="JSON array of field names from the file that will be used to determine uniqueness (e.g., ['patient_id', 'diagnosis_date']).")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "UUID Field Configuration"
+        verbose_name_plural = "UUID Field Configurations"
+        unique_together = [['import_data', 'table_name']]
+    
+    def __str__(self):
+        return f"{self.table_name} UUID config"
+
+
 class UUIDMappings(models.Model):
     '''
     This is a model to store information about the UUID mappings for a given file upload such that the same UUID is used when the data in the file is uploaded again. A combination of field values are used to identify the primary key for the client app tables. The unique combination of fields is customizable.
@@ -257,6 +284,16 @@ class DateSeparatorType(models.TextChoices):
     Dot = 'Dot', 'Dot (.)'
     
 
+class IntervalType(models.TextChoices):
+     Seconds = 'Seconds', 'Seconds'
+     Minutes = 'Minutes', 'Minutes'
+     Hours = 'Hour', 'Hour'
+     Days = 'Day', 'Day'
+     Weeks = 'Week', 'Week'
+     Months = 'Month', 'Month'
+     Years = 'Year', 'Year'
+     
+
 class ImportDateFormatConfiguration(models.Model):
     '''
     This is a model to store information about the date format fields of the data file.
@@ -285,8 +322,10 @@ class ImportDateIntervalFieldConfiguration(models.Model):
     id = models.AutoField(primary_key=True)
     import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='date_interval_field_configurations',help_text="The import data to which the date interval field configuration belongs.")
     interval_field = models.CharField(max_length=255,null=True,blank=True,help_text="The interval field in the data file.")
+    interval_units = models.CharField(max_length=100, null=True,blank=True,choices=IntervalType.choices,help_text="The units of the interval.")
+    target_date_field = models.CharField(max_length=255,null=True,blank=True,help_text="The CHAVI date field (table.field) where the calculated date will be stored.")
     calculation_date = models.CharField(max_length=255,null=True,blank=True,help_text="The date used for calculating the other date from the interval provided in the file. This can be a field in th data file or a user provided date.")
-    calculation_date_type = models.CharField(max_length=50, choices=CalculatiopnDateFieldType.choices,
+    calculation_date_type = models.CharField(max_length=50, null=True,blank=True,choices=CalculatiopnDateFieldType.choices,
     help_text="The type of the calculation date. If start date then then the interval will be added to the start date to get the end date. If end date then the interval will be subtracted from the end date to get the start date.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -294,3 +333,37 @@ class ImportDateIntervalFieldConfiguration(models.Model):
     class Meta:
         verbose_name = "Date Interval Field Configuration"
         verbose_name_plural = "Date Interval Field Configurations"
+
+
+class StaticFieldMapping(models.Model):
+    '''
+    This is a model to store static mapping for CHAVI fields for a given data file. This will be used when a implicit information is available in the file. For example the data file about patients with glioblastoma will have all diagnosis as Glioblastoma, major site as brain etc but this will not be available directly in the file. 
+    '''
+    id = models.AutoField(primary_key=True)
+    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='static_field_mappings',help_text="The import data to which the static field mapping belongs.")
+    chavi_field = models.CharField(max_length=255,null=True,blank=True,help_text="The CHAVI field (table.field) where the static mapping will be stored.")
+    static_value = models.CharField(max_length=255,null=True,blank=True,help_text="The static value to be mapped to the CHAVI field.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Static Field Mapping"
+        verbose_name_plural = "Static Field Mappings"
+
+    def __str__(self):
+        return f"{self.chavi_field}: {self.static_value}"
+
+
+class ImportDataJSON(models.Model):
+    '''
+    This is the model to store the final JSON which will be used for importing data using serializers.
+    '''
+    id = models.AutoField(primary_key=True)
+    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='import_data_json',help_text="The import data to which the import data json belongs.")
+    json_data = models.JSONField(help_text="The JSON data from the data file.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Import Data JSON"
+        verbose_name_plural = "Import Data JSONs"

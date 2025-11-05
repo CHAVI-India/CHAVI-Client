@@ -29,13 +29,62 @@
         <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
             
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">Import Configuration</h3>
+                        <p class="mt-1 text-sm text-blue-700">Please provide the following information before uploading your file.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <label for="{{ form.import_data_title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.import_data_title.label }} <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="{{ form.import_data_title.name }}" id="{{ form.import_data_title.id_for_label }}"
+                       value="{{ form.import_data_title.value|default:'' }}"
+                       placeholder="e.g., Patient Data Import - January 2024"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                       required>
+                {% if form.import_data_title.help_text %}
+                <p class="mt-1 text-sm text-gray-500">{{ form.import_data_title.help_text }}</p>
+                {% endif %}
+                {% if form.import_data_title.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.import_data_title.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.data_format_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.data_format_type.label }} <span class="text-red-500">*</span>
+                </label>
+                <select name="{{ form.data_format_type.name }}" id="{{ form.data_format_type.id_for_label }}"
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                        required>
+                    {% for value, label in form.data_format_type.field.choices %}
+                    <option value="{{ value }}" {% if form.data_format_type.value == value or form.data_format_type.field.initial == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.data_format_type.help_text %}
+                <p class="mt-1 text-sm text-gray-500">{{ form.data_format_type.help_text }}</p>
+                {% endif %}
+                {% if form.data_format_type.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.data_format_type.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
             <div>
                 <label for="{{ form.file.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                    {{ form.file.label }}
+                    {{ form.file.label }} <span class="text-red-500">*</span>
                 </label>
                 <input type="file" name="{{ form.file.name }}" id="{{ form.file.id_for_label }}" 
                        accept=".csv,.json"
-                       class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent p-2.5">
+                       class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent p-2.5"
+                       required>
                 {% if form.file.help_text %}
                 <p class="mt-1 text-sm text-gray-500">{{ form.file.help_text }}</p>
                 {% endif %}
@@ -46,10 +95,11 @@
             
             <div>
                 <label for="{{ form.data_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-                    {{ form.data_type.label }}
+                    {{ form.data_type.label }} <span class="text-red-500">*</span>
                 </label>
                 <select name="{{ form.data_type.name }}" id="{{ form.data_type.id_for_label }}"
-                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                        required>
                     {% for value, label in form.data_type.field.choices %}
                     <option value="{{ value }}" {% if form.data_type.value == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -97,14 +147,17 @@
                            class="block p-3 rounded-lg border border-gray-200 hover:border-chavi-primary hover:bg-gray-50 transition-all">
                             <div class="flex items-start justify-between">
                                 <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900 truncate mb-1">
+                                        <i class="fas fa-tag mr-1 text-chavi-primary"></i>{{ import.import_data_title|default:"Untitled Import" }}
+                                    </p>
                                     <p class="text-xs text-gray-500 mb-1">
                                         <i class="far fa-calendar mr-1"></i>{{ import.created_at|date:"M d, Y H:i" }}
                                     </p>
-                                    <p class="text-sm font-medium text-gray-900 truncate">
-                                        <i class="far fa-file mr-1"></i>{{ import.file.name|default:"Unnamed Import" }}
+                                    <p class="text-xs text-gray-600">
+                                        <i class="far fa-file mr-1"></i>{{ import.file.name|default:"No file" }}
                                     </p>
                                     <p class="text-xs text-gray-600 mt-1">
-                                        {{ import.row_count|default:"0" }} rows
+                                        {{ import.row_count|default:"0" }} rows • {{ import.get_data_format_type_display|default:"N/A" }}
                                     </p>
                                 </div>
                                 <div class="ml-3 flex-shrink-0">

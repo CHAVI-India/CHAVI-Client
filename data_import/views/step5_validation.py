@@ -12,12 +12,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Step5ValidationView(WizardStepMixin, FormView):
-    step_number = 3
+    """
+    Step 5: Validate imported data against CHAVI field requirements.
+    """
+    
+    step_number = 5
     step_title = "Validate Data"
     step_status = ImportStatus.VALIDATING
     template_name = 'data_import/step5_validation.html'
-    next_step_url_name = 'import_step4_lookup_matching'
-    previous_step_url_name = 'import_step2_field_mapping'
+    next_step_url_name = 'import_step6_lookup_matching'
+    previous_step_url_name = 'import_step4_date_interval_config'
     form_class = ValidationReviewForm
     
     def get(self, request, *args, **kwargs):

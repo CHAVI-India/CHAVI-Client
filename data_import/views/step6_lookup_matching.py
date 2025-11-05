@@ -12,12 +12,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Step6LookupMatchingView(WizardStepMixin, FormView):
-    step_number = 4
+    step_number = 6
     step_title = "Lookup Matching"
     step_status = ImportStatus.LOOKUP_MATCHING
     template_name = 'data_import/step6_lookup_matching.html'
-    next_step_url_name = 'import_step5_uuid_mapping'
-    previous_step_url_name = 'import_step3_validation'
+    next_step_url_name = 'import_step7_static_mapping'
+    previous_step_url_name = 'import_step5_validation'
     
     def get_form_class(self):
         from data_import.forms import LookupMappingForm
