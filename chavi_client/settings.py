@@ -65,9 +65,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_extensions',
-    'rest_framework',
     'lookup',
     'client_app',
+    'data_import',
     'django_cleanup.apps.CleanupConfig',
     'import_export',
     'allauth_ui',
@@ -76,7 +76,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.mfa',
     'widget_tweaks',
-    'slippers'
+    'slippers',
+    'django_select2',
 ]
 
 MIDDLEWARE = [
@@ -604,3 +605,9 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
 }
+
+# Django Select2 Configuration
+SELECT2_CACHE_BACKEND = 'default'
+SELECT2_JS = ''  # Use CDN or specify local path
+SELECT2_CSS = ''  # Use CDN or specify local path
+SELECT2_I18N = ''  # Optional: internationalization

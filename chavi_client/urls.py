@@ -31,6 +31,10 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     # API endpoints
     path('api/lookup/', include('lookup.urls')),
+    # Select2 URLs for autocomplete
+    path('select2/', include('django_select2.urls')),
+    # Data import wizard
+    path('import/', include('data_import.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Home URL now points to the homepage view instead of redirecting

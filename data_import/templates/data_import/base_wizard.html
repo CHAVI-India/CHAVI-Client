@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Data Import Wizard - Step {{ step_number }}{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Progress Indicator -->
+    <div class="flex justify-between items-center mb-8">
+        {% for step in wizard_steps %}
+        <div class="flex-1 text-center relative {% if not forloop.first %}ml-4{% endif %}">
+            {% if not forloop.first %}
+            <div class="absolute top-5 left-0 right-1/2 h-0.5 {% if step.is_completed %}bg-green-500{% else %}bg-gray-300{% endif %} -ml-4"></div>
+            {% endif %}
+            <div class="relative inline-flex items-center justify-center w-10 h-10 rounded-full font-bold mb-2 {% if step.is_completed %}bg-green-500 text-white{% elif step.is_current %}bg-chavi-primary text-white ring-4 ring-chavi-primary ring-opacity-25{% else %}bg-gray-300 text-gray-600{% endif %}">
+                {% if step.is_completed %}✓{% else %}{{ step.number }}{% endif %}
+            </div>
+            <div class="text-sm {% if step.is_current %}text-chavi-primary font-semibold{% else %}text-gray-600{% endif %}">
+                {{ step.title }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Step Title -->
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold text-chavi-gray mb-2">Step {{ step_number }}: {{ step_title }}</h2>
+        {% if import_data %}
+        <p class="text-gray-600">
+            Import ID: {{ import_data.id }} | 
+            File: {{ import_data.file.name }} | 
+            Status: <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ import_data.get_status_display }}</span>
+        </p>
+        {% endif %}
+    </div>
+    
+    <!-- Messages -->
+    {% if messages %}
+    <div class="space-y-4 mb-6">
+        {% for message in messages %}
+        <div class="{% if message.tags == 'success' %}bg-green-50 border-l-4 border-green-500 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-l-4 border-red-500 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800{% else %}bg-blue-50 border-l-4 border-blue-500 text-blue-800{% endif %} p-4 rounded-r relative" role="alert">
+            <div class="flex items-start">
+                <div class="flex-1">{{ message }}</div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Step Content -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        {% block wizard_content %}
+        {% endblock %}
+    </div>
+    
+    <!-- Navigation -->
+    <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+        <div>
+            {% if previous_step_url_name and import_data %}
+            <a href="{% url previous_step_url_name import_data.id %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i> Previous
+            </a>
+            {% elif step_number > 1 %}
+            <a href="{% url 'data_import:import_step1_upload' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                <i class="fas fa-plus mr-2"></i> Start New Import
+            </a>
+            {% endif %}
+        </div>
+        <div>
+            {% block wizard_actions %}
+            {% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-dismiss alerts after 5 seconds
+    setTimeout(function() {
+        var alerts = document.querySelectorAll('[role="alert"]');
+        alerts.forEach(function(alert) {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(function() { alert.remove(); }, 500);
+        });
+    }, 5000);
+</script>
+{% endblock %}

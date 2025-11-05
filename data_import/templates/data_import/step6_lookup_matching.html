@@ -1,0 +1,117 @@
+{% extends "data_import/base_wizard.html" %}
+
+{% block extra_css %}
+{{ block.super }}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block wizard_content %}
+<h4 class="text-xl font-semibold text-gray-800 mb-2">Lookup Value Matching</h4>
+<p class="text-gray-600 mb-6">Match your data values to lookup table entries.</p>
+
+{% if lookup_results %}
+<div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+    <h5 class="text-lg font-semibold text-green-800 mb-2">Found {{ lookup_results|length }} Lookup Fields</h5>
+    <p class="text-green-700">Review and confirm the matches below.</p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    
+    {% for source_field, result in lookup_results.items %}
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-4">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h5 class="text-lg font-semibold text-gray-900">{{ source_field }}</h5>
+            <p class="text-sm text-gray-600 mt-1">
+                {{ result.total_values }} unique values to map
+            </p>
+        </div>
+        <div class="px-4 py-4">
+            <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Your Value</th>
+                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">→</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Select Lookup Value</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Options</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for source_value, match in result.match_results.items %}
+                    <tr>
+                        <td class="px-4 py-3"><strong class="text-gray-900">{{ source_value }}</strong></td>
+                        <td class="px-4 py-3 text-center text-gray-500">→</td>
+                        <td class="px-4 py-3">
+                            <select name="lookup_{{ source_field }}_{{ source_value }}" class="block w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary">
+                                <option value="">-- Select Lookup Value --</option>
+                                {% for lookup_val in match.all_lookup_values %}
+                                <option value="{{ lookup_val.pk }}">{{ lookup_val.str }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-xs text-gray-500">{{ match.all_lookup_values|length }} options</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</form>
+
+{% else %}
+<div class="bg-green-50 border-l-4 border-green-500 p-4">
+    <h5 class="text-lg font-semibold text-green-800 mb-2">✓ No Lookup Fields</h5>
+    <p class="text-green-700">Your data doesn't contain any lookup fields. Proceeding to UUID mapping.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block wizard_actions %}
+<form method="post" style="display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+        Continue to UUID Mapping <i class="fas fa-arrow-right ml-2"></i>
+    </button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize Select2 on all lookup dropdowns
+    $('select[name^="lookup_"]').select2({
+        placeholder: '-- Select Lookup Value --',
+        allowClear: true,
+        width: '100%'
+    });
+});
+</script>
+{% endblock %}

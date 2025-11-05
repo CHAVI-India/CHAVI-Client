@@ -1,0 +1,74 @@
+{% extends "data_import/base_wizard.html" %}
+
+{% block wizard_content %}
+<h4 class="text-xl font-semibold text-gray-800 mb-2">Review Field Mappings</h4>
+<p class="text-gray-600 mb-6">Review and finalize your field mappings before validation.</p>
+
+{% if mappings_by_table %}
+<div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+    <h5 class="text-lg font-semibold text-green-800 mb-2">✓ {{ total_mappings }} Fields Mapped</h5>
+    <p class="text-green-700">Fields are grouped by target table below.</p>
+</div>
+
+{% for table, table_mappings in mappings_by_table.items %}
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-4">
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <h5 class="text-lg font-semibold text-gray-900">{{ table }} ({{ table_mappings|length }} fields)</h5>
+    </div>
+    <div class="px-4 py-4">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Source Field</th>
+                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">→</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CHAVI Field</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for mapping in table_mappings %}
+                    <tr>
+                        <td class="px-4 py-3"><strong class="text-gray-900">{{ mapping.file_field_name }}</strong></td>
+                        <td class="px-4 py-3 text-center text-gray-500">→</td>
+                        <td class="px-4 py-3 text-gray-700">{{ mapping.client_app_field_name }}</td>
+                        <td class="px-4 py-3"><span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{{ mapping.client_app_field_type }}</span></td>
+                        <td class="px-4 py-3">
+                            <form method="post" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_mapping">
+                                <input type="hidden" name="mapping_id" value="{{ mapping.id }}">
+                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium" onclick="return confirm('Remove this mapping?')">
+                                    <i class="fas fa-trash mr-1"></i>Remove
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+    <h5 class="text-lg font-semibold text-yellow-800 mb-2">⚠ No Field Mappings</h5>
+    <p class="text-yellow-700">You haven't mapped any fields yet. Please go back and map at least one field.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block wizard_actions %}
+{% if mappings_by_table %}
+<form method="post" style="display: inline;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="finalize">
+    <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+        Finalize Mappings & Continue <i class="fas fa-arrow-right ml-2"></i>
+    </button>
+</form>
+{% endif %}
+{% endblock %}

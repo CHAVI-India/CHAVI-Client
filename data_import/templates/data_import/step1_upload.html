@@ -1,0 +1,133 @@
+{% extends "data_import/base_wizard.html" %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /* Style Django-rendered checkboxes */
+    input[type="checkbox"] {
+        height: 1rem;
+        width: 1rem;
+        color: #667eea;
+        border: 1px solid #d1d5db;
+        border-radius: 0.25rem;
+        cursor: pointer;
+    }
+    input[type="checkbox"]:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+        border-color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block wizard_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <h4 class="text-xl font-semibold text-gray-800 mb-2">Upload Your Data File</h4>
+        <p class="text-gray-600 mb-6">Select a CSV or JSON file containing your clinical data.</p>
+        
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+            
+            <div>
+                <label for="{{ form.file.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.file.label }}
+                </label>
+                <input type="file" name="{{ form.file.name }}" id="{{ form.file.id_for_label }}" 
+                       accept=".csv,.json"
+                       class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent p-2.5">
+                {% if form.file.help_text %}
+                <p class="mt-1 text-sm text-gray-500">{{ form.file.help_text }}</p>
+                {% endif %}
+                {% if form.file.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.file.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label for="{{ form.data_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.data_type.label }}
+                </label>
+                <select name="{{ form.data_type.name }}" id="{{ form.data_type.id_for_label }}"
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                    {% for value, label in form.data_type.field.choices %}
+                    <option value="{{ value }}" {% if form.data_type.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.data_type.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.data_type.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.projects.label }}
+                </label>
+                <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
+                    {% for choice in form.projects %}
+                    <div class="flex items-center">
+                        {{ choice.tag }}
+                        <label for="{{ choice.id_for_label }}" class="ml-2 text-sm text-gray-700 cursor-pointer">
+                            {{ choice.choice_label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if form.projects.help_text %}
+                <p class="mt-1 text-sm text-gray-500">{{ form.projects.help_text }}</p>
+                {% endif %}
+                {% if form.projects.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.projects.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    
+    <div>
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h5 class="text-lg font-semibold text-gray-800">Recent Imports</h5>
+            </div>
+            <div class="px-4 py-3">
+                {% if recent_imports %}
+                <ul class="space-y-2">
+                    {% for import in recent_imports %}
+                    <li>
+                        <a href="{% url 'data_import:import_step2_field_mapping' import.id %}" 
+                           class="block p-3 rounded-lg border border-gray-200 hover:border-chavi-primary hover:bg-gray-50 transition-all">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs text-gray-500 mb-1">
+                                        <i class="far fa-calendar mr-1"></i>{{ import.created_at|date:"M d, Y H:i" }}
+                                    </p>
+                                    <p class="text-sm font-medium text-gray-900 truncate">
+                                        <i class="far fa-file mr-1"></i>{{ import.file.name|default:"Unnamed Import" }}
+                                    </p>
+                                    <p class="text-xs text-gray-600 mt-1">
+                                        {{ import.row_count|default:"0" }} rows
+                                    </p>
+                                </div>
+                                <div class="ml-3 flex-shrink-0">
+                                    <span class="inline-block px-2 py-1 text-xs font-medium rounded {% if import.status == 'completed' %}bg-green-100 text-green-800{% elif import.status == 'failed' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                        {{ import.get_status_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-500">No recent imports</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_actions %}
+<button type="submit" form="{{ form.auto_id }}" onclick="document.querySelector('form').submit()" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+    Upload & Continue <i class="fas fa-arrow-right ml-2"></i>
+</button>
+{% endblock %}

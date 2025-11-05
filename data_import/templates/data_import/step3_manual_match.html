@@ -1,0 +1,66 @@
+{% extends "data_import/base_wizard.html" %}
+
+{% block wizard_content %}
+<h4 class="text-xl font-semibold text-gray-800 mb-2">Manual Field Matching</h4>
+<p class="text-gray-600 mb-6">Select CHAVI fields for the remaining {{ total_unmapped }} unmapped fields.</p>
+
+<form method="post">
+    {% csrf_token %}
+    
+    {% if form.fields %}
+    <div class="overflow-x-auto mb-6">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Your Field</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Select CHAVI Field</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for field in form %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <strong class="text-gray-900">{{ field.label }}</strong>
+                    </td>
+                    <td class="px-6 py-4">
+                        <select name="{{ field.name }}" id="{{ field.id_for_label }}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            <option value="">-- Select Field --</option>
+                            {% for value, label in field.field.choices %}
+                                {% if value %}
+                                <option value="{{ value }}" {% if field.value == value %}selected{% endif %}>{{ label }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        {% if field.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ field.errors.0 }}</p>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+        <p class="text-blue-700"><strong>Tip:</strong> You can leave fields unmapped if you don't want to import them.</p>
+    </div>
+    {% else %}
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+        <h5 class="text-lg font-semibold text-green-800 mb-2">✓ All Fields Matched!</h5>
+        <p class="text-green-700">All fields have been automatically matched. No manual matching required.</p>
+    </div>
+    
+    <a href="{% url next_step_url_name import_data.id %}" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+        Continue to Review <i class="fas fa-arrow-right ml-2"></i>
+    </a>
+    {% endif %}
+</form>
+{% endblock %}
+
+{% block wizard_actions %}
+{% if form.fields %}
+<button type="submit" onclick="document.querySelector('form').submit()" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+    Continue to Review <i class="fas fa-arrow-right ml-2"></i>
+</button>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "data_import/base_wizard.html" %}
+
+{% block wizard_content %}
+<h4>Execute Import</h4>
+<p class="text-muted">Ready to import your data into the CHAVI database.</p>
+
+{% if import_data.status == 'completed' %}
+<div class="success-summary">
+    <h5>✓ Import Completed Successfully!</h5>
+    <p>Your data has been imported into the CHAVI database.</p>
+</div>
+
+{% if import_summary %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0">Import Statistics</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6>Rows Processed</h6>
+                <p class="h3 text-success">{{ import_summary.successful_rows }} / {{ import_summary.total_rows }}</p>
+            </div>
+            <div class="col-md-4">
+                <h6>Failed Rows</h6>
+                <p class="h3 {% if import_summary.failed_rows > 0 %}text-warning{% else %}text-muted{% endif %}">
+                    {{ import_summary.failed_rows }}
+                </p>
+            </div>
+            <div class="col-md-4">
+                <h6>Success Rate</h6>
+                <p class="h3 text-info">
+                    {% widthratio import_summary.successful_rows import_summary.total_rows 100 %}%
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0">Records Created/Updated</h5>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Table</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for table, count in import_summary.records_created.items %}
+                <tr>
+                    <td><strong>{{ table }}</strong></td>
+                    <td><span class="badge bg-success">{{ count }}</span></td>
+                    <td><span class="badge bg-info">{{ import_summary.records_updated|get_item:table|default:0 }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if import_summary.errors %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0">Errors ({{ import_summary.errors|length }})</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in import_summary.errors %}
+                    <tr>
+                        <td>{{ error.row }}</td>
+                        <td><small>{{ error.error }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<a href="{% url 'import_step1_upload' %}" class="btn btn-primary">
+    Start New Import
+</a>
+<a href="{% url 'home' %}" class="btn btn-secondary">
+    Go to Dashboard
+</a>
+
+{% elif import_data.status == 'failed' %}
+<div class="error-summary">
+    <h5>✗ Import Failed</h5>
+    <p>An error occurred during import:</p>
+    <pre class="bg-light p-3">{{ import_data.error_log }}</pre>
+</div>
+
+<a href="{% url 'import_step1_upload' %}" class="btn btn-primary">
+    Start New Import
+</a>
+
+{% else %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0">Import Summary</h5>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <tr>
+                <th>File:</th>
+                <td>{{ import_data.file.name }}</td>
+            </tr>
+            <tr>
+                <th>Total Rows:</th>
+                <td>{{ import_data.row_count }}</td>
+            </tr>
+            <tr>
+                <th>Fields Mapped:</th>
+                <td>{{ import_data.data_fields.count }}</td>
+            </tr>
+            <tr>
+                <th>Projects:</th>
+                <td>{{ import_data.project.all|join:", " }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <h5>⚠ Important</h5>
+    <p>This operation will:</p>
+    <ul>
+        <li>Import {{ import_data.row_count }} rows into the database</li>
+        <li>Create or update records in multiple tables</li>
+        <li>This action cannot be easily undone</li>
+    </ul>
+    <p><strong>Please confirm you want to proceed.</strong></p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-success btn-lg" onclick="return confirm('Are you sure you want to execute this import?')">
+        Execute Import
+    </button>
+    <a href="{% url previous_step_url_name import_data.id %}" class="btn btn-secondary">
+        ← Go Back
+    </a>
+</form>
+{% endif %}
+{% endblock %}

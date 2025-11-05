@@ -50,8 +50,31 @@
             </div>
         </div>
         
-        <!-- Bulk DICOM Upload Card -->
+        <!-- Data Import Wizard Card -->
         {% if user.is_authenticated %}
+        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 border-2 border-chavi-primary">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-chavi-primary to-chavi-secondary">
+                <h3 class="text-lg font-semibold text-white flex items-center">
+                    <i class="fas fa-file-import mr-2"></i>
+                    Data Import Wizard
+                    <span class="ml-2 text-xs bg-white text-chavi-primary px-2 py-1 rounded-full">NEW</span>
+                </h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600 leading-relaxed mb-4">Import clinical data from CSV or JSON files with intelligent field mapping, validation, and UUID management.</p>
+                <ul class="text-sm text-gray-500 mb-4 space-y-1">
+                    <li><i class="fas fa-check text-green-500 mr-2"></i>Auto field matching</li>
+                    <li><i class="fas fa-check text-green-500 mr-2"></i>Data validation</li>
+                    <li><i class="fas fa-check text-green-500 mr-2"></i>8-step guided wizard</li>
+                </ul>
+                <a href="{% url 'data_import:import_step1_upload' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                    <i class="fas fa-file-import"></i>
+                    Start Import
+                </a>
+            </div>
+        </div>
+        
+        <!-- Bulk DICOM Upload Card -->
         <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-lg font-semibold text-chavi-gray">Bulk DICOM Upload</h3>
