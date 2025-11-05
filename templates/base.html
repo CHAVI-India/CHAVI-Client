@@ -54,7 +54,10 @@
                         </a>
                         {% if user.is_authenticated %}
                         <a href="{% url 'client_app:patient_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-file-export mr-2"></i>Data Export
+                            <i class="fas fa-file-export mr-2"></i>Patient Export
+                        </a>
+                        <a href="{% url 'client_app:dicom_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                            <i class="fas fa-file-medical mr-2"></i>DICOM Export
                         </a>
                         <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
@@ -119,7 +122,10 @@
                 </a>
                 {% if user.is_authenticated %}
                 <a href="{% url 'client_app:patient_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-export mr-2"></i>Data Export
+                    <i class="fas fa-file-export mr-2"></i>Patient Export
+                </a>
+                <a href="{% url 'client_app:dicom_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-file-medical mr-2"></i>DICOM Export
                 </a>
                 <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload

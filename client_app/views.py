@@ -12,6 +12,8 @@ from django.contrib import admin, messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .services.frontend_bulk_dicom_import import extract_and_analyze_upload, process_confirmed_matches
 from .services.patient_data_export import export_patient_data
+from .services.dicom_data_export import export_dicom_data
+from .services.parallel_dicom_export import export_dicom_data_parallel
 from django.db import transaction
 from django.db.models import Q
 
@@ -658,5 +660,195 @@ class PatientDataExportView(LoginRequiredMixin, TemplateView):
         
         # Call the export function
         return export_patient_data(None, request, queryset)
+
+
+class DICOMDataExportView(LoginRequiredMixin, TemplateView):
+    """View for exporting DICOM data with filtering capabilities"""
+    template_name = "client_app/dicom_data_export.html"
+    studies_per_page = 20
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "DICOM Data Export"
+        
+        # Get filter parameters
+        patient_id_search = self.request.GET.get('patient_id', '')
+        created_from_date = self.request.GET.get('created_from_date', '')
+        created_from_time = self.request.GET.get('created_from_time', '00:00')
+        created_to_date = self.request.GET.get('created_to_date', '')
+        created_to_time = self.request.GET.get('created_to_time', '23:59')
+        updated_from_date = self.request.GET.get('updated_from_date', '')
+        updated_from_time = self.request.GET.get('updated_from_time', '00:00')
+        updated_to_date = self.request.GET.get('updated_to_date', '')
+        updated_to_time = self.request.GET.get('updated_to_time', '23:59')
+        project_filter = self.request.GET.get('project', '')
+        page = self.request.GET.get('page', 1)
+        
+        # Start with all DICOM studies
+        study_list = DICOMStudy.objects.all()
+        
+        # Apply filters
+        if patient_id_search:
+            study_list = study_list.filter(patient__patient_id__icontains=patient_id_search)
+        
+        # Combine date and time for created_from filter
+        if created_from_date:
+            created_from_datetime = f"{created_from_date} {created_from_time}:00"
+            study_list = study_list.filter(created_at__gte=created_from_datetime)
+        
+        # Combine date and time for created_to filter
+        if created_to_date:
+            created_to_datetime = f"{created_to_date} {created_to_time}:59"
+            study_list = study_list.filter(created_at__lte=created_to_datetime)
+        
+        # Combine date and time for updated_from filter
+        if updated_from_date:
+            updated_from_datetime = f"{updated_from_date} {updated_from_time}:00"
+            study_list = study_list.filter(updated_at__gte=updated_from_datetime)
+        
+        # Combine date and time for updated_to filter
+        if updated_to_date:
+            updated_to_datetime = f"{updated_to_date} {updated_to_time}:59"
+            study_list = study_list.filter(updated_at__lte=updated_to_datetime)
+        
+        # Filter by project through DICOMStudyProject
+        if project_filter:
+            study_list = study_list.filter(
+                dicomstudy__dicomstudyproject__project__chavi_project_id=project_filter
+            ).distinct()
+        
+        # Order by most recent
+        study_list = study_list.order_by('-created_at').distinct()
+        
+        # Set up pagination
+        paginator = Paginator(study_list, self.studies_per_page)
+        
+        try:
+            studies = paginator.page(page)
+        except PageNotAnInteger:
+            studies = paginator.page(1)
+        except EmptyPage:
+            studies = paginator.page(paginator.num_pages)
+        
+        # Get all projects for the filter dropdown
+        projects = Project.objects.all().order_by('project_name')
+        
+        context.update({
+            'studies': studies,
+            'projects': projects,
+            'patient_id_search': patient_id_search,
+            'created_from_date': created_from_date,
+            'created_from_time': created_from_time,
+            'created_to_date': created_to_date,
+            'created_to_time': created_to_time,
+            'updated_from_date': updated_from_date,
+            'updated_from_time': updated_from_time,
+            'updated_to_date': updated_to_date,
+            'updated_to_time': updated_to_time,
+            'project_filter': project_filter,
+            'total_studies': study_list.count(),
+        })
+        return context
+    
+    def post(self, request):
+        """Handle export request - starts background task"""
+        import uuid
+        import threading
+        
+        # Get selected study UIDs from the form
+        selected_uids = request.POST.getlist('selected_studies')
+        
+        if not selected_uids:
+            messages.error(request, "Please select at least one DICOM study to export")
+            return redirect('client_app:dicom_data_export')
+        
+        # Get the DICOM studies
+        queryset = DICOMStudy.objects.filter(study_instance_uid__in=selected_uids)
+        
+        if queryset.count() == 0:
+            messages.error(request, "No DICOM studies found for export")
+            return redirect('client_app:dicom_data_export')
+        
+        # Generate a unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Start export in background thread using parallel export
+        def run_export():
+            export_dicom_data_parallel(queryset, task_id)
+        
+        thread = threading.Thread(target=run_export)
+        thread.daemon = True
+        thread.start()
+        
+        # Return task ID to client for progress tracking
+        context = {
+            'task_id': task_id,
+            'study_count': queryset.count()
+        }
+        return render(request, 'client_app/dicom_export_progress.html', context)
+
+
+class DICOMExportProgressView(LoginRequiredMixin, View):
+    """API endpoint to check DICOM export progress"""
+    
+    def get(self, request, task_id):
+        from django.core.cache import cache
+        
+        progress_data = cache.get(f'export_progress_{task_id}')
+        
+        if not progress_data:
+            return JsonResponse({
+                'status': 'not_found',
+                'message': 'Export task not found'
+            })
+        
+        return JsonResponse(progress_data)
+
+
+class DICOMExportDownloadView(LoginRequiredMixin, View):
+    """Download the completed DICOM export ZIP file"""
+    
+    def get(self, request, task_id):
+        from django.core.cache import cache
+        from pathlib import Path
+        from django.http import FileResponse, Http404
+        import os
+        
+        progress_data = cache.get(f'export_progress_{task_id}')
+        
+        if not progress_data or progress_data.get('status') != 'complete':
+            messages.error(request, "Export not ready or not found")
+            return redirect('client_app:dicom_data_export')
+        
+        zip_path = Path(progress_data.get('zip_path'))
+        
+        if not zip_path.exists():
+            messages.error(request, "Export file not found")
+            return redirect('client_app:dicom_data_export')
+        
+        try:
+            response = FileResponse(open(zip_path, 'rb'), content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename=dicom_export_{task_id}.zip'
+            
+            # Clean up after download
+            def cleanup():
+                import time
+                time.sleep(2)  # Wait a bit before cleanup
+                try:
+                    if zip_path.exists():
+                        os.remove(zip_path)
+                    cache.delete(f'export_progress_{task_id}')
+                except Exception:
+                    pass
+            
+            import threading
+            cleanup_thread = threading.Thread(target=cleanup)
+            cleanup_thread.daemon = True
+            cleanup_thread.start()
+            
+            return response
+        except Exception as e:
+            messages.error(request, f"Error downloading file: {str(e)}")
+            return redirect('client_app:dicom_data_export')
 
 
