@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Data Export{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Patient Data Export</h1>
+            <p class="text-gray-600">Filter and export patient clinical data as JSON files</p>
+        </div>
+    </div>
+    
+    <!-- Filter Section -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-chavi-gray mb-4">
+            <i class="fas fa-filter mr-2"></i>Filter Patients
+        </h2>
+        
+        <form method="get" action="{% url 'client_app:patient_data_export' %}" class="space-y-4">
+            <div class="space-y-4">
+                <!-- Patient ID and Project Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Patient ID Search -->
+                    <div>
+                        <label for="patient_id" class="block text-sm font-medium text-gray-700 mb-1">
+                            Patient ID
+                        </label>
+                        <input type="text" 
+                               id="patient_id" 
+                               name="patient_id" 
+                               value="{{ patient_id_search }}"
+                               placeholder="Search by Patient ID"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                    </div>
+                    
+                    <!-- Project Filter -->
+                    <div>
+                        <label for="project" class="block text-sm font-medium text-gray-700 mb-1">
+                            Project
+                        </label>
+                        <select id="project" 
+                                name="project"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            <option value="">All Projects</option>
+                            {% for project in projects %}
+                            <option value="{{ project.chavi_project_id }}" {% if project_filter == project.chavi_project_id %}selected{% endif %}>
+                                {{ project.project_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Created Date Range -->
+                <div class="border-t pt-4">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Created Date Range</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Created From -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" 
+                                       id="created_from_date" 
+                                       name="created_from_date" 
+                                       value="{{ created_from_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="time" 
+                                       id="created_from_time" 
+                                       name="created_from_time" 
+                                       value="{{ created_from_time|default:'00:00' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            </div>
+                        </div>
+                        
+                        <!-- Created To -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" 
+                                       id="created_to_date" 
+                                       name="created_to_date" 
+                                       value="{{ created_to_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="time" 
+                                       id="created_to_time" 
+                                       name="created_to_time" 
+                                       value="{{ created_to_time|default:'23:59' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Updated Date Range -->
+                <div class="border-t pt-4">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Updated Date Range</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Updated From -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" 
+                                       id="updated_from_date" 
+                                       name="updated_from_date" 
+                                       value="{{ updated_from_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="time" 
+                                       id="updated_from_time" 
+                                       name="updated_from_time" 
+                                       value="{{ updated_from_time|default:'00:00' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            </div>
+                        </div>
+                        
+                        <!-- Updated To -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" 
+                                       id="updated_to_date" 
+                                       name="updated_to_date" 
+                                       value="{{ updated_to_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="time" 
+                                       id="updated_to_time" 
+                                       name="updated_to_time" 
+                                       value="{{ updated_to_time|default:'23:59' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Buttons -->
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" 
+                        class="bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-2 px-6 rounded-md transition-colors duration-200">
+                    <i class="fas fa-search mr-2"></i>Apply Filters
+                </button>
+                <a href="{% url 'client_app:patient_data_export' %}" 
+                   class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-md transition-colors duration-200">
+                    <i class="fas fa-times mr-2"></i>Clear Filters
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Results Section -->
+    <div class="bg-white rounded-lg shadow-md">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-semibold text-chavi-gray">Patient List</h2>
+                <p class="text-sm text-gray-600 mt-1">{{ total_patients }} patient(s) found</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" 
+                        onclick="selectAll()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm">
+                    <i class="fas fa-check-double mr-1"></i>Select All
+                </button>
+                <button type="button" 
+                        onclick="deselectAll()"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm">
+                    <i class="fas fa-times mr-1"></i>Deselect All
+                </button>
+            </div>
+        </div>
+        
+        {% if patients %}
+            <form method="post" action="{% url 'client_app:patient_data_export' %}" id="exportForm">
+                {% csrf_token %}
+                
+                <!-- Patient Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left">
+                                    <input type="checkbox" 
+                                           id="selectAllCheckbox"
+                                           onchange="toggleAll(this)"
+                                           class="w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Birth</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated At</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Projects</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for patient in patients %}
+                            <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <input type="checkbox" 
+                                           name="selected_patients" 
+                                           value="{{ patient.patient_id }}"
+                                           class="patient-checkbox w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {{ patient.patient_id }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ patient.gender|default:"N/A" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ patient.date_of_birth|date:"d/m/Y"|default:"N/A" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ patient.created_at|date:"d/m/Y H:i" }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {{ patient.updated_at|date:"d/m/Y H:i" }}
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    {% if patient.patient_project.all %}
+                                        <div class="flex flex-wrap gap-1">
+                                            {% for project in patient.patient_project.all %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-chavi-primary bg-opacity-10 text-chavi-primary">
+                                                    {{ project.project_name }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-gray-400">No projects</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if patients.has_other_pages %}
+                <div class="px-6 py-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            Showing page {{ patients.number }} of {{ patients.paginator.num_pages }}
+                        </div>
+                        <div class="flex gap-2">
+                            {% if patients.has_previous %}
+                                <a href="?page={{ patients.previous_page_number }}{% if patient_id_search %}&patient_id={{ patient_id_search }}{% endif %}{% if created_from_date %}&created_from_date={{ created_from_date }}{% endif %}{% if created_from_time %}&created_from_time={{ created_from_time }}{% endif %}{% if created_to_date %}&created_to_date={{ created_to_date }}{% endif %}{% if created_to_time %}&created_to_time={{ created_to_time }}{% endif %}{% if updated_from_date %}&updated_from_date={{ updated_from_date }}{% endif %}{% if updated_from_time %}&updated_from_time={{ updated_from_time }}{% endif %}{% if updated_to_date %}&updated_to_date={{ updated_to_date }}{% endif %}{% if updated_to_time %}&updated_to_time={{ updated_to_time }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" 
+                                   class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium transition-colors">
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </a>
+                            {% endif %}
+                            
+                            {% if patients.has_next %}
+                                <a href="?page={{ patients.next_page_number }}{% if patient_id_search %}&patient_id={{ patient_id_search }}{% endif %}{% if created_from_date %}&created_from_date={{ created_from_date }}{% endif %}{% if created_from_time %}&created_from_time={{ created_from_time }}{% endif %}{% if created_to_date %}&created_to_date={{ created_to_date }}{% endif %}{% if created_to_time %}&created_to_time={{ created_to_time }}{% endif %}{% if updated_from_date %}&updated_from_date={{ updated_from_date }}{% endif %}{% if updated_from_time %}&updated_from_time={{ updated_from_time }}{% endif %}{% if updated_to_date %}&updated_to_date={{ updated_to_date }}{% endif %}{% if updated_to_time %}&updated_to_time={{ updated_to_time }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" 
+                                   class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium transition-colors">
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Export Button -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-600">
+                            <span id="selectedCount">0</span> patient(s) selected
+                        </div>
+                        <button type="submit" 
+                                class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                id="exportButton"
+                                disabled>
+                            <i class="fas fa-download mr-2"></i>Export Selected Patients
+                        </button>
+                    </div>
+                </div>
+            </form>
+        {% else %}
+            <div class="px-6 py-8 text-center">
+                <div class="text-gray-400 mb-4">
+                    <i class="fas fa-inbox text-4xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
+                <p class="text-gray-500">Try adjusting your filter criteria.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Information Box -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-3">
+            <i class="fas fa-info-circle mr-2"></i>Export Information
+        </h3>
+        <ul class="space-y-2 text-sm text-blue-800">
+            <li><i class="fas fa-check mr-2"></i>Patient data will be exported as individual JSON files within a ZIP archive</li>
+            <li><i class="fas fa-check mr-2"></i>Each export includes all related clinical data: diagnoses, treatments, outcomes, imaging studies, and more</li>
+            <li><i class="fas fa-check mr-2"></i>Filenames are anonymized using a hash of the patient ID for privacy</li>
+            <li><i class="fas fa-check mr-2"></i>Use the filters above to narrow down the patient list before selecting patients to export</li>
+            <li><i class="fas fa-check mr-2"></i>You can select individual patients or use "Select All" to export all filtered patients</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Update selected count
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.patient-checkbox:checked');
+        const count = checkboxes.length;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('exportButton').disabled = count === 0;
+    }
+    
+    // Toggle all checkboxes
+    function toggleAll(source) {
+        const checkboxes = document.querySelectorAll('.patient-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = source.checked;
+        });
+        updateSelectedCount();
+    }
+    
+    // Select all patients
+    function selectAll() {
+        const checkboxes = document.querySelectorAll('.patient-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        document.getElementById('selectAllCheckbox').checked = true;
+        updateSelectedCount();
+    }
+    
+    // Deselect all patients
+    function deselectAll() {
+        const checkboxes = document.querySelectorAll('.patient-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        document.getElementById('selectAllCheckbox').checked = false;
+        updateSelectedCount();
+    }
+    
+    // Add event listeners to all checkboxes
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkboxes = document.querySelectorAll('.patient-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectedCount);
+        });
+        updateSelectedCount();
+    });
+</script>
+
+{% endblock %}

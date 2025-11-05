@@ -11,7 +11,9 @@ from django.http import Http404, JsonResponse
 from django.contrib import admin, messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .services.frontend_bulk_dicom_import import extract_and_analyze_upload, process_confirmed_matches
+from .services.patient_data_export import export_patient_data
 from django.db import transaction
+from django.db.models import Q
 
 # Create your views here.
 
@@ -550,5 +552,111 @@ class PatientSearchAPIView(LoginRequiredMixin, View):
         ]
         
         return JsonResponse({'results': results})
+
+
+class PatientDataExportView(LoginRequiredMixin, TemplateView):
+    """View for exporting patient data with filtering capabilities"""
+    template_name = "client_app/patient_data_export.html"
+    patients_per_page = 20
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "Patient Data Export"
+        
+        # Get filter parameters
+        patient_id_search = self.request.GET.get('patient_id', '')
+        created_from_date = self.request.GET.get('created_from_date', '')
+        created_from_time = self.request.GET.get('created_from_time', '00:00')
+        created_to_date = self.request.GET.get('created_to_date', '')
+        created_to_time = self.request.GET.get('created_to_time', '23:59')
+        updated_from_date = self.request.GET.get('updated_from_date', '')
+        updated_from_time = self.request.GET.get('updated_from_time', '00:00')
+        updated_to_date = self.request.GET.get('updated_to_date', '')
+        updated_to_time = self.request.GET.get('updated_to_time', '23:59')
+        project_filter = self.request.GET.get('project', '')
+        page = self.request.GET.get('page', 1)
+        
+        # Start with all patients
+        patient_list = Patient.objects.all()
+        
+        # Apply filters
+        if patient_id_search:
+            patient_list = patient_list.filter(patient_id__icontains=patient_id_search)
+        
+        # Combine date and time for created_from filter
+        if created_from_date:
+            created_from_datetime = f"{created_from_date} {created_from_time}:00"
+            patient_list = patient_list.filter(created_at__gte=created_from_datetime)
+        
+        # Combine date and time for created_to filter
+        if created_to_date:
+            created_to_datetime = f"{created_to_date} {created_to_time}:59"
+            patient_list = patient_list.filter(created_at__lte=created_to_datetime)
+        
+        # Combine date and time for updated_from filter
+        if updated_from_date:
+            updated_from_datetime = f"{updated_from_date} {updated_from_time}:00"
+            patient_list = patient_list.filter(updated_at__gte=updated_from_datetime)
+        
+        # Combine date and time for updated_to filter
+        if updated_to_date:
+            updated_to_datetime = f"{updated_to_date} {updated_to_time}:59"
+            patient_list = patient_list.filter(updated_at__lte=updated_to_datetime)
+        
+        if project_filter:
+            patient_list = patient_list.filter(patient_project__chavi_project_id=project_filter)
+        
+        # Order by most recent
+        patient_list = patient_list.order_by('-created_at').distinct()
+        
+        # Set up pagination
+        paginator = Paginator(patient_list, self.patients_per_page)
+        
+        try:
+            patients = paginator.page(page)
+        except PageNotAnInteger:
+            patients = paginator.page(1)
+        except EmptyPage:
+            patients = paginator.page(paginator.num_pages)
+        
+        # Get all projects for the filter dropdown
+        projects = Project.objects.all().order_by('project_name')
+        
+        context.update({
+            'patients': patients,
+            'projects': projects,
+            'patient_id_search': patient_id_search,
+            'created_from_date': created_from_date,
+            'created_from_time': created_from_time,
+            'created_to_date': created_to_date,
+            'created_to_time': created_to_time,
+            'updated_from_date': updated_from_date,
+            'updated_from_time': updated_from_time,
+            'updated_to_date': updated_to_date,
+            'updated_to_time': updated_to_time,
+            'project_filter': project_filter,
+            'total_patients': patient_list.count(),
+            'filtered_patient_ids': list(patient_list.values_list('patient_id', flat=True))
+        })
+        return context
+    
+    def post(self, request):
+        """Handle export request"""
+        # Get selected patient IDs from the form
+        selected_ids = request.POST.getlist('selected_patients')
+        
+        if not selected_ids:
+            messages.error(request, "Please select at least one patient to export")
+            return redirect('client_app:patient_data_export')
+        
+        # Get the patients
+        queryset = Patient.objects.filter(patient_id__in=selected_ids)
+        
+        if queryset.count() == 0:
+            messages.error(request, "No patients found for export")
+            return redirect('client_app:patient_data_export')
+        
+        # Call the export function
+        return export_patient_data(None, request, queryset)
 
 

@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.HomePageView.as_view(), name='homepage'),
     path('patient-search/', views.PatientSearchView.as_view(), name='patient_search'),
     path('patient-summary/', views.PatientSummaryView.as_view(), name='patient_summary'),
+    path('patient-data-export/', views.PatientDataExportView.as_view(), name='patient_data_export'),
     
     # Bulk DICOM Upload URLs
     path('bulk-dicom-upload/', views.BulkDICOMUploadView.as_view(), name='bulk_dicom_upload'),
