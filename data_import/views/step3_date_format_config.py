@@ -28,9 +28,53 @@ class Step3DateFormatConfigView(WizardStepMixin, FormView):
         from django import forms
         return forms.Form
     
+    def _copy_date_configs(self, source_import, target_import):
+        """Copy date format configurations from source import to target import"""
+        copied_count = 0
+        
+        for source_config in ImportDateFormatConfiguration.objects.filter(
+            data_field_configuration__import_data=source_import
+        ):
+            # Find matching field in target import
+            target_mapping = target_import.data_fields.filter(
+                file_field_name=source_config.data_field_configuration.file_field_name,
+                client_app_table_name=source_config.data_field_configuration.client_app_table_name,
+                client_app_field_name=source_config.data_field_configuration.client_app_field_name
+            ).first()
+            
+            if target_mapping:
+                # Create config for target mapping
+                ImportDateFormatConfiguration.objects.get_or_create(
+                    data_field_configuration=target_mapping,
+                    defaults={
+                        'date_format': source_config.date_format,
+                        'date_separator': source_config.date_separator
+                    }
+                )
+                copied_count += 1
+        
+        logger.info(f"Copied {copied_count} date format configurations")
+        return copied_count
+    
     def get(self, request, *args, **kwargs):
         import_data = self.get_import_data(kwargs['import_id'])
         self.update_import_status(import_data, ImportStatus.DATE_FORMAT_CONFIG)
+        
+        # Check if we need to copy configs from a previous import
+        existing_configs_count = ImportDateFormatConfiguration.objects.filter(
+            data_field_configuration__import_data=import_data
+        ).count()
+        
+        if existing_configs_count == 0:
+            # Try to find the most recent import with date format configs
+            # Need to go through data_fields -> date_format_configurations
+            latest_import_with_configs = ImportData.objects.filter(
+                data_fields__date_format_configurations__isnull=False
+            ).distinct().order_by('-id').first()
+            
+            if latest_import_with_configs:
+                logger.info(f"Copying date format configs from import {latest_import_with_configs.id} to {import_data.id}")
+                self._copy_date_configs(latest_import_with_configs, import_data)
         
         # Parse file to get sample data
         try:
@@ -56,10 +100,44 @@ class Step3DateFormatConfigView(WizardStepMixin, FormView):
             )
             
             if field_meta and field_meta.get('data_type') in ['Date', 'DateTime']:
-                # Check if configuration already exists
+                # Check if configuration already exists - first by direct FK
+                logger.info(f"Looking for config for mapping ID {mapping.id}: {mapping.file_field_name}")
                 existing_config = ImportDateFormatConfiguration.objects.filter(
                     data_field_configuration=mapping
                 ).first()
+                
+                # If not found by FK, try to find by matching field names in same import
+                if not existing_config:
+                    logger.info(f"  Not found by FK, trying by field names...")
+                    all_configs = ImportDateFormatConfiguration.objects.filter(
+                        data_field_configuration__import_data=import_data
+                    )
+                    logger.info(f"  Total configs for this import (ID {import_data.id}): {all_configs.count()}")
+                    
+                    # Check if ANY configs exist with this field name (any import)
+                    any_config = ImportDateFormatConfiguration.objects.filter(
+                        data_field_configuration__file_field_name=mapping.file_field_name
+                    ).first()
+                    if any_config:
+                        logger.info(f"  Found config for this field name in import ID {any_config.data_field_configuration.import_data.id}")
+                    
+                    existing_config = ImportDateFormatConfiguration.objects.filter(
+                        data_field_configuration__import_data=import_data,
+                        data_field_configuration__file_field_name=mapping.file_field_name,
+                        data_field_configuration__client_app_table_name=mapping.client_app_table_name,
+                        data_field_configuration__client_app_field_name=mapping.client_app_field_name
+                    ).first()
+                    
+                    if not existing_config:
+                        # Log what configs DO exist for debugging
+                        sample_config = all_configs.first()
+                        if sample_config:
+                            logger.info(f"  Sample existing config: FK to mapping ID {sample_config.data_field_configuration.id}, file_field={sample_config.data_field_configuration.file_field_name}")
+                
+                if existing_config:
+                    logger.info(f"  ✓ Found config: format={existing_config.date_format}, separator={existing_config.date_separator}")
+                else:
+                    logger.info(f"  ✗ No config found")
                 
                 # Get sample values from the file
                 sample_values = []
@@ -78,11 +156,24 @@ class Step3DateFormatConfigView(WizardStepMixin, FormView):
                 
                 logger.info(f"Final sample_values for {mapping.file_field_name}: {sample_values}")
                 
+                # Add debug info
+                debug_info = {
+                    'mapping_id': mapping.id,
+                    'import_data_id': import_data.id,
+                    'configs_for_import': ImportDateFormatConfiguration.objects.filter(
+                        data_field_configuration__import_data=import_data
+                    ).count(),
+                    'any_config_with_name': ImportDateFormatConfiguration.objects.filter(
+                        data_field_configuration__file_field_name=mapping.file_field_name
+                    ).exists()
+                }
+                
                 date_fields.append({
                     'mapping': mapping,
                     'field_meta': field_meta,
                     'existing_config': existing_config,
-                    'sample_values': sample_values
+                    'sample_values': sample_values,
+                    'debug': debug_info
                 })
         
         logger.info(f"Step 3 GET: Found {len(date_fields)} date fields to configure")

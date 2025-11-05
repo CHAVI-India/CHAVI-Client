@@ -145,12 +145,12 @@ class Step2FieldMappingView(WizardStepMixin, TemplateView):
         import_data = self.get_import_data(import_id)
         
         try:
-            # Clear existing mappings
-            DataFieldConfiguration.objects.filter(import_data=import_data).delete()
-            
             # Clear validation errors (force re-validation with new mappings)
             import_data.validation_errors = None
             import_data.save(update_fields=['validation_errors'])
+            
+            # Note: We use update_or_create below to preserve existing mappings
+            # and their related configurations (date formats, intervals, etc.)
             
             # Get field service for metadata
             field_service = FieldIntrospectionService()
@@ -171,26 +171,28 @@ class Step2FieldMappingView(WizardStepMixin, TemplateView):
                         field_metadata = field_service.get_field(table_name, chavi_field_name)
                         
                         if field_metadata:
-                            # Create mapping
-                            DataFieldConfiguration.objects.create(
+                            # Update or create mapping (preserves existing configs)
+                            DataFieldConfiguration.objects.update_or_create(
                                 import_data=import_data,
                                 file_field_name=source_field,
-                                field_data_type=field_metadata['data_type'],
                                 client_app_table_name=field_metadata['table_name'],
                                 client_app_field_name=field_metadata['field_name'],
-                                client_app_field_type=(
-                                    'Foreign Key' if field_metadata['is_foreign_key']
-                                    else 'Many to Many' if field_metadata['is_many_to_many']
-                                    else 'Standard'
-                                ),
-                                client_app_lookup_table_name=(
-                                    field_metadata.get('related_table') 
-                                    if field_metadata.get('is_lookup') else None
-                                ),
-                                client_app_lookup_field_name=(
-                                    field_metadata.get('lookup_model')
-                                    if field_metadata.get('is_lookup') else None
-                                ),
+                                defaults={
+                                    'field_data_type': field_metadata['data_type'],
+                                    'client_app_field_type': (
+                                        'Foreign Key' if field_metadata['is_foreign_key']
+                                        else 'Many to Many' if field_metadata['is_many_to_many']
+                                        else 'Standard'
+                                    ),
+                                    'client_app_lookup_table_name': (
+                                        field_metadata.get('related_table') 
+                                        if field_metadata.get('is_lookup') else None
+                                    ),
+                                    'client_app_lookup_field_name': (
+                                        field_metadata.get('lookup_model')
+                                        if field_metadata.get('is_lookup') else None
+                                    ),
+                                }
                             )
                             mappings_created += 1
                     except ValueError:
