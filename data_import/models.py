@@ -233,12 +233,12 @@ class DateFormatType(models.TextChoices):
     DayMonthYear = 'DayMonthYear', 'DayMonthYear'
 
 class DateSeparatorType(models.TextChoices):
-    Hyphen = 'Hyphen', 'Hyphen'
-    ForwardSlash = 'ForwardSlash', 'ForwardSlash'
-    Dash = 'Dash', 'Dash'
-    Space = 'Space', 'Space'
-    Comma = 'Comma', 'Comma'
-    Dot = 'Dot', 'Dot'
+    Hyphen = 'Hyphen', 'Hyphen (-)'
+    ForwardSlash = 'ForwardSlash', 'ForwardSlash (/)'
+    Dash = 'Dash', 'Dash (-)'
+    Space = 'Space', 'Space ( )'
+    Comma = 'Comma', 'Comma (,)'
+    Dot = 'Dot', 'Dot (.)'
     
 
 class ImportDateFormatConfiguration(models.Model):
