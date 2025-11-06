@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Step 9: Set Default Values - Data Import{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Progress indicator -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700">Step {{ step_number }} of {{ total_steps }}</span>
+                <span class="text-sm font-medium text-gray-700">{{ step_name }}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                {% widthratio step_number total_steps 100 as progress %}
+                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ progress }}%"></div>
+            </div>
+        </div>
+
+        <h1 class="text-3xl font-bold mb-6">Set Default Values for Unmapped Fields</h1>
+        
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        Set default values for required fields that were not mapped in previous steps. These values will apply to all patients in this import session.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            {% if unmapped_fields %}
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4">Unmapped Required Fields</h2>
+                    
+                    <div class="space-y-6">
+                        {% for field in unmapped_fields %}
+                            <div class="border-b border-gray-200 pb-4 last:border-b-0">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ field.model }}.{{ field.field }}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                
+                                <p class="text-xs text-gray-500 mb-2">
+                                    Type: {{ field.field_info.type }}
+                                    {% if field.field_info.is_lookup %} (Lookup Field){% endif %}
+                                </p>
+                                
+                                {% if field.field_info.is_lookup and field.lookup_values %}
+                                    <!-- Lookup dropdown with Select2 -->
+                                    <select name="default_{{ field.model }}_{{ field.field }}" 
+                                            class="lookup-select mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            data-placeholder="-- Select {{ field.field }} --">
+                                        <option value="">-- Select {{ field.field }} --</option>
+                                        {% for lookup in field.lookup_values %}
+                                            <option value="{{ lookup.code }}" 
+                                                    {% if field.existing_value == lookup.code %}selected{% endif %}>
+                                                {{ lookup.label }} ({{ lookup.code }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif field.field_info.type == 'BooleanField' %}
+                                    <!-- Boolean field -->
+                                    <select name="default_{{ field.model }}_{{ field.field }}" 
+                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                        <option value="">-- Select --</option>
+                                        <option value="True" {% if field.existing_value == 'True' %}selected{% endif %}>Yes</option>
+                                        <option value="False" {% if field.existing_value == 'False' %}selected{% endif %}>No</option>
+                                    </select>
+                                {% elif field.field_info.type == 'DateField' %}
+                                    <!-- Date field -->
+                                    <input type="date" 
+                                           name="default_{{ field.model }}_{{ field.field }}" 
+                                           value="{{ field.existing_value }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                {% elif field.field_info.type == 'DateTimeField' %}
+                                    <!-- DateTime field -->
+                                    <input type="datetime-local" 
+                                           name="default_{{ field.model }}_{{ field.field }}" 
+                                           value="{{ field.existing_value }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                {% elif field.field_info.type in 'IntegerField,PositiveIntegerField' %}
+                                    <!-- Integer field -->
+                                    <input type="number" 
+                                           name="default_{{ field.model }}_{{ field.field }}" 
+                                           value="{{ field.existing_value }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                {% elif field.field_info.type in 'FloatField,DecimalField' %}
+                                    <!-- Decimal field -->
+                                    <input type="number" 
+                                           step="0.01"
+                                           name="default_{{ field.model }}_{{ field.field }}" 
+                                           value="{{ field.existing_value }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                {% else %}
+                                    <!-- Text field -->
+                                    <input type="text" 
+                                           name="default_{{ field.model }}_{{ field.field }}" 
+                                           value="{{ field.existing_value }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="bg-green-50 border-l-4 border-green-400 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-green-700">
+                                All required fields have been mapped or have default values. No additional configuration needed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Navigation buttons -->
+            <div class="flex justify-between pt-6">
+                <a href="{% url 'data_import:step8' session.id %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Back to Step 8
+                </a>
+                
+                <div class="space-x-3">
+                    <button type="submit" 
+                            name="skip_step"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Skip This Step
+                    </button>
+                    
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Continue to Step 10
+                        <svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize Select2 on all lookup fields
+        $('.lookup-select').select2({
+            width: '100%',
+            allowClear: true,
+            placeholder: function() {
+                return $(this).data('placeholder');
+            }
+        });
+    });
+</script>
+{% endblock %}

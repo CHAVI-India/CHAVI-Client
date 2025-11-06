@@ -1,0 +1,111 @@
+{% extends "data_import/base_import.html" %}
+
+{% block step_content %}
+<div class="space-y-6">
+    {% if import_successful %}
+    <!-- Success State -->
+    <div class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 mb-6">
+            <i class="fas fa-check-circle text-green-500 text-5xl"></i>
+        </div>
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">Import Completed Successfully!</h2>
+        <p class="text-lg text-gray-600 mb-8">
+            Your data has been successfully imported into the database.
+        </p>
+        
+        <div class="bg-white border rounded-lg p-6 max-w-md mx-auto mb-8">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Records Created:</span>
+                    <span class="text-2xl font-bold text-green-600">{{ records_created }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Session:</span>
+                    <span class="font-medium text-gray-900">{{ session.import_session_name }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Completed:</span>
+                    <span class="font-medium text-gray-900">{{ session.updated_at|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex justify-center space-x-4">
+            <a href="{% url 'data_import:session_list' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-list mr-2"></i>
+                View All Sessions
+            </a>
+            <a href="{% url 'data_import:step1' %}" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                <i class="fas fa-plus mr-2"></i>
+                New Import Session
+            </a>
+        </div>
+    </div>
+    
+    {% elif error_message %}
+    <!-- Error State -->
+    <div class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-100 mb-6">
+            <i class="fas fa-exclamation-circle text-red-500 text-5xl"></i>
+        </div>
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">Import Failed</h2>
+        <p class="text-lg text-gray-600 mb-4">
+            An error occurred during the import process.
+        </p>
+        
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6 max-w-2xl mx-auto mb-8 text-left">
+            <h3 class="text-lg font-semibold text-red-900 mb-2">Error Details:</h3>
+            <pre class="text-sm text-red-700 whitespace-pre-wrap">{{ error_message }}</pre>
+        </div>
+        
+        <div class="flex justify-center space-x-4">
+            <a href="{% url 'data_import:step10' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Review
+            </a>
+            <a href="{% url 'data_import:step1_edit' session.id %}" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                <i class="fas fa-edit mr-2"></i>
+                Edit Session
+            </a>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- Ready to Import State -->
+    <div class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-100 mb-6">
+            <i class="fas fa-rocket text-blue-500 text-5xl"></i>
+        </div>
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">Ready to Execute Import</h2>
+        <p class="text-lg text-gray-600 mb-8">
+            Click the button below to start the import process.
+        </p>
+        
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 max-w-2xl mx-auto mb-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        <strong>Warning:</strong> This action will create records in your database.
+                        Make sure you have reviewed the data in Step 10.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <form method="post" class="inline-block">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex items-center px-8 py-4 bg-chavi-gradient text-white font-medium text-lg rounded-md hover:opacity-90 transition-all shadow-lg">
+                <i class="fas fa-play mr-3"></i>
+                Execute Import Now
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block navigation_buttons %}
+{% endblock %}

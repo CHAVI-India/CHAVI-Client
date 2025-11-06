@@ -1,504 +1,469 @@
-"""Service to generate import JSON from file data and all mappings"""
-import pandas as pd
-import json
-import logging
-from collections import defaultdict
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-from django.apps import apps
-from data_import.models import (
-    ImportData, DataFieldConfiguration, StaticFieldMapping,
-    ImportDateFormatConfiguration, ImportDateIntervalFieldConfiguration,
-    UUIDFieldConfiguration, ImportDataJSON, UUIDMatchConfiguration, UUIDMatchAction
-)
-from data_import.services.model_hierarchy import ModelHierarchyService
+"""
+JSON Generator Service for Data Import.
+Generates JSON that matches nested DRF serializer format for import.
+"""
 
-logger = logging.getLogger(__name__)
+from django.apps import apps
+from .csv_processor import CSVProcessorService
+from .field_introspection import FieldIntrospectionService
+from .model_hierarchy import ModelHierarchyService
+from ..models import (
+    FileMappedModel, FileMappedField, FilePatientID,
+    FileColumnFieldValueMapping, FileDateFieldMapping,
+    FileDurationDateMapping, FieldLookupValues, FileMissingRelations,
+    FileDefaultValues, FileImportUUIDValues
+)
+from datetime import datetime, timedelta
+from dateutil import parser as date_parser
+import uuid
+
+
+class UUIDManager:
+    """Manage UUIDs for import records."""
+    
+    def __init__(self, session):
+        self.session = session
+        self.uuid_cache = {}
+        self._load_existing_uuids()
+    
+    def _load_existing_uuids(self):
+        """Load existing UUIDs from database."""
+        existing = FileImportUUIDValues.objects.filter(file_import_session=self.session)
+        for uuid_obj in existing:
+            key = (uuid_obj.client_app_model_name, uuid_obj.client_app_model_pk)
+            self.uuid_cache[key] = uuid_obj.client_app_model_pk_uuid_value
+    
+    def get_uuid(self, model_name, pk_field_name, record_key):
+        """Get or create UUID for a record."""
+        cache_key = (model_name, pk_field_name, record_key)
+        
+        if cache_key not in self.uuid_cache:
+            # Generate new UUID
+            new_uuid = str(uuid.uuid4())
+            self.uuid_cache[cache_key] = new_uuid
+            
+            # Store in database
+            FileImportUUIDValues.objects.create(
+                file_import_session=self.session,
+                client_app_model_name=model_name,
+                client_app_model_pk=pk_field_name,
+                client_app_model_pk_uuid_value=new_uuid
+            )
+        
+        return self.uuid_cache[cache_key]
 
 
 class JSONGeneratorService:
-    """
-    Generates import JSON from uploaded file and all configuration mappings.
-    Handles field mappings, static values, date conversions, intervals, and UUID generation.
-    """
+    """Generate import JSON from CSV data and mappings."""
     
-    def __init__(self, import_data: ImportData):
-        self.import_data = import_data
-        self.hierarchy_service = ModelHierarchyService()
-        self.df = None
-        self.uuid_cache = {}  # Cache for generated UUIDs
+    @staticmethod
+    def generate_import_json(session, sample_only=False, sample_size=3):
+        """
+        Generate complete JSON for import based on all mappings.
         
-    def generate_json(self) -> dict:
-        """Main method to generate the complete import JSON"""
-        logger.info(f"Starting JSON generation for import {self.import_data.id}")
-        
-        # Load the data file
-        self._load_data_file()
-        
-        # Get all configurations
-        field_mappings = self._get_field_mappings()
-        static_mappings = self._get_static_mappings()
-        date_formats = self._get_date_formats()
-        date_intervals = self._get_date_intervals()
-        uuid_configs = self._get_uuid_configurations()
-        lookup_mappings = self._get_lookup_mappings()
-        uuid_match_mappings = self._get_uuid_match_mappings()
-        
-        logger.info(f"Loaded {len(lookup_mappings)} lookup field mappings")
-        logger.info(f"Loaded {len(uuid_match_mappings)} UUID match mappings")
-        
-        # Build hierarchical JSON structure
-        json_data = self._build_hierarchical_json(
-            field_mappings, static_mappings, date_formats, 
-            date_intervals, uuid_configs, lookup_mappings, uuid_match_mappings
-        )
-        
-        # Save to database
-        self._save_json_to_db(json_data)
-        
-        logger.info(f"JSON generation complete for import {self.import_data.id}")
-        return json_data
-    
-    def _load_data_file(self):
-        """Load the uploaded data file into a pandas DataFrame"""
-        file_path = self.import_data.file.path
-        
-        if self.import_data.data_type == 'CSV':
-            self.df = pd.read_csv(file_path)
-        elif self.import_data.data_type == 'Excel':
-            self.df = pd.read_excel(file_path)
-        else:
-            raise ValueError(f"Unsupported file type: {self.import_data.data_type}")
-        
-        logger.info(f"Loaded {len(self.df)} rows from {file_path}")
-    
-    def _get_field_mappings(self) -> dict:
-        """Get all field mappings grouped by table"""
-        mappings = defaultdict(list)
-        
-        for mapping in self.import_data.data_fields.all():
-            if mapping.client_app_field_name and mapping.client_app_table_name:
-                mappings[mapping.client_app_table_name].append({
-                    'file_field': mapping.file_field_name,
-                    'chavi_field': mapping.client_app_field_name,
-                    'field_type': mapping.client_app_field_type
-                })
-        
-        return dict(mappings)
-    
-    def _get_static_mappings(self) -> dict:
-        """Get all static field mappings grouped by table"""
-        mappings = defaultdict(list)
-        
-        for static in self.import_data.static_field_mappings.all():
-            if static.chavi_field:
-                parts = static.chavi_field.split('.')
-                if len(parts) == 2:
-                    table_name, field_name = parts
-                    mappings[table_name].append({
-                        'chavi_field': field_name,
-                        'static_value': static.static_value
-                    })
-        
-        return dict(mappings)
-    
-    def _get_date_formats(self) -> dict:
-        """Get date format configurations"""
-        formats = {}
-        
-        for config in ImportDateFormatConfiguration.objects.filter(
-            data_field_configuration__import_data=self.import_data
-        ):
-            field_config = config.data_field_configuration
-            key = f"{field_config.client_app_table_name}.{field_config.client_app_field_name}"
-            formats[key] = {
-                'format': config.date_format,
-                'separator': config.date_separator
-            }
-        
-        return formats
-    
-    def _get_date_intervals(self) -> dict:
-        """Get date interval configurations"""
-        intervals = {}
-        
-        for config in ImportDateIntervalFieldConfiguration.objects.filter(
-            import_data=self.import_data
-        ):
-            if config.target_date_field:
-                intervals[config.target_date_field] = {
-                    'interval_field': config.interval_field,
-                    'interval_units': config.interval_units,
-                    'calculation_date': config.calculation_date,
-                    'calculation_date_type': config.calculation_date_type
-                }
-        
-        return intervals
-    
-    def _get_uuid_configurations(self) -> dict:
-        """Get UUID field configurations"""
-        configs = {}
-        
-        for config in UUIDFieldConfiguration.objects.filter(
-            import_data=self.import_data
-        ):
-            configs[config.table_name] = json.loads(config.uuid_fields)
-        
-        return configs
-    
-    def _get_lookup_mappings(self) -> dict:
-        """Get lookup field mappings from Step 6"""
-        from data_import.models import FieldLookupConfiguration
-        
-        mappings = defaultdict(dict)
-        
-        # Get all lookup configurations for this import
-        lookup_configs = FieldLookupConfiguration.objects.filter(
-            data_field_configuration__import_data=self.import_data
-        ).select_related('data_field_configuration')
-        
-        for config in lookup_configs:
-            field_name = config.data_field_configuration.file_field_name
-            mappings[field_name][config.field_value] = config.lookup_value
-        
-        return dict(mappings)
-    
-    def _get_uuid_match_mappings(self) -> dict:
-        """Get UUID match mappings from Step 8.5"""
-        mappings = {}
-        
-        # Get all UUID match configurations where user chose to use existing UUID
-        uuid_matches = UUIDMatchConfiguration.objects.filter(
-            import_data=self.import_data,
-            match_action=UUIDMatchAction.USE_EXISTING
-        )
-        
-        for match in uuid_matches:
-            # Map generated_uuid -> existing_uuid
-            mappings[match.generated_uuid] = match.existing_uuid
-            logger.debug(f"UUID mapping: {match.generated_uuid} -> {match.existing_uuid}")
-        
-        return mappings
-    
-    def _build_hierarchical_json(self, field_mappings, static_mappings, 
-                                  date_formats, date_intervals, uuid_configs, lookup_mappings, uuid_match_mappings) -> dict:
-        """Build the hierarchical JSON structure with proper nesting based on FK relationships"""
-        
-        # Collect all records indexed by table, patient_uuid, and record_uuid
-        all_records = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
-        
-        for index, row in self.df.iterrows():
-            # For patient table, use patient_id directly instead of generating UUID
-            patient_uuid = row.get('patient_id', str(index)) if 'patient_id' in row else self._generate_uuid('patient', row, uuid_configs.get('patient', []))
+        Args:
+            session: FileImportSession instance
+            sample_only: If True, only generate sample records for preview
+            sample_size: Number of sample records to generate
             
-            for table_name, mappings in field_mappings.items():
-                record = self._build_record(
-                    table_name, row, mappings, 
-                    static_mappings.get(table_name, []),
-                    date_formats, date_intervals, uuid_configs, lookup_mappings
+        Returns:
+            list: List of patient records with nested relationships
+        """
+        # Get CSV data
+        from ..views.base import BaseImportView
+        base_view = BaseImportView()
+        headers, rows, error = base_view.get_csv_data(session)
+        
+        if error or not rows:
+            return []
+        
+        # Get all mappings
+        mappings = JSONGeneratorService._get_all_mappings(session)
+        
+        if not session.patient_id_column:
+            return []
+        
+        # Initialize UUID manager
+        uuid_manager = UUIDManager(session)
+        
+        # Group rows by patient_id
+        patient_id_col = session.patient_id_column
+        patient_groups = JSONGeneratorService._group_by_patient(rows, headers, patient_id_col)
+        
+        # Limit to sample if requested
+        if sample_only:
+            patient_groups = dict(list(patient_groups.items())[:sample_size])
+        
+        # Generate patient records
+        patient_records = []
+        for patient_id, patient_rows in patient_groups.items():
+            try:
+                patient_record = JSONGeneratorService._generate_patient_record(
+                    patient_id, patient_rows, headers, mappings, session, uuid_manager
                 )
-                
-                if record:
-                    # Get the record's UUID
-                    pk_field = self._get_pk_field_name(table_name)
-                    record_uuid = record.get(pk_field, str(index))
-                    
-                    # Apply UUID match mapping if user chose to use existing UUID
-                    if record_uuid in uuid_match_mappings:
-                        existing_uuid = uuid_match_mappings[record_uuid]
-                        record[pk_field] = existing_uuid
-                        record_uuid = existing_uuid
-                        logger.info(f"Replaced UUID for {table_name}: {record_uuid} -> {existing_uuid}")
-                    
-                    # Store: all_records[table_name][patient_uuid][record_uuid] = record
-                    all_records[table_name][patient_uuid][record_uuid] = record
+                if patient_record:
+                    patient_records.append(patient_record)
+            except Exception as e:
+                print(f"Error generating record for patient {patient_id}: {str(e)}")
+                continue
         
-        # Build hierarchical structure
-        result = {'patients': []}
-        
-        # Get all patient UUIDs
-        patient_uuids = set()
-        for table_records in all_records.values():
-            patient_uuids.update(table_records.keys())
-        
-        for patient_uuid in patient_uuids:
-            patient_record = self._build_patient_hierarchy(
-                patient_uuid, all_records, field_mappings
-            )
-            if patient_record:
-                result['patients'].append(patient_record)
-        
-        return result
+        return patient_records
     
-    def _build_patient_hierarchy(self, patient_uuid, all_records, field_mappings):
-        """Build complete hierarchy for a single patient"""
+    @staticmethod
+    def _get_all_mappings(session):
+        """Get all mapping configurations."""
+        mapped_model = FileMappedModel.objects.filter(file_import_session=session).first()
         
-        # Start with patient record
-        patient_records = all_records.get('patient', {}).get(patient_uuid, {})
-        if not patient_records:
-            # Create minimal patient record if no patient table was mapped
-            patient_record = {'patient_id': patient_uuid}
-        else:
-            # Get first (should be only) patient record
-            patient_record = list(patient_records.values())[0].copy()
-            patient_record['patient_id'] = patient_uuid
+        # Build lookup mappings: {csv_column: {csv_value: lookup_code}}
+        lookup_mappings = {}
+        for lookup in FieldLookupValues.objects.filter(file_import_session=session):
+            if lookup.csv_column_name not in lookup_mappings:
+                lookup_mappings[lookup.csv_column_name] = {}
+            if lookup.csv_value:
+                lookup_mappings[lookup.csv_column_name][lookup.csv_value] = lookup.lookup_value
         
-        # Add child tables that have Patient as parent
-        patient_children = self._get_child_tables('Patient', field_mappings)
+        # Combine default values (Step 9) and missing relations (Step 10)
+        default_and_missing = {}
+        # Add default values
+        for dv in FileDefaultValues.objects.filter(file_import_session=session):
+            default_and_missing[(dv.client_app_model_name, dv.client_app_field_name)] = dv.client_app_field_value
+        # Add missing relations (these can override defaults if needed)
+        for mr in FileMissingRelations.objects.filter(file_import_session=session):
+            default_and_missing[(mr.client_app_model_name, mr.client_app_field_name)] = mr.client_app_field_value
         
-        for child_table in patient_children:
-            child_records_dict = all_records.get(child_table, {}).get(patient_uuid, {})
-            if child_records_dict:
-                # Recursively build nested structure for each child
-                nested_children = []
-                for child_uuid, child_record in child_records_dict.items():
-                    nested_child = self._nest_children(
-                        child_table, child_uuid, child_record, 
-                        patient_uuid, all_records, field_mappings
-                    )
-                    nested_children.append(nested_child)
-                
-                if nested_children:
-                    patient_record[child_table] = nested_children
-        
-        return patient_record
+        return {
+            'selected_models': mapped_model.client_app_model_name if mapped_model else [],
+            'field_mappings': list(FileMappedField.objects.filter(file_import_session=session)),
+            'column_value_mappings': list(FileColumnFieldValueMapping.objects.filter(file_import_session=session)),
+            'date_formats': {m.csv_column_name: m.date_format 
+                           for m in FileDateFieldMapping.objects.filter(file_import_session=session)},
+            'duration_mappings': list(FileDurationDateMapping.objects.filter(file_import_session=session)),
+            'lookup_mappings': lookup_mappings,
+            'missing_relations': default_and_missing,  # Combined default values and missing relations
+        }
     
-    def _nest_children(self, table_name, record_uuid, record, patient_uuid, all_records, field_mappings):
-        """Recursively nest children under their parent record"""
+    @staticmethod
+    def _group_by_patient(rows, headers, patient_id_col):
+        """Group CSV rows by patient ID."""
+        patient_groups = {}
         
-        record_copy = record.copy()
+        if patient_id_col not in headers:
+            return patient_groups
         
-        # Get model name and find child tables
-        model_name = self.hierarchy_service._table_to_model_name(table_name)
-        child_tables = self._get_child_tables(model_name, field_mappings)
+        col_index = headers.index(patient_id_col)
         
-        # Add nested children
-        for child_table in child_tables:
-            child_records_dict = all_records.get(child_table, {}).get(patient_uuid, {})
+        for row in rows:
+            if isinstance(row, dict):
+                patient_id = str(row.get(patient_id_col, '')).strip()
+            else:
+                patient_id = str(row[col_index]).strip() if col_index < len(row) else ''
             
-            if child_records_dict:
-                nested_children = []
-                for child_uuid, child_record in child_records_dict.items():
-                    # Recursively nest this child's children
-                    nested_child = self._nest_children(
-                        child_table, child_uuid, child_record,
-                        patient_uuid, all_records, field_mappings
+            if patient_id:
+                if patient_id not in patient_groups:
+                    patient_groups[patient_id] = []
+                patient_groups[patient_id].append(row)
+        
+        return patient_groups
+    
+    @staticmethod
+    def _generate_patient_record(patient_id, patient_rows, headers, mappings, session, uuid_manager):
+        """Generate a single patient record with nested relationships."""
+        patient_data = {'patient_id': patient_id}
+        record_counter = {'count': 0}  # Counter for generating unique record keys
+        
+        # Get model hierarchy
+        hierarchy = ModelHierarchyService.get_model_hierarchy()
+        selected_models = mappings['selected_models']
+        
+        # Separate models by level
+        level_0_models = [m for m in selected_models if hierarchy.get(m) == 0]  # Patient
+        level_1_models = [m for m in selected_models if hierarchy.get(m) == 1]
+        level_2_models = [m for m in selected_models if hierarchy.get(m) == 2]
+        
+        # Process Patient fields (Level 0)
+        for mapping in mappings['field_mappings']:
+            if '.' not in mapping.mapped_client_app_field_name:
+                continue
+            
+            model_name, field_name = mapping.mapped_client_app_field_name.split('.', 1)
+            
+            if model_name == 'Patient':
+                # Get value from first row (Patient fields should be same across rows)
+                value = JSONGeneratorService._get_field_value(
+                    patient_rows[0], headers, mapping, mappings
+                )
+                if value is not None:
+                    patient_data[field_name] = value
+        
+        # Add missing relations for Patient
+        for (model_name, field_name), value in mappings['missing_relations'].items():
+            if model_name == 'Patient':
+                patient_data[field_name] = JSONGeneratorService._resolve_relation_value(value, headers, patient_rows[0])
+        
+        # Process Level 1 models (direct children of Patient)
+        for model_name in level_1_models:
+            if model_name == 'Patient':
+                continue
+            
+            set_name = f"{model_name.lower()}_set"
+            patient_data[set_name] = []
+            
+            # Check if this is wide-format data (column-value mappings)
+            column_value_records = JSONGeneratorService._get_column_value_records(
+                model_name, patient_rows[0], headers, mappings, uuid_manager, patient_id, record_counter
+            )
+            
+            if column_value_records:
+                # Wide format
+                patient_data[set_name].extend(column_value_records)
+            else:
+                # Long format - each row might be a separate record
+                for row in patient_rows:
+                    record = JSONGeneratorService._generate_model_record(
+                        model_name, row, headers, mappings, level_2_models, uuid_manager, patient_id, record_counter
                     )
-                    nested_children.append(nested_child)
-                
-                if nested_children:
-                    record_copy[child_table] = nested_children
+                    if record and record not in patient_data[set_name]:
+                        patient_data[set_name].append(record)
         
-        return record_copy
+        return patient_data
     
-    def _get_child_tables(self, model_name, field_mappings):
-        """Get child tables that have FK to this model"""
-        child_tables = []
+    @staticmethod
+    def _get_field_value(row, headers, mapping, mappings):
+        """Get field value from CSV row with transformations."""
+        csv_columns = mapping.csv_field_names
+        if not csv_columns:
+            return None
         
-        for table_name in field_mappings.keys():
-            child_model_name = self.hierarchy_service._table_to_model_name(table_name)
-            if child_model_name in self.hierarchy_service.model_relationships:
-                parents = self.hierarchy_service.model_relationships[child_model_name]
-                if model_name in parents:
-                    child_tables.append(table_name)
+        # Get raw value(s)
+        values = []
+        for col in csv_columns:
+            if col in headers:
+                col_index = headers.index(col)
+                if isinstance(row, dict):
+                    val = row.get(col, '')
+                else:
+                    val = row[col_index] if col_index < len(row) else ''
+                values.append(str(val).strip())
         
-        return child_tables
+        if not values or not any(values):
+            return None
+        
+        # Get field info
+        model_name, field_name = mapping.mapped_client_app_field_name.split('.', 1)
+        field_info = FieldIntrospectionService.get_model_fields(model_name).get(field_name, {})
+        field_type = field_info.get('type', '')
+        
+        # Apply transformations based on field type
+        if field_type in ['DateField', 'DateTimeField']:
+            return JSONGeneratorService._parse_date(values[0], csv_columns[0], mappings)
+        elif field_type == 'BooleanField':
+            return JSONGeneratorService._parse_boolean(values[0])
+        elif field_type in ['IntegerField', 'PositiveIntegerField']:
+            try:
+                return int(float(values[0])) if values[0] else None
+            except:
+                return None
+        elif field_type in ['FloatField', 'DecimalField']:
+            try:
+                return float(values[0]) if values[0] else None
+            except:
+                return None
+        elif field_info.get('is_fk') or field_info.get('is_lookup'):
+            # Foreign key or lookup - apply lookup mapping if available
+            csv_value = values[0] if values[0] else None
+            if csv_value and csv_columns:
+                # Check if there's a lookup mapping for this column
+                csv_column = csv_columns[0]
+                if csv_column in mappings.get('lookup_mappings', {}):
+                    # Map CSV value to lookup code
+                    return mappings['lookup_mappings'][csv_column].get(csv_value, csv_value)
+            return csv_value
+        else:
+            # CharField, TextField, etc - combine if multiple columns
+            return ' '.join(values) if len(values) > 1 else values[0]
     
-    def _get_pk_field_name(self, table_name):
-        """Get primary key field name for a table"""
-        model = self._get_model_for_table(table_name)
-        if model:
-            return model._meta.pk.name
+    @staticmethod
+    def _parse_date(value, column_name, mappings):
+        """Parse date value using configured format."""
+        if not value:
+            return None
+        
+        date_format = mappings['date_formats'].get(column_name)
+        
+        if date_format:
+            # Use configured format
+            format_map = {
+                'YYYY-MM-DD': '%Y-%m-%d',
+                'DD-MM-YYYY': '%d-%m-%Y',
+                'MM-DD-YYYY': '%m-%d-%Y',
+                'YYYY/MM/DD': '%Y/%m/%d',
+                'DD/MM/YYYY': '%d/%m/%Y',
+                'MM/DD/YYYY': '%m/%d/%Y',
+            }
+            py_format = format_map.get(date_format)
+            if py_format:
+                try:
+                    return datetime.strptime(value, py_format).date().isoformat()
+                except:
+                    pass
+        
+        # Try auto-parse
+        try:
+            return date_parser.parse(value).date().isoformat()
+        except:
+            return None
+    
+    @staticmethod
+    def _parse_boolean(value):
+        """Parse boolean value."""
+        if not value:
+            return None
+        value_lower = str(value).lower().strip()
+        if value_lower in ['true', 'yes', '1', 'y']:
+            return True
+        elif value_lower in ['false', 'no', '0', 'n']:
+            return False
         return None
     
-    def _build_record(self, table_name, row, field_mappings, static_mappings,
-                     date_formats, date_intervals, uuid_configs, lookup_mappings) -> dict:
-        """Build a single record for a table"""
-        record = {}
-        skipped_required_fields = []
+    @staticmethod
+    def _get_column_value_records(model_name, row, headers, mappings, uuid_manager, patient_id, record_counter):
+        """Get records from column-value mappings (wide format)."""
+        records = []
         
-        # Add mapped fields from file
-        for mapping in field_mappings:
-            file_field = mapping['file_field']
-            chavi_field = mapping['chavi_field']
+        for mapping in mappings['column_value_mappings']:
+            if '.' not in mapping.mapped_client_app_field_name:
+                continue
             
-            if file_field in row:
-                value = row[file_field]
-                
-                # Handle date formatting
-                date_key = f"{table_name}.{chavi_field}"
-                if date_key in date_formats:
-                    value = self._parse_date(value, date_formats[date_key])
-                
-                # Skip null/empty values
-                if pd.notna(value) and value != '':
-                    # Apply lookup mapping if this field has one
-                    if file_field in lookup_mappings:
-                        str_value = str(value).strip()
-                        if str_value in lookup_mappings[file_field]:
-                            value = lookup_mappings[file_field][str_value]
-                            logger.debug(f"Applied lookup mapping: {file_field} '{str_value}' -> '{value}'")
-                        else:
-                            # Skip this field if no mapping exists - don't include unmapped lookup values
-                            logger.warning(f"Skipping unmapped lookup value for {file_field}: '{str_value}'")
-                            skipped_required_fields.append(file_field)
-                            continue
+            map_model, map_field = mapping.mapped_client_app_field_name.split('.', 1)
+            
+            if map_model == model_name:
+                # Check if this column has a positive value
+                csv_col = mapping.csv_column_name
+                if csv_col in headers:
+                    col_index = headers.index(csv_col)
+                    if isinstance(row, dict):
+                        csv_value = str(row.get(csv_col, '')).strip()
+                    else:
+                        csv_value = str(row[col_index]).strip() if col_index < len(row) else ''
                     
-                    record[chavi_field] = value
+                    # Check if value indicates presence
+                    if csv_value.lower() in ['yes', 'true', '1', 'y']:
+                        record = {}
+                        
+                        # Add UUID for primary key
+                        pk_field = JSONGeneratorService._get_pk_field_name(model_name)
+                        if pk_field:
+                            record_counter['count'] += 1
+                            record_key = f"{patient_id}_{model_name}_{record_counter['count']}"
+                            record[pk_field] = uuid_manager.get_uuid(model_name, pk_field, record_key)
+                        
+                        # Add the mapped field value
+                        record[map_field] = mapping.client_app_field_value
+                        
+                        # Add missing relations for this model
+                        for (rel_model, rel_field), rel_value in mappings['missing_relations'].items():
+                            if rel_model == model_name:
+                                record[rel_field] = JSONGeneratorService._resolve_relation_value(rel_value, headers, row)
+                        
+                        records.append(record)
         
-        # Add static values
-        for static in static_mappings:
-            record[static['chavi_field']] = static['static_value']
-        
-        # Add computed date intervals
-        for target_field, interval_config in date_intervals.items():
-            parts = target_field.split('.')
-            if len(parts) == 2 and parts[0] == table_name:
-                field_name = parts[1]
-                computed_date = self._compute_date_from_interval(row, interval_config)
-                if computed_date:
-                    record[field_name] = computed_date
-        
-        # Generate UUID for this record
-        if table_name in uuid_configs:
-            uuid_value = self._generate_uuid(table_name, row, uuid_configs[table_name])
-            # Determine the UUID field name for this table
-            model = self._get_model_for_table(table_name)
-            if model:
-                pk_field = model._meta.pk.name
-                record[pk_field] = uuid_value
-        
-        # If required lookup fields were skipped, return None to exclude this record
-        if skipped_required_fields:
-            logger.info(f"Skipping {table_name} record due to unmapped lookup fields: {skipped_required_fields}")
-            return None
-        
-        return record if record else None
+        return records
     
-    def _parse_date(self, value, date_config) -> str:
-        """Parse date value according to configuration"""
-        if pd.isna(value) or value == '':
+    @staticmethod
+    def _generate_model_record(model_name, row, headers, mappings, child_models, uuid_manager, patient_id, record_counter):
+        """Generate a record for a specific model."""
+        record = {}
+        has_data = False
+        
+        # Add UUID for primary key (except Patient which uses patient_id)
+        if model_name != 'Patient':
+            pk_field = JSONGeneratorService._get_pk_field_name(model_name)
+            if pk_field:
+                record_counter['count'] += 1
+                record_key = f"{patient_id}_{model_name}_{record_counter['count']}"
+                record[pk_field] = uuid_manager.get_uuid(model_name, pk_field, record_key)
+        
+        # Get field mappings for this model
+        for mapping in mappings['field_mappings']:
+            if '.' not in mapping.mapped_client_app_field_name:
+                continue
+            
+            map_model, map_field = mapping.mapped_client_app_field_name.split('.', 1)
+            
+            if map_model == model_name:
+                value = JSONGeneratorService._get_field_value(row, headers, mapping, mappings)
+                if value is not None:
+                    record[map_field] = value
+                    has_data = True
+        
+        # Add missing relations (default values from Step 9 and missing relations from Step 10)
+        for (rel_model, rel_field), rel_value in mappings['missing_relations'].items():
+            if rel_model == model_name:
+                record[rel_field] = JSONGeneratorService._resolve_relation_value(rel_value, headers, row)
+                has_data = True  # Default values count as data
+        
+        if not has_data and model_name != 'Patient':
             return None
         
-        try:
-            # Try to parse as ISO8601 first (most common format)
-            dt = pd.to_datetime(value, format='ISO8601')
-            return dt.strftime('%Y-%m-%d')
-        except:
-            try:
-                # Fall back to configured format
-                date_format = date_config.get('format', 'YearMonthDay')
-                separator = date_config.get('separator', '-')
+        # Add child models (Level 2)
+        for child_model in child_models:
+            parent_models = ModelHierarchyService.get_parent_models(child_model)
+            if model_name in parent_models.values():
+                set_name = f"{child_model.lower()}_set"
+                record[set_name] = []
                 
-                # Map format names to pandas format strings
-                format_map = {
-                    'YearMonthDay': f'%Y{separator}%m{separator}%d',
-                    'DayMonthYear': f'%d{separator}%m{separator}%Y',
-                    'MonthDayYear': f'%m{separator}%d{separator}%Y',
-                }
-                
-                pandas_format = format_map.get(date_format, f'%Y{separator}%m{separator}%d')
-                dt = pd.to_datetime(value, format=pandas_format)
-                return dt.strftime('%Y-%m-%d')
-            except Exception as e:
-                logger.warning(f"Failed to parse date '{value}': {e}")
-                # Return the value as-is if it's already in YYYY-MM-DD format
-                if isinstance(value, str) and len(value) == 10 and value[4] == '-' and value[7] == '-':
-                    return value
-                return None
-    
-    def _compute_date_from_interval(self, row, interval_config) -> str:
-        """Compute date from interval configuration"""
-        try:
-            interval_field = interval_config['interval_field']
-            interval_value = row.get(interval_field)
-            
-            if pd.isna(interval_value):
-                return None
-            
-            interval_value = float(interval_value)
-            interval_units = interval_config['interval_units']
-            calculation_date = interval_config['calculation_date']
-            calculation_type = interval_config['calculation_date_type']
-            
-            # Get the base date
-            if calculation_date in row:
-                base_date = pd.to_datetime(row[calculation_date])
-            else:
-                base_date = pd.to_datetime(calculation_date)
-            
-            # Calculate the target date
-            if interval_units == 'Years':
-                delta = relativedelta(years=int(interval_value))
-            elif interval_units == 'Months':
-                delta = relativedelta(months=int(interval_value))
-            elif interval_units == 'Weeks':
-                delta = timedelta(weeks=interval_value)
-            elif interval_units == 'Days':
-                delta = timedelta(days=interval_value)
-            else:
-                return None
-            
-            if calculation_type == 'Start':
-                result_date = base_date + delta
-            else:  # End date
-                result_date = base_date - delta
-            
-            return result_date.strftime('%Y-%m-%d')
+                child_record = JSONGeneratorService._generate_model_record(
+                    child_model, row, headers, mappings, [], uuid_manager, patient_id, record_counter
+                )
+                if child_record:
+                    record[set_name].append(child_record)
         
-        except Exception as e:
-            logger.warning(f"Failed to compute date from interval: {e}")
-            return None
+        return record
     
-    def _generate_uuid(self, table_name, row, uuid_fields) -> str:
-        """Generate UUID based on configured fields"""
-        if not uuid_fields:
+    @staticmethod
+    def _resolve_relation_value(value, headers, row):
+        """Resolve relation value - could be CSV column or fixed value."""
+        if not value:
             return None
         
-        # Build UUID key from field values
-        uuid_parts = []
-        for field in uuid_fields:
-            # Remove suffixes like (static), (computed)
-            clean_field = field.split(' (')[0]
-            value = row.get(clean_field, '')
-            uuid_parts.append(str(value))
+        # Check if it's a CSV column reference
+        if value.startswith('CSV:'):
+            col_name = value[4:]
+            if col_name in headers:
+                col_index = headers.index(col_name)
+                if isinstance(row, dict):
+                    return str(row.get(col_name, '')).strip()
+                else:
+                    return str(row[col_index]).strip() if col_index < len(row) else ''
         
-        uuid_key = f"{table_name}:{'|'.join(uuid_parts)}"
-        
-        # Check cache
-        if uuid_key not in self.uuid_cache:
-            # Generate new UUID (you might want to use actual UUID generation here)
-            import hashlib
-            self.uuid_cache[uuid_key] = hashlib.sha256(uuid_key.encode()).hexdigest()[:32]
-        
-        return self.uuid_cache[uuid_key]
+        # Fixed value
+        return value
     
-    def _get_model_for_table(self, table_name):
-        """Get Django model for table name"""
-        try:
-            model_name = self.hierarchy_service._table_to_model_name(table_name)
-            return apps.get_model('client_app', model_name)
-        except Exception:
-            return None
-    
-    def _save_json_to_db(self, json_data):
-        """Save generated JSON to database"""
-        # Clear existing JSON
-        deleted_count = ImportDataJSON.objects.filter(import_data=self.import_data).delete()[0]
-        logger.info(f"Deleted {deleted_count} existing JSON records for import {self.import_data.id}")
-        
-        # Save new JSON
-        json_obj = ImportDataJSON.objects.create(
-            import_data=self.import_data,
-            json_data=json_data
-        )
-        
-        logger.info(f"Saved new JSON to database for import {self.import_data.id}, ID: {json_obj.id}")
-        
-        # Log a sample of the JSON to verify lookup mappings were applied
-        if 'patients' in json_data and len(json_data['patients']) > 0:
-            first_patient = json_data['patients'][0]
-            logger.info(f"Sample patient data: {list(first_patient.keys())}")
-            if 'diagnosis' in first_patient and len(first_patient['diagnosis']) > 0:
-                sample_diagnosis = first_patient['diagnosis'][0]
-                logger.info(f"Sample diagnosis fields: {sample_diagnosis}")
+    @staticmethod
+    def _get_pk_field_name(model_name):
+        """Get the primary key field name for a model."""
+        pk_map = {
+            'Diagnosis': 'chavi_diagnosis_id',
+            'Comorbidity': 'chavi_comorbidity_id',
+            'Symptom': 'chavi_symptom_id',
+            'Pathology': 'chavi_pathology_id',
+            'Immunohistochemistry': 'chavi_ihc_id',
+            'Cytogenetics': 'chavi_cytogenetics_id',
+            'SomaticGenomicAlterations': 'chavi_somatic_genomic_id',
+            'GeneExpressionData': 'chavi_gene_expression_id',
+            'EpigeneticData': 'chavi_epigenetic_id',
+            'Lesion': 'chavi_lesion_id',
+            'LesionResponse': 'chavi_lesion_response_id',
+            'Surgery': 'chavi_surgery_id',
+            'Radiotherapy': 'chavi_radiotherapy_id',
+            'SystemicTherapy': 'chavi_systemic_therapy_id',
+            'OtherTreatment': 'chavi_treatment_id',
+            'Outcome': 'chavi_outcome_id',
+            'AdverseEffect': 'chavi_adverse_effect_id',
+            'GermlineGenomicAlterations': 'chavi_germline_genomic_id',
+            'PatientOutcome': 'chavi_patient_outcome_id',
+            'PatientAssessment': 'chavi_patient_assessment_id',
+            'LaboratoryResults': 'chavi_laboratory_results_id',
+            'PatientReportedOutcome': 'chavi_pro_id',
+        }
+        return pk_map.get(model_name)

@@ -1,28 +1,35 @@
 """
-Views for the data import wizard.
+Views for data import workflow.
 """
-from .step1_upload import Step1UploadView
-from .step2_field_mapping import Step2FieldMappingView
-from .step3_date_format_config import Step3DateFormatConfigView
-from .step4_date_interval_config import Step4DateIntervalConfigView
-from .step5_validation import Step5ValidationView
-from .step6_lookup_matching import Step6LookupMatchingView
-from .step7_static_mapping import Step7StaticMappingView
-from .step8_uuid_mapping import Step8UUIDMappingView
-from .step8_5_uuid_matching import Step8_5UUIDMatchingView
-from .step9_import import Step9ImportView
-from .step10_execute import Step10ExecuteView
+
+from .base import BaseImportView
+from .session_list import ImportSessionListView
+from .step1_upload import Step1UploadCSVView
+from .step2_patient_id import Step2PatientIDMappingView
+from .step3_model_selection import Step3ModelSelectionView
+from .step4_field_mapping import Step4FieldMappingView
+from .step5_column_value import Step5ColumnValueMappingView
+from .step6_date_format import Step6DateFormatView
+from .step7_duration_date import Step7DurationDateView
+from .step8_lookup_mapping import Step8LookupMappingView
+from .step9_default_values import Step9DefaultValuesView
+from .step10_missing_relations import Step10MissingRelationsView
+from .step11_review import Step11ReviewView
+from .step12_execute import Step12ExecuteImportView
 
 __all__ = [
-    'Step1UploadView',
-    'Step2FieldMappingView',
-    'Step3DateFormatConfigView',
-    'Step4DateIntervalConfigView',
-    'Step5ValidationView',
-    'Step6LookupMatchingView',
-    'Step7StaticMappingView',
-    'Step8UUIDMappingView',
-    'Step8_5UUIDMatchingView',
-    'Step9ImportView',
-    'Step10ExecuteView',
+    'BaseImportView',
+    'ImportSessionListView',
+    'Step1UploadCSVView',
+    'Step2PatientIDMappingView',
+    'Step3ModelSelectionView',
+    'Step4FieldMappingView',
+    'Step5ColumnValueMappingView',
+    'Step6DateFormatView',
+    'Step7DurationDateView',
+    'Step8LookupMappingView',
+    'Step9DefaultValuesView',
+    'Step10MissingRelationsView',
+    'Step11ReviewView',
+    'Step12ExecuteImportView',
 ]

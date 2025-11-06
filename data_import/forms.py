@@ -1,197 +1,185 @@
 """
-Forms for the data import wizard.
+Forms for data import workflow.
 """
+
 from django import forms
 from django.core.validators import FileExtensionValidator
-from data_import.models import DataType, ImportData, DataFieldConfiguration, DataFormatType
+from .models import (
+    FileImportSession, FilePatientID, FileMappedModel,
+    FileMappedField, FileColumnFieldValueMapping,
+    FileDateFieldMapping, FileDurationDateMapping,
+    FieldLookupValues, FileMissingRelations,
+    FileImportUUIDValues, FileImportJSON,
+    DateFormat, DurationUnits, ReferenceDateType
+)
 from client_app.models import Project
 
 
-class FileUploadForm(forms.Form):
+class Step1UploadCSVForm(forms.ModelForm):
     """
-    Form for uploading CSV/JSON files in Step 1.
+    Step 1: Upload CSV file and select projects.
     """
+    class Meta:
+        model = FileImportSession
+        fields = ['import_session_name', 'project_name', 'csv_file']
+        widgets = {
+            'import_session_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter a name for this import session'
+            }),
+            'project_name': forms.SelectMultiple(attrs={
+                'class': 'form-control select2',
+                'required': True
+            }),
+            'csv_file': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': '.csv'
+            }),
+        }
     
-    import_data_title = forms.CharField(
-        label="Import Title",
-        help_text="Give this import session a descriptive title for easy identification.",
-        max_length=255,
-        required=True,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'e.g., Patient Data Import - January 2024',
-        })
-    )
-    
-    data_format_type = forms.ChoiceField(
-        label="Data Format",
-        choices=DataFormatType.choices,
-        initial=DataFormatType.SINGLE_INSTANCE_PER_PATIENT,
-        help_text="Specify whether each patient has a single record or multiple/repeating records in the file.",
-        widget=forms.Select(attrs={
-            'class': 'form-select',
-        })
-    )
-    
-    file = forms.FileField(
-        label="Select File",
-        help_text="Upload a CSV or JSON file containing your data.",
-        validators=[FileExtensionValidator(allowed_extensions=['csv', 'json'])],
-        widget=forms.FileInput(attrs={
-            'class': 'form-control',
-            'accept': '.csv,.json',
-        })
-    )
-    
-    data_type = forms.ChoiceField(
-        label="File Type",
-        choices=DataType.choices,
-        initial=DataType.CSV,
-        widget=forms.Select(attrs={
-            'class': 'form-select',
-        })
-    )
-    
-    projects = forms.ModelMultipleChoiceField(
-        queryset=Project.objects.all(),
-        label="Project(s)",
-        help_text="Select one or more projects this data belongs to.",
-        widget=forms.CheckboxSelectMultiple(),
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['project_name'].required = True
+        
+        # CSV file is only required for new sessions, not when editing
+        if self.instance and self.instance.pk and self.instance.csv_file:
+            self.fields['csv_file'].required = False
+        else:
+            self.fields['csv_file'].required = True
+        
+        self.fields['csv_file'].validators = [FileExtensionValidator(['csv'])]
+
+
+class Step2PatientIDMappingForm(forms.Form):
+    """
+    Step 2: Map patient ID column from CSV.
+    """
+    patient_id_column = forms.ChoiceField(
+        label="Select the column that contains Patient ID",
+        widget=forms.Select(attrs={'class': 'form-control'}),
         required=True
     )
     
-    def clean_file(self):
-        """Validate uploaded file."""
-        file = self.cleaned_data.get('file')
-        
-        if file:
-            # Check file size (max 50MB)
-            if file.size > 50 * 1024 * 1024:
-                raise forms.ValidationError(
-                    'File size exceeds 50MB limit. Please upload a smaller file.'
-                )
-            
-            # Check file extension
-            file_extension = file.name.split('.')[-1].lower()
-            if file_extension not in ['csv', 'json']:
-                raise forms.ValidationError(
-                    'Invalid file type. Please upload a CSV or JSON file.'
-                )
-        
-        return file
-
-
-class FieldMappingForm(forms.Form):
-    """
-    Form for manual field mapping in Step 3.
-    """
-    
-    def __init__(self, *args, source_fields=None, chavi_fields=None, **kwargs):
-        """
-        Initialize form with dynamic fields.
-        
-        Args:
-            source_fields: List of field names from imported file
-            chavi_fields: List of CHAVI field metadata dictionaries
-        """
+    def __init__(self, csv_headers=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        if source_fields and chavi_fields:
-            # Create choices for CHAVI fields grouped by model
-            choices = [('', '-- Select Field --')]
-            
-            # Group fields by model
-            fields_by_model = {}
-            for field in chavi_fields:
-                model_name = field['model_name']
-                if model_name not in fields_by_model:
-                    fields_by_model[model_name] = []
-                fields_by_model[model_name].append(field)
-            
-            # Create optgroups
-            for model_name, fields in sorted(fields_by_model.items()):
-                model_choices = [
-                    (
-                        f"{field['model_name']}.{field['field_name']}",
-                        f"{field['field_name']} ({field['verbose_name']})"
-                    )
-                    for field in fields
-                ]
-                choices.append((model_name, model_choices))
-            
-            # Create a field for each source field
-            for source_field in source_fields:
-                field_name = f'mapping_{source_field}'
-                self.fields[field_name] = forms.ChoiceField(
-                    label=source_field,
-                    choices=choices,
-                    required=False,
-                    widget=forms.Select(attrs={
-                        'class': 'form-select field-mapping-select',
-                        'data-source-field': source_field,
-                    })
-                )
+        if csv_headers:
+            choices = [(header, header) for header in csv_headers]
+            self.fields['patient_id_column'].choices = choices
 
 
-class LookupMappingForm(forms.Form):
+class Step3ModelSelectionForm(forms.Form):
     """
-    Form for mapping lookup values in Step 6.
+    Step 3: Select models to import data into.
     """
-    
-    def __init__(self, *args, lookup_values=None, **kwargs):
-        """
-        Initialize form with dynamic fields for lookup mappings.
-        
-        Args:
-            lookup_values: Dictionary of source values to lookup options
-        """
-        super().__init__(*args, **kwargs)
-        
-        if lookup_values:
-            for source_value, options in lookup_values.items():
-                field_name = f'lookup_{source_value}'
-                
-                # Create choices from lookup options
-                choices = [('', '-- Select Value --')]
-                choices.extend([
-                    (opt['pk'], opt.get('str', opt['pk']))
-                    for opt in options
-                ])
-                
-                self.fields[field_name] = forms.ChoiceField(
-                    label=source_value,
-                    choices=choices,
-                    required=False,
-                    widget=forms.Select(attrs={
-                        'class': 'form-select lookup-mapping-select',
-                        'data-source-value': source_value,
-                    })
-                )
-
-
-class ValidationReviewForm(forms.Form):
-    """
-    Form for reviewing validation errors in Step 5.
-    """
-    
-    deselect_fields = forms.MultipleChoiceField(
-        label="Deselect Fields with Errors",
-        help_text="Select fields to exclude from import due to validation errors.",
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={
-            'class': 'form-check-input',
-        })
+    selected_models = forms.MultipleChoiceField(
+        label="Select the models you want to import data into",
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'model-checkbox'}),
+        required=True
     )
     
-    def __init__(self, *args, fields_with_errors=None, **kwargs):
-        """
-        Initialize form with fields that have errors.
-        
-        Args:
-            fields_with_errors: List of field names with validation errors
-        """
+    def __init__(self, model_choices=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        if fields_with_errors:
-            choices = [(field, field) for field in fields_with_errors]
-            self.fields['deselect_fields'].choices = choices
+        if model_choices:
+            self.fields['selected_models'].choices = model_choices
+
+
+class Step4FieldMappingForm(forms.Form):
+    """
+    Step 4: Map CSV columns to model fields.
+    This form is dynamically generated based on selected models.
+    """
+    pass  # Will be dynamically created in the view
+
+
+class Step5ColumnValueMappingForm(forms.Form):
+    """
+    Step 5: Map column names to field values.
+    This form is dynamically generated.
+    """
+    pass  # Will be dynamically created in the view
+
+
+class Step6DateFormatForm(forms.Form):
+    """
+    Step 6: Set date formats for date fields.
+    This form is dynamically generated based on mapped date fields.
+    """
+    pass  # Will be dynamically created in the view
+
+
+class Step7DurationDateForm(forms.Form):
+    """
+    Step 7: Calculate dates from duration fields.
+    """
+    csv_duration_field = forms.ChoiceField(
+        label="Select duration field from CSV",
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    duration_unit = forms.ChoiceField(
+        label="Duration unit",
+        choices=DurationUnits.choices,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    reference_date = forms.CharField(
+        label="Reference date (field name or date value)",
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    reference_date_type = forms.ChoiceField(
+        label="Reference date type",
+        choices=ReferenceDateType.choices,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    reference_date_format = forms.ChoiceField(
+        label="Reference date format",
+        choices=DateFormat.choices,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    client_app_date_field = forms.ChoiceField(
+        label="Target date field in model",
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        required=False
+    )
+    
+    def __init__(self, csv_headers=None, date_fields=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if csv_headers:
+            self.fields['csv_duration_field'].choices = [('', '---')] + [(h, h) for h in csv_headers]
+        if date_fields:
+            self.fields['client_app_date_field'].choices = [('', '---')] + [(f, f) for f in date_fields]
+
+
+class Step8LookupMappingForm(forms.Form):
+    """
+    Step 8: Map CSV values to lookup table values.
+    This form is dynamically generated.
+    """
+    pass  # Will be dynamically created in the view
+
+
+class Step9MissingRelationsForm(forms.Form):
+    """
+    Step 9: Handle missing FK relationships.
+    This form is dynamically generated based on missing relationships.
+    """
+    pass  # Will be dynamically created in the view
+
+
+class Step10ReviewForm(forms.Form):
+    """
+    Step 10: Review generated JSON before import.
+    """
+    confirm_import = forms.BooleanField(
+        label="I have reviewed the data and confirm the import",
+        required=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )

@@ -1,419 +1,224 @@
 """
-Service for introspecting Django models and extracting field information
-for the data import wizard.
+Service for introspecting model fields and metadata.
 """
-from django.apps import apps
-from django.db import models
-from django.core import validators
-from typing import Dict, List, Optional
-import logging
 
-logger = logging.getLogger(__name__)
+from django.apps import apps
+from django.db.models import (
+    ForeignKey, ManyToManyField, CharField, TextField,
+    IntegerField, DecimalField, DateField, DateTimeField,
+    BooleanField, UUIDField, AutoField
+)
 
 
 class FieldIntrospectionService:
     """
-    Service to introspect client_app models and extract field metadata
-    for matching with uploaded CSV/JSON files.
+    Provides field metadata for client_app models.
     """
     
-    # Fields to exclude from import (auto-generated)
-    EXCLUDED_FIELDS = ['created_at', 'updated_at', 'id']
-    
-    # Tables/Models to exclude from field selection
-    EXCLUDED_MODELS = [
-        'SiteConfiguration',
-        'Project',  # Already selected in step 1
-        'PatientDICOMFile',
-        'DICOMStudy',
-        'DICOMStudyProject',
-        'BulkDICOMUpload',
-        'UnprocessedDICOMStudies',
-        'BulkDICOMUploadSession',
-        'BulkDICOMStudyMatch',
-    ]
-    
-    def __init__(self):
-        self.client_app_models = self._get_client_app_models()
-        self.lookup_app_models = self._get_lookup_app_models()
-        self._field_cache = None
-        
-    def _get_client_app_models(self) -> Dict[str, models.Model]:
-        """Get all models from client_app."""
-        try:
-            app_config = apps.get_app_config('client_app')
-            return {model.__name__: model for model in app_config.get_models()}
-        except Exception as e:
-            logger.error(f"Error getting client_app models: {e}")
-            return {}
-    
-    def _get_lookup_app_models(self) -> Dict[str, models.Model]:
-        """Get all models from lookup app."""
-        try:
-            app_config = apps.get_app_config('lookup')
-            return {model.__name__: model for model in app_config.get_models()}
-        except Exception as e:
-            logger.error(f"Error getting lookup app models: {e}")
-            return {}
-    
-    def get_all_fields(self, use_cache: bool = True) -> List[Dict]:
+    @staticmethod
+    def get_model_fields(model_name, exclude_auto=True):
         """
-        Get all fields from all client_app models with metadata.
+        Returns dict of field metadata for a model.
         
         Args:
-            use_cache: Whether to use cached results
+            model_name (str): Name of the model
+            exclude_auto (bool): Exclude auto-generated fields
             
         Returns:
-            List of dictionaries containing field information
+            dict: Field metadata
         """
-        if use_cache and self._field_cache:
-            return self._field_cache
-            
-        all_fields = []
+        try:
+            model = apps.get_model('client_app', model_name)
+        except LookupError:
+            return {}
         
-        for model_name, model in self.client_app_models.items():
-            # Skip excluded models
-            if model_name in self.EXCLUDED_MODELS:
+        fields_info = {}
+        exclude_fields = ['created_at', 'updated_at'] if exclude_auto else []
+        
+        for field in model._meta.get_fields():
+            # Skip reverse relations (OneToOneRel, ManyToOneRel, ManyToManyRel)
+            if field.auto_created and not field.concrete:
                 continue
             
-            # Skip abstract models
-            if model._meta.abstract:
+            if field.name in exclude_fields:
+                continue
+            
+            # Skip auto fields if requested
+            if exclude_auto and isinstance(field, (AutoField, UUIDField)) and field.primary_key:
                 continue
                 
-            table_name = model._meta.db_table
-            
-            for field in model._meta.get_fields():
-                # Skip reverse relations and excluded fields
-                if field.auto_created and not field.concrete:
-                    continue
-                    
-                if field.name in self.EXCLUDED_FIELDS:
-                    continue
-                    
-                # Skip auto-generated UUID primary keys
-                if isinstance(field, models.UUIDField) and field.primary_key:
-                    continue
-                    
-                field_info = self._extract_field_info(model_name, table_name, field)
-                if field_info:
-                    all_fields.append(field_info)
-        
-        self._field_cache = all_fields
-        return all_fields
-    
-    def _extract_field_info(self, model_name: str, table_name: str, field) -> Optional[Dict]:
-        """
-        Extract comprehensive metadata for a single field.
-        
-        Args:
-            model_name: Name of the model
-            table_name: Database table name
-            field: Django field object
-            
-        Returns:
-            Dictionary with field metadata or None if field should be skipped
-        """
-        try:
             field_info = {
-                'model_name': model_name,
-                'table_name': table_name,
-                'field_name': field.name,
-                'verbose_name': str(field.verbose_name) if hasattr(field, 'verbose_name') else field.name,
-                'help_text': str(field.help_text) if hasattr(field, 'help_text') else '',
-                'field_class': field.__class__.__name__,
-                'internal_type': field.get_internal_type() if hasattr(field, 'get_internal_type') else 'Unknown',
-                'data_type': self._get_field_data_type(field),
-                
-                # Constraints
-                'is_required': self._is_field_required(field),
+                'name': field.name,
+                'type': field.get_internal_type(),
+                'verbose_name': getattr(field, 'verbose_name', field.name),
+                'help_text': getattr(field, 'help_text', ''),
+                'required': not getattr(field, 'blank', True),
                 'null': getattr(field, 'null', False),
-                'blank': getattr(field, 'blank', False),
-                'unique': getattr(field, 'unique', False),
-                'primary_key': getattr(field, 'primary_key', False),
-                
-                # Size constraints
                 'max_length': getattr(field, 'max_length', None),
-                'max_digits': getattr(field, 'max_digits', None),
-                'decimal_places': getattr(field, 'decimal_places', None),
-                
-                # Default value
-                'has_default': field.has_default() if hasattr(field, 'has_default') else False,
-                'default': self._get_default_value(field),
-                
-                # Relationship info
-                'is_foreign_key': isinstance(field, models.ForeignKey),
-                'is_many_to_many': isinstance(field, models.ManyToManyField),
-                'related_model': None,
-                'related_table': None,
-                'related_app': None,
-                'is_lookup': False,
-                'lookup_model': None,
-                
-                # Choices
-                'has_choices': False,
-                'choices': [],
-                
-                # Validators
-                'validators': self._extract_validators(field),
+                'choices': getattr(field, 'choices', None),
+                'default': getattr(field, 'default', None),
             }
             
             # Handle relationships
-            if isinstance(field, (models.ForeignKey, models.ManyToManyField)):
-                self._add_relationship_info(field_info, field)
+            if isinstance(field, ForeignKey):
+                field_info['related_model'] = field.related_model.__name__
+                field_info['related_app'] = field.related_model._meta.app_label
+                field_info['is_lookup'] = field.related_model._meta.app_label == 'lookup'
+                field_info['is_fk'] = True
+            elif isinstance(field, ManyToManyField):
+                field_info['related_model'] = field.related_model.__name__
+                field_info['related_app'] = field.related_model._meta.app_label
+                field_info['is_m2m'] = True
             
-            # Handle choices
-            if hasattr(field, 'choices') and field.choices:
-                field_info['has_choices'] = True
-                field_info['choices'] = [
-                    {'value': str(choice[0]), 'display': str(choice[1])} 
-                    for choice in field.choices
-                ]
-            
-            return field_info
-            
-        except Exception as e:
-            logger.error(f"Error extracting field info for {model_name}.{field.name}: {e}")
-            return None
+            fields_info[field.name] = field_info
+        
+        return fields_info
     
-    def _get_field_data_type(self, field) -> str:
-        """Map Django field types to validation data types."""
-        if isinstance(field, (models.CharField, models.TextField)):
-            return 'String'
-        elif isinstance(field, models.IntegerField):
-            return 'Integer'
-        elif isinstance(field, (models.DecimalField, models.FloatField)):
-            return 'Float'
-        elif isinstance(field, models.BooleanField):
-            return 'Boolean'
-        elif isinstance(field, models.DateField):
-            return 'Date'
-        elif isinstance(field, models.DateTimeField):
-            return 'DateTime'
-        elif isinstance(field, models.TimeField):
-            return 'Time'
-        elif isinstance(field, models.UUIDField):
-            return 'UUID'
-        elif isinstance(field, models.ForeignKey):
-            return 'ForeignKey'
-        elif isinstance(field, models.ManyToManyField):
-            return 'ManyToMany'
-        elif isinstance(field, models.JSONField):
-            return 'JSON'
-        else:
-            return 'String'
-    
-    def _is_field_required(self, field) -> bool:
-        """Determine if a field is required."""
-        # Primary keys are not required for import (auto-generated)
-        if getattr(field, 'primary_key', False):
-            return False
-        
-        # Fields with defaults are not required
-        if hasattr(field, 'has_default') and field.has_default():
-            return False
-            
-        # Check null and blank
-        null = getattr(field, 'null', False)
-        blank = getattr(field, 'blank', False)
-        
-        return not (null or blank)
-    
-    def _get_default_value(self, field):
-        """Get the default value for a field."""
-        if not hasattr(field, 'has_default') or not field.has_default():
-            return None
-        
-        default = field.default
-        if callable(default):
-            return None  # Don't try to call it
-        
-        return str(default) if default is not None else None
-    
-    def _add_relationship_info(self, field_info: Dict, field) -> None:
-        """Add relationship information to field_info."""
-        try:
-            related_model = field.related_model
-            field_info['related_model'] = related_model.__name__
-            field_info['related_table'] = related_model._meta.db_table
-            field_info['related_app'] = related_model._meta.app_label
-            
-            # Check if it's a lookup table
-            if related_model._meta.app_label == 'lookup':
-                field_info['is_lookup'] = True
-                field_info['lookup_model'] = related_model.__name__
-                
-            # Add on_delete info for ForeignKey
-            if isinstance(field, models.ForeignKey):
-                field_info['on_delete'] = field.remote_field.on_delete.__name__
-                
-        except Exception as e:
-            logger.error(f"Error adding relationship info: {e}")
-    
-    def _extract_validators(self, field) -> List[Dict]:
-        """Extract validator information from a field."""
-        field_validators = []
-        
-        if not hasattr(field, 'validators'):
-            return field_validators
-        
-        # Detect custom validator patterns from client_app.models
-        validator_list = field.validators
-        
-        # Check for percentage_validator pattern (MinValue 0, MaxValue 100)
-        if self._is_percentage_validator(validator_list):
-            field_validators.append({'type': 'percentage_validator'})
-        
-        # Check for positive_decimal_validator pattern (MinValue 0)
-        elif self._is_positive_decimal_validator(validator_list):
-            field_validators.append({'type': 'positive_decimal_validator'})
-        
-        # Check for allred_score_validator pattern (MinValue 0, MaxValue 8)
-        elif self._is_allred_score_validator(validator_list):
-            field_validators.append({'type': 'allred_score_validator'})
-        
-        # Extract standard validators
-        for validator in validator_list:
-            validator_info = {
-                'type': validator.__class__.__name__,
-            }
-            
-            try:
-                if isinstance(validator, validators.MinValueValidator):
-                    validator_info['min_value'] = str(validator.limit_value)
-                elif isinstance(validator, validators.MaxValueValidator):
-                    validator_info['max_value'] = str(validator.limit_value)
-                elif isinstance(validator, validators.MinLengthValidator):
-                    validator_info['min_length'] = validator.limit_value
-                elif isinstance(validator, validators.MaxLengthValidator):
-                    validator_info['max_length'] = validator.limit_value
-                elif isinstance(validator, validators.RegexValidator):
-                    validator_info['regex'] = validator.regex.pattern
-                    validator_info['message'] = validator.message
-                elif isinstance(validator, validators.EmailValidator):
-                    validator_info['email'] = True
-                elif isinstance(validator, validators.URLValidator):
-                    validator_info['url'] = True
-                elif isinstance(validator, validators.FileExtensionValidator):
-                    validator_info['allowed_extensions'] = validator.allowed_extensions
-                    
-                field_validators.append(validator_info)
-                
-            except Exception as e:
-                logger.error(f"Error extracting validator info: {e}")
-                continue
-        
-        return field_validators
-    
-    def _is_percentage_validator(self, validator_list) -> bool:
-        """Check if validator list matches percentage_validator pattern (0-100)."""
-        from decimal import Decimal
-        has_min_0 = False
-        has_max_100 = False
-        
-        for v in validator_list:
-            if isinstance(v, validators.MinValueValidator):
-                if v.limit_value == Decimal('0.0') or v.limit_value == 0:
-                    has_min_0 = True
-            if isinstance(v, validators.MaxValueValidator):
-                if v.limit_value == Decimal('100.0') or v.limit_value == 100:
-                    has_max_100 = True
-        
-        return has_min_0 and has_max_100
-    
-    def _is_positive_decimal_validator(self, validator_list) -> bool:
-        """Check if validator list matches positive_decimal_validator pattern (>= 0)."""
-        from decimal import Decimal
-        
-        # Must have MinValue 0 and NOT have MaxValue 100 (to distinguish from percentage)
-        has_min_0 = False
-        has_max_100 = False
-        
-        for v in validator_list:
-            if isinstance(v, validators.MinValueValidator):
-                if v.limit_value == Decimal('0.0') or v.limit_value == 0:
-                    has_min_0 = True
-            if isinstance(v, validators.MaxValueValidator):
-                if v.limit_value == Decimal('100.0') or v.limit_value == 100:
-                    has_max_100 = True
-        
-        return has_min_0 and not has_max_100
-    
-    def _is_allred_score_validator(self, validator_list) -> bool:
-        """Check if validator list matches allred_score_validator pattern (0-8)."""
-        has_min_0 = False
-        has_max_8 = False
-        
-        for v in validator_list:
-            if isinstance(v, validators.MinValueValidator):
-                if str(v.limit_value) == '0':
-                    has_min_0 = True
-            if isinstance(v, validators.MaxValueValidator):
-                if str(v.limit_value) == '8':
-                    has_max_8 = True
-        
-        return has_min_0 and has_max_8
-    
-    def get_fields_by_model(self, model_name: str) -> List[Dict]:
-        """Get all fields for a specific model."""
-        all_fields = self.get_all_fields()
-        return [f for f in all_fields if f['model_name'] == model_name]
-    
-    def get_field(self, table_name: str, field_name: str) -> Optional[Dict]:
-        """Get a specific field by table name and field name."""
-        all_fields = self.get_all_fields()
-        for field in all_fields:
-            if field['table_name'] == table_name and field['field_name'] == field_name:
-                return field
-        return None
-    
-    def get_lookup_fields(self) -> List[Dict]:
-        """Get all fields that reference lookup tables."""
-        all_fields = self.get_all_fields()
-        return [f for f in all_fields if f['is_lookup']]
-    
-    def get_relationship_fields(self) -> List[Dict]:
-        """Get all FK and M2M fields."""
-        all_fields = self.get_all_fields()
-        return [f for f in all_fields if f['is_foreign_key'] or f['is_many_to_many']]
-    
-    def get_lookup_table_values(self, lookup_model_name: str) -> List[Dict]:
+    @staticmethod
+    def get_date_fields(model_name):
         """
-        Get all values from a lookup table.
+        Returns list of date/datetime field names for a model.
         
         Args:
-            lookup_model_name: Name of the lookup model
+            model_name (str): Name of the model
             
         Returns:
-            List of dictionaries with lookup values
+            list: Date field names
         """
-        if lookup_model_name not in self.lookup_app_models:
-            return []
-        
-        model = self.lookup_app_models[lookup_model_name]
-        values = []
-        
         try:
-            # Get all instances
-            for instance in model.objects.all():
-                value_dict = {
-                    'pk': str(instance.pk),
-                }
-                
-                # Try to get common fields
-                for field_name in ['code', 'name', 'description', 'value']:
-                    if hasattr(instance, field_name):
-                        value_dict[field_name] = str(getattr(instance, field_name))
-                
-                # Get string representation
-                value_dict['str'] = str(instance)
-                
-                values.append(value_dict)
-                
-        except Exception as e:
-            logger.error(f"Error getting lookup values for {lookup_model_name}: {e}")
-        
-        return values
+            model = apps.get_model('client_app', model_name)
+            return [f.name for f in model._meta.get_fields() 
+                    if isinstance(f, (DateField, DateTimeField)) and 
+                    f.name not in ['created_at', 'updated_at']]
+        except LookupError:
+            return []
     
-    def clear_cache(self):
-        """Clear the field cache."""
-        self._field_cache = None
+    @staticmethod
+    def get_fk_fields(model_name):
+        """
+        Returns dict of FK field names and their related models.
+        
+        Args:
+            model_name (str): Name of the model
+            
+        Returns:
+            dict: {field_name: related_model_name}
+        """
+        try:
+            model = apps.get_model('client_app', model_name)
+            return {f.name: f.related_model.__name__ 
+                    for f in model._meta.get_fields() 
+                    if isinstance(f, ForeignKey)}
+        except LookupError:
+            return {}
+    
+    @staticmethod
+    def get_lookup_fields(model_name):
+        """
+        Returns dict of fields that reference lookup tables.
+        
+        Args:
+            model_name (str): Name of the model
+            
+        Returns:
+            dict: {field_name: lookup_model_name}
+        """
+        try:
+            model = apps.get_model('client_app', model_name)
+            lookup_fields = {}
+            
+            for field in model._meta.get_fields():
+                if isinstance(field, (ForeignKey, ManyToManyField)):
+                    if field.related_model._meta.app_label == 'lookup':
+                        lookup_fields[field.name] = field.related_model.__name__
+            
+            return lookup_fields
+        except LookupError:
+            return {}
+    
+    @staticmethod
+    def get_required_fields(model_name):
+        """
+        Returns list of required field names (not blank, not null).
+        
+        Args:
+            model_name (str): Name of the model
+            
+        Returns:
+            list: Required field names
+        """
+        try:
+            model = apps.get_model('client_app', model_name)
+            required = []
+            
+            for field in model._meta.get_fields():
+                # Skip reverse relations
+                if hasattr(field, 'related_name') and field.related_name and not isinstance(field, (ForeignKey, ManyToManyField)):
+                    continue
+                
+                # Skip auto fields
+                if isinstance(field, (AutoField, UUIDField)) and field.primary_key:
+                    continue
+                
+                if not getattr(field, 'blank', True) or not getattr(field, 'null', True):
+                    required.append(field.name)
+            
+            return required
+        except LookupError:
+            return []
+    
+    @staticmethod
+    def get_field_widget_type(field_info):
+        """
+        Determine appropriate HTML widget type for a field.
+        
+        Args:
+            field_info (dict): Field metadata
+            
+        Returns:
+            str: Widget type (e.g., 'text', 'select', 'date', 'checkbox')
+        """
+        field_type = field_info.get('type')
+        
+        if field_info.get('choices'):
+            return 'select'
+        elif field_info.get('is_fk') or field_info.get('is_m2m'):
+            return 'select'
+        elif field_type in ['DateField', 'DateTimeField']:
+            return 'date'
+        elif field_type == 'BooleanField':
+            return 'checkbox'
+        elif field_type in ['IntegerField', 'PositiveIntegerField', 'BigIntegerField']:
+            return 'number'
+        elif field_type == 'DecimalField':
+            return 'number'
+        elif field_type == 'TextField':
+            return 'textarea'
+        else:
+            return 'text'
+    
+    @staticmethod
+    def get_model_display_info(model_name):
+        """
+        Get display information for a model including name, verbose name, and field count.
+        
+        Args:
+            model_name (str): Name of the model
+            
+        Returns:
+            dict: Display information
+        """
+        try:
+            model = apps.get_model('client_app', model_name)
+            fields = FieldIntrospectionService.get_model_fields(model_name)
+            
+            return {
+                'name': model_name,
+                'verbose_name': model._meta.verbose_name,
+                'verbose_name_plural': model._meta.verbose_name_plural,
+                'doc': model.__doc__,
+                'field_count': len(fields),
+                'fields': fields,
+            }
+        except LookupError:
+            return {}

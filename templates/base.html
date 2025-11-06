@@ -62,9 +62,6 @@
                         <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
                         </a>
-                        <a href="{% url 'data_import:import_step1_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-file-import mr-2"></i>Data Import
-                        </a>
                         {% endif %}
                         <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-cog mr-2"></i>Administration
@@ -129,9 +126,6 @@
                 </a>
                 <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
-                </a>
-                <a href="{% url 'data_import:import_step1_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-import mr-2"></i>Data Import
                 </a>
                 {% endif %}
                 <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">

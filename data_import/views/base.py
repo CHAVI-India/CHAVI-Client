@@ -1,134 +1,133 @@
 """
-Base view class for the import wizard.
+Base view class for import workflow.
 """
-from django.views.generic import TemplateView
+
+from django.views.generic import View
+from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import redirect, get_object_or_404
-from data_import.models import ImportData, ImportStatus
-from typing import Dict, Any
+from django.contrib import messages
+from ..models import FileImportSession, FileImportSessionStep
 
 
-class WizardStepMixin(LoginRequiredMixin):
+class BaseImportView(LoginRequiredMixin, View):
     """
-    Mixin for wizard step views.
-    Provides common functionality for all wizard steps.
+    Base view for all import workflow steps.
+    Provides common functionality for session management and navigation.
     """
     
-    # Step configuration
-    step_number = None
-    step_title = None
-    step_status = None
+    # Override in subclasses
+    step_identifier = None  # e.g., FileImportSessionStep.UPLOAD
+    step_name = None  # Display name
     template_name = None
     
-    # Navigation (without namespace - will be added in templates)
-    next_step_url_name = None
-    previous_step_url_name = None
+    # Step order - defines the sequence of steps
+    STEP_ORDER = [
+        FileImportSessionStep.UPLOAD,
+        FileImportSessionStep.PATIENT_ID,
+        FileImportSessionStep.MODEL_SELECTION,
+        FileImportSessionStep.FIELD_MAPPING,
+        FileImportSessionStep.COLUMN_VALUE,
+        FileImportSessionStep.DATE_FORMAT,
+        FileImportSessionStep.DURATION_DATE,
+        FileImportSessionStep.LOOKUP_MAPPING,
+        FileImportSessionStep.DEFAULT_VALUES,  # New step 9
+        FileImportSessionStep.MISSING_RELATIONS,  # Now step 10
+        FileImportSessionStep.REVIEW,  # Now step 11
+        FileImportSessionStep.EXECUTE,  # Now step 12
+    ]
     
-    def get_next_step_url(self):
-        """Get namespaced next step URL name."""
-        return f'data_import:{self.next_step_url_name}' if self.next_step_url_name else None
-    
-    def get_previous_step_url(self):
-        """Get namespaced previous step URL name."""
-        return f'data_import:{self.previous_step_url_name}' if self.previous_step_url_name else None
-    
-    def get_import_data(self, import_id: int) -> ImportData:
+    def get_session(self, session_id):
         """
-        Get the ImportData instance for this wizard session.
-        
-        Args:
-            import_id: ID of the ImportData instance
-            
-        Returns:
-            ImportData instance
+        Get the import session or return 404.
         """
-        return get_object_or_404(ImportData, id=import_id)
+        return get_object_or_404(FileImportSession, id=session_id)
     
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        """Add wizard context to template."""
-        context = super().get_context_data(**kwargs)
-        
-        # Get import data if import_id is in kwargs
-        import_id = self.kwargs.get('import_id')
-        if import_id:
-            import_data = self.get_import_data(import_id)
-            context['import_data'] = import_data
-            context['progress_percentage'] = import_data.get_progress_percentage()
-        
-        # Add wizard navigation context
-        context.update({
-            'step_number': self.step_number,
-            'step_title': self.step_title,
-            'total_steps': 9,
-            'next_step_url_name': f'data_import:{self.next_step_url_name}' if self.next_step_url_name else None,
-            'previous_step_url_name': f'data_import:{self.previous_step_url_name}' if self.previous_step_url_name else None,
-            'wizard_steps': self.get_wizard_steps(),
-        })
-        
-        return context
-    
-    def get_wizard_steps(self) -> list:
-        """
-        Get list of all wizard steps with their status.
-        
-        Returns:
-            List of step dictionaries
-        """
-        steps = [
-            {'number': 1, 'title': 'Upload File', 'status': ImportStatus.UPLOADED},
-            {'number': 2, 'title': 'Map Fields', 'status': ImportStatus.FIELD_MAPPING},
-            {'number': 3, 'title': 'Date Formats', 'status': ImportStatus.DATE_FORMAT_CONFIG},
-            {'number': 4, 'title': 'Date Intervals', 'status': ImportStatus.DATE_INTERVAL_CONFIG},
-            {'number': 5, 'title': 'Validate Data', 'status': ImportStatus.VALIDATING},
-            {'number': 6, 'title': 'Lookup Matching', 'status': ImportStatus.LOOKUP_MATCHING},
-            {'number': 7, 'title': 'Static Mapping', 'status': ImportStatus.FIELD_MAPPING},
-            {'number': 8, 'title': 'UUID Mapping', 'status': ImportStatus.UUID_MAPPING},
-            {'number': 9, 'title': 'Import', 'status': ImportStatus.IMPORTING},
-        ]
-        
-        # Mark current step
-        if self.step_number:
-            for step in steps:
-                if step['number'] == self.step_number:
-                    step['is_current'] = True
-                elif step['number'] < self.step_number:
-                    step['is_completed'] = True
-        
-        return steps
-    
-    def update_import_status(self, import_data: ImportData, status: ImportStatus):
-        """
-        Update the status of the import.
-        
-        Args:
-            import_data: ImportData instance
-            status: New status
-        """
-        import_data.status = status
-        import_data.save(update_fields=['status', 'updated_at'])
-    
-    def validate_step_access(self, import_data: ImportData) -> bool:
+    def validate_step_access(self, session):
         """
         Validate that the user can access this step.
-        Override in subclasses to add step-specific validation.
-        
-        Args:
-            import_data: ImportData instance
-            
-        Returns:
-            True if access is allowed, False otherwise
+        Users can only access the current step or previous steps.
         """
-        return True
+        if not self.step_identifier:
+            return True
+        
+        current_step = session.import_session_step
+        current_step_index = self._get_step_index(current_step)
+        requested_step_index = self._get_step_index(self.step_identifier)
+        
+        # Allow access to current step or any previous step
+        if requested_step_index <= current_step_index:
+            return True
+        
+        # Cannot skip ahead
+        messages.error(
+            self.request,
+            f"Please complete {self._get_step_display_name(current_step)} before proceeding."
+        )
+        return False
     
-    def dispatch(self, request, *args, **kwargs):
+    def _get_step_index(self, step_identifier):
+        """Get the index of a step in the step order."""
+        try:
+            return self.STEP_ORDER.index(step_identifier)
+        except ValueError:
+            return 0
+    
+    def _get_step_display_name(self, step_identifier):
+        """Get display name for a step."""
+        step_names = {
+            FileImportSessionStep.UPLOAD: 'Upload CSV',
+            FileImportSessionStep.PATIENT_ID: 'Patient ID Mapping',
+            FileImportSessionStep.MODEL_SELECTION: 'Model Selection',
+            FileImportSessionStep.FIELD_MAPPING: 'Field Mapping',
+            FileImportSessionStep.COLUMN_VALUE: 'Column Value Mapping',
+            FileImportSessionStep.DATE_FORMAT: 'Date Format',
+            FileImportSessionStep.DURATION_DATE: 'Duration Date',
+            FileImportSessionStep.LOOKUP_MAPPING: 'Lookup Mapping',
+            FileImportSessionStep.DEFAULT_VALUES: 'Default Values',  # New step 9
+            FileImportSessionStep.MISSING_RELATIONS: 'Missing Relations',  # Now step 10
+            FileImportSessionStep.REVIEW: 'Review',  # Now step 11
+            FileImportSessionStep.EXECUTE: 'Execute Import',  # Now step 12
+        }
+        return step_names.get(step_identifier, 'Unknown Step')
+    
+    def update_session_step(self, session, next_step_identifier):
         """
-        Validate step access before processing request.
+        Update the session's current step.
+        Only update if moving forward or equal (to mark completion).
         """
-        import_id = kwargs.get('import_id')
-        if import_id:
-            import_data = self.get_import_data(import_id)
-            if not self.validate_step_access(import_data):
-                # Redirect to appropriate step based on current status
-                return redirect('import_step1_upload')
+        current_step_index = self._get_step_index(session.import_session_step)
+        next_step_index = self._get_step_index(next_step_identifier)
         
-        return super().dispatch(request, *args, **kwargs)
+        # Only update if moving forward
+        if next_step_index >= current_step_index:
+            session.import_session_step = next_step_identifier
+            session.save()
+    
+    def get_context_data(self, session=None, **kwargs):
+        """
+        Get common context data for all steps.
+        """
+        current_step_index = self._get_step_index(self.step_identifier) if self.step_identifier else 0
+        
+        context = {
+            'session': session,
+            'step_number': current_step_index + 1,  # Display number (1-based)
+            'step_name': self.step_name,
+            'total_steps': len(self.STEP_ORDER),
+            'step_identifier': self.step_identifier,
+        }
+        
+        context.update(kwargs)
+        return context
+    
+    def get_csv_data(self, session):
+        """
+        Get CSV data from the session.
+        Returns (headers, rows, error).
+        """
+        from ..services import CSVProcessorService
+        
+        if not session.csv_file:
+            return None, None, "No CSV file uploaded"
+        
+        return CSVProcessorService.read_csv_file(session.csv_file)

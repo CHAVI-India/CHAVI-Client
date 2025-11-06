@@ -1,0 +1,79 @@
+{% extends "data_import/base_import.html" %}
+{% load import_filters %}
+
+{% block step_content %}
+<div class="space-y-6">
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    Specify the date format for each date field. Sample values from your CSV are shown to help you choose the correct format.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        {% if date_fields_info %}
+        <div class="space-y-4">
+            {% for field_info in date_fields_info %}
+            <div class="border rounded-lg p-4">
+                <h4 class="font-medium text-gray-900 mb-3">
+                    <i class="fas fa-calendar text-chavi-primary mr-2"></i>
+                    {{ field_info.model_name }}.{{ field_info.field_name }}
+                </h4>
+                
+                {% for csv_column in field_info.csv_columns %}
+                <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Date Format for "{{ csv_column }}"
+                    </label>
+                    
+                    {% with sample_index=forloop.counter0 %}
+                    {% if sample_index < field_info.sample_values|length %}
+                    <div class="mb-2 p-2 bg-white rounded border border-gray-200">
+                        <span class="text-xs text-gray-600">Sample from CSV: </span>
+                        <span class="text-sm font-mono text-gray-900 font-semibold">{{ field_info.sample_values|slice:sample_index|first }}</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    
+                    <select name="date_format_{{ csv_column }}" 
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md">
+                        <option value="">-- Select format --</option>
+                        {% for choice_value, choice_label in date_format_choices %}
+                        <option value="{{ choice_value }}" 
+                                {% if existing_formats_dict|get_item:csv_column == choice_value %}selected{% endif %}>
+                            {{ choice_label }} - Example: {{ format_examples|get_item:choice_value }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8 bg-gray-50 rounded-lg">
+            <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
+            <p class="text-gray-600">No date fields detected in your mappings.</p>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-end space-x-3">
+            <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Skip This Step
+            </button>
+            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                Continue to Step 7
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

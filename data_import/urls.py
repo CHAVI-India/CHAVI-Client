@@ -1,34 +1,64 @@
 """
 URL configuration for data import wizard.
 """
+
 from django.urls import path
-from data_import.views import (
-    Step1UploadView,
-    Step2FieldMappingView,
-    Step3DateFormatConfigView,
-    Step4DateIntervalConfigView,
-    Step5ValidationView,
-    Step6LookupMatchingView,
-    Step7StaticMappingView,
-    Step8UUIDMappingView,
-    Step8_5UUIDMatchingView,
-    Step9ImportView,
-    Step10ExecuteView,
+from .views import (
+    ImportSessionListView,
+    Step1UploadCSVView,
+    Step2PatientIDMappingView,
+    Step3ModelSelectionView,
+    Step4FieldMappingView,
+    Step5ColumnValueMappingView,
+    Step6DateFormatView,
+    Step7DurationDateView,
+    Step8LookupMappingView,
+    Step9DefaultValuesView,
+    Step10MissingRelationsView,
+    Step11ReviewView,
+    Step12ExecuteImportView,
 )
 
 app_name = 'data_import'
 
 urlpatterns = [
-    # Wizard steps
-    path('', Step1UploadView.as_view(), name='import_step1_upload'),
-    path('<int:import_id>/map-fields/', Step2FieldMappingView.as_view(), name='import_step2_field_mapping'),
-    path('<int:import_id>/date-formats/', Step3DateFormatConfigView.as_view(), name='import_step3_date_format_config'),
-    path('<int:import_id>/date-intervals/', Step4DateIntervalConfigView.as_view(), name='import_step4_date_interval_config'),
-    path('<int:import_id>/validate/', Step5ValidationView.as_view(), name='import_step5_validation'),
-    path('<int:import_id>/lookup-matching/', Step6LookupMatchingView.as_view(), name='import_step6_lookup_matching'),
-    path('<int:import_id>/static-mapping/', Step7StaticMappingView.as_view(), name='import_step7_static_mapping'),
-    path('<int:import_id>/uuid-mapping/', Step8UUIDMappingView.as_view(), name='import_step8_uuid_mapping'),
-    path('<int:import_id>/uuid-matching/', Step8_5UUIDMatchingView.as_view(), name='import_step8_5_uuid_matching'),
-    path('<int:import_id>/json-preview/', Step9ImportView.as_view(), name='import_step9_json_preview'),
-    path('<int:import_id>/execute/', Step10ExecuteView.as_view(), name='import_step10_execute'),
+    # List all import sessions
+    path('', ImportSessionListView.as_view(), name='session_list'),
+    
+    # Step 1: Upload CSV
+    path('step1/', Step1UploadCSVView.as_view(), name='step1'),
+    path('step1/<int:session_id>/', Step1UploadCSVView.as_view(), name='step1_edit'),
+    
+    # Step 2: Patient ID Mapping
+    path('step2/<int:session_id>/', Step2PatientIDMappingView.as_view(), name='step2'),
+    
+    # Step 3: Model Selection
+    path('step3/<int:session_id>/', Step3ModelSelectionView.as_view(), name='step3'),
+    
+    # Step 4: Field Mapping
+    path('step4/<int:session_id>/', Step4FieldMappingView.as_view(), name='step4'),
+    
+    # Step 5: Column Value Mapping
+    path('step5/<int:session_id>/', Step5ColumnValueMappingView.as_view(), name='step5'),
+    
+    # Step 6: Date Format
+    path('step6/<int:session_id>/', Step6DateFormatView.as_view(), name='step6'),
+    
+    # Step 7: Duration Date Calculation
+    path('step7/<int:session_id>/', Step7DurationDateView.as_view(), name='step7'),
+    
+    # Step 8: Lookup Mapping
+    path('step8/<int:session_id>/', Step8LookupMappingView.as_view(), name='step8'),
+    
+    # Step 9: Default Values
+    path('step9/<int:session_id>/', Step9DefaultValuesView.as_view(), name='step9'),
+    
+    # Step 10: Missing Relations
+    path('step10/<int:session_id>/', Step10MissingRelationsView.as_view(), name='step10'),
+    
+    # Step 11: Review JSON
+    path('step11/<int:session_id>/', Step11ReviewView.as_view(), name='step11'),
+    
+    # Step 12: Execute Import
+    path('step12/<int:session_id>/', Step12ExecuteImportView.as_view(), name='step12'),
 ]

@@ -1,0 +1,106 @@
+{% extends "data_import/base_import.html" %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+{% endblock %}
+
+{% block step_content %}
+<div class="space-y-6">
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <strong>Important:</strong> Please review the generated JSON data carefully before proceeding with the import.
+                    Once imported, this data will be added to your database.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Preview -->
+    <div class="border rounded-lg overflow-hidden">
+        <div class="bg-gray-800 px-4 py-3 flex justify-between items-center">
+            <h3 class="text-white font-medium">
+                <i class="fas fa-code mr-2"></i>Generated JSON Preview
+            </h3>
+            <button type="button" onclick="copyJSON()" class="text-white hover:text-gray-300 text-sm">
+                <i class="fas fa-copy mr-1"></i>Copy
+            </button>
+        </div>
+        <div class="bg-gray-900 p-4 overflow-x-auto max-h-96">
+            <pre><code id="json-preview" class="language-json text-sm">{{ json_preview }}</code></pre>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white border rounded-lg p-4">
+            <div class="text-sm text-gray-500">Session</div>
+            <div class="text-lg font-semibold text-gray-900">{{ json_data.import_session }}</div>
+        </div>
+        <div class="bg-white border rounded-lg p-4">
+            <div class="text-sm text-gray-500">Models</div>
+            <div class="text-lg font-semibold text-gray-900">{{ json_data.selected_models|length }}</div>
+        </div>
+        <div class="bg-white border rounded-lg p-4">
+            <div class="text-sm text-gray-500">Patients</div>
+            <div class="text-lg font-semibold text-gray-900">{{ json_data.patient_count }}</div>
+        </div>
+        <div class="bg-white border rounded-lg p-4">
+            <div class="text-sm text-gray-500">Field Mappings</div>
+            <div class="text-lg font-semibold text-gray-900">{{ json_data.field_mappings }}</div>
+        </div>
+    </div>
+
+    <!-- Confirmation Form -->
+    <form method="post" class="border-t pt-6">
+        {% csrf_token %}
+        
+        <div class="flex items-start mb-6">
+            <div class="flex items-center h-5">
+                <input type="checkbox" 
+                       name="{{ form.confirm_import.name }}" 
+                       id="{{ form.confirm_import.id_for_label }}"
+                       class="h-4 w-4 text-chavi-primary focus:ring-chavi-primary border-gray-300 rounded"
+                       required>
+            </div>
+            <div class="ml-3 text-sm">
+                <label for="{{ form.confirm_import.id_for_label }}" class="font-medium text-gray-700 cursor-pointer">
+                    {{ form.confirm_import.label }}
+                </label>
+                {% if form.confirm_import.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.confirm_import.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                Proceed to Import
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Syntax highlighting
+    document.addEventListener('DOMContentLoaded', function() {
+        hljs.highlightAll();
+    });
+    
+    // Copy JSON function
+    function copyJSON() {
+        const jsonText = document.getElementById('json-preview').textContent;
+        navigator.clipboard.writeText(jsonText).then(function() {
+            alert('JSON copied to clipboard!');
+        });
+    }
+</script>
+{% endblock %}

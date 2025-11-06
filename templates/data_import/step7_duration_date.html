@@ -1,0 +1,236 @@
+{% extends "data_import/base_import.html" %}
+
+{% block step_content %}
+<div class="space-y-6">
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <h4 class="text-sm font-semibold text-blue-900 mb-2">Calculate Dates from Duration Fields</h4>
+                <p class="text-sm text-blue-700 mb-2">
+                    Transform duration values (like "Age at diagnosis") into actual dates by adding them to a reference date.
+                </p>
+                <div class="bg-blue-100 rounded p-2 text-xs text-blue-800">
+                    <p class="font-semibold mb-1">Example:</p>
+                    <p>"Age at diagnosis" (45 years) + "Date of birth" (1978-05-20) = "Diagnosis date" (2023-05-20)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <div id="duration-mappings" class="space-y-4">
+            <!-- Duration mappings will be added here -->
+            {% if existing_mappings %}
+            {% for mapping in existing_mappings %}
+            <input type="hidden" class="existing-mapping" 
+                   data-csv-field="{{ mapping.csv_duration_field }}"
+                   data-unit="{{ mapping.duration_unit }}"
+                   data-ref-value="{{ mapping.reference_date }}"
+                   data-ref-type="{{ mapping.reference_date_type }}"
+                   data-ref-format="{{ mapping.reference_date_format }}"
+                   data-target-field="{{ mapping.client_app_date_field }}">
+            {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div>
+            <button type="button" onclick="addDurationMapping()" class="inline-flex items-center px-4 py-2 border-2 border-chavi-primary text-chavi-primary rounded-md hover:bg-chavi-primary hover:text-white transition-colors font-medium">
+                <i class="fas fa-plus mr-2"></i>
+                Add Duration Calculation
+            </button>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+            <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Skip This Step
+            </button>
+            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                Continue to Step 8
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+let mappingIndex = 0;
+const csvHeaders = {{ csv_headers|safe }};
+const dateFields = {{ all_date_fields|safe }};
+const durationUnits = {{ duration_units|safe }};
+const referenceDateTypes = {{ reference_date_types|safe }};
+const dateFormats = {{ date_formats|safe }};
+
+function addDurationMapping(existingData = null) {
+    const container = document.getElementById('duration-mappings');
+    const index = mappingIndex++;
+    
+    const mappingDiv = document.createElement('div');
+    mappingDiv.className = 'duration-mapping border-2 border-gray-200 rounded-lg p-6 bg-white shadow-sm';
+    mappingDiv.setAttribute('data-index', index);
+    
+    mappingDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-calculator text-chavi-primary mr-2"></i>
+                Duration Calculation #${index + 1}
+            </h3>
+            <button type="button" onclick="removeDurationMapping(this)" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                <i class="fas fa-trash mr-1"></i>Remove
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Duration Field -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Duration Field (CSV Column) <span class="text-red-500">*</span>
+                </label>
+                <select name="duration_${index}_csv_field" required
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    <option value="">-- Select CSV column --</option>
+                    ${csvHeaders.map(h => `<option value="${h}" ${existingData && existingData.csvField === h ? 'selected' : ''}>${h}</option>`).join('')}
+                </select>
+            </div>
+            
+            <!-- Duration Unit -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Duration Unit <span class="text-red-500">*</span>
+                </label>
+                <select name="duration_${index}_unit" required
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    ${durationUnits.map(u => `<option value="${u[0]}" ${existingData && existingData.unit === u[0] ? 'selected' : ''}>${u[1]}</option>`).join('')}
+                </select>
+            </div>
+            
+            <!-- Reference Date Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Reference Date Type <span class="text-red-500">*</span>
+                </label>
+                <select name="duration_${index}_ref_type" required onchange="updateReferenceInput(${index}, this.value)"
+                        class="ref-type-select block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    ${referenceDateTypes.map(t => `<option value="${t[0]}" ${existingData && existingData.refType === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}
+                </select>
+            </div>
+            
+            <!-- Reference Date Value -->
+            <div id="ref_value_container_${index}">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Reference Date <span class="text-red-500">*</span>
+                </label>
+                <select name="duration_${index}_ref_value" required
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    <option value="">-- Select CSV column --</option>
+                    ${csvHeaders.map(h => `<option value="${h}" ${existingData && existingData.refValue === h ? 'selected' : ''}>${h}</option>`).join('')}
+                </select>
+            </div>
+            
+            <!-- Reference Date Format -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Reference Date Format
+                </label>
+                <select name="duration_${index}_ref_format"
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    <option value="">-- Auto-detect or select --</option>
+                    ${dateFormats.map(f => `<option value="${f[0]}" ${existingData && existingData.refFormat === f[0] ? 'selected' : ''}>${f[1]}</option>`).join('')}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Leave empty for auto-detection</p>
+            </div>
+            
+            <!-- Target Date Field -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Target Date Field (Model) <span class="text-red-500">*</span>
+                </label>
+                <select name="duration_${index}_target_field" required
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                    <option value="">-- Select date field --</option>
+                    ${dateFields.map(f => `<option value="${f}" ${existingData && existingData.targetField === f ? 'selected' : ''}>${f}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(mappingDiv);
+    
+    // If existing data and ref type is CUSTOM, update the widget
+    if (existingData && existingData.refType === 'CUSTOM') {
+        updateReferenceInput(index, 'CUSTOM', existingData.refValue);
+    }
+}
+
+function removeDurationMapping(button) {
+    const mapping = button.closest('.duration-mapping');
+    mapping.remove();
+    
+    // Renumber remaining mappings
+    const mappings = document.querySelectorAll('.duration-mapping');
+    mappings.forEach((m, idx) => {
+        const title = m.querySelector('h3');
+        title.innerHTML = `<i class="fas fa-calculator text-chavi-primary mr-2"></i>Duration Calculation #${idx + 1}`;
+    });
+}
+
+function updateReferenceInput(index, refType, existingValue = '') {
+    const container = document.getElementById(`ref_value_container_${index}`);
+    
+    if (refType === 'CUSTOM') {
+        // Show date picker
+        container.innerHTML = `
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Reference Date (Custom) <span class="text-red-500">*</span>
+            </label>
+            <input type="date" name="duration_${index}_ref_value" required
+                   value="${existingValue}"
+                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+            <p class="mt-1 text-xs text-gray-500">Enter a specific date</p>
+        `;
+    } else {
+        // Show CSV column selector
+        container.innerHTML = `
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Reference Date (CSV Column) <span class="text-red-500">*</span>
+            </label>
+            <select name="duration_${index}_ref_value" required
+                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
+                <option value="">-- Select CSV column --</option>
+                ${csvHeaders.map(h => `<option value="${h}" ${existingValue === h ? 'selected' : ''}>${h}</option>`).join('')}
+            </select>
+            <p class="mt-1 text-xs text-gray-500">Select column containing dates</p>
+        `;
+    }
+}
+
+// Load existing mappings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const existingMappings = document.querySelectorAll('.existing-mapping');
+    
+    if (existingMappings.length > 0) {
+        existingMappings.forEach(mapping => {
+            const data = {
+                csvField: mapping.dataset.csvField,
+                unit: mapping.dataset.unit,
+                refValue: mapping.dataset.refValue,
+                refType: mapping.dataset.refType,
+                refFormat: mapping.dataset.refFormat,
+                targetField: mapping.dataset.targetField
+            };
+            addDurationMapping(data);
+        });
+        
+        // Remove the hidden inputs
+        existingMappings.forEach(m => m.remove());
+    } else {
+        // Add one empty mapping by default
+        addDurationMapping();
+    }
+});
+</script>
+{% endblock %}

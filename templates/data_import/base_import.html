@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}{{ step_name }} - Data Import - CHAVI Client{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+    }
+    .step-item {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+    .step-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background: #e5e7eb;
+        z-index: -1;
+    }
+    .step-item.active:not(:last-child)::after {
+        background: #667eea;
+    }
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e5e7eb;
+        color: #6b7280;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    .step-item.active .step-circle {
+        background: #667eea;
+        color: white;
+    }
+    .step-item.completed .step-circle {
+        background: #10b981;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+            <i class="fas fa-file-import text-chavi-primary mr-3"></i>Data Import Workflow
+        </h1>
+        {% if session %}
+        <p class="text-gray-600">
+            Session: <span class="font-semibold">{{ session.import_session_name }}</span>
+            {% if session.project_name.all %}
+            | Projects: 
+            {% for project in session.project_name.all %}
+                <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ project }}</span>
+            {% endfor %}
+            {% endif %}
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+        <div class="step-indicator">
+            {% for i in "12345678910"|make_list %}
+                <div class="step-item {% if step_number == forloop.counter %}active{% elif current_step_num >= forloop.counter %}completed{% endif %}">
+                    <div class="step-circle">
+                        {% if current_step_num > forloop.counter %}
+                            <i class="fas fa-check"></i>
+                        {% else %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-gray-600">
+                        {% if forloop.counter == 1 %}Upload
+                        {% elif forloop.counter == 2 %}Patient ID
+                        {% elif forloop.counter == 3 %}Models
+                        {% elif forloop.counter == 4 %}Fields
+                        {% elif forloop.counter == 5 %}Values
+                        {% elif forloop.counter == 6 %}Dates
+                        {% elif forloop.counter == 7 %}Duration
+                        {% elif forloop.counter == 8 %}Lookups
+                        {% elif forloop.counter == 9 %}Relations
+                        {% elif forloop.counter == 10 %}Review
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="rounded-md p-4 mb-3 {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    {% if message.tags == 'error' %}
+                        <i class="fas fa-exclamation-circle"></i>
+                    {% elif message.tags == 'success' %}
+                        <i class="fas fa-check-circle"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="ml-3">
+                    {{ message }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <div class="bg-white rounded-lg shadow-sm p-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">
+            Step {{ step_number }}: {{ step_name }}
+        </h2>
+        
+        {% block step_content %}
+        {% endblock %}
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="mt-6 flex justify-between">
+        <div>
+            {% if previous_step_url %}
+            <a href="{{ previous_step_url }}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary transition-all">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Previous Step
+            </a>
+            {% else %}
+            <a href="{% url 'data_import:session_list' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary transition-all">
+                <i class="fas fa-list mr-2"></i>
+                All Sessions
+            </a>
+            {% endif %}
+        </div>
+        
+        {% block navigation_buttons %}
+        {% endblock %}
+    </div>
+</div>
+{% endblock %}

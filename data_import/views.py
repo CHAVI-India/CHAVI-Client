@@ -1,3 +1,6 @@
-from django.shortcuts import render
+"""
+Import workflow views.
+All views are organized in the views/ package.
+"""
 
-# Create your views here.
+from .views import *

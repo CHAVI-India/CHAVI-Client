@@ -1,0 +1,78 @@
+{% extends "data_import/base_import.html" %}
+
+{% block step_content %}
+<div class="space-y-6">
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    Map CSV values to lookup table values. This ensures data consistency with predefined codes.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        {% if lookup_fields_info %}
+        <div class="space-y-6">
+            {% for field_info in lookup_fields_info %}
+            <div class="border rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-list text-chavi-primary mr-2"></i>
+                    {{ field_info.model_name }}.{{ field_info.field_name }}
+                    <span class="text-sm text-gray-500 font-normal ml-2">({{ field_info.lookup_model }})</span>
+                </h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CSV Value</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lookup Code</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for csv_value in field_info.unique_csv_values %}
+                            <tr>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ csv_value }}</td>
+                                <td class="px-4 py-3">
+                                    <select name="lookup_{{ field_info.csv_columns.0 }}_{{ csv_value }}" 
+                                            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md">
+                                        <option value="">-- Select lookup value --</option>
+                                        {% for lookup in field_info.lookup_values %}
+                                        <option value="{{ lookup.code }}">{{ lookup.code }} - {{ lookup.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8 bg-gray-50 rounded-lg">
+            <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
+            <p class="text-gray-600">No lookup fields detected in your mappings.</p>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-end space-x-3">
+            <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Skip This Step
+            </button>
+            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                Continue to Step 9
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -3,402 +3,298 @@ from client_app.models import Project
 from django.core.validators import FileExtensionValidator
 # Create your models here.
 
-class DataType(models.TextChoices):
-    '''
-    This is a choice field for the type of file being uploaded.
-    '''
-    JSON = 'JSON', 'JSON'
-    CSV = 'CSV', 'CSV'
-
-class ImportStatus(models.TextChoices):
-    '''
-    Status choices for the import process.
-    '''
-    UPLOADED = 'uploaded', 'Uploaded'
-    FIELD_MAPPING = 'field_mapping', 'Field Mapping'
-    DATE_FORMAT_CONFIG = 'date_format_config', 'Date Format Configuration'
-    DATE_INTERVAL_CONFIG = 'date_interval_config', 'Date Interval Configuration'
-    VALIDATING = 'validating', 'Validating'
-    LOOKUP_MATCHING = 'lookup_matching', 'Lookup Matching'
-    STATIC_MAPPING = 'static_mapping', 'Static Mapping'
-    UUID_MAPPING = 'uuid_mapping', 'UUID Mapping'
-    JSON_PREVIEW = 'json_preview', 'JSON Preview'
-    IMPORTING = 'importing', 'Importing'
-    COMPLETED = 'completed', 'Completed'
-    FAILED = 'failed', 'Failed'
-
-class DataFormatType(models.TextChoices):
-    '''
-    This is a choice field for the type of data format in the file.
-    '''
-    SINGLE_INSTANCE_PER_PATIENT = 'Single Instance Per Patient', 'Single Instance Per Patient'
-    MULTIPLE_INSTANCES_PER_PATIENT = 'Multiple Instances Per Patient', 'Multiple Instances or Repeating Instances Per Patient'
+class FileImportSessionStep(models.TextChoices):
+    UPLOAD = 'upload_csv'
+    PATIENT_ID = 'patient_id_mapping'
+    MODEL_SELECTION = 'model_selection'
+    FIELD_MAPPING = 'field_mapping'
+    COLUMN_VALUE = 'column_value_mapping'
+    DATE_FORMAT = 'date_format'
+    DURATION_DATE = 'duration_date'
+    LOOKUP_MAPPING = 'lookup_mapping'
+    DEFAULT_VALUES = 'default_values'  # New step 9
+    MISSING_RELATIONS = 'missing_relations'  # Now step 10
+    REVIEW = 'review'  # Now step 11
+    EXECUTE = 'execute_import'  # Now step 12
+    
 
 
-class ImportData(models.Model):
+class FileImportSession(models.Model):
     '''
-    This is a model to store information about the file being uploaded and track import progress.
+    This is a model to store information about the data import session per file
     '''
     id = models.AutoField(primary_key=True)
-    data_type = models.CharField(
-        max_length=10, 
-        choices=DataType.choices,
-        help_text="The type of file to be imported."
-    )
-    data_format_type = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-        default=DataFormatType.SINGLE_INSTANCE_PER_PATIENT,
-        choices=DataFormatType.choices,
-        help_text="The format of the data in the file."
-    )
-    import_data_title = models.CharField(max_length=255,null=True,blank=True,
-    help_text="The title of the import data.")
-    file = models.FileField(
-        upload_to='import_data/',
-        null=True,
-        blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=["json","csv"])],
-        help_text="The file to be imported."
-    )
-    project = models.ManyToManyField(
-        'client_app.Project',
-        help_text="The project(s) to which the data belongs."
-    )
-    
-    # Status tracking
-    status = models.CharField(
-        max_length=20,
-        choices=ImportStatus.choices,
-        default=ImportStatus.UPLOADED,
-        help_text="Current status of the import process."
-    )
-    
-    # Data statistics
-    row_count = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Total number of rows in the imported file."
-    )
-    processed_rows = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of rows successfully processed."
-    )
-    
-    # Validation and error tracking
-    validation_errors = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="Validation errors encountered during import (JSON format)."
-    )
-    
-    # Import summary
-    import_summary = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="Summary of the import process including statistics and results (JSON format)."
-    )
-    
-    # Error log
-    error_log = models.TextField(
-        null=True,
-        blank=True,
-        help_text="Detailed error log if import fails."
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Import Data"
-        verbose_name_plural = "Import Data"
-        db_table = "import_data"
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['status', '-created_at']),
-            models.Index(fields=['data_type', 'status']),
-        ]
+    project_name = models.ManyToManyField(Project, help_text="Select the name of the Projects for which this patient data is being imported. Please note that multiple projects may be selected here.",verbose_name="Select Project(s) for the Data Import")
+    import_session_name = models.CharField(max_length=255, null=True, blank=True, help_text="Enter a name for this import session. Limit 255 characters",verbose_name="Import Session Name")
+    csv_file = models.FileField(upload_to='import_sessions/', validators=[FileExtensionValidator(['csv'])], help_text="Upload a CSV file to import patient data.",verbose_name="CSV File")
+    import_session_step = models.CharField(max_length=255, choices=FileImportSessionStep.choices, default=FileImportSessionStep.UPLOAD, help_text="The step of the import session.",verbose_name="Import Session Step")
+    patient_id_column = models.CharField(max_length=255, null=True, blank=True, help_text="The CSV column name used for patient ID",verbose_name="Patient ID Column")
+    uuids_generated = models.BooleanField(default=False, help_text="Indicates if UUIDs have been generated for this session")
+    data_imported = models.BooleanField(default=False, help_text="Indicates if data has been successfully imported")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
 
     def __str__(self):
-        if self.file:
-            return f"{self.file.name} ({self.get_status_display()})"
-        return f"Import #{self.id} ({self.get_status_display()})"
-    
-    def get_progress_percentage(self):
-        """Calculate import progress percentage."""
-        if self.row_count and self.row_count > 0:
-            return int((self.processed_rows / self.row_count) * 100)
-        return 0
-    
-    def is_complete(self):
-        """Check if import is complete."""
-        return self.status == ImportStatus.COMPLETED
-    
-    def has_errors(self):
-        """Check if import has errors."""
-        return self.status == ImportStatus.FAILED or bool(self.validation_errors)
+        return self.import_session_name or f"Import Session {self.id}"
 
-class FieldDataType(models.TextChoices):
-    '''
-    This is a choice field for the type of data.
-    '''
-    STRING = 'String', 'String'
-    INTEGER = 'Integer', 'Integer'
-    FLOAT = 'Float', 'Float'
-    BOOLEAN = 'Boolean', 'Boolean'
-    DATE = 'Date', 'Date'
-    DATETIME = 'DateTime', 'DateTime'
-    TIME = 'Time', 'Time'
-    JSON = 'JSON', 'JSON'
-
-class FieldType(models.TextChoices):
-    '''
-    This is a choice field for the type of field.
-    '''
-    STANDARD = 'Standard', 'Standard'
-    FOREIGN_KEY = 'Foreign Key', 'Foreign Key'
-    MANY_TO_MANY = 'Many to Many', 'Many to Many'
-
-class DataFieldConfiguration(models.Model):
-    '''
-    This is a model to store information about the field in the datafile uploaded and link it to the corresponding field name from the client_app models.
-    '''
-    id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='data_fields',help_text="The import data to which the field belongs.")
-    file_field_name = models.CharField(max_length=255,null=True,blank=True,
-    help_text="The field name in the file.")
-    field_data_type = models.CharField(max_length=50, choices=FieldDataType.choices,
-    help_text="The data type of the field.")
-    client_app_table_name = models.CharField(max_length=255,null=True,blank=True,help_text="The table name in the client_app models.")
-    client_app_field_name = models.CharField(max_length=255,null=True,blank=True,help_text="The field name in the client_app models.")
-    client_app_field_type = models.CharField(max_length=50, choices=FieldType.choices,
-    help_text="The type of the field in the client_app models.A standard field will be a field that is storing data in the same table. A foreign key field type is used when there is a one-to-one or one-to-many relationship. A many-to-many field type is used when there is a many-to-many relationship.")
-    client_app_lookup_table_name = models.CharField(max_length=255,null=True,blank=True,help_text="The lookup table name if the field in the client app has a FK relationship to the lookup app.")
-    client_app_lookup_field_name = models.CharField(max_length=255,null=True,blank=True,help_text="The lookup field name if the field in the client app has a FK relationship to the lookup app.")
-    
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
     class Meta:
-        verbose_name = "Data Field"
-        verbose_name_plural = "Data Fields"
-        db_table = "data_field"
-        indexes = [
-            models.Index(fields=['import_data', 'file_field_name']),
-            models.Index(fields=['client_app_table_name', 'client_app_field_name']),
-        ] 
+        verbose_name = "File Import Session"
+        verbose_name_plural = "File Import Sessions"
+
+
+class FilePatientID(models.Model):
+    '''
+    This is a model to store information about the Patient IDs in the CSV file being imported. 
+    '''
+
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_patient_ids')
+    patient_id = models.CharField(max_length=255, null=True, blank=True, help_text="The patient ID from the CSV file.",verbose_name="Patient ID")
+    exists_in_client_app_database = models.BooleanField(default=False, help_text="The patient ID exists in the client_app database.",verbose_name="Exists in Client App Database")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
 
     def __str__(self):
-        if self.file_field_name and self.client_app_field_name:
-            return f"{self.file_field_name} → {self.client_app_table_name}.{self.client_app_field_name}"
-        return self.file_field_name or f"Field Mapping #{self.id}"
+        return self.patient_id
 
-class UUIDFieldConfiguration(models.Model):
+    class Meta:
+        verbose_name = "File Patient ID"
+        verbose_name_plural = "File Patient IDs"
+
+class FileMappedModel(models.Model):
     '''
-    This model stores the configuration of which fields should be used to generate/match UUIDs for each table.
-    This is the user's choice in Step 8 of the import wizard.
+    This is a model to store information about the models in the client_app to which the data should be imported.
     '''
     id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='uuid_field_configurations', help_text="The import data to which this UUID field configuration belongs.")
-    table_name = models.CharField(max_length=255, help_text="The table name in the client_app models (e.g., 'patient', 'diagnosis').")
-    uuid_fields = models.TextField(help_text="JSON array of field names from the file that will be used to determine uniqueness (e.g., ['patient_id', 'diagnosis_date']).")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "UUID Field Configuration"
-        verbose_name_plural = "UUID Field Configurations"
-        unique_together = [['import_data', 'table_name']]
-    
-    def __str__(self):
-        return f"{self.table_name} UUID config"
-
-
-class UUIDMappings(models.Model):
-    '''
-    This is a model to store information about the UUID mappings for a given file upload such that the same UUID is used when the data in the file is uploaded again. A combination of field values are used to identify the primary key for the client app tables. The unique combination of fields is customizable.
-    '''
-    id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='uuid_mappings',help_text="The import data to which the UUID mapping belongs.")
-    client_app_table_name = models.CharField(max_length=255,null=True,blank=True,help_text="The table name in the client_app models.")
-    client_app_primary_key_name = models.CharField(max_length=255,null=True,blank=True,help_text="The primary key name in the client_app models.")
-    client_app_primary_key_value = models.CharField(max_length=255,null=True,blank=True,help_text="The primary key value in the client_app models.")
-    data_field_configuration_fields = models.ManyToManyField('DataFieldConfiguration', related_name='data_field_configuration_fields',help_text="The combination of fields in the data file that are used to create or link the existing UUID in the client_app models.")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "UUID Mapping"
-        verbose_name_plural = "UUID Mappings"
-        db_table = "uuid_mapping"
-        indexes = [
-            models.Index(fields=['import_data', 'client_app_table_name']),
-            models.Index(fields=['client_app_primary_key_value']),
-        ]
-        unique_together = [['import_data', 'client_app_table_name', 'client_app_primary_key_value']] 
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_mapped_models')
+    client_app_model_name = models.JSONField(null=True, blank=True, help_text="Enter the name of the client_app models to which the data should be imported.",verbose_name="Client App Model Name")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
 
     def __str__(self):
-        return f"{self.client_app_table_name}: {self.client_app_primary_key_value}"
+        if self.client_app_model_name:
+            return str(self.client_app_model_name) if isinstance(self.client_app_model_name, str) else ', '.join(self.client_app_model_name)
+        return f"FileMappedModel {self.id}"
 
-class FieldLookupConfiguration(models.Model):
+    class Meta:
+        verbose_name = "File Mapped Model"
+        verbose_name_plural = "File Mapped Models"
+
+
+class FileMappedField(models.Model):
     '''
-    This is a model to store information about the lookup data for a given field in the data file allowing one to one mapping of a given value in the file to a correspoding value in the lookup table.
+    This is a model to store information about the mapped fields for a file import session
     '''
     id = models.AutoField(primary_key=True)
-    data_field_configuration = models.ForeignKey('DataFieldConfiguration', on_delete=models.CASCADE, related_name='field_lookup_configurations',help_text="The data field to which the lookup configuration belongs.")
-    field_value = models.CharField(max_length=255,null=True,blank=True,help_text="The value of the string in the field.")
-    lookup_value = models.CharField(max_length=255,null=True,blank=True,help_text="The lookup value mapped to the string in the data file")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Field Lookup Configuration"
-        verbose_name_plural = "Field Lookup Configurations"
-        db_table = "field_lookup_configuration"
-        indexes = [
-            models.Index(fields=['data_field_configuration', 'field_value']),
-        ]
-        unique_together = [['data_field_configuration', 'field_value']] 
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_mapped_fields')
+    csv_field_names = models.JSONField(help_text="Select the names of the CSV fields to be mapped to the corresponding fields in the client_app models.",verbose_name="Select the Field Names in the CSV file",null=True, blank=True)
+    mapped_client_app_field_name = models.CharField(max_length=255, null=True, blank=True, help_text="Enter the name of the client_app field to be mapped to the CSV field.",verbose_name="Select the Client App Field")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
 
     def __str__(self):
-        return f"{self.data_field_configuration.file_field_name}: {self.field_value} → {self.lookup_value}"
-
-class CalculatiopnDateFieldType(models.TextChoices):
-    START_DATE = 'Start Date', 'Start Date'
-    END_DATE = 'End Date', 'End Date'
-    
-
-class DateFormatType(models.TextChoices):
-    YearMonthDay = 'YearMonthDay', 'YearMonthDay'
-    MonthDayYear = 'MonthDayYear', 'MonthDayYear'
-    DayMonthYear = 'DayMonthYear', 'DayMonthYear'
-
-class DateSeparatorType(models.TextChoices):
-    Hyphen = 'Hyphen', 'Hyphen (-)'
-    ForwardSlash = 'ForwardSlash', 'ForwardSlash (/)'
-    Dash = 'Dash', 'Dash (-)'
-    Space = 'Space', 'Space ( )'
-    Comma = 'Comma', 'Comma (,)'
-    Dot = 'Dot', 'Dot (.)'
-    
-
-class IntervalType(models.TextChoices):
-     Seconds = 'Seconds', 'Seconds'
-     Minutes = 'Minutes', 'Minutes'
-     Hours = 'Hour', 'Hour'
-     Days = 'Day', 'Day'
-     Weeks = 'Week', 'Week'
-     Months = 'Month', 'Month'
-     Years = 'Year', 'Year'
-     
-
-class ImportDateFormatConfiguration(models.Model):
-    '''
-    This is a model to store information about the date format fields of the data file.
-    '''
-    id = models.AutoField(primary_key=True)
-    data_field_configuration = models.ForeignKey('DataFieldConfiguration', on_delete=models.CASCADE, related_name='date_format_configurations',help_text="The data field to which the date format configuration belongs.")
-    date_format = models.CharField(max_length=255,null=True,blank=True,choices=DateFormatType.choices,help_text="The date format of the date in the data file.")
-    date_separator = models.CharField(max_length=255,null=True,blank=True,choices=DateSeparatorType.choices,help_text="The separator used in the date in the data file.")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+        return self.mapped_client_app_field_name or f"FileMappedField {self.id}"
     
     class Meta:
-        verbose_name = "Date Format Configuration"
-        verbose_name_plural = "Date Format Configurations"
+        verbose_name = "File Mapped Field"
+        verbose_name_plural = "File Mapped Fields"
+
+class FileColumnFieldValueMapping(models.Model):
+    '''
+    This is a model to store information about the column field value mappings for a file import session for columns where the column name contains information about the field in chavi client_app
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_column_field_value_mappings')
+    csv_column_name = models.JSONField(null=True, blank=True, help_text="Enter the name of the CSV column to be mapped to the corresponding field in the client_app models.",verbose_name="Select the CSV Column Name")
+    mapped_client_app_field_name = models.JSONField(null=True,blank=True,help_text="select the client app field name which will store the value corresponding to the column")
+    mapped_client_app_field_value = models.JSONField(null=True,blank=True,help_text="define the client app field value which will store the value corresponding to the column")
+    mapped_client_app_additional_field_names = models.JSONField(null=True,blank=True, help_text="define the additional client app field names which will be created along with this data when the import is started")
+    mapped_client_app_additional_field_values = models.JSONField(null=True,blank=True, help_text="define the additional client app field values which will be created along with this data when the import is started")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
     
     def __str__(self):
-        return f"{self.data_field_configuration.file_field_name}: {self.date_format}"
-    
-
-
-
-class ImportDateIntervalFieldConfiguration(models.Model):
-    '''
-    This is a model to store information about the conversion of intervals and duration to dates. For example if age is available in the data file, it will convert the age into the date of birth. For computing the date from the duration / interval we will need a start or end date which may be available from a field in the data file or may be provided by the user.
-    '''
-    id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='date_interval_field_configurations',help_text="The import data to which the date interval field configuration belongs.")
-    interval_field = models.CharField(max_length=255,null=True,blank=True,help_text="The interval field in the data file.")
-    interval_units = models.CharField(max_length=100, null=True,blank=True,choices=IntervalType.choices,help_text="The units of the interval.")
-    target_date_field = models.CharField(max_length=255,null=True,blank=True,help_text="The CHAVI date field (table.field) where the calculated date will be stored.")
-    calculation_date = models.CharField(max_length=255,null=True,blank=True,help_text="The date used for calculating the other date from the interval provided in the file. This can be a field in th data file or a user provided date.")
-    calculation_date_type = models.CharField(max_length=50, null=True,blank=True,choices=CalculatiopnDateFieldType.choices,
-    help_text="The type of the calculation date. If start date then then the interval will be added to the start date to get the end date. If end date then the interval will be subtracted from the end date to get the start date.")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+        if self.csv_column_name:
+            return str(self.csv_column_name) if isinstance(self.csv_column_name, str) else str(self.csv_column_name)
+        return f"FileColumnFieldValueMapping {self.id}"
     
     class Meta:
-        verbose_name = "Date Interval Field Configuration"
-        verbose_name_plural = "Date Interval Field Configurations"
+        verbose_name = "File Column Field Value Mapping"
+        verbose_name_plural = "File Column Field Value Mappings"
+
+class DateFormat(models.TextChoices):
+    ISO_8601 = 'iso_8601', 'ISO 8601'
+    DDMMYYYY = 'ddmmyyyy', 'DDMMYYYY'
+    MMDDYYYY = 'mmddyyyy', 'MMDDYYYY'
+    YYYYMMDD = 'yyyymmdd', 'YYYYMMDD'
+    DMY = 'dmy', 'DMY'
+    MDY = 'mdy', 'MDY'
+    YMD = 'ymd', 'YMD'
+    DDMMYY = 'ddmmyy', 'DDMMYY'
+    MMDDYY = 'mmddyy', 'MMDDYY'
+    YYMMDD = 'yymmdd', 'YYMMDD'
+    
+    
 
 
-class StaticFieldMapping(models.Model):
+class FileDateFieldMapping(models.Model):
     '''
-    This is a model to store static mapping for CHAVI fields for a given data file. This will be used when a implicit information is available in the file. For example the data file about patients with glioblastoma will have all diagnosis as Glioblastoma, major site as brain etc but this will not be available directly in the file. 
+    This is a model to store information about the date field mappings for a file import session
     '''
     id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='static_field_mappings',help_text="The import data to which the static field mapping belongs.")
-    chavi_field = models.CharField(max_length=255,null=True,blank=True,help_text="The CHAVI field (table.field) where the static mapping will be stored.")
-    static_value = models.CharField(max_length=255,null=True,blank=True,help_text="The static value to be mapped to the CHAVI field.")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Static Field Mapping"
-        verbose_name_plural = "Static Field Mappings"
-
-    def __str__(self):
-        return f"{self.chavi_field}: {self.static_value}"
-
-
-class ImportDataJSON(models.Model):
-    '''
-    This is the model to store the final JSON which will be used for importing data using serializers.
-    '''
-    id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='import_data_json',help_text="The import data to which the import data json belongs.")
-    json_data = models.JSONField(help_text="The JSON data from the data file.")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Import Data JSON"
-        verbose_name_plural = "Import Data JSONs"
-
-class UUIDMatchAction(models.TextChoices):
-    USE_EXISTING = 'use_existing', 'Use Existing UUID'
-    USE_NEW = 'use_new', 'Use New UUID (Create New Record)'
-
-class UUIDMatchConfiguration(models.Model):
-    '''
-    Stores user decisions about matching generated UUIDs with existing records in the database.
-    After UUID generation in Step 8, this step lets users compare generated records with existing
-    records and decide whether to reuse existing UUIDs or create new records.
-    '''
-    id = models.AutoField(primary_key=True)
-    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='uuid_matches', help_text="The import data session")
-    table_name = models.CharField(max_length=100, help_text="Table name (e.g., 'diagnosis', 'pathology')")
-    patient_id = models.CharField(max_length=255, help_text="Patient ID this record belongs to")
-    generated_uuid = models.CharField(max_length=255, help_text="UUID generated in Step 8")
-    existing_uuid = models.CharField(max_length=255, null=True, blank=True, help_text="Existing UUID in database (if match found)")
-    match_action = models.CharField(max_length=20, choices=UUIDMatchAction.choices, default=UUIDMatchAction.USE_NEW, help_text="Action to take for this record")
-    import_record_data = models.JSONField(help_text="Data from import for this record")
-    existing_record_data = models.JSONField(null=True, blank=True, help_text="Existing record data from database")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "UUID Match Configuration"
-        verbose_name_plural = "UUID Match Configurations"
-        db_table = "uuid_match_configuration"
-        indexes = [
-            models.Index(fields=['import_data', 'table_name', 'patient_id']),
-            models.Index(fields=['generated_uuid']),
-        ]
-        unique_together = [['import_data', 'generated_uuid']]
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_date_field_mappings')
+    csv_column_name = models.JSONField(null=True, blank=True, help_text="Enter the name of the CSV column to be mapped to the corresponding field in the client_app models.",verbose_name="Select the CSV Column Name")
+    date_format = models.CharField(max_length=255, null=True, blank=True, choices=DateFormat.choices, help_text="Enter the date format for the CSV column.",verbose_name="Date Format")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
     
     def __str__(self):
-        return f"{self.table_name}: {self.generated_uuid} -> {self.match_action}"
+        if self.csv_column_name:
+            return str(self.csv_column_name) if isinstance(self.csv_column_name, str) else str(self.csv_column_name)
+        return f"FileDateFieldMapping {self.id}"
+    
+    class Meta:
+        verbose_name = "File Date Field Mapping"
+        verbose_name_plural = "File Date Field Mappings"
+
+
+class DurationUnits(models.TextChoices):
+    YEAR = 'year', 'Year'
+    MONTH = 'month', 'Month'
+    FORTNIGHT = 'fortnight', 'Fortnight'
+    WEEK = 'week', 'Week'
+    DAY = 'day', 'Day'
+    HOUR = 'hour', 'Hour'
+    MINUTE = 'minute', 'Minute'
+    SECOND = 'second', 'Second'
+    MILLISECOND = 'millisecond', 'Millisecond'
+    MICROSECOND = 'microsecond', 'Microsecond'
+    NANOSECOND = 'nanosecond', 'Nanosecond'
+
+
+class ReferenceDateType(models.TextChoices):
+    START = 'start', 'Start'
+    END = 'end', 'End'
+
+
+class FileDurationDateMapping(models.Model):
+    '''
+    This is a model to store information about the date data that will be created from a given duration or interval in the csv file.
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_duration_date_mappings')
+    csv_duration_field = models.CharField(max_length=255, null=True, blank=True, help_text="Select the duration field (e.g. age, disease free survival, duration to relapse, etc.) from the list of fields in the csv file.",verbose_name="Duration Field in CSV file")
+    duration = models.CharField(max_length=255, null=True, blank=True, help_text="Enter the duration for the CSV column.",verbose_name="Duration")
+    duration_unit = models.CharField(max_length=255, choices=DurationUnits.choices, null=True, blank=True, help_text="Select unit in which the duration has been specified",verbose_name="Duration Unit")
+    reference_date = models.CharField(max_length=255, null=True, blank=True, help_text="Select the reference date field (e.g. diagnosis date, etc.) from the list of fields in the csv file or provide your own default. Note that the default value will be used for ALL patients.",verbose_name="Reference Date")
+    reference_date_type = models.CharField(max_length=255, choices=ReferenceDateType.choices, null=True, blank=True, help_text="Select the type of reference date (start or end)",verbose_name="Reference Date Type")
+    reference_date_format = models.CharField(max_length=255, choices=DateFormat.choices, null=True, blank=True, help_text="Select the format of the reference date",verbose_name="Reference Date Format")
+    client_app_date_field = models.CharField(max_length=255, null=True, blank=True, help_text="Select the date field in the client_app model to which the duration will be added.",verbose_name="Client App Date Field")
+    client_app_date_field_value = models.CharField(max_length=255, null=True, blank=True, help_text="The calculated value for the date field in the client_app model.This will be calculated based on the duration and the reference date.",verbose_name="Client App Date Field Value")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return self.client_app_date_field_value or self.csv_duration_field or f"FileDurationDateMapping {self.id}"
+    
+    class Meta:
+        verbose_name = "File Duration Date Mapping"
+        verbose_name_plural = "File Duration Date Mappings"
+
+
+class FieldLookupValues(models.Model):
+    '''
+    This is a model to store information about the lookup values for a field in the csv file.
+    Maps CSV values to lookup codes (e.g., "Alive" -> "01", "Dead" -> "02")
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='field_lookup_values')
+    csv_column_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the column name from the csv file.",verbose_name="CSV Column Name")
+    csv_value = models.CharField(max_length=255, null=True, blank=True, help_text="The value in the CSV that needs to be mapped.",verbose_name="CSV Value")
+    lookup_value = models.CharField(max_length=255, null=True, blank=True, help_text="Enter the lookup code for the CSV value.",verbose_name="Lookup Code")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"{self.csv_column_name}: {self.csv_value} -> {self.lookup_value}" if self.csv_column_name else f"FieldLookupValues {self.id}"
+    
+    class Meta:
+        verbose_name = "File Lookup Value"
+        verbose_name_plural = "File Lookup Values"
+        
+class FileDefaultValues(models.Model):
+    '''
+    This is a model to store default values for unmapped fields (Step 9).
+    These values apply to all records in the import session.
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_default_values')
+    client_app_model_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app model name.",verbose_name="Client App Model Name")
+    client_app_field_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app field name.",verbose_name="Client App Field Name")
+    client_app_field_value = models.CharField(max_length=255, null=True, blank=True, help_text="The default value for this field.",verbose_name="Default Value")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"{self.client_app_model_name}.{self.client_app_field_name} = {self.client_app_field_value}" if self.client_app_model_name and self.client_app_field_name else f"FileDefaultValues {self.id}"
+    
+    class Meta:
+        verbose_name = "File Default Value"
+        verbose_name_plural = "File Default Values"
+
+
+class FileMissingRelations(models.Model):
+    '''
+    This is a model to store information about the missing relations for a file import session (Step 10).
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_missing_relations')
+    client_app_model_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app model name.",verbose_name="Client App Model Name")
+    client_app_field_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app field name.",verbose_name="Client App Field Name")
+    client_app_field_value = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app field value.",verbose_name="Client App Field Value")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"{self.client_app_model_name}.{self.client_app_field_name}" if self.client_app_model_name and self.client_app_field_name else f"FileMissingRelations {self.id}"
+    
+    class Meta:
+        verbose_name = "File Missing Relation"
+        verbose_name_plural = "File Missing Relations"
+
+
+class FileImportUUIDValues(models.Model):
+    '''
+    This is a model to store information about the UUID values for the fields in the csv file.
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_import_uuid_values')
+    client_app_model_name = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app model name.",verbose_name="Client App Model Name")
+    client_app_model_pk = models.CharField(max_length=255, null=True, blank=True, help_text="Select the client_app model primary key name.",verbose_name="Client App Model Primary Key Name")
+    client_app_model_pk_uuid_value = models.CharField(max_length=255, null=True, blank=True, help_text="Enter the UUID value for the CSV column.",verbose_name="UUID Value")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"{self.client_app_model_name}: {self.client_app_model_pk_uuid_value}" if self.client_app_model_name else f"FileImportUUIDValues {self.id}"
+    
+    class Meta:
+        verbose_name = "File UUID Value"
+        verbose_name_plural = "File UUID Values"
+
+class FileImportJSON(models.Model):
+    '''
+    This is a model to store information about the JSON data for the import session.
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_import_json')
+    json_data = models.JSONField(null=True, blank=True, help_text="Enter the JSON data for the import session.",verbose_name="JSON Data")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="The date and time when this import session was created.",verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, help_text="The date and time when this import session was last updated.",verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"FileImportJSON for session {self.file_import_session.import_session_name if self.file_import_session else self.id}"
+    
+    class Meta:
+        verbose_name = "File Import JSON"
+        verbose_name_plural = "File Import JSONs"

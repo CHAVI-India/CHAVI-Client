@@ -1,0 +1,151 @@
+{% extends "data_import/base_import.html" %}
+{% load import_filters %}
+
+{% block extra_css %}
+{{ block.super }}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--multiple {
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        min-height: 38px !important;
+        max-height: 120px;
+        overflow-y: auto;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--multiple {
+        border-color: #667eea;
+        box-shadow: 0 0 0 1px #667eea;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #667eea;
+        border-color: #667eea;
+        color: white;
+        padding: 2px 8px;
+        margin: 2px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: white;
+        margin-right: 5px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+        color: #fee;
+    }
+    .select2-dropdown {
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block step_content %}
+<div class="space-y-6">
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <h4 class="text-sm font-semibold text-blue-900 mb-2">How to Map Fields</h4>
+                <p class="text-sm text-blue-700 mb-3">
+                    Connect your CSV columns to the database fields where the data should be stored. You can map multiple CSV columns to a single field for wide-format data.
+                </p>
+                <div class="bg-blue-100 rounded p-3 text-xs text-blue-800">
+                    <p class="font-semibold mb-2">Examples:</p>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>Simple mapping:</strong> CSV column "PatientID" → Patient.patient_id field</li>
+                        <li><strong>Wide format:</strong> CSV columns "Diabetes", "Hypertension", "Asthma" → Comorbidity.comorbidity_type field (creates 3 separate records)</li>
+                        <li><strong>Date mapping:</strong> CSV column "DOB" → Patient.date_of_birth field</li>
+                    </ul>
+                    <p class="mt-2 italic">💡 Tip: Use Ctrl+Click (or Cmd+Click on Mac) to select multiple columns</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        {% for model in models_data %}
+        <div class="border rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-database text-chavi-primary mr-2"></i>
+                {{ model.name }}
+            </h3>
+            
+            <div class="space-y-4">
+                {% for field in model.fields %}
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        {{ field.info.verbose_name }}
+                        {% if field.info.required %}<span class="text-red-500">*</span>{% endif %}
+                    </label>
+                    <select name="field_{{ model.name }}_{{ field.name }}" multiple 
+                            class="field-mapping-select"
+                            data-placeholder="Search and select CSV columns..."
+                            style="width: 100%;">
+                        {% for header in csv_headers %}
+                        {% with field_key=model.name|add:"."|add:field.name %}
+                        <option value="{{ header }}"
+                                {% if existing_mappings_dict|get_item:field_key and header in existing_mappings_dict|get_item:field_key %}selected{% endif %}>
+                            {{ header }}
+                        </option>
+                        {% endwith %}
+                        {% endfor %}
+                    </select>
+                    {% if field.info.help_text %}
+                    <p class="mt-1 text-xs text-gray-500">{{ field.info.help_text }}</p>
+                    {% endif %}
+                    <p class="mt-1 text-xs text-gray-500">Type: {{ field.info.type }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="flex justify-end">
+            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                Continue to Step 5
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize Select2 on all field mapping selects
+    $('.field-mapping-select').select2({
+        placeholder: 'Search and select CSV columns...',
+        allowClear: true,
+        width: '100%',
+        theme: 'default',
+        closeOnSelect: false,
+        templateResult: formatOption,
+        templateSelection: formatSelection
+    });
+    
+    // Custom formatting for options
+    function formatOption(option) {
+        if (!option.id) {
+            return option.text;
+        }
+        return $('<span><i class="fas fa-columns mr-2"></i>' + option.text + '</span>');
+    }
+    
+    // Custom formatting for selected items
+    function formatSelection(option) {
+        if (!option.id) {
+            return option.text;
+        }
+        return $('<span class="inline-flex items-center"><i class="fas fa-check-circle mr-1"></i>' + option.text + '</span>');
+    }
+});
+</script>
+{% endblock %}

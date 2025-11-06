@@ -1,143 +1,109 @@
 """
-Step 1: File Upload View
+Step 1: Upload CSV file and select projects.
 """
-from django.views.generic import FormView
-from django.urls import reverse
+
+from django.shortcuts import render, redirect
 from django.contrib import messages
-from data_import.models import ImportData, ImportStatus, DataType
-from data_import.services.file_processor import FileProcessorService
-from .base import WizardStepMixin
-import logging
+from django.urls import reverse
+from .base import BaseImportView
+from ..forms import Step1UploadCSVForm
+from ..services import CSVProcessorService
+from ..models import FileImportSessionStep
 
-logger = logging.getLogger(__name__)
 
-
-class Step1UploadView(WizardStepMixin, FormView):
+class Step1UploadCSVView(BaseImportView):
     """
-    Step 1: Upload CSV/JSON file and select project(s).
+    Step 1: Upload CSV file and select projects.
     """
-    
-    step_number = 1
-    step_title = "Upload File"
-    step_status = ImportStatus.UPLOADED
+    step_identifier = FileImportSessionStep.UPLOAD
+    step_name = "Upload CSV File"
     template_name = 'data_import/step1_upload.html'
-    next_step_url_name = 'import_step2_field_mapping'
     
-    def get_form_class(self):
-        """Dynamically import form to avoid circular imports."""
-        from data_import.forms import FileUploadForm
-        return FileUploadForm
-    
-    def form_valid(self, form):
+    def get(self, request, session_id=None):
         """
-        Process the uploaded file.
+        Display the upload form.
+        If session_id is provided, allow editing.
+        """
+        session = None
+        form = None
         
-        Steps:
-        1. Create ImportData record
-        2. Parse file to get headers and row count
-        3. Store file metadata
-        4. Redirect to Step 2
+        if session_id:
+            # Editing existing session
+            session = self.get_session(session_id)
+            form = Step1UploadCSVForm(instance=session)
+        else:
+            # New session
+            form = Step1UploadCSVForm()
+        
+        context = self.get_context_data(
+            session=session,
+            form=form,
+        )
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request, session_id=None):
         """
-        try:
-            # Get form data
-            import_data_title = form.cleaned_data['import_data_title']
-            data_format_type = form.cleaned_data['data_format_type']
-            uploaded_file = form.cleaned_data['file']
-            data_type = form.cleaned_data['data_type']
-            projects = form.cleaned_data['projects']
+        Handle form submission.
+        """
+        session = None
+        
+        if session_id:
+            # Editing existing session
+            session = self.get_session(session_id)
+            form = Step1UploadCSVForm(request.POST, request.FILES, instance=session)
+        else:
+            # New session
+            form = Step1UploadCSVForm(request.POST, request.FILES)
+        
+        if form.is_valid():
+            # Save the session
+            session = form.save(commit=False)
             
-            # Create ImportData record
-            import_data = ImportData.objects.create(
-                import_data_title=import_data_title,
-                data_format_type=data_format_type,
-                data_type=data_type,
-                file=uploaded_file,
-                status=ImportStatus.UPLOADED,
-            )
-            
-            # Add projects (M2M relationship)
-            import_data.project.set(projects)
-            
-            # Parse file to get metadata
-            try:
-                processor = FileProcessorService(
-                    import_data.file.path,
-                    data_type
-                )
+            # Validate CSV file
+            if 'csv_file' in request.FILES or session.csv_file:
+                csv_file = request.FILES.get('csv_file', session.csv_file)
+                headers, rows, error = CSVProcessorService.read_csv_file(csv_file)
                 
-                # Validate file structure
-                validation_result = processor.validate_file_structure()
-                if not validation_result['is_valid']:
-                    # File has errors
-                    import_data.status = ImportStatus.FAILED
-                    import_data.error_log = '\n'.join(validation_result['errors'])
-                    import_data.save()
-                    
-                    for error in validation_result['errors']:
-                        messages.error(self.request, error)
-                    
-                    return self.form_invalid(form)
+                if error:
+                    messages.error(request, f"Error reading CSV file: {error}")
+                    context = self.get_context_data(session=session, form=form)
+                    return render(request, self.template_name, context)
                 
-                # Get file preview and stats
-                preview = processor.get_preview(num_rows=10)
-                headers, data_rows = processor.parse()
+                if not headers or not rows:
+                    messages.error(request, "CSV file is empty or has no data rows.")
+                    context = self.get_context_data(session=session, form=form)
+                    return render(request, self.template_name, context)
                 
-                # Update import_data with file metadata
-                import_data.row_count = len(data_rows)
-                import_data.import_summary = {
-                    'headers': headers,
-                    'preview': preview['preview_rows'],
-                    'encoding': preview.get('encoding'),
-                    'delimiter': preview.get('delimiter'),
-                    'num_columns': len(headers),
-                }
-                import_data.save()
+                # Validate CSV structure
+                is_valid, validation_error = CSVProcessorService.validate_csv_structure(headers)
+                if not is_valid:
+                    messages.error(request, f"CSV validation error: {validation_error}")
+                    context = self.get_context_data(session=session, form=form)
+                    return render(request, self.template_name, context)
                 
+                # Store row count for display
+                row_count = CSVProcessorService.get_row_count(rows)
                 messages.success(
-                    self.request,
-                    f'File uploaded successfully! Found {len(headers)} columns and {len(data_rows)} rows.'
+                    request,
+                    f"CSV file uploaded successfully! Found {len(headers)} columns and {row_count} data rows."
                 )
-                
-                # Store import_id in session for easy access
-                self.request.session['current_import_id'] = import_data.id
-                
-                # Redirect to Step 2
-                return self.get_success_url_redirect(import_data.id)
-                
-            except Exception as e:
-                logger.error(f"Error processing file: {e}", exc_info=True)
-                import_data.status = ImportStatus.FAILED
-                import_data.error_log = str(e)
-                import_data.save()
-                
-                messages.error(
-                    self.request,
-                    f'Error processing file: {str(e)}'
-                )
-                return self.form_invalid(form)
-                
-        except Exception as e:
-            logger.error(f"Error in file upload: {e}", exc_info=True)
-            messages.error(
-                self.request,
-                f'Error uploading file: {str(e)}'
-            )
-            return self.form_invalid(form)
-    
-    def get_success_url_redirect(self, import_id):
-        """Get redirect response to next step."""
-        from django.shortcuts import redirect
-        return redirect(f'data_import:{self.next_step_url_name}', import_id=import_id)
-    
-    def get_context_data(self, **kwargs):
-        """Add additional context."""
-        context = super().get_context_data(**kwargs)
+            
+            # Save session
+            session.save()
+            form.save_m2m()  # Save many-to-many relationships (projects)
+            
+            # Update session step to 2 (next step) to allow access
+            self.update_session_step(session, FileImportSessionStep.PATIENT_ID)
+            
+            messages.success(request, "Step 1 completed successfully!")
+            
+            # Redirect to Step 2
+            return redirect('data_import:step2', session_id=session.id)
         
-        # Add recent imports for reference
-        recent_imports = ImportData.objects.filter(
-            created_at__isnull=False
-        ).order_by('-created_at')[:5]
-        
-        context['recent_imports'] = recent_imports
-        
-        return context
+        # Form is invalid
+        context = self.get_context_data(
+            session=session,
+            form=form,
+        )
+        return render(request, self.template_name, context)
