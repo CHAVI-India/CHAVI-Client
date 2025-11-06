@@ -540,7 +540,6 @@ These track progress through the new wizard steps.
 
 ## **Future Enhancements**
 
-- Export functionality (reverse of import)
 - Import templates download
 - Scheduled imports
 - Import from external APIs
@@ -598,7 +597,7 @@ These track progress through the new wizard steps.
 - JSON generator uses patient_id directly instead of generating UUID
 
 ### **Pending**:
-- ⏳ Admin integration
+
 - ⏳ Comprehensive testing suite
 - ⏳ User documentation
 - ⏳ End-to-end import flow testing with real data
