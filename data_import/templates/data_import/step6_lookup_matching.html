@@ -60,18 +60,52 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for source_value, match in result.match_results.items %}
                     <tr>
-                        <td class="px-4 py-3"><strong class="text-gray-900">{{ source_value }}</strong></td>
+                        <td class="px-4 py-3">
+                            <strong class="text-gray-900">{{ source_value }}</strong>
+                            {% if match.match_type == 'auto' %}
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Auto-matched ({{ match.auto_match.score }}%)
+                            </span>
+                            {% elif match.match_type == 'suggestions' %}
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Suggestions available
+                            </span>
+                            {% else %}
+                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                Manual selection needed
+                            </span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-center text-gray-500">→</td>
                         <td class="px-4 py-3">
-                            <select name="lookup_{{ source_field }}_{{ source_value }}" class="block w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary">
+                            <select name="lookup_{{ source_field }}_{{ source_value }}" class="lookup-select block w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary">
                                 <option value="">-- Select Lookup Value --</option>
-                                {% for lookup_val in match.all_lookup_values %}
-                                <option value="{{ lookup_val.pk }}">{{ lookup_val.str }}</option>
-                                {% endfor %}
+                                
+                                {% if match.auto_match %}
+                                <optgroup label="✓ Auto-Match ({{ match.auto_match.score }}%)">
+                                    <option value="{{ match.auto_match.pk }}" selected>{{ match.auto_match.str }}</option>
+                                </optgroup>
+                                {% endif %}
+                                
+                                {% if match.suggestions %}
+                                <optgroup label="💡 Suggestions (70-89% match)">
+                                    {% for suggestion in match.suggestions %}
+                                    <option value="{{ suggestion.pk }}" {% if not match.auto_match %}{% if forloop.first %}selected{% endif %}{% endif %}>
+                                        {{ suggestion.str }} ({{ suggestion.score }}%)
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                                
+                                <optgroup label="📋 All Lookup Values">
+                                    {% for lookup_val in match.all_lookup_values %}
+                                    <option value="{{ lookup_val.pk }}">{{ lookup_val.str }}</option>
+                                    {% endfor %}
+                                </optgroup>
                             </select>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="text-xs text-gray-500">{{ match.all_lookup_values|length }} options</span>
+                            <span class="text-xs text-gray-500">{{ match.all_lookup_values|length }} total options</span>
                         </td>
                     </tr>
                     {% endfor %}

@@ -1,0 +1,6 @@
+patient_id,gender,date_of_birth,date_of_registration,diagnosis_date,cancer_system,diagnosis_icd,presentation_type,cancer_site,cancer_side,pathology_date,specimen_type,tumor_site,tumor_side,histological_type,histological_grade,greatest_dimension_of_tumor,tumor_focality,necrosis_percentage,lymph_nodes_in_specimen,number_of_uninvolved_nodes,number_of_nodes_with_macrometastases
+P001,Female,1965-03-15,2023-01-10,2023-01-15,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-01-20,Core Biopsy,Left Breast,Left,Invasive Ductal Carcinoma,Grade 2,3.5,Unifocal,5.0,15,12,3
+P002,Male,1958-07-22,2023-02-05,2023-02-10,Lung Cancer,C34.1,Primary,Right Lung,Right,2023-02-15,Surgical Resection,Right Upper Lobe,Right,Adenocarcinoma,Grade 3,4.2,Multifocal,10.5,8,5,3
+P003,Female,1972-11-08,2023-03-12,2023-03-18,Ovarian Cancer,C56.9,Primary,Left Ovary,Left,2023-03-25,Surgical Resection,Left Ovary,Left,Serous Carcinoma,Grade 3,6.8,Unifocal,15.0,20,10,10
+P004,Male,1980-05-30,2023-04-01,2023-04-05,Prostate Cancer,C61,Primary,Prostate,Bilateral,2023-04-10,Core Biopsy,Prostate,Bilateral,Adenocarcinoma,Grade 2,2.1,Multifocal,0.0,0,0,0
+P005,Female,1945-09-14,2023-05-15,2023-05-20,Breast Cancer,C50.4,Recurrence,Right Breast,Right,2023-05-25,Excision Biopsy,Right Breast,Right,Invasive Lobular Carcinoma,Grade 2,2.8,Unifocal,3.5,10,8,2

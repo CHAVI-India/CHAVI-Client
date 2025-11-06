@@ -1,0 +1,10 @@
+patient_id,gender,date_of_birth,date_of_registration,diagnosis_date,cancer_system,diagnosis_icd,presentation_type,cancer_site,cancer_side,lesion_date,lesion_site,lesion_type,lesion_laterality,lesion_size_x,lesion_size_y,lesion_size_z,lesion_detection_modality
+P001,Female,1965-03-15,2023-01-10,2023-01-15,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-01-15,Left Breast,Primary Tumor,Left,3.5,2.8,2.1,MRI
+P001,Female,1965-03-15,2023-01-10,2023-01-15,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-01-15,Left Axillary Lymph Node,Lymph Node Metastasis,Left,1.2,0.8,0.6,CT
+P001,Female,1965-03-15,2023-01-10,2023-01-15,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-01-15,Left Supraclavicular Node,Lymph Node Metastasis,Left,0.9,0.7,0.5,CT
+P002,Male,1958-07-22,2023-02-05,2023-02-10,Lung Cancer,C34.1,Primary,Right Lung,Right,2023-02-10,Right Upper Lobe,Primary Tumor,Right,4.2,3.8,3.5,CT_PET
+P002,Male,1958-07-22,2023-02-05,2023-02-10,Lung Cancer,C34.1,Primary,Right Lung,Right,2023-02-10,Right Hilar Node,Lymph Node Metastasis,Right,2.1,1.8,1.5,CT_PET
+P002,Male,1958-07-22,2023-02-05,2023-02-10,Lung Cancer,C34.1,Primary,Right Lung,Right,2023-03-15,Liver,Distant Metastasis,Right,3.2,2.9,2.5,CT
+P003,Female,1972-11-08,2023-03-12,2023-03-18,Ovarian Cancer,C56.9,Primary,Left Ovary,Left,2023-03-18,Left Ovary,Primary Tumor,Left,6.8,5.2,4.8,MRI
+P003,Female,1972-11-08,2023-03-12,2023-03-18,Ovarian Cancer,C56.9,Primary,Left Ovary,Left,2023-03-18,Peritoneum,Peritoneal Metastasis,Bilateral,2.5,2.0,1.8,CT
+P003,Female,1972-11-08,2023-03-12,2023-03-18,Ovarian Cancer,C56.9,Primary,Left Ovary,Left,2023-03-18,Omentum,Distant Metastasis,Bilateral,4.1,3.5,2.9,CT

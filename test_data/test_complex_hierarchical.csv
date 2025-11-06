@@ -1,0 +1,7 @@
+patient_id,gender,date_of_birth,diagnosis_date,cancer_system,pathology_date,histological_type,ihc_protein,ihc_percentage,lesion_site,lesion_size_x,outcome_date,outcome_type
+P001,Female,1965-03-15,2023-01-15,Breast Cancer,2023-01-20,Invasive Ductal Carcinoma,ER,85.5,Left Breast,3.5,2023-12-15,Complete Response
+P001,Female,1965-03-15,2023-01-15,Breast Cancer,2023-01-20,Invasive Ductal Carcinoma,PR,75.0,Left Axillary Node,1.2,2023-12-15,Stable Disease
+P001,Female,1965-03-15,2023-01-15,Breast Cancer,2023-01-20,Invasive Ductal Carcinoma,HER2,5.0,Supraclavicular Node,0.9,,
+P002,Male,1958-07-22,2023-02-10,Lung Cancer,2023-02-15,Adenocarcinoma,PD-L1,65.0,Right Upper Lobe,4.2,2024-02-10,Progressive Disease
+P002,Male,1958-07-22,2023-02-10,Lung Cancer,2023-02-15,Adenocarcinoma,ALK,0.0,Right Hilar Node,2.1,,
+P002,Male,1958-07-22,2023-02-10,Lung Cancer,2023-02-15,Adenocarcinoma,,,,Liver,3.2,,

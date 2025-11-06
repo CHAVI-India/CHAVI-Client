@@ -1,0 +1,11 @@
+patient_id,gender,date_of_birth,date_of_registration,diagnosis_date,cancer_system,diagnosis_icd,presentation_type,cancer_site,cancer_side,pathology_date,specimen_type,tumor_site,tumor_side,histological_type,histological_grade,greatest_dimension_of_tumor,necrosis_percentage,lymph_nodes_in_specimen,number_of_uninvolved_nodes
+P001,Female,1965-03-15,2023-01-10,2023-01-15,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-01-20,Core Biopsy,Left Breast,Left,Invasive Ductal Carcinoma,Grade 2,3.5,5.0,15,12
+P002,Male,,2023-02-05,2023-02-10,Lung Cancer,C34.1,Primary,Right Lung,Right,2023-02-15,Surgical Resection,Right Upper Lobe,Right,Adenocarcinoma,Grade 3,4.2,10.5,8,5
+P003,Female,1972-11-08,2023-03-12,,Ovarian Cancer,C56.9,Primary,Left Ovary,Left,2023-03-25,Surgical Resection,Left Ovary,Left,Serous Carcinoma,Grade 3,6.8,15.0,20,10
+P004,Male,1980-05-30,2023-04-01,2023-04-05,Prostate Cancer,C61,Primary,Prostate,Bilateral,,,Prostate,Bilateral,Adenocarcinoma,Grade 2,2.1,0.0,0,0
+P005,Female,1945-09-14,2023-05-15,2023-05-20,Breast Cancer,C50.4,Recurrence,Right Breast,Right,2023-05-25,Excision Biopsy,Right Breast,Right,,Grade 2,2.8,3.5,10,8
+P006,Transgender,1990-12-01,2023-06-10,2023-06-15,Colorectal Cancer,C18.9,Primary,Colon,Left,2023-06-20,Core Biopsy,Sigmoid Colon,Left,Adenocarcinoma,,5.2,8.0,12,7
+P007,,1955-08-20,2023-07-05,2023-07-10,Head and Neck Cancer,C32.0,Primary,Larynx,Bilateral,2023-07-15,Incisional Biopsy,Larynx,Bilateral,Squamous Cell Carcinoma,Grade 3,3.8,12.5,,
+P008,Female,2025-01-01,2023-08-01,2023-08-05,Cervical Cancer,C53.9,Primary,Cervix,Bilateral,2023-08-10,Punch Biopsy,Cervix,Bilateral,Squamous Cell Carcinoma,Grade 2,2.5,5.5,8,6
+P009,Male,1960-04-15,2023-09-01,2022-08-15,Pancreatic Cancer,C25.0,Primary,Pancreas,Left,2023-09-10,Core Biopsy,Pancreatic Head,Left,Adenocarcinoma,Grade 3,4.5,150.0,5,2
+P010,Female,1975-06-25,2023-10-01,2023-10-05,Breast Cancer,C50.9,Primary,Left Breast,Left,2023-10-10,Fine Needle Aspiration,Left Breast,Left,Invasive Ductal Carcinoma,Grade 1,-2.5,5.0,10,8

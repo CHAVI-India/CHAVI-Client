@@ -143,16 +143,14 @@ class JSONGeneratorService:
     
     def _build_hierarchical_json(self, field_mappings, static_mappings, 
                                   date_formats, date_intervals, uuid_configs) -> dict:
-        """Build the hierarchical JSON structure"""
+        """Build the hierarchical JSON structure with proper nesting based on FK relationships"""
         
-        # Group data by Patient first
-        patient_data = defaultdict(lambda: defaultdict(list))
+        # Collect all records indexed by table, patient_uuid, and record_uuid
+        all_records = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
         
         for index, row in self.df.iterrows():
-            # Generate/get patient UUID
             patient_uuid = self._generate_uuid('patient', row, uuid_configs.get('patient', []))
             
-            # Process each table's data for this row
             for table_name, mappings in field_mappings.items():
                 record = self._build_record(
                     table_name, row, mappings, 
@@ -161,21 +159,109 @@ class JSONGeneratorService:
                 )
                 
                 if record:
-                    patient_data[patient_uuid][table_name].append(record)
+                    # Get the record's UUID
+                    record_uuid = record.get(self._get_pk_field_name(table_name), str(index))
+                    
+                    # Store: all_records[table_name][patient_uuid][record_uuid] = record
+                    all_records[table_name][patient_uuid][record_uuid] = record
         
-        # Convert to final structure
-        result = {
-            'patients': []
-        }
+        # Build hierarchical structure
+        result = {'patients': []}
         
-        for patient_uuid, tables in patient_data.items():
-            patient_record = {
-                'patient_id': patient_uuid,
-                **tables
-            }
-            result['patients'].append(patient_record)
+        # Get all patient UUIDs
+        patient_uuids = set()
+        for table_records in all_records.values():
+            patient_uuids.update(table_records.keys())
+        
+        for patient_uuid in patient_uuids:
+            patient_record = self._build_patient_hierarchy(
+                patient_uuid, all_records, field_mappings
+            )
+            if patient_record:
+                result['patients'].append(patient_record)
         
         return result
+    
+    def _build_patient_hierarchy(self, patient_uuid, all_records, field_mappings):
+        """Build complete hierarchy for a single patient"""
+        
+        # Start with patient record
+        patient_records = all_records.get('patient', {}).get(patient_uuid, {})
+        if not patient_records:
+            # Create minimal patient record if no patient table was mapped
+            patient_record = {'patient_id': patient_uuid}
+        else:
+            # Get first (should be only) patient record
+            patient_record = list(patient_records.values())[0].copy()
+            patient_record['patient_id'] = patient_uuid
+        
+        # Add child tables that have Patient as parent
+        patient_children = self._get_child_tables('Patient', field_mappings)
+        
+        for child_table in patient_children:
+            child_records_dict = all_records.get(child_table, {}).get(patient_uuid, {})
+            if child_records_dict:
+                # Recursively build nested structure for each child
+                nested_children = []
+                for child_uuid, child_record in child_records_dict.items():
+                    nested_child = self._nest_children(
+                        child_table, child_uuid, child_record, 
+                        patient_uuid, all_records, field_mappings
+                    )
+                    nested_children.append(nested_child)
+                
+                if nested_children:
+                    patient_record[child_table] = nested_children
+        
+        return patient_record
+    
+    def _nest_children(self, table_name, record_uuid, record, patient_uuid, all_records, field_mappings):
+        """Recursively nest children under their parent record"""
+        
+        record_copy = record.copy()
+        
+        # Get model name and find child tables
+        model_name = self.hierarchy_service._table_to_model_name(table_name)
+        child_tables = self._get_child_tables(model_name, field_mappings)
+        
+        # Add nested children
+        for child_table in child_tables:
+            child_records_dict = all_records.get(child_table, {}).get(patient_uuid, {})
+            
+            if child_records_dict:
+                nested_children = []
+                for child_uuid, child_record in child_records_dict.items():
+                    # Recursively nest this child's children
+                    nested_child = self._nest_children(
+                        child_table, child_uuid, child_record,
+                        patient_uuid, all_records, field_mappings
+                    )
+                    nested_children.append(nested_child)
+                
+                if nested_children:
+                    record_copy[child_table] = nested_children
+        
+        return record_copy
+    
+    def _get_child_tables(self, model_name, field_mappings):
+        """Get child tables that have FK to this model"""
+        child_tables = []
+        
+        for table_name in field_mappings.keys():
+            child_model_name = self.hierarchy_service._table_to_model_name(table_name)
+            if child_model_name in self.hierarchy_service.model_relationships:
+                parents = self.hierarchy_service.model_relationships[child_model_name]
+                if model_name in parents:
+                    child_tables.append(table_name)
+        
+        return child_tables
+    
+    def _get_pk_field_name(self, table_name):
+        """Get primary key field name for a table"""
+        model = self._get_model_for_table(table_name)
+        if model:
+            return model._meta.pk.name
+        return None
     
     def _build_record(self, table_name, row, field_mappings, static_mappings,
                      date_formats, date_intervals, uuid_configs) -> dict:
