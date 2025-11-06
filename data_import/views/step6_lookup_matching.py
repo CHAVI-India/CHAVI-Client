@@ -78,12 +78,71 @@ class Step6LookupMatchingView(WizardStepMixin, FormView):
     def post(self, request, *args, **kwargs):
         import_data = self.get_import_data(kwargs['import_id'])
         
+        logger.info(f"Step 6 POST - Import ID: {import_data.id}")
+        logger.info(f"POST data keys: {list(request.POST.keys())[:20]}")
+        
+        # Clear existing lookup mappings
+        deleted = FieldLookupConfiguration.objects.filter(
+            data_field_configuration__import_data=import_data
+        ).delete()
+        logger.info(f"Deleted {deleted[0]} existing lookup configurations")
+        
+        saved_count = 0
+        
+        # Get lookup results from session to map field names
+        lookup_results = request.session.get(f'lookup_results_{import_data.id}', {})
+        logger.info(f"Lookup results from session: {list(lookup_results.keys())}")
+        
         # Save lookup mappings
+        # Format: lookup_{source_field}_{source_value} = lookup_pk
+        lookup_fields_found = [k for k in request.POST.keys() if k.startswith('lookup_')]
+        logger.info(f"Found {len(lookup_fields_found)} lookup fields in POST")
+        if lookup_fields_found:
+            logger.info(f"Sample lookup fields: {lookup_fields_found[:3]}")
+        
         for key, value in request.POST.items():
             if key.startswith('lookup_') and value:
-                # Parse and save mapping
-                pass  # Implementation details
+                logger.debug(f"Processing: {key} = {value}")
+                try:
+                    # Remove 'lookup_' prefix
+                    key_without_prefix = key[7:]  # Remove 'lookup_'
+                    
+                    # Find which source_field this belongs to by checking lookup_results
+                    source_field = None
+                    source_value = None
+                    
+                    for field_name, result_data in lookup_results.items():
+                        # Check if key starts with this field name
+                        if key_without_prefix.startswith(field_name + '_'):
+                            source_field = field_name
+                            # Everything after field_name_ is the source_value
+                            source_value = key_without_prefix[len(field_name) + 1:]
+                            break
+                    
+                    if source_field and source_value:
+                        lookup_pk = value
+                        
+                        # Find the data field configuration
+                        field_config = import_data.data_fields.filter(
+                            file_field_name=source_field
+                        ).first()
+                        
+                        if field_config:
+                            FieldLookupConfiguration.objects.create(
+                                data_field_configuration=field_config,
+                                field_value=source_value,
+                                lookup_value=lookup_pk
+                            )
+                            saved_count += 1
+                            logger.info(f"Saved lookup mapping: {source_field} '{source_value}' -> '{lookup_pk}'")
+                        else:
+                            logger.warning(f"No field config found for: {source_field}")
+                    else:
+                        logger.warning(f"Could not parse field name from: {key}")
+                except Exception as e:
+                    logger.error(f"Error saving lookup mapping for {key}: {e}", exc_info=True)
         
+        messages.success(request, f'Saved {saved_count} lookup mappings.')
         return redirect(f'data_import:{self.next_step_url_name}', import_id=import_data.id)
     
     def get_context_data(self, **kwargs):

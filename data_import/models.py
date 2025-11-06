@@ -367,3 +367,38 @@ class ImportDataJSON(models.Model):
     class Meta:
         verbose_name = "Import Data JSON"
         verbose_name_plural = "Import Data JSONs"
+
+class UUIDMatchAction(models.TextChoices):
+    USE_EXISTING = 'use_existing', 'Use Existing UUID'
+    USE_NEW = 'use_new', 'Use New UUID (Create New Record)'
+
+class UUIDMatchConfiguration(models.Model):
+    '''
+    Stores user decisions about matching generated UUIDs with existing records in the database.
+    After UUID generation in Step 8, this step lets users compare generated records with existing
+    records and decide whether to reuse existing UUIDs or create new records.
+    '''
+    id = models.AutoField(primary_key=True)
+    import_data = models.ForeignKey('ImportData', on_delete=models.CASCADE, related_name='uuid_matches', help_text="The import data session")
+    table_name = models.CharField(max_length=100, help_text="Table name (e.g., 'diagnosis', 'pathology')")
+    patient_id = models.CharField(max_length=255, help_text="Patient ID this record belongs to")
+    generated_uuid = models.CharField(max_length=255, help_text="UUID generated in Step 8")
+    existing_uuid = models.CharField(max_length=255, null=True, blank=True, help_text="Existing UUID in database (if match found)")
+    match_action = models.CharField(max_length=20, choices=UUIDMatchAction.choices, default=UUIDMatchAction.USE_NEW, help_text="Action to take for this record")
+    import_record_data = models.JSONField(help_text="Data from import for this record")
+    existing_record_data = models.JSONField(null=True, blank=True, help_text="Existing record data from database")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "UUID Match Configuration"
+        verbose_name_plural = "UUID Match Configurations"
+        db_table = "uuid_match_configuration"
+        indexes = [
+            models.Index(fields=['import_data', 'table_name', 'patient_id']),
+            models.Index(fields=['generated_uuid']),
+        ]
+        unique_together = [['import_data', 'generated_uuid']]
+    
+    def __str__(self):
+        return f"{self.table_name}: {self.generated_uuid} -> {self.match_action}"

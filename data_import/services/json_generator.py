@@ -9,7 +9,7 @@ from django.apps import apps
 from data_import.models import (
     ImportData, DataFieldConfiguration, StaticFieldMapping,
     ImportDateFormatConfiguration, ImportDateIntervalFieldConfiguration,
-    UUIDFieldConfiguration, ImportDataJSON
+    UUIDFieldConfiguration, ImportDataJSON, UUIDMatchConfiguration, UUIDMatchAction
 )
 from data_import.services.model_hierarchy import ModelHierarchyService
 
@@ -41,11 +41,16 @@ class JSONGeneratorService:
         date_formats = self._get_date_formats()
         date_intervals = self._get_date_intervals()
         uuid_configs = self._get_uuid_configurations()
+        lookup_mappings = self._get_lookup_mappings()
+        uuid_match_mappings = self._get_uuid_match_mappings()
+        
+        logger.info(f"Loaded {len(lookup_mappings)} lookup field mappings")
+        logger.info(f"Loaded {len(uuid_match_mappings)} UUID match mappings")
         
         # Build hierarchical JSON structure
         json_data = self._build_hierarchical_json(
             field_mappings, static_mappings, date_formats, 
-            date_intervals, uuid_configs
+            date_intervals, uuid_configs, lookup_mappings, uuid_match_mappings
         )
         
         # Save to database
@@ -141,26 +146,69 @@ class JSONGeneratorService:
         
         return configs
     
+    def _get_lookup_mappings(self) -> dict:
+        """Get lookup field mappings from Step 6"""
+        from data_import.models import FieldLookupConfiguration
+        
+        mappings = defaultdict(dict)
+        
+        # Get all lookup configurations for this import
+        lookup_configs = FieldLookupConfiguration.objects.filter(
+            data_field_configuration__import_data=self.import_data
+        ).select_related('data_field_configuration')
+        
+        for config in lookup_configs:
+            field_name = config.data_field_configuration.file_field_name
+            mappings[field_name][config.field_value] = config.lookup_value
+        
+        return dict(mappings)
+    
+    def _get_uuid_match_mappings(self) -> dict:
+        """Get UUID match mappings from Step 8.5"""
+        mappings = {}
+        
+        # Get all UUID match configurations where user chose to use existing UUID
+        uuid_matches = UUIDMatchConfiguration.objects.filter(
+            import_data=self.import_data,
+            match_action=UUIDMatchAction.USE_EXISTING
+        )
+        
+        for match in uuid_matches:
+            # Map generated_uuid -> existing_uuid
+            mappings[match.generated_uuid] = match.existing_uuid
+            logger.debug(f"UUID mapping: {match.generated_uuid} -> {match.existing_uuid}")
+        
+        return mappings
+    
     def _build_hierarchical_json(self, field_mappings, static_mappings, 
-                                  date_formats, date_intervals, uuid_configs) -> dict:
+                                  date_formats, date_intervals, uuid_configs, lookup_mappings, uuid_match_mappings) -> dict:
         """Build the hierarchical JSON structure with proper nesting based on FK relationships"""
         
         # Collect all records indexed by table, patient_uuid, and record_uuid
         all_records = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
         
         for index, row in self.df.iterrows():
-            patient_uuid = self._generate_uuid('patient', row, uuid_configs.get('patient', []))
+            # For patient table, use patient_id directly instead of generating UUID
+            patient_uuid = row.get('patient_id', str(index)) if 'patient_id' in row else self._generate_uuid('patient', row, uuid_configs.get('patient', []))
             
             for table_name, mappings in field_mappings.items():
                 record = self._build_record(
                     table_name, row, mappings, 
                     static_mappings.get(table_name, []),
-                    date_formats, date_intervals, uuid_configs
+                    date_formats, date_intervals, uuid_configs, lookup_mappings
                 )
                 
                 if record:
                     # Get the record's UUID
-                    record_uuid = record.get(self._get_pk_field_name(table_name), str(index))
+                    pk_field = self._get_pk_field_name(table_name)
+                    record_uuid = record.get(pk_field, str(index))
+                    
+                    # Apply UUID match mapping if user chose to use existing UUID
+                    if record_uuid in uuid_match_mappings:
+                        existing_uuid = uuid_match_mappings[record_uuid]
+                        record[pk_field] = existing_uuid
+                        record_uuid = existing_uuid
+                        logger.info(f"Replaced UUID for {table_name}: {record_uuid} -> {existing_uuid}")
                     
                     # Store: all_records[table_name][patient_uuid][record_uuid] = record
                     all_records[table_name][patient_uuid][record_uuid] = record
@@ -264,9 +312,10 @@ class JSONGeneratorService:
         return None
     
     def _build_record(self, table_name, row, field_mappings, static_mappings,
-                     date_formats, date_intervals, uuid_configs) -> dict:
+                     date_formats, date_intervals, uuid_configs, lookup_mappings) -> dict:
         """Build a single record for a table"""
         record = {}
+        skipped_required_fields = []
         
         # Add mapped fields from file
         for mapping in field_mappings:
@@ -283,6 +332,18 @@ class JSONGeneratorService:
                 
                 # Skip null/empty values
                 if pd.notna(value) and value != '':
+                    # Apply lookup mapping if this field has one
+                    if file_field in lookup_mappings:
+                        str_value = str(value).strip()
+                        if str_value in lookup_mappings[file_field]:
+                            value = lookup_mappings[file_field][str_value]
+                            logger.debug(f"Applied lookup mapping: {file_field} '{str_value}' -> '{value}'")
+                        else:
+                            # Skip this field if no mapping exists - don't include unmapped lookup values
+                            logger.warning(f"Skipping unmapped lookup value for {file_field}: '{str_value}'")
+                            skipped_required_fields.append(file_field)
+                            continue
+                    
                     record[chavi_field] = value
         
         # Add static values
@@ -307,6 +368,11 @@ class JSONGeneratorService:
                 pk_field = model._meta.pk.name
                 record[pk_field] = uuid_value
         
+        # If required lookup fields were skipped, return None to exclude this record
+        if skipped_required_fields:
+            logger.info(f"Skipping {table_name} record due to unmapped lookup fields: {skipped_required_fields}")
+            return None
+        
         return record if record else None
     
     def _parse_date(self, value, date_config) -> str:
@@ -315,16 +381,31 @@ class JSONGeneratorService:
             return None
         
         try:
-            # Build format string
-            date_format = date_config['format']
-            separator = date_config['separator']
-            
-            # Convert to datetime
-            dt = pd.to_datetime(value, format=f"{date_format}")
+            # Try to parse as ISO8601 first (most common format)
+            dt = pd.to_datetime(value, format='ISO8601')
             return dt.strftime('%Y-%m-%d')
-        except Exception as e:
-            logger.warning(f"Failed to parse date '{value}': {e}")
-            return None
+        except:
+            try:
+                # Fall back to configured format
+                date_format = date_config.get('format', 'YearMonthDay')
+                separator = date_config.get('separator', '-')
+                
+                # Map format names to pandas format strings
+                format_map = {
+                    'YearMonthDay': f'%Y{separator}%m{separator}%d',
+                    'DayMonthYear': f'%d{separator}%m{separator}%Y',
+                    'MonthDayYear': f'%m{separator}%d{separator}%Y',
+                }
+                
+                pandas_format = format_map.get(date_format, f'%Y{separator}%m{separator}%d')
+                dt = pd.to_datetime(value, format=pandas_format)
+                return dt.strftime('%Y-%m-%d')
+            except Exception as e:
+                logger.warning(f"Failed to parse date '{value}': {e}")
+                # Return the value as-is if it's already in YYYY-MM-DD format
+                if isinstance(value, str) and len(value) == 10 and value[4] == '-' and value[7] == '-':
+                    return value
+                return None
     
     def _compute_date_from_interval(self, row, interval_config) -> str:
         """Compute date from interval configuration"""
@@ -403,12 +484,21 @@ class JSONGeneratorService:
     def _save_json_to_db(self, json_data):
         """Save generated JSON to database"""
         # Clear existing JSON
-        ImportDataJSON.objects.filter(import_data=self.import_data).delete()
+        deleted_count = ImportDataJSON.objects.filter(import_data=self.import_data).delete()[0]
+        logger.info(f"Deleted {deleted_count} existing JSON records for import {self.import_data.id}")
         
         # Save new JSON
-        ImportDataJSON.objects.create(
+        json_obj = ImportDataJSON.objects.create(
             import_data=self.import_data,
             json_data=json_data
         )
         
-        logger.info(f"Saved JSON to database for import {self.import_data.id}")
+        logger.info(f"Saved new JSON to database for import {self.import_data.id}, ID: {json_obj.id}")
+        
+        # Log a sample of the JSON to verify lookup mappings were applied
+        if 'patients' in json_data and len(json_data['patients']) > 0:
+            first_patient = json_data['patients'][0]
+            logger.info(f"Sample patient data: {list(first_patient.keys())}")
+            if 'diagnosis' in first_patient and len(first_patient['diagnosis']) > 0:
+                sample_diagnosis = first_patient['diagnosis'][0]
+                logger.info(f"Sample diagnosis fields: {sample_diagnosis}")

@@ -11,6 +11,7 @@ from data_import.views import (
     Step6LookupMatchingView,
     Step7StaticMappingView,
     Step8UUIDMappingView,
+    Step8_5UUIDMatchingView,
     Step9ImportView,
     Step10ExecuteView,
 )
@@ -27,6 +28,7 @@ urlpatterns = [
     path('<int:import_id>/lookup-matching/', Step6LookupMatchingView.as_view(), name='import_step6_lookup_matching'),
     path('<int:import_id>/static-mapping/', Step7StaticMappingView.as_view(), name='import_step7_static_mapping'),
     path('<int:import_id>/uuid-mapping/', Step8UUIDMappingView.as_view(), name='import_step8_uuid_mapping'),
+    path('<int:import_id>/uuid-matching/', Step8_5UUIDMatchingView.as_view(), name='import_step8_5_uuid_matching'),
     path('<int:import_id>/json-preview/', Step9ImportView.as_view(), name='import_step9_json_preview'),
     path('<int:import_id>/execute/', Step10ExecuteView.as_view(), name='import_step10_execute'),
 ]

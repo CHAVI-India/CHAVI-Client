@@ -247,3 +247,27 @@ class ModelHierarchyService:
             add_model_and_children(self.ROOT_MODEL)
         
         return tree
+    
+    def get_child_models(self, model_name: str) -> Dict[str, str]:
+        """
+        Get direct child models for a given parent model.
+        
+        Args:
+            model_name: Name of the parent model
+            
+        Returns:
+            Dict mapping child table_name -> pk_field_name
+            Example: {'pathology': 'pathology_id', 'treatment': 'treatment_id'}
+        """
+        children = {}
+        
+        # Find all models that have this model as a parent
+        for child_model_name, parents in self.model_relationships.items():
+            if model_name in parents:
+                child_model = self.client_app_models.get(child_model_name)
+                if child_model:
+                    table_name = child_model._meta.db_table
+                    pk_field_name = child_model._meta.pk.name
+                    children[table_name] = pk_field_name
+        
+        return children

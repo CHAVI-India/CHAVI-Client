@@ -115,6 +115,13 @@
         </div>
     </div>
     {% endfor %}
+    
+    <!-- Submit button inside the form -->
+    <div class="mt-6 flex justify-end">
+        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+            Continue to Static Mapping <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+    </div>
 </form>
 
 {% else %}
@@ -122,16 +129,21 @@
     <h5 class="text-lg font-semibold text-green-800 mb-2">✓ No Lookup Fields</h5>
     <p class="text-green-700">Your data doesn't contain any lookup fields. Proceeding to static field mapping.</p>
 </div>
+
+<!-- Submit button for when there are no lookup fields -->
+<div class="mt-6 flex justify-end">
+    <form method="post" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+            Continue to Static Mapping <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+    </form>
+</div>
 {% endif %}
 {% endblock %}
 
 {% block wizard_actions %}
-<form method="post" style="display: inline;">
-    {% csrf_token %}
-    <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
-        Continue to Static Mapping <i class="fas fa-arrow-right ml-2"></i>
-    </button>
-</form>
+<!-- Navigation is handled by the form submit button above -->
 {% endblock %}
 
 {% block extra_js %}

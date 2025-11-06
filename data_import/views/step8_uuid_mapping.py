@@ -26,7 +26,7 @@ class Step8UUIDMappingView(WizardStepMixin, TemplateView):
     step_title = "UUID Mapping"
     step_status = ImportStatus.UUID_MAPPING
     template_name = 'data_import/step8_uuid_mapping.html'
-    next_step_url_name = 'import_step9_json_preview'
+    next_step_url_name = 'import_step8_5_uuid_matching'
     previous_step_url_name = 'import_step7_static_mapping'
     
     def get(self, request, *args, **kwargs):
@@ -88,6 +88,11 @@ class Step8UUIDMappingView(WizardStepMixin, TemplateView):
             for model_info in hierarchical_structure:
                 model_name = model_info['model_name']
                 table_name = model_info['table_name']
+                
+                # Skip patient table - it uses patient_id as primary key, not UUID
+                if table_name == 'patient':
+                    logger.info(f"Skipping UUID config for patient table - uses patient_id as PK")
+                    continue
                 
                 # Get available fields for this table from field mappings
                 available_fields = list(table_field_mappings.get(table_name, []))
@@ -215,6 +220,11 @@ class Step8UUIDMappingView(WizardStepMixin, TemplateView):
             missing_configs = []
             for model_name in required_models:
                 table_name = hierarchy_service._model_to_table_name(model_name)
+                
+                # Skip patient table - it uses patient_id as primary key
+                if table_name == 'patient':
+                    continue
+                    
                 if table_name not in configured_tables:
                     # Check if this table has any mapped fields
                     if table_name in mapped_tables:

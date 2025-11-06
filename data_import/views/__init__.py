@@ -9,6 +9,7 @@ from .step5_validation import Step5ValidationView
 from .step6_lookup_matching import Step6LookupMatchingView
 from .step7_static_mapping import Step7StaticMappingView
 from .step8_uuid_mapping import Step8UUIDMappingView
+from .step8_5_uuid_matching import Step8_5UUIDMatchingView
 from .step9_import import Step9ImportView
 from .step10_execute import Step10ExecuteView
 
@@ -21,6 +22,7 @@ __all__ = [
     'Step6LookupMatchingView',
     'Step7StaticMappingView',
     'Step8UUIDMappingView',
+    'Step8_5UUIDMatchingView',
     'Step9ImportView',
     'Step10ExecuteView',
 ]

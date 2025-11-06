@@ -147,41 +147,16 @@
         <p class="text-green-700">Your data doesn't require UUID generation.</p>
     </div>
     {% endif %}
+    
+    <!-- Submit button inside the form -->
+    <div class="mt-6 flex justify-end">
+        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
+            Continue to JSON Preview <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+    </div>
 </form>
 {% endblock %}
 
 {% block wizard_actions %}
-<form method="post" style="display: inline;">
-    {% csrf_token %}
-    <!-- Copy all checkbox values to this form -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var submitBtn = document.querySelector('button[type="submit"]');
-            submitBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // Copy all checkbox values from the main form
-                var mainForm = document.querySelector('form[method="post"]');
-                var submitForm = this.closest('form');
-                
-                // Get all checkboxes
-                var checkboxes = mainForm.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(function(checkbox) {
-                    var hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.name = checkbox.name;
-                    hidden.value = checkbox.value;
-                    if (checkbox.checked) {
-                        submitForm.appendChild(hidden);
-                    }
-                });
-                
-                submitForm.submit();
-            });
-        });
-    </script>
-    <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-chavi-gradient hover:shadow-lg transition-all">
-        Continue to JSON Preview <i class="fas fa-arrow-right ml-2"></i>
-    </button>
-</form>
+<!-- Navigation is handled by the form submit button above -->
 {% endblock %}

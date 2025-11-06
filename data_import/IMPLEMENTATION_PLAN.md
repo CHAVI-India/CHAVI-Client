@@ -223,9 +223,45 @@ Create a comprehensive 8-step wizard for importing CSV/JSON data into the CHAVI 
 - Configure UUID generation fields for each table
 - Support for Standard, FK, M2M, Static, and Computed fields
 - Validate that all parent models in hierarchy are configured
+- **Excludes patient table** - uses patient_id as primary key instead of UUID
 - Save to `UUIDFieldConfiguration`
 
 **Template**: `data_import/step8_uuid_mapping.html`
+
+---
+
+### **Step 8.5: UUID Matching & Deduplication** (`views/step8_5_uuid_matching.py`) ✅ **NEW**
+- **Purpose**: Compare generated UUIDs with existing records in database to prevent duplicates
+- Generate JSON with UUIDs from Step 8 configuration
+- Query existing patient records and all related data (diagnosis, pathology, treatment, etc.)
+- Calculate similarity scores for matching records
+- Display side-by-side comparison:
+  - Import data (new records with generated UUIDs)
+  - Existing data (database records with existing UUIDs)
+- User decides for each record:
+  - **Use Existing UUID**: Link to existing record (avoids duplicates)
+  - **Use New UUID**: Create new record
+- Auto-suggests high-similarity matches (>80% similarity)
+- Handles nested record hierarchies (diagnosis → pathology → immunohistochemistry)
+- Save decisions to `UUIDMatchConfiguration` model
+- Apply UUID replacements in JSON generator
+
+**Template**: `data_import/step8_5_uuid_matching.html`
+
+**Services**: 
+- `services/uuid_matcher.py` - Matches generated records with existing database records
+- Similarity calculation for diagnosis and pathology records
+- Nested record matching with full hierarchy preservation
+
+**Model**: `UUIDMatchConfiguration`
+- Stores user decisions: table_name, patient_id, generated_uuid, existing_uuid, match_action
+- Actions: `USE_EXISTING` or `USE_NEW`
+
+**Key Features**:
+- Efficient for large datasets (expandable/collapsible patient cards)
+- Shows complete record hierarchy with all UUIDs visible
+- Prevents duplicate patient/diagnosis/pathology records
+- User has full control over UUID reuse decisions
 
 ---
 
@@ -269,6 +305,7 @@ urlpatterns = [
     path('<int:import_id>/lookup-matching/', Step6LookupMatchingView.as_view(), name='import_step6_lookup_matching'),
     path('<int:import_id>/static-mapping/', Step7StaticMappingView.as_view(), name='import_step7_static_mapping'),
     path('<int:import_id>/uuid-mapping/', Step8UUIDMappingView.as_view(), name='import_step8_uuid_mapping'),
+    path('<int:import_id>/uuid-matching/', Step8_5UUIDMatchingView.as_view(), name='import_step8_5_uuid_matching'),
     path('<int:import_id>/json-preview/', Step9ImportView.as_view(), name='import_step9_json_preview'),
     path('<int:import_id>/execute/', Step10ExecuteView.as_view(), name='import_step10_execute'),
 ]
@@ -517,13 +554,48 @@ These track progress through the new wizard steps.
 ## **Current Status**: ✅ **CORE FUNCTIONALITY COMPLETE**
 
 ### **Completed**:
-- ✅ All 10 wizard steps implemented and functional
+- ✅ All 10 wizard steps implemented and functional (including Step 8.5 UUID Matching)
 - ✅ JSON preview and DRF-based import system
 - ✅ Model hierarchy service for dependency management
 - ✅ Field mapping persistence bug fixed
 - ✅ Auto-copy configurations from previous imports
 - ✅ All URL routes and templates created
 - ✅ Comprehensive error handling and user feedback
+- ✅ **UUID matching and deduplication system** (Step 8.5)
+- ✅ **Lookup value mapping with skip unmapped values** (Step 6)
+- ✅ **Patient table uses patient_id as PK** (no UUID generation)
+- ✅ **Date parsing with ISO8601 support**
+- ✅ **Form submission fixes** (Step 6 and Step 8 templates)
+
+### **Recent Enhancements** (2025-11-06):
+
+#### **Step 6: Lookup Matching Improvements**
+- Fixed form submission issue (submit button was in separate form)
+- Lookup mappings now properly saved to database
+- Unmapped lookup values are skipped in JSON generation
+- Records with unmapped required lookups are excluded from import
+- Clear logging of skipped values and records
+
+#### **Step 8.5: UUID Matching & Deduplication (NEW)**
+- Complete UUID matching system for existing patient records
+- Side-by-side comparison of import data vs existing database records
+- Similarity scoring for diagnosis and pathology records
+- User control over UUID reuse decisions
+- Handles nested record hierarchies
+- Efficient UI for large datasets (expandable patient cards)
+- Auto-suggests high-similarity matches (>80%)
+- Applies UUID replacements in JSON generator
+
+#### **Date Parsing Enhancements**
+- ISO8601 format support (YYYY-MM-DD)
+- Fallback to configured format if ISO fails
+- Returns value as-is if already in correct format
+- Eliminates date parsing warnings
+
+#### **Patient Table Handling**
+- Patient table excluded from UUID generation (Step 8)
+- Uses patient_id from CSV as primary key
+- JSON generator uses patient_id directly instead of generating UUID
 
 ### **Pending**:
 - ⏳ Admin integration
@@ -542,7 +614,8 @@ These track progress through the new wizard steps.
   - **Recommendation**: Enhance Step 5 to extract and apply custom validators from model fields
 
 **Next Steps**: 
-1. Test complete import flow with sample data
+1. Test complete import flow with sample data (including UUID matching)
 2. Refine import executor for edge cases
-3. Add admin integration
-4. Create user documentation
+3. Test UUID matching with large patient datasets
+4. Add admin integration
+5. Create user documentation
