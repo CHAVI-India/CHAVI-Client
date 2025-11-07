@@ -23,6 +23,210 @@
         </div>
     </div>
 
+    <!-- Mapping Summary -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Field Mappings -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-blue-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-exchange-alt mr-2 text-blue-600"></i>Field Mappings ({{ mapping_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if mapping_summary %}
+                    <div class="space-y-3">
+                        {% for mapping in mapping_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ mapping.field }}</div>
+                                    <div class="text-gray-500 text-xs mt-1">
+                                        <i class="fas fa-arrow-left mr-1"></i>{{ mapping.csv_columns }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No field mappings configured.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Default Values -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-green-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-cog mr-2 text-green-600"></i>Default Values ({{ default_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if default_summary %}
+                    <div class="space-y-3">
+                        {% for default in default_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ default.field }}</div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        <i class="fas fa-arrow-right mr-1"></i><span class="font-mono">{{ default.value }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No default values configured.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Mappings -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Lookup Mappings -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-purple-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-search mr-2 text-purple-600"></i>Lookup Mappings ({{ lookup_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if lookup_summary %}
+                    <div class="space-y-3">
+                        {% for lookup in lookup_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ lookup.csv_column }}</div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        <span class="font-mono bg-gray-100 px-2 py-0.5 rounded">{{ lookup.csv_value }}</span>
+                                        <i class="fas fa-arrow-right mx-2"></i>
+                                        <span class="font-mono bg-purple-100 px-2 py-0.5 rounded">{{ lookup.lookup_code }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No lookup mappings configured.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Duration Mappings -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-orange-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-clock mr-2 text-orange-600"></i>Duration Mappings ({{ duration_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if duration_summary %}
+                    <div class="space-y-3">
+                        {% for duration in duration_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ duration.target_field }}</div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        <i class="fas fa-arrow-left mr-1"></i>
+                                        <span class="font-mono bg-gray-100 px-1 rounded">{{ duration.reference_date }}</span>
+                                        <span class="mx-1">{{ duration.operation }}</span>
+                                        <span class="font-mono bg-gray-100 px-1 rounded">{{ duration.csv_duration_field }}</span>
+                                        {% if duration.duration_unit %}
+                                            <span class="text-gray-500 ml-1">({{ duration.duration_unit }})</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No duration mappings configured.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Parent Record Mappings -->
+    {% if parent_mapping_summary %}
+    <div class="bg-white border rounded-lg overflow-hidden">
+        <div class="bg-purple-50 px-4 py-3 border-b">
+            <h3 class="font-semibold text-gray-900">
+                <i class="fas fa-sitemap mr-2 text-purple-600"></i>Parent Record Mappings ({{ parent_mapping_summary|length }})
+            </h3>
+        </div>
+        <div class="p-4 max-h-96 overflow-y-auto">
+            <div class="space-y-3">
+                {% for pm in parent_mapping_summary %}
+                    <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900">{{ pm.relationship }}</div>
+                            <div class="text-gray-600 text-xs mt-1">
+                                <i class="fas fa-arrow-right mr-1"></i>{{ pm.action }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Date Formats and Missing Relations -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Date Formats -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-indigo-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-calendar mr-2 text-indigo-600"></i>Date Formats ({{ date_format_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if date_format_summary %}
+                    <div class="space-y-3">
+                        {% for df in date_format_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ df.csv_column }}</div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        <span class="font-mono bg-indigo-100 px-2 py-0.5 rounded">{{ df.date_format }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No date formats configured.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Missing Relations -->
+        <div class="bg-white border rounded-lg overflow-hidden">
+            <div class="bg-red-50 px-4 py-3 border-b">
+                <h3 class="font-semibold text-gray-900">
+                    <i class="fas fa-link mr-2 text-red-600"></i>Missing Relations ({{ missing_summary|length }})
+                </h3>
+            </div>
+            <div class="p-4 max-h-96 overflow-y-auto">
+                {% if missing_summary %}
+                    <div class="space-y-3">
+                        {% for mr in missing_summary %}
+                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ mr.field }}</div>
+                                    <div class="text-gray-600 text-xs mt-1">
+                                        <i class="fas fa-arrow-right mr-1"></i><span class="font-mono">{{ mr.value }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No missing relations configured.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <!-- JSON Preview -->
     <div class="border rounded-lg overflow-hidden">
         <div class="bg-gray-800 px-4 py-3 flex justify-between items-center">

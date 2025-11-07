@@ -1,0 +1,12 @@
+PatientCode,BirthDate,Gender,VitalStatus,DiagnosisDate,PrimarySite,TreatmentDate,TreatmentType,TreatmentDetails,RadiationDose,ChemotherapyAgent
+P101,1965-03-15,Male,Alive,2020-05-10,Lung,2020-06-15,Surgery,Right upper lobectomy,,
+P101,1965-03-15,Male,Alive,2020-05-10,Lung,2020-07-01,Chemotherapy,Adjuvant chemotherapy,Cisplatin + Etoposide
+P101,1965-03-15,Male,Alive,2020-05-10,Lung,2020-10-15,Radiotherapy,Thoracic radiation,50 Gy,
+P102,1970-08-22,Female,Deceased,2019-11-20,Breast,2019-12-10,Surgery,Modified radical mastectomy,,
+P102,1970-08-22,Female,Deceased,2019-11-20,Breast,2020-01-05,Chemotherapy,Neoadjuvant chemotherapy,,Doxorubicin + Cyclophosphamide
+P102,1970-08-22,Female,Deceased,2019-11-20,Breast,2020-05-20,Radiotherapy,Chest wall radiation,45 Gy,
+P103,1958-12-05,Male,Alive,2021-02-14,Colon,2021-03-20,Surgery,Right hemicolectomy,,
+P104,1975-06-30,Female,Alive,2020-09-08,Ovarian,2020-10-15,Chemotherapy,First-line chemotherapy,,Carboplatin + Paclitaxel
+P104,1975-06-30,Female,Alive,2020-09-08,Ovarian,2021-04-10,Surgery,Debulking surgery,,
+P105,1962-11-18,Male,Deceased,2018-07-25,Prostate,2018-08-30,Surgery,Radical prostatectomy,,
+P105,1962-11-18,Male,Deceased,2018-07-25,Prostate,2019-02-15,Radiotherapy,Salvage radiation,70 Gy,

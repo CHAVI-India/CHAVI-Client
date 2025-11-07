@@ -1,0 +1,11 @@
+ID,BirthDate,Gender,Status,DiagnosisDate,Site,Stage,Height,Weight,Smoker,PackYears,FamilyHistory,PerformanceStatus
+M001,1970-05-15,Male,Alive,2020-03-10,Lung,Stage II,175,70,Yes,30,No,1
+M002,1965-08-20,Female,,2019-11-15,Breast,Stage III,162,65,No,,Yes,0
+M003,1958-12-10,Male,Alive,2021-01-20,Colon,,168,,,No,,1
+M004,,Female,Alive,2020-07-08,Ovarian,Stage IV,158,55,No,0,No,2
+M005,1962-11-25,Male,Deceased,2018-06-15,Prostate,Stage II,180,,Yes,40,,0
+M006,1975-03-30,Female,Alive,2021-09-22,Breast,Stage I,165,60,,,Yes,
+M007,1960-07-18,,Alive,2019-05-30,Lung,Stage IIIA,172,75,Yes,25,No,1
+M008,1968-10-05,Female,Alive,,Ovarian,Stage II,160,58,No,0,,0
+M009,1955-02-28,Male,Deceased,2017-12-12,Prostate,,175,82,No,,No,1
+M010,1973-06-14,Female,Alive,2020-11-18,Breast,Stage II,,62,No,0,Yes,0

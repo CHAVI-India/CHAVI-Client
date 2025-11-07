@@ -1,0 +1,6 @@
+SubjectID,DOB,Gender,Status,DxDate,Site,Stage,ER_Status,ER_Value,PR_Status,PR_Value,HER2_Status,HER2_Value,Ki67_Status,Ki67_Value
+S001,1970-03-15,Female,Alive,2020-05-10,Breast,Stage II,Positive,85,Positive,70,Negative,0,Positive,25
+S002,1965-08-22,Female,Deceased,2019-11-20,Breast,Stage III,Positive,90,Negative,5,Positive,3,Positive,40
+S003,1975-12-05,Female,Alive,2021-02-14,Breast,Stage I,Positive,95,Positive,80,Negative,0,Positive,15
+S004,1968-06-30,Female,Alive,2020-09-08,Ovarian,Stage IV,,,,,,,
+S005,1972-11-18,Female,Alive,2018-07-25,Breast,Stage II,Negative,2,Negative,3,Negative,1,Positive,30

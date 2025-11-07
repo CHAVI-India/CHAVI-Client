@@ -243,9 +243,43 @@ class FileDefaultValues(models.Model):
         verbose_name_plural = "File Default Values"
 
 
+class FileParentRecordMapping(models.Model):
+    '''
+    This model stores how to handle missing parent FK relationships (Step 10).
+    For each child model with unmapped FK, user can either:
+    1. Link to an existing parent record in the database
+    2. Create a new parent record with specified field values
+    '''
+    id = models.AutoField(primary_key=True)
+    file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_parent_record_mappings')
+    child_model_name = models.CharField(max_length=255, help_text="The child model name (e.g., 'Radiotherapy')", verbose_name="Child Model Name")
+    parent_fk_field = models.CharField(max_length=255, help_text="The FK field name in child model (e.g., 'diagnosis')", verbose_name="Parent FK Field")
+    parent_model_name = models.CharField(max_length=255, help_text="The parent model name (e.g., 'Diagnosis')", verbose_name="Parent Model Name")
+    
+    # Option 1: Link to existing record
+    link_to_existing = models.BooleanField(default=False, help_text="If True, link to an existing parent record", verbose_name="Link to Existing")
+    existing_record_id = models.CharField(max_length=255, null=True, blank=True, help_text="UUID/ID of existing parent record to link to", verbose_name="Existing Record ID")
+    
+    # Option 2: Create new parent
+    create_new_parent = models.BooleanField(default=False, help_text="If True, create a new parent record during import", verbose_name="Create New Parent")
+    parent_field_values = models.JSONField(null=True, blank=True, help_text="Field values for new parent record {field: value}", verbose_name="Parent Field Values")
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+    
+    def __str__(self):
+        return f"{self.child_model_name}.{self.parent_fk_field} → {self.parent_model_name}"
+    
+    class Meta:
+        verbose_name = "File Parent Record Mapping"
+        verbose_name_plural = "File Parent Record Mappings"
+        unique_together = [['file_import_session', 'child_model_name', 'parent_fk_field']]
+
+
 class FileMissingRelations(models.Model):
     '''
-    This is a model to store information about the missing relations for a file import session (Step 10).
+    DEPRECATED: This model is being replaced by FileParentRecordMapping for FK relationships.
+    Currently only used for simple field value assignments that are not FK relationships.
     '''
     id = models.AutoField(primary_key=True)
     file_import_session = models.ForeignKey(FileImportSession, on_delete=models.CASCADE, related_name='file_missing_relations')

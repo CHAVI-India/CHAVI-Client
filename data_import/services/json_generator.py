@@ -11,7 +11,7 @@ from ..models import (
     FileMappedModel, FileMappedField, FilePatientID,
     FileColumnFieldValueMapping, FileDateFieldMapping,
     FileDurationDateMapping, FieldLookupValues, FileMissingRelations,
-    FileDefaultValues, FileImportUUIDValues
+    FileDefaultValues, FileParentRecordMapping, FileImportUUIDValues
 )
 from datetime import datetime, timedelta
 from dateutil import parser as date_parser
@@ -122,7 +122,7 @@ class JSONGeneratorService:
             if lookup.csv_value:
                 lookup_mappings[lookup.csv_column_name][lookup.csv_value] = lookup.lookup_value
         
-        # Combine default values (Step 9) and missing relations (Step 10)
+        # Combine default values (Step 9) and missing relations (Step 10 - deprecated)
         default_and_missing = {}
         # Add default values
         for dv in FileDefaultValues.objects.filter(file_import_session=session):
@@ -130,6 +130,17 @@ class JSONGeneratorService:
         # Add missing relations (these can override defaults if needed)
         for mr in FileMissingRelations.objects.filter(file_import_session=session):
             default_and_missing[(mr.client_app_model_name, mr.client_app_field_name)] = mr.client_app_field_value
+        
+        # Get parent record mappings (Step 10 - new system)
+        parent_mappings = {}
+        for pm in FileParentRecordMapping.objects.filter(file_import_session=session):
+            parent_mappings[(pm.child_model_name, pm.parent_fk_field)] = {
+                'parent_model': pm.parent_model_name,
+                'link_to_existing': pm.link_to_existing,
+                'existing_record_id': pm.existing_record_id,
+                'create_new_parent': pm.create_new_parent,
+                'parent_field_values': pm.parent_field_values or {},
+            }
         
         return {
             'selected_models': mapped_model.client_app_model_name if mapped_model else [],
@@ -140,6 +151,7 @@ class JSONGeneratorService:
             'duration_mappings': list(FileDurationDateMapping.objects.filter(file_import_session=session)),
             'lookup_mappings': lookup_mappings,
             'missing_relations': default_and_missing,  # Combined default values and missing relations
+            'parent_mappings': parent_mappings,  # Parent record mappings from Step 10
         }
     
     @staticmethod
@@ -401,6 +413,44 @@ class JSONGeneratorService:
             if rel_model == model_name:
                 record[rel_field] = JSONGeneratorService._resolve_relation_value(rel_value, headers, row)
                 has_data = True  # Default values count as data
+        
+        # Handle parent FK relationships (Step 10 - new system)
+        for (child_model, fk_field), parent_mapping in mappings.get('parent_mappings', {}).items():
+            if child_model == model_name:
+                parent_model = parent_mapping['parent_model']
+                
+                # Auto-handle Patient FK
+                if parent_model == 'Patient':
+                    record[fk_field] = patient_id
+                    has_data = True
+                
+                # Link to existing parent record
+                elif parent_mapping['link_to_existing'] and parent_mapping['existing_record_id']:
+                    record[fk_field] = parent_mapping['existing_record_id']
+                    has_data = True
+                
+                # Create new parent record (will be handled during import)
+                elif parent_mapping['create_new_parent']:
+                    # Generate UUID for new parent
+                    parent_pk_field = JSONGeneratorService._get_pk_field_name(parent_model)
+                    if parent_pk_field:
+                        record_counter['count'] += 1
+                        parent_record_key = f"{patient_id}_{parent_model}_new_{record_counter['count']}"
+                        parent_uuid = uuid_manager.get_uuid(parent_model, parent_pk_field, parent_record_key)
+                        record[fk_field] = parent_uuid
+                        
+                        # Store parent creation info in a special field for import executor
+                        if '_parent_records_to_create' not in record:
+                            record['_parent_records_to_create'] = []
+                        
+                        parent_record_data = {
+                            'model': parent_model,
+                            'id': parent_uuid,
+                            'patient_id': patient_id,
+                            **parent_mapping['parent_field_values']
+                        }
+                        record['_parent_records_to_create'].append(parent_record_data)
+                        has_data = True
         
         if not has_data and model_name != 'Patient':
             return None

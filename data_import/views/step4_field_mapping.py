@@ -7,7 +7,7 @@ from django.contrib import messages
 from django import forms
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FileImportSessionStep
-from ..services import FieldIntrospectionService
+from ..services import FieldIntrospectionService, ModelHierarchyService
 
 
 class Step4FieldMappingView(BaseImportView):
@@ -57,11 +57,24 @@ class Step4FieldMappingView(BaseImportView):
             # Convert fields dict to list of tuples for template iteration
             fields_list = []
             for field_name, field_info in fields.items():
-                if field_name not in exclude_fields:
-                    fields_list.append({
-                        'name': field_name,
-                        'info': field_info,
-                    })
+                if field_name in exclude_fields:
+                    continue
+                
+                # Skip FK fields that point to selected models or excluded models
+                if field_info.get('is_fk'):
+                    related_model = field_info.get('related_model')
+                    if related_model:
+                        # Skip if FK points to a selected model (will be handled in Step 10)
+                        if related_model in selected_models:
+                            continue
+                        # Skip if FK points to an excluded model (like User, Center, etc.)
+                        if related_model in ModelHierarchyService.EXCLUDED_MODELS:
+                            continue
+                
+                fields_list.append({
+                    'name': field_name,
+                    'info': field_info,
+                })
             
             models_data.append({
                 'name': model_name,

@@ -1,0 +1,6 @@
+PatientCode,DOB,Gender,VitalStatus,DiagnosisDate,TumorSite,DiagnosisStage,AgeAtDiagnosis,SurgeryDate,SurgeryType,ChemoStartDate,ChemoEndDate,ChemoDrug
+P001,1965-03-15,Male,Alive,2020-05-10,Lung,Stage III,55,2020-06-15,Lobectomy,2020-07-01,2020-09-30,Cisplatin
+P002,1970-08-22,Female,Deceased,2019-11-20,Breast,Stage II,49,2019-12-10,Mastectomy,2020-01-05,2020-04-05,Doxorubicin
+P003,1958-12-05,Male,Alive,2021-02-14,Colon,Stage I,63,2021-03-20,Colectomy,,,
+P004,1975-06-30,Female,Alive,2020-09-08,Ovarian,Stage IV,45,,,2020-10-15,2021-01-15,Carboplatin
+P005,1962-11-18,Male,Deceased,2018-07-25,Prostate,Stage II,56,2018-08-30,Prostatectomy,,,

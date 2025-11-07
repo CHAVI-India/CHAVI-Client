@@ -1,0 +1,10 @@
+PatientID,DOB,Sex,Status,DxDate,CancerType,DxStage,PathologyDate,Histology,Grade,IHC_Marker,IHC_Result,IHC_Percentage,SurgeryDate,Procedure,RadiationStart,RadiationEnd,TotalDose
+H001,1968-05-20,M,Alive,2019-03-15,Lung,Stage IIIA,2019-03-18,Adenocarcinoma,Grade 2,PD-L1,Positive,60,2019-04-20,Lobectomy,2019-06-01,2019-07-15,60
+H001,1968-05-20,M,Alive,2019-03-15,Lung,Stage IIIA,2019-03-18,Adenocarcinoma,Grade 2,EGFR,Negative,0,,,,,
+H002,1972-11-08,F,Deceased,2020-07-22,Breast,Stage II,2020-07-25,Invasive ductal carcinoma,Grade 3,ER,Positive,85,2020-08-15,Mastectomy,,,
+H002,1972-11-08,F,Deceased,2020-07-22,Breast,Stage II,2020-07-25,Invasive ductal carcinoma,Grade 3,PR,Positive,70,,,,,
+H002,1972-11-08,F,Deceased,2020-07-22,Breast,Stage II,2020-07-25,Invasive ductal carcinoma,Grade 3,HER2,Negative,0,,,,,
+H002,1972-11-08,F,Deceased,2020-07-22,Breast,Stage II,2020-07-25,Invasive ductal carcinoma,Grade 3,Ki67,Positive,40,,,,,
+H003,1965-02-14,M,Alive,2018-12-10,Colon,Stage I,2018-12-12,Adenocarcinoma,Grade 1,,,0,2018-12-28,Colectomy,,,
+H004,1980-09-25,F,Alive,2021-05-18,Ovarian,Stage IV,2021-05-20,Serous carcinoma,Grade 3,CA-125,Positive,95,2021-07-10,Debulking,,,
+H005,1955-07-03,M,Deceased,2017-08-30,Prostate,Stage II,2017-09-02,Adenocarcinoma,Gleason 7,PSA,Positive,12,2017-10-15,Prostatectomy,2018-02-01,2018-03-20,70

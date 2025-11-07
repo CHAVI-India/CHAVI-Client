@@ -1,5 +1,22 @@
 {% extends "data_import/base_import.html" %}
-{% load import_filters %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
 
 {% block step_content %}
 <div class="space-y-6">
@@ -10,7 +27,8 @@
             </div>
             <div class="ml-3">
                 <p class="text-sm text-blue-700">
-                    Some foreign key relationships are not mapped in your CSV. Please provide values for these missing relationships.
+                    <strong>Missing Parent Relationships:</strong> The selected models require parent records that are not mapped in your CSV.
+                    For each relationship, you can either link to an existing record or create a new one.
                 </p>
             </div>
         </div>
@@ -19,71 +37,127 @@
     <form method="post" class="space-y-6">
         {% csrf_token %}
         
-        {% if missing_relations %}
-        <div class="space-y-4">
-            {% for relation in missing_relations %}
-            <div class="border rounded-lg p-4 {% if relation.required %}border-red-300 bg-red-50{% endif %}">
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        {% if relation.required %}
-                        <i class="fas fa-exclamation-triangle text-red-500 mt-1"></i>
-                        {% else %}
-                        <i class="fas fa-link text-chavi-primary mt-1"></i>
-                        {% endif %}
-                    </div>
-                    <div class="ml-3 flex-1">
-                        <h4 class="font-medium text-gray-900 mb-2">
-                            {{ relation.model_name }}.{{ relation.field_name }}
-                            {% if relation.required %}<span class="text-red-500 text-sm">(Required)</span>{% endif %}
-                        </h4>
-                        <p class="text-sm text-gray-600 mb-3">
-                            References: {{ relation.parent_model }}
+        {% if missing_fk_relations %}
+        <div class="space-y-6">
+            {% for fk_rel in missing_fk_relations %}
+            <div class="bg-white border-2 border-gray-200 rounded-lg p-6 shadow-sm">
+                <!-- Header -->
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-link text-blue-600 text-xl mr-3"></i>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 text-lg">
+                            {{ fk_rel.child_model }}.{{ fk_rel.fk_field }}
+                        </h3>
+                        <p class="text-sm text-gray-600">
+                            Requires: <span class="font-medium">{{ fk_rel.parent_model }}</span>
                         </p>
-                        
-                        {% if relation.is_lookup and relation.lookup_values %}
-                        <!-- Lookup field - show dropdown -->
-                        <select name="relation_{{ relation.model_name }}_{{ relation.field_name }}"
-                                class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm"
-                                {% if relation.required %}required{% endif %}>
-                            <option value="">-- Select {{ relation.parent_model }} --</option>
-                            {% for lookup in relation.lookup_values %}
-                            <option value="{{ lookup.code }}" {% if relation.existing_value == lookup.code %}selected{% endif %}>
-                                {{ lookup.label }} ({{ lookup.code }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500">Select from lookup table</p>
-                        {% else %}
-                        <!-- Non-lookup field - show CSV column selector or text input -->
-                        <div class="space-y-2">
-                            <label class="block text-xs font-medium text-gray-700">
-                                Option 1: Select CSV Column
-                            </label>
-                            <select name="relation_{{ relation.model_name }}_{{ relation.field_name }}"
-                                    class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm"
-                                    {% if relation.required %}required{% endif %}>
-                                <option value="">-- Or enter value below --</option>
-                                {% for header in csv_headers %}
-                                <option value="CSV:{{ header }}" {% if relation.existing_value == header %}selected{% endif %}>
-                                    {{ header }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            
-                            <label class="block text-xs font-medium text-gray-700 mt-2">
-                                Option 2: Enter Fixed Value
-                            </label>
-                            <input type="text" name="relation_{{ relation.model_name }}_{{ relation.field_name }}_custom"
-                                   value="{% if not relation.existing_value|slice:':4' == 'CSV:' %}{{ relation.existing_value }}{% endif %}"
-                                   class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm"
-                                   placeholder="Or enter a fixed {{ relation.parent_model }} ID">
-                            <p class="mt-1 text-xs text-gray-500">Either select a CSV column above OR enter a fixed value here</p>
-                        </div>
-                        {% endif %}
-                        
-                        {% if relation.field_info.help_text %}
-                        <p class="mt-2 text-xs text-gray-500">{{ relation.field_info.help_text }}</p>
-                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Hidden field for parent model -->
+                <input type="hidden" name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_parent_model" value="{{ fk_rel.parent_model }}">
+
+                <!-- Radio buttons for action selection -->
+                <div class="space-y-4">
+                    <!-- Option 1: Link to existing -->
+                    <div class="border rounded-lg p-4 {% if fk_rel.existing_mapping.link_to_existing %}bg-blue-50 border-blue-300{% else %}hover:bg-gray-50{% endif %}">
+                        <label class="flex items-start cursor-pointer">
+                            <input type="radio" 
+                                   name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_action" 
+                                   value="link_existing"
+                                   class="mt-1 mr-3"
+                                   {% if fk_rel.existing_mapping.link_to_existing or not fk_rel.existing_mapping %}checked{% endif %}
+                                   onchange="toggleSection('{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}', 'existing')">
+                            <div class="flex-1">
+                                <span class="font-medium text-gray-900">Link to Existing {{ fk_rel.parent_model }}</span>
+                                <p class="text-sm text-gray-600 mt-1">Select from existing {{ fk_rel.parent_model }} records in the database</p>
+                                
+                                <div id="existing_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}" class="mt-3 {% if fk_rel.existing_mapping.create_new_parent %}hidden{% endif %}">
+                                    {% if fk_rel.existing_parents %}
+                                        <select name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_existing"
+                                                class="parent-select block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="">-- Select existing {{ fk_rel.parent_model }} --</option>
+                                            {% for parent in fk_rel.existing_parents %}
+                                                <option value="{{ parent.id }}" 
+                                                        {% if fk_rel.existing_mapping.existing_record_id == parent.id|stringformat:"s" %}selected{% endif %}>
+                                                    ID: {{ parent.id|slice:":8" }}... 
+                                                    (Patient: {{ parent.patient_id }})
+                                                    {% for key, value in parent.items %}
+                                                        {% if key != 'id' and key != 'patient_id' and value %}
+                                                            - {{ value }}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">{{ fk_rel.existing_parents|length }} existing record(s) found</p>
+                                    {% else %}
+                                        <p class="text-sm text-amber-600">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                                            No existing {{ fk_rel.parent_model }} records found for patients in this CSV
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Option 2: Create new -->
+                    <div class="border rounded-lg p-4 {% if fk_rel.existing_mapping.create_new_parent %}bg-green-50 border-green-300{% else %}hover:bg-gray-50{% endif %}">
+                        <label class="flex items-start cursor-pointer">
+                            <input type="radio" 
+                                   name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_action" 
+                                   value="create_new"
+                                   class="mt-1 mr-3"
+                                   {% if fk_rel.existing_mapping.create_new_parent %}checked{% endif %}
+                                   onchange="toggleSection('{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}', 'new')">
+                            <div class="flex-1">
+                                <span class="font-medium text-gray-900">Create New {{ fk_rel.parent_model }}</span>
+                                <p class="text-sm text-gray-600 mt-1">Provide values to create a new {{ fk_rel.parent_model }} record during import</p>
+                                
+                                <div id="new_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}" class="mt-3 space-y-3 {% if not fk_rel.existing_mapping.create_new_parent %}hidden{% endif %}">
+                                    {% if fk_rel.parent_required_fields %}
+                                        {% for field in fk_rel.parent_required_fields %}
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                    {{ field.name }} <span class="text-red-500">*</span>
+                                                </label>
+                                                {% if field.is_lookup %}
+                                                    <select name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_new_{{ field.name }}"
+                                                            class="lookup-select block w-full border-gray-300 rounded-md shadow-sm">
+                                                        <option value="">-- Select --</option>
+                                                        <!-- Lookup values will be populated by JavaScript -->
+                                                    </select>
+                                                {% elif field.type == 'DateField' %}
+                                                    <input type="date" 
+                                                           name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_new_{{ field.name }}"
+                                                           value="{{ fk_rel.existing_mapping.parent_field_values|get_item:field.name }}"
+                                                           class="block w-full border-gray-300 rounded-md shadow-sm">
+                                                {% elif field.type == 'BooleanField' %}
+                                                    <select name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_new_{{ field.name }}"
+                                                            class="block w-full border-gray-300 rounded-md shadow-sm">
+                                                        <option value="">-- Select --</option>
+                                                        <option value="true">Yes</option>
+                                                        <option value="false">No</option>
+                                                    </select>
+                                                {% else %}
+                                                    <input type="text" 
+                                                           name="fk_{{ fk_rel.child_model }}_{{ fk_rel.fk_field }}_new_{{ field.name }}"
+                                                           value="{{ fk_rel.existing_mapping.parent_field_values|get_item:field.name }}"
+                                                           class="block w-full border-gray-300 rounded-md shadow-sm"
+                                                           placeholder="Enter {{ field.name }}">
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <p class="text-sm text-gray-600">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            No required fields for {{ fk_rel.parent_model }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -97,14 +171,44 @@
         {% endif %}
 
         <div class="flex justify-end space-x-3">
-            <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Skip This Step
-            </button>
             <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Continue to Step 10
+                Continue to Step 11
                 <i class="fas fa-arrow-right ml-2"></i>
             </button>
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize Select2 on parent record selects
+        $('.parent-select').select2({
+            width: '100%',
+            placeholder: 'Select existing record'
+        });
+        
+        // Initialize Select2 on lookup selects
+        $('.lookup-select').select2({
+            width: '100%',
+            placeholder: 'Select value'
+        });
+    });
+    
+    function toggleSection(fkId, section) {
+        const existingDiv = document.getElementById('existing_' + fkId);
+        const newDiv = document.getElementById('new_' + fkId);
+        
+        if (section === 'existing') {
+            existingDiv.classList.remove('hidden');
+            newDiv.classList.add('hidden');
+        } else {
+            existingDiv.classList.add('hidden');
+            newDiv.classList.remove('hidden');
+        }
+    }
+</script>
 {% endblock %}

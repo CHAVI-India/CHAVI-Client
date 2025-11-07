@@ -38,10 +38,14 @@ class ImportExecutorService:
         
         records_created = 0
         errors = []
+        created_parent_records = {}  # Track created parent records by UUID
         
         # Process each patient
         for idx, patient_data in enumerate(patients_data):
             try:
+                # Preprocess: Create parent records if needed
+                ImportExecutorService._create_parent_records(patient_data, created_parent_records)
+                
                 # Use DRF serializer to validate and create
                 serializer = PatientImportSerializer(data=patient_data)
                 
@@ -66,3 +70,45 @@ class ImportExecutorService:
             return False, records_created, error_message
         
         return True, records_created, None
+    
+    @staticmethod
+    def _create_parent_records(data, created_parent_records):
+        """
+        Recursively process data to create parent records before child records.
+        Removes _parent_records_to_create fields after processing.
+        """
+        from django.apps import apps
+        
+        if isinstance(data, dict):
+            # Check if this record needs parent records created
+            if '_parent_records_to_create' in data:
+                parent_records_info = data.pop('_parent_records_to_create')
+                
+                for parent_info in parent_records_info:
+                    parent_model_name = parent_info.pop('model')
+                    parent_uuid = parent_info.get('id')
+                    
+                    # Skip if already created
+                    if parent_uuid in created_parent_records:
+                        continue
+                    
+                    try:
+                        # Get model class
+                        parent_model_class = apps.get_model('client_app', parent_model_name)
+                        
+                        # Create parent record
+                        parent_record = parent_model_class.objects.create(**parent_info)
+                        created_parent_records[parent_uuid] = parent_record
+                        
+                    except Exception as e:
+                        print(f"Error creating parent {parent_model_name}: {e}")
+            
+            # Recursively process nested dictionaries and lists
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    ImportExecutorService._create_parent_records(value, created_parent_records)
+        
+        elif isinstance(data, list):
+            # Process each item in list
+            for item in data:
+                ImportExecutorService._create_parent_records(item, created_parent_records)
