@@ -185,12 +185,45 @@ class JSONGeneratorService:
         
         # Get model hierarchy
         hierarchy = ModelHierarchyService.get_model_hierarchy()
-        selected_models = mappings['selected_models']
+        selected_models = list(mappings['selected_models'])
         
-        # Separate models by level
-        level_0_models = [m for m in selected_models if hierarchy.get(m) == 0]  # Patient
-        level_1_models = [m for m in selected_models if hierarchy.get(m) == 1]
-        level_2_models = [m for m in selected_models if hierarchy.get(m) == 2]
+        # Add parent models from parent_mappings if not already selected
+        # This ensures models created via Step 10 are included in the JSON
+        parent_models_to_add = set()
+        for parent_mapping in mappings.get('parent_mappings', {}).values():
+            parent_model = parent_mapping.get('parent_model')
+            if parent_model and parent_model not in selected_models:
+                parent_models_to_add.add(parent_model)
+                selected_models.append(parent_model)
+        
+        # Separate models by level and adjust for auto-created parents
+        # Models whose parents are auto-created should be treated as direct children of Patient
+        adjusted_hierarchy = {}
+        
+        for model in selected_models:
+            original_level = hierarchy.get(model, 0)
+            
+            # Check if any parent is auto-created
+            parent_models_dict = ModelHierarchyService.get_parent_models(model)
+            has_auto_created_parent = False
+            
+            for fk_field, parent_model in parent_models_dict.items():
+                if parent_model in parent_models_to_add:
+                    # Parent is auto-created, treat this model as Level 1 (direct child of Patient)
+                    has_auto_created_parent = True
+                    break
+            
+            if has_auto_created_parent:
+                adjusted_hierarchy[model] = 1  # Promote to Level 1
+            else:
+                adjusted_hierarchy[model] = original_level
+        
+        # Separate models by adjusted level
+        level_0_models = [m for m in selected_models if adjusted_hierarchy.get(m) == 0]  # Patient
+        level_1_plus_models = [m for m in selected_models if adjusted_hierarchy.get(m, 0) >= 1]  # All non-Patient models
+        
+        # Track UUIDs of auto-created parent records so children can reference them
+        parent_uuids = {}  # {parent_model_name: uuid}
         
         # Process Patient fields (Level 0)
         for mapping in mappings['field_mappings']:
@@ -212,32 +245,95 @@ class JSONGeneratorService:
             if model_name == 'Patient':
                 patient_data[field_name] = JSONGeneratorService._resolve_relation_value(value, headers, patient_rows[0])
         
-        # Process Level 1 models (direct children of Patient)
-        for model_name in level_1_models:
-            if model_name == 'Patient':
+        # Process all child models of Patient recursively
+        JSONGeneratorService._add_child_models(
+            patient_data, 'Patient', level_1_plus_models, patient_rows, headers, 
+            mappings, uuid_manager, patient_id, record_counter, parent_uuids, parent_models_to_add
+        )
+        
+        return patient_data
+    
+    @staticmethod
+    def _add_child_models(parent_record, parent_model_name, all_models, patient_rows, headers, 
+                         mappings, uuid_manager, patient_id, record_counter, parent_uuids, parent_models_to_add):
+        """Recursively add child models to a parent record."""
+        # Find direct children of this parent
+        for model_name in all_models:
+            parent_models_dict = ModelHierarchyService.get_parent_models(model_name)
+            
+            # Check if this model is a direct child of the parent
+            if parent_model_name not in parent_models_dict.values():
                 continue
             
             set_name = f"{model_name.lower()}_set"
-            patient_data[set_name] = []
+            parent_record[set_name] = []
             
-            # Check if this is wide-format data (column-value mappings)
-            column_value_records = JSONGeneratorService._get_column_value_records(
-                model_name, patient_rows[0], headers, mappings, uuid_manager, patient_id, record_counter
+            # Check if this model is only created via parent mapping (no CSV fields mapped)
+            has_csv_mappings = any(
+                m.mapped_client_app_field_name.startswith(f"{model_name}.")
+                for m in mappings['field_mappings']
             )
             
-            if column_value_records:
-                # Wide format
-                patient_data[set_name].extend(column_value_records)
+            # If model is created via parent mapping only, create one record with parent field values
+            if not has_csv_mappings and model_name in parent_models_to_add:
+                # Find parent mapping that creates this model
+                for (child_model, fk_field), parent_mapping in mappings.get('parent_mappings', {}).items():
+                    if parent_mapping.get('parent_model') == model_name and parent_mapping.get('create_new_parent'):
+                        # Create parent record with field values from Step 10
+                        auto_created_record = {}
+                        
+                        # Add UUID for primary key
+                        pk_field = JSONGeneratorService._get_pk_field_name(model_name)
+                        model_uuid = None
+                        if pk_field:
+                            record_counter['count'] += 1
+                            record_key = f"{patient_id}_{model_name}_parent_{record_counter['count']}"
+                            model_uuid = uuid_manager.get_uuid(model_name, pk_field, record_key)
+                            auto_created_record[pk_field] = model_uuid
+                        
+                        # Store UUID for children to reference
+                        if model_uuid:
+                            parent_uuids[model_name] = model_uuid
+                        
+                        # Add patient FK if this is a Level 1 model
+                        if parent_model_name == 'Patient':
+                            auto_created_record['patient_id'] = patient_id
+                        
+                        # Add field values from parent mapping
+                        for field_name, field_value in parent_mapping.get('parent_field_values', {}).items():
+                            auto_created_record[field_name] = field_value
+                        
+                        # Recursively add children of this auto-created model
+                        remaining_models = [m for m in all_models if m != model_name]
+                        JSONGeneratorService._add_child_models(
+                            auto_created_record, model_name, remaining_models, patient_rows, headers,
+                            mappings, uuid_manager, patient_id, record_counter, parent_uuids, parent_models_to_add
+                        )
+                        
+                        parent_record[set_name].append(auto_created_record)
+                        break  # Only create one parent record
             else:
-                # Long format - each row might be a separate record
-                for row in patient_rows:
-                    record = JSONGeneratorService._generate_model_record(
-                        model_name, row, headers, mappings, level_2_models, uuid_manager, patient_id, record_counter
-                    )
-                    if record and record not in patient_data[set_name]:
-                        patient_data[set_name].append(record)
-        
-        return patient_data
+                # Model has CSV mappings - process normally
+                # Check if this is wide-format data
+                column_value_records = JSONGeneratorService._get_column_value_records(
+                    model_name, patient_rows[0], headers, mappings, uuid_manager, patient_id, record_counter
+                )
+                
+                if column_value_records:
+                    # Wide format
+                    parent_record[set_name].extend(column_value_records)
+                else:
+                    # Long format - process each row
+                    # Get children of this model for recursive processing
+                    children = [m for m in all_models if m != model_name and 
+                               model_name in ModelHierarchyService.get_parent_models(m).values()]
+                    
+                    for row in patient_rows:
+                        record = JSONGeneratorService._generate_model_record(
+                            model_name, row, headers, mappings, children, uuid_manager, patient_id, record_counter, parent_uuids
+                        )
+                        if record and record not in parent_record[set_name]:
+                            parent_record[set_name].append(record)
     
     @staticmethod
     def _get_field_value(row, headers, mapping, mappings):
@@ -382,8 +478,10 @@ class JSONGeneratorService:
         return records
     
     @staticmethod
-    def _generate_model_record(model_name, row, headers, mappings, child_models, uuid_manager, patient_id, record_counter):
+    def _generate_model_record(model_name, row, headers, mappings, child_models, uuid_manager, patient_id, record_counter, parent_uuids=None):
         """Generate a record for a specific model."""
+        if parent_uuids is None:
+            parent_uuids = {}
         record = {}
         has_data = False
         
@@ -405,7 +503,16 @@ class JSONGeneratorService:
             if map_model == model_name:
                 value = JSONGeneratorService._get_field_value(row, headers, mapping, mappings)
                 if value is not None:
-                    record[map_field] = value
+                    # Check if field is ManyToMany - wrap value in list
+                    field_info = FieldIntrospectionService.get_model_fields(model_name).get(map_field, {})
+                    if field_info.get('type') == 'ManyToManyField':
+                        # Ensure value is a list
+                        if not isinstance(value, list):
+                            record[map_field] = [value] if value else []
+                        else:
+                            record[map_field] = value
+                    else:
+                        record[map_field] = value
                     has_data = True
         
         # Add missing relations (default values from Step 9 and missing relations from Step 10)
@@ -429,28 +536,34 @@ class JSONGeneratorService:
                     record[fk_field] = parent_mapping['existing_record_id']
                     has_data = True
                 
-                # Create new parent record (will be handled during import)
+                # Create new parent record - use stored UUID if parent was already created
                 elif parent_mapping['create_new_parent']:
-                    # Generate UUID for new parent
-                    parent_pk_field = JSONGeneratorService._get_pk_field_name(parent_model)
-                    if parent_pk_field:
-                        record_counter['count'] += 1
-                        parent_record_key = f"{patient_id}_{parent_model}_new_{record_counter['count']}"
-                        parent_uuid = uuid_manager.get_uuid(parent_model, parent_pk_field, parent_record_key)
-                        record[fk_field] = parent_uuid
-                        
-                        # Store parent creation info in a special field for import executor
-                        if '_parent_records_to_create' not in record:
-                            record['_parent_records_to_create'] = []
-                        
-                        parent_record_data = {
-                            'model': parent_model,
-                            'id': parent_uuid,
-                            'patient_id': patient_id,
-                            **parent_mapping['parent_field_values']
-                        }
-                        record['_parent_records_to_create'].append(parent_record_data)
+                    # Check if parent UUID was already created in Level 1 loop
+                    if parent_model in parent_uuids:
+                        # Reuse existing parent UUID
+                        record[fk_field] = parent_uuids[parent_model]
                         has_data = True
+                    else:
+                        # Parent not yet created (shouldn't happen with new logic, but keep as fallback)
+                        parent_pk_field = JSONGeneratorService._get_pk_field_name(parent_model)
+                        if parent_pk_field:
+                            record_counter['count'] += 1
+                            parent_record_key = f"{patient_id}_{parent_model}_new_{record_counter['count']}"
+                            parent_uuid = uuid_manager.get_uuid(parent_model, parent_pk_field, parent_record_key)
+                            record[fk_field] = parent_uuid
+                            
+                            # Store parent creation info in a special field for import executor
+                            if '_parent_records_to_create' not in record:
+                                record['_parent_records_to_create'] = []
+                            
+                            parent_record_data = {
+                                'model': parent_model,
+                                'id': parent_uuid,
+                                'patient_id': patient_id,
+                                **parent_mapping['parent_field_values']
+                            }
+                            record['_parent_records_to_create'].append(parent_record_data)
+                            has_data = True
         
         if not has_data and model_name != 'Patient':
             return None

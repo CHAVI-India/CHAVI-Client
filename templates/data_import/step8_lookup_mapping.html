@@ -1,5 +1,23 @@
 {% extends "data_import/base_import.html" %}
 
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
+
 {% block step_content %}
 <div class="space-y-6">
     <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
@@ -37,15 +55,18 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            {% for csv_value in field_info.unique_csv_values %}
+                            {% for csv_item in field_info.csv_values_with_selection %}
                             <tr>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ csv_value }}</td>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ csv_item.csv_value }}</td>
                                 <td class="px-4 py-3">
-                                    <select name="lookup_{{ field_info.csv_columns.0 }}_{{ csv_value }}" 
-                                            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md">
+                                    <select name="lookup_{{ field_info.csv_columns.0 }}_{{ csv_item.csv_value }}" 
+                                            class="lookup-select block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md">
                                         <option value="">-- Select lookup value --</option>
                                         {% for lookup in field_info.lookup_values %}
-                                        <option value="{{ lookup.code }}">{{ lookup.code }} - {{ lookup.label }}</option>
+                                        <option value="{{ lookup.code }}" 
+                                                {% if csv_item.selected_code == lookup.code %}selected{% endif %}>
+                                            {{ lookup.code }} - {{ lookup.label }}
+                                        </option>
                                         {% endfor %}
                                     </select>
                                 </td>
@@ -75,4 +96,19 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize Select2 on all lookup dropdowns
+        $('.lookup-select').select2({
+            width: '100%',
+            placeholder: '-- Select lookup value --',
+            allowClear: true
+        });
+    });
+</script>
 {% endblock %}

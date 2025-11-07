@@ -38,14 +38,16 @@ class Step2PatientIDMappingView(BaseImportView):
         # Check if patient IDs already mapped
         existing_mappings = FilePatientID.objects.filter(file_import_session=session)
         
-        if existing_mappings.exists():
-            # Show existing mappings
+        if existing_mappings.exists() and session.patient_id_column:
+            # Show existing mappings with pre-selected column
             patient_ids = list(existing_mappings.values_list('patient_id', 'exists_in_client_app_database'))
-            selected_column = existing_mappings.first()
+            selected_column = session.patient_id_column
             
-            # Get the column name from the first mapping (assuming all from same column)
-            # We need to store this info, for now we'll re-detect it
-            form = Step2PatientIDMappingForm(csv_headers=headers)
+            # Pre-populate form with previously selected column
+            form = Step2PatientIDMappingForm(
+                csv_headers=headers,
+                initial={'patient_id_column': session.patient_id_column}
+            )
         else:
             form = Step2PatientIDMappingForm(csv_headers=headers)
             patient_ids = None

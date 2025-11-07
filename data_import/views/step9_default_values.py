@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FileDefaultValues, FileImportSessionStep
-from ..services import FieldIntrospectionService
+from ..services import FieldIntrospectionService, ModelHierarchyService
 
 
 class Step9DefaultValuesView(BaseImportView):
@@ -60,6 +60,27 @@ class Step9DefaultValuesView(BaseImportView):
                     continue
                 if field_name in ['created_at', 'updated_at', 'id']:
                     continue
+                
+                # Skip fields that are already handled elsewhere
+                if model_name == 'Patient':
+                    # patient_id handled in Step 2, center auto-linked, project handled in Step 1
+                    if field_name in ['patient_id', 'center', 'patient_project']:
+                        continue
+                
+                # Skip FK and M2M fields pointing to selected models or system/excluded models
+                if field_info.get('is_fk') or field_info.get('type') == 'ManyToManyField':
+                    related_model = field_info.get('related_model')
+                    if related_model:
+                        # Skip if points to a selected model (handled in Step 10)
+                        if related_model in selected_models:
+                            continue
+                        # Skip if points to an excluded model (DICOM, system models)
+                        if related_model in ModelHierarchyService.EXCLUDED_MODELS:
+                            continue
+                        # Skip common system models that shouldn't be in default values
+                        system_models = ['User', 'Group', 'Permission', 'ContentType', 'Session']
+                        if related_model in system_models:
+                            continue
                 
                 # Skip if field has a default value or is nullable
                 if field_info.get('has_default') or field_info.get('null'):

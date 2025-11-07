@@ -60,15 +60,19 @@ class Step4FieldMappingView(BaseImportView):
                 if field_name in exclude_fields:
                     continue
                 
-                # Skip FK fields that point to selected models or excluded models
-                if field_info.get('is_fk'):
+                # Skip FK and M2M fields that point to selected models or excluded models
+                if field_info.get('is_fk') or field_info.get('type') == 'ManyToManyField':
                     related_model = field_info.get('related_model')
                     if related_model:
-                        # Skip if FK points to a selected model (will be handled in Step 10)
+                        # Skip if points to a selected model (will be handled in Step 10)
                         if related_model in selected_models:
                             continue
-                        # Skip if FK points to an excluded model (like User, Center, etc.)
+                        # Skip if points to an excluded model (DICOM, system models)
                         if related_model in ModelHierarchyService.EXCLUDED_MODELS:
+                            continue
+                        # Skip common system models
+                        system_models = ['User', 'Group', 'Permission', 'ContentType', 'Session']
+                        if related_model in system_models:
                             continue
                 
                 fields_list.append({

@@ -64,19 +64,41 @@ class Step8LookupMappingView(BaseImportView):
                     lookup_model = apps.get_model('lookup', lookup_model_name)
                     lookup_values = list(lookup_model.objects.all().values('code', 'label'))
                     
+                    # Get existing mappings for this field
+                    csv_column = csv_columns[0] if csv_columns else None
+                    field_existing_mappings = {}
+                    if csv_column:
+                        for m in FieldLookupValues.objects.filter(
+                            file_import_session=session,
+                            csv_column_name=csv_column
+                        ):
+                            field_existing_mappings[m.csv_value] = m.lookup_value
+                    
+                    # Create list of csv values with their selected lookup codes
+                    csv_values_with_selection = []
+                    for csv_val in sorted(unique_values):
+                        csv_values_with_selection.append({
+                            'csv_value': csv_val,
+                            'selected_code': field_existing_mappings.get(csv_val, '')
+                        })
+                    
                     lookup_fields_info.append({
                         'mapping': mapping,
                         'model_name': model_name,
                         'field_name': field_name,
                         'csv_columns': csv_columns,
-                        'unique_csv_values': sorted(unique_values),
+                        'csv_values_with_selection': csv_values_with_selection,
                         'lookup_model': lookup_model_name,
                         'lookup_values': lookup_values,
                     })
         
         # Get existing lookup mappings
         existing_mappings = FieldLookupValues.objects.filter(file_import_session=session)
-        existing_mappings_dict = {(m.csv_column_name, m.lookup_value): True for m in existing_mappings}
+        # Create dict: {(csv_column, csv_value): lookup_code}
+        existing_mappings_dict = {
+            (m.csv_column_name, m.csv_value): m.lookup_value 
+            for m in existing_mappings
+        }
         
         context = self.get_context_data(
             session=session,
