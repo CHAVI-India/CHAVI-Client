@@ -3,51 +3,6 @@
 {% block title %}{{ step_name }} - Data Import - CHAVI Client{% endblock %}
 
 {% block extra_css %}
-<style>
-    .step-indicator {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 2rem;
-    }
-    .step-item {
-        flex: 1;
-        text-align: center;
-        position: relative;
-    }
-    .step-item:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        width: 100%;
-        height: 2px;
-        background: #e5e7eb;
-        z-index: -1;
-    }
-    .step-item.active:not(:last-child)::after {
-        background: #667eea;
-    }
-    .step-circle {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #e5e7eb;
-        color: #6b7280;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    .step-item.active .step-circle {
-        background: #667eea;
-        color: white;
-    }
-    .step-item.completed .step-circle {
-        background: #10b981;
-        color: white;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -68,36 +23,6 @@
             {% endif %}
         </p>
         {% endif %}
-    </div>
-
-    <!-- Step Indicator -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <div class="step-indicator">
-            {% for i in "12345678910"|make_list %}
-                <div class="step-item {% if step_number == forloop.counter %}active{% elif current_step_num >= forloop.counter %}completed{% endif %}">
-                    <div class="step-circle">
-                        {% if current_step_num > forloop.counter %}
-                            <i class="fas fa-check"></i>
-                        {% else %}
-                            {{ forloop.counter }}
-                        {% endif %}
-                    </div>
-                    <div class="text-xs text-gray-600">
-                        {% if forloop.counter == 1 %}Upload
-                        {% elif forloop.counter == 2 %}Patient ID
-                        {% elif forloop.counter == 3 %}Models
-                        {% elif forloop.counter == 4 %}Fields
-                        {% elif forloop.counter == 5 %}Values
-                        {% elif forloop.counter == 6 %}Dates
-                        {% elif forloop.counter == 7 %}Duration
-                        {% elif forloop.counter == 8 %}Lookups
-                        {% elif forloop.counter == 9 %}Relations
-                        {% elif forloop.counter == 10 %}Review
-                        {% endif %}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
     </div>
 
     <!-- Messages -->

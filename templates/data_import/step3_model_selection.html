@@ -10,12 +10,13 @@
             <div class="ml-3">
                 <p class="text-sm text-blue-700">
                     Select the models you want to import data into. All selected models must be at the same hierarchy level.
+                    <strong>Parent models will be automatically included</strong> to maintain data relationships.
                 </p>
             </div>
         </div>
     </div>
     
-    <div class="bg-green-50 border-l-4 border-green-400 p-4">
+    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
         <div class="flex">
             <div class="flex-shrink-0">
                 <i class="fas fa-check-circle text-green-400"></i>
@@ -27,6 +28,51 @@
             </div>
         </div>
     </div>
+    
+    {% if auto_included_models %}
+    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-link text-green-400"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-green-700">
+                    <strong>Auto-included parent models:</strong> {{ auto_included_models|join:", " }}
+                </p>
+                <p class="text-xs text-green-600 mt-1">
+                    These models are required to maintain the hierarchy chain for your selected models.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if csv_headers %}
+    <div class="bg-white border-2 border-gray-200 rounded-lg shadow-sm mb-6">
+        <details class="group">
+            <summary class="cursor-pointer p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-table text-indigo-600"></i>
+                    <span class="font-semibold text-gray-900">CSV Columns Available</span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {{ csv_headers|length }} column{{ csv_headers|length|pluralize }}
+                    </span>
+                </div>
+                <i class="fas fa-chevron-down group-open:rotate-180 transition-transform text-gray-400"></i>
+            </summary>
+            <div class="p-4 pt-0 border-t border-gray-200">
+                <div class="flex flex-wrap gap-2 mt-3">
+                    {% for header in csv_headers %}
+                    <span class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <i class="fas fa-columns text-indigo-500 mr-1.5 text-xs"></i>
+                        {{ header }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </details>
+    </div>
+    {% endif %}
 
     <form method="post" class="space-y-8">
         {% csrf_token %}
@@ -50,14 +96,26 @@
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {% for model in models %}
-                <div class="border-2 rounded-lg overflow-hidden transition-all {% if model.name == 'Patient' %}border-green-500 bg-green-50{% elif model.name in selected_models %}border-chavi-primary bg-blue-50{% else %}border-gray-200 hover:border-gray-300{% endif %}">
+                <div class="border-2 rounded-lg overflow-hidden transition-all model-card
+                     {% if model.name == 'Patient' %}border-green-500 bg-green-50
+                     {% elif model.name in selected_models %}border-chavi-primary bg-blue-50
+                     {% else %}border-gray-200 hover:border-gray-300{% endif %}"
+                     data-model-name="{{ model.name }}"
+                     data-model-level="{{ model.level }}"
+                     data-hierarchy-path='{{ model.hierarchy_path_json|safe }}'>
                     <label class="{% if model.name == 'Patient' %}cursor-not-allowed{% else %}cursor-pointer{% endif %} block">
                         <div class="p-4">
                             <div class="flex items-start">
                                 <div class="flex items-center h-5 mt-1">
                                     <input type="checkbox" name="selected_models" value="{{ model.name }}" 
-                                           {% if model.name == 'Patient' %}checked disabled{% elif model.name in selected_models %}checked{% endif %}
-                                           class="focus:ring-chavi-primary h-5 w-5 text-chavi-primary border-gray-300 rounded {% if model.name == 'Patient' %}opacity-50{% endif %}">
+                                           {% if model.name == 'Patient' %}checked disabled
+                                           {% elif model.name in selected_models %}checked
+                                           {% endif %}
+                                           class="model-checkbox focus:ring-chavi-primary h-5 w-5 border-gray-300 rounded
+                                                  {% if model.name == 'Patient' %}text-green-600
+                                                  {% else %}text-chavi-primary{% endif %}"
+                                           data-model-name="{{ model.name }}"
+                                           data-model-level="{{ model.level }}">
                                     {% if model.name == 'Patient' %}
                                     <input type="hidden" name="selected_models" value="Patient">
                                     {% endif %}
@@ -150,7 +208,11 @@
         </div>
         {% endfor %}
 
-        <div class="flex justify-end">
+        <div class="flex justify-between mt-8">
+            <a href="{% url 'data_import:step2' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Step 2
+            </a>
             <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
                 Continue to Step 4
                 <i class="fas fa-arrow-right ml-2"></i>
@@ -158,4 +220,211 @@
         </div>
     </form>
 </div>
+
+<script>
+// Dynamic model selection based on hierarchy with auto-included parent models
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.model-checkbox');
+    const modelCards = document.querySelectorAll('.model-card');
+    
+    // Build hierarchy data structure
+    const modelData = {};
+    modelCards.forEach(card => {
+        const modelName = card.dataset.modelName;
+        const modelLevel = parseInt(card.dataset.modelLevel);
+        let hierarchyPath = [];
+        try {
+            // The hierarchy_path is already proper JSON from the server
+            hierarchyPath = JSON.parse(card.dataset.hierarchyPath);
+        } catch(e) {
+            console.error(`Failed to parse hierarchy path for ${modelName}:`, card.dataset.hierarchyPath, e);
+            // Fallback: treat as single-item array
+            hierarchyPath = [modelName];
+        }
+        modelData[modelName] = {
+            level: modelLevel,
+            hierarchyPath: hierarchyPath,
+            card: card,
+            checkbox: card.querySelector('.model-checkbox')
+        };
+    });
+    
+    console.log('=== Model Data Loaded ===');
+    console.log('Model hierarchy:', modelData);
+    
+    function getParentModels(modelName) {
+        // Get all parent models from the hierarchy path
+        const modelInfo = modelData[modelName];
+        if (!modelInfo) return [];
+        
+        const path = modelInfo.hierarchyPath;
+        // Return all models in path except the model itself
+        return path.filter(m => m !== modelName);
+    }
+    
+    function updateModelAvailability() {
+        // Get all user-checked models (excluding Patient)
+        // On initial load, all checked non-Patient models are user-selected
+        // After that, we exclude disabled ones (which are auto-included)
+        const userCheckedModels = Array.from(checkboxes)
+            .filter(cb => {
+                const isChecked = cb.checked;
+                const isPatient = cb.dataset.modelName === 'Patient';
+                
+                // For initial state detection, include all checked non-Patient models
+                // The disabled state will be set by this function
+                if (!isChecked || isPatient) return false;
+                
+                // Check if this checkbox was marked as auto-included by us
+                const hasAutoIncludedBadge = modelData[cb.dataset.modelName]?.card.querySelector('.auto-included-badge');
+                return !hasAutoIncludedBadge;
+            })
+            .map(cb => cb.dataset.modelName);
+        
+        console.log('=== updateModelAvailability ===');
+        console.log('User checked models:', userCheckedModels);
+        
+        if (userCheckedModels.length === 0) {
+            // No models selected, reset all to default state
+            checkboxes.forEach(cb => {
+                const modelName = cb.dataset.modelName;
+                if (modelName === 'Patient') return; // Keep Patient always checked
+                
+                const modelInfo = modelData[modelName];
+                if (!modelInfo) return;
+                
+                // Reset to unchecked and enabled
+                cb.checked = false;
+                cb.disabled = false;
+                
+                // Reset card styling
+                modelInfo.card.classList.remove('opacity-50', 'border-green-500', 'bg-green-50', 'border-chavi-primary', 'bg-blue-50');
+                modelInfo.card.classList.add('border-gray-200');
+                
+                // Reset checkbox color
+                cb.classList.remove('text-green-600', 'text-chavi-primary');
+                cb.classList.add('text-chavi-primary');
+                
+                // Remove auto-included badge if exists
+                const badge = modelInfo.card.querySelector('.auto-included-badge');
+                if (badge) badge.remove();
+            });
+            return;
+        }
+        
+        // Get the level of selected models
+        const selectedLevel = modelData[userCheckedModels[0]].level;
+        console.log('Selected level:', selectedLevel);
+        
+        // Collect all parent models that need to be auto-included
+        const autoIncludedParents = new Set();
+        userCheckedModels.forEach(modelName => {
+            const parents = getParentModels(modelName);
+            console.log(`Parents of ${modelName}:`, parents);
+            parents.forEach(parent => autoIncludedParents.add(parent));
+        });
+        console.log('Auto-included parents:', Array.from(autoIncludedParents));
+        
+        // Update all checkboxes
+        checkboxes.forEach(cb => {
+            const modelName = cb.dataset.modelName;
+            if (modelName === 'Patient') return; // Patient is always checked and disabled
+            
+            const modelInfo = modelData[modelName];
+            if (!modelInfo) return;
+            
+            const isSameLevel = modelInfo.level === selectedLevel;
+            const isUserSelected = userCheckedModels.includes(modelName);
+            const isAutoIncluded = autoIncludedParents.has(modelName);
+            
+            if (isUserSelected) {
+                // User-selected model
+                cb.checked = true;
+                cb.disabled = false;
+                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-green-500', 'bg-green-50');
+                modelInfo.card.classList.add('border-chavi-primary', 'bg-blue-50');
+                cb.classList.remove('text-green-600');
+                cb.classList.add('text-chavi-primary');
+                
+                // Update label cursor
+                const label = modelInfo.card.querySelector('label');
+                if (label) {
+                    label.classList.remove('cursor-not-allowed');
+                    label.classList.add('cursor-pointer');
+                }
+                
+                // Remove auto-included badge if exists
+                const badge = modelInfo.card.querySelector('.auto-included-badge');
+                if (badge) badge.remove();
+                
+            } else if (isAutoIncluded) {
+                // Auto-included parent model
+                cb.checked = true;
+                cb.disabled = true;
+                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-chavi-primary', 'bg-blue-50');
+                modelInfo.card.classList.add('border-green-500', 'bg-green-50');
+                cb.classList.remove('text-chavi-primary');
+                cb.classList.add('text-green-600');
+                
+                // Update label cursor
+                const label = modelInfo.card.querySelector('label');
+                if (label) {
+                    label.classList.remove('cursor-pointer');
+                    label.classList.add('cursor-not-allowed');
+                }
+                
+                // Add auto-included badge if not exists
+                if (!modelInfo.card.querySelector('.auto-included-badge')) {
+                    const titleDiv = modelInfo.card.querySelector('.flex.items-center.gap-2');
+                    if (titleDiv) {
+                        const badge = document.createElement('span');
+                        badge.className = 'auto-included-badge inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800';
+                        badge.innerHTML = '<i class="fas fa-link mr-1"></i>Auto-included';
+                        titleDiv.appendChild(badge);
+                    }
+                }
+                
+            } else if (isSameLevel) {
+                // Same level but not selected - keep enabled
+                cb.checked = false;
+                cb.disabled = false;
+                modelInfo.card.classList.remove('opacity-50', 'border-chavi-primary', 'bg-blue-50', 'border-green-500', 'bg-green-50');
+                modelInfo.card.classList.add('border-gray-200');
+                cb.classList.remove('text-green-600');
+                cb.classList.add('text-chavi-primary');
+                
+                // Update label cursor
+                const label = modelInfo.card.querySelector('label');
+                if (label) {
+                    label.classList.remove('cursor-not-allowed');
+                    label.classList.add('cursor-pointer');
+                }
+                
+                // Remove auto-included badge if exists
+                const badge = modelInfo.card.querySelector('.auto-included-badge');
+                if (badge) badge.remove();
+                
+            } else {
+                // Different level - disable and gray out
+                cb.checked = false;
+                cb.disabled = true;
+                modelInfo.card.classList.add('opacity-50');
+                modelInfo.card.classList.remove('border-chavi-primary', 'bg-blue-50', 'border-green-500', 'bg-green-50');
+                
+                // Remove auto-included badge if exists
+                const badge = modelInfo.card.querySelector('.auto-included-badge');
+                if (badge) badge.remove();
+            }
+        });
+    }
+    
+    // Add event listeners to all checkboxes
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateModelAvailability);
+    });
+    
+    // Initial update on page load
+    updateModelAvailability();
+});
+</script>
 {% endblock %}

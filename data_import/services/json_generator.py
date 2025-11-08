@@ -112,7 +112,13 @@ class JSONGeneratorService:
     @staticmethod
     def _get_all_mappings(session):
         """Get all mapping configurations."""
+        from ..services import ModelHierarchyService
+        
         mapped_model = FileMappedModel.objects.filter(file_import_session=session).first()
+        
+        # Get complete model list including parent models
+        user_selected_models = mapped_model.client_app_model_name if mapped_model else []
+        selected_models = ModelHierarchyService.get_complete_model_list(user_selected_models) if user_selected_models else []
         
         # Build lookup mappings: {csv_column: {csv_value: lookup_code}}
         lookup_mappings = {}
@@ -143,7 +149,7 @@ class JSONGeneratorService:
             }
         
         return {
-            'selected_models': mapped_model.client_app_model_name if mapped_model else [],
+            'selected_models': selected_models,  # Use complete model list with parents
             'field_mappings': list(FileMappedField.objects.filter(file_import_session=session)),
             'column_value_mappings': list(FileColumnFieldValueMapping.objects.filter(file_import_session=session)),
             'date_formats': {m.csv_column_name: m.date_format 

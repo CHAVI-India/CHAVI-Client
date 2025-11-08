@@ -85,14 +85,20 @@
         </div>
         {% endif %}
 
-        <div class="flex justify-end space-x-3">
-            <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                Skip This Step
-            </button>
-            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Continue to Step 9
-                <i class="fas fa-arrow-right ml-2"></i>
-            </button>
+        <div class="flex justify-between">
+            <a href="{% url 'data_import:step7' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Step 7
+            </a>
+            <div class="space-x-3">
+                <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Skip This Step
+                </button>
+                <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
+                    Continue to Step 9
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
         </div>
     </form>
 </div>

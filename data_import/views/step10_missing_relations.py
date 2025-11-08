@@ -35,7 +35,9 @@ class Step10MissingRelationsView(BaseImportView):
             messages.error(request, "No models selected.")
             return redirect('data_import:step3', session_id=session.id)
         
-        selected_models = mapped_model.client_app_model_name
+        # Get complete model list including parent models
+        user_selected_models = mapped_model.client_app_model_name
+        selected_models = ModelHierarchyService.get_complete_model_list(user_selected_models)
         
         # Get patient IDs from CSV to query existing records
         if not session.patient_id_column:
@@ -189,7 +191,9 @@ class Step10MissingRelationsView(BaseImportView):
             messages.error(request, "No models selected.")
             return redirect('data_import:step3', session_id=session.id)
         
-        selected_models = mapped_model.client_app_model_name
+        # Get complete model list including parent models
+        user_selected_models = mapped_model.client_app_model_name
+        selected_models = ModelHierarchyService.get_complete_model_list(user_selected_models)
         
         # Get mapped fields
         mapped_fields = FileMappedField.objects.filter(file_import_session=session)

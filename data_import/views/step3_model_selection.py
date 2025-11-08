@@ -2,6 +2,7 @@
 Step 3: Select models to import data into with hierarchy validation.
 """
 
+import json
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .base import BaseImportView
@@ -48,6 +49,12 @@ class Step3ModelSelectionView(BaseImportView):
                 # Add parent relationships
                 parent_models = ModelHierarchyService.get_parent_models(model_name)
                 model_info['parent_models'] = parent_models
+                model_info['level'] = level
+                
+                # Get hierarchy path for this model and convert to JSON string
+                hierarchy_path = ModelHierarchyService.get_hierarchy_path(model_name)
+                model_info['hierarchy_path'] = hierarchy_path
+                model_info['hierarchy_path_json'] = json.dumps(hierarchy_path)
                 
                 # Filter out created_at and updated_at from fields
                 fields = model_info.get('fields', {})
@@ -64,9 +71,14 @@ class Step3ModelSelectionView(BaseImportView):
         # Check if models already selected
         existing_mapping = FileMappedModel.objects.filter(file_import_session=session).first()
         selected_models = []
+        auto_included_models = []
         
         if existing_mapping and existing_mapping.client_app_model_name:
+            # Get user-selected models (stored in DB)
             selected_models = existing_mapping.client_app_model_name
+            # Calculate auto-included parent models
+            complete_info = ModelHierarchyService.get_models_with_parent_chain(selected_models)
+            auto_included_models = complete_info['auto_included']
         
         # Create form choices (all models)
         model_choices = [
@@ -79,12 +91,20 @@ class Step3ModelSelectionView(BaseImportView):
             initial={'selected_models': selected_models} if selected_models else None
         )
         
+        # Get CSV headers for display
+        csv_headers = []
+        headers, rows, error = self.get_csv_data(session)
+        if not error and headers:
+            csv_headers = headers
+        
         context = self.get_context_data(
             session=session,
             form=form,
             models_by_level=models_by_level,
             hierarchy=hierarchy,
             selected_models=selected_models,
+            auto_included_models=auto_included_models,
+            csv_headers=csv_headers,
         )
         
         return render(request, self.template_name, context)
@@ -111,8 +131,8 @@ class Step3ModelSelectionView(BaseImportView):
             if 'Patient' not in selected_models:
                 selected_models.insert(0, 'Patient')
             
-            # Validate model selection using hierarchy service
-            is_valid, error_message, level = ModelHierarchyService.validate_model_selection(selected_models)
+            # Validate model selection using new hierarchy service method
+            is_valid, error_message, level, complete_info = ModelHierarchyService.validate_model_selection_with_hierarchy(selected_models)
             
             if not is_valid:
                 messages.error(request, f"Invalid model selection: {error_message}")
@@ -124,6 +144,9 @@ class Step3ModelSelectionView(BaseImportView):
                         models_by_level[lvl] = []
                     model_info = FieldIntrospectionService.get_model_display_info(model_name)
                     if model_info:
+                        model_info['level'] = lvl
+                        hierarchy_path = ModelHierarchyService.get_hierarchy_path(model_name)
+                        model_info['hierarchy_path'] = hierarchy_path
                         models_by_level[lvl].append(model_info)
                 
                 context = self.get_context_data(
@@ -131,24 +154,36 @@ class Step3ModelSelectionView(BaseImportView):
                     form=form,
                     models_by_level=models_by_level,
                     hierarchy=hierarchy,
+                    selected_models=selected_models,
+                    auto_included_models=[],
                 )
                 return render(request, self.template_name, context)
             
-            # Save selected models
+            # Save only the user-selected models (not the auto-included parents)
+            # The complete list with parents will be computed when needed
             FileMappedModel.objects.filter(file_import_session=session).delete()
             
             FileMappedModel.objects.create(
                 file_import_session=session,
-                client_app_model_name=selected_models  # Store as JSON array
+                client_app_model_name=selected_models  # Store user-selected models
             )
             
             # Update session step to 4 (next step) to allow access
             self.update_session_step(session, FileImportSessionStep.FIELD_MAPPING)
             
-            messages.success(
-                request,
-                f"Selected {len(selected_models)} model(s) at hierarchy level {level}."
-            )
+            # Show message with auto-included parent models
+            auto_included = complete_info['auto_included']
+            if auto_included:
+                messages.success(
+                    request,
+                    f"Selected {len(selected_models)} model(s) at hierarchy level {level}. "
+                    f"Parent models auto-included: {', '.join(auto_included)}"
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Selected {len(selected_models)} model(s) at hierarchy level {level}."
+                )
             
             # Redirect to Step 4
             return redirect('data_import:step4', session_id=session.id)
@@ -160,6 +195,9 @@ class Step3ModelSelectionView(BaseImportView):
                 models_by_level[lvl] = []
             model_info = FieldIntrospectionService.get_model_display_info(model_name)
             if model_info:
+                model_info['level'] = lvl
+                hierarchy_path = ModelHierarchyService.get_hierarchy_path(model_name)
+                model_info['hierarchy_path'] = hierarchy_path
                 models_by_level[lvl].append(model_info)
         
         context = self.get_context_data(
@@ -167,5 +205,7 @@ class Step3ModelSelectionView(BaseImportView):
             form=form,
             models_by_level=models_by_level,
             hierarchy=hierarchy,
+            selected_models=[],
+            auto_included_models=[],
         )
         return render(request, self.template_name, context)
