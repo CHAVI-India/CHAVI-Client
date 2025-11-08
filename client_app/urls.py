@@ -37,6 +37,7 @@ urlpatterns = [
     
     # Diagnosis-level form URLs
     path('diagnosis/add/', form_views.DiagnosisCreateView.as_view(), name='diagnosis_add'),
+    path('diagnosis/<uuid:pk>/edit/', form_views.DiagnosisUpdateView.as_view(), name='diagnosis_edit'),
     path('pathology/add/', form_views.PathologyCreateView.as_view(), name='pathology_add'),
     path('stage-information/add/', form_views.StageInformationCreateView.as_view(), name='stageinformation_add'),
     path('lesion/add/', form_views.LesionCreateView.as_view(), name='lesion_add'),

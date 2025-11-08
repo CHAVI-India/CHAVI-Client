@@ -223,11 +223,11 @@
               <!-- Diagnosis Header -->
               <div class="mb-6">
                 <div class="flex justify-between items-start">
-                  <div>
-                    <h3 class="text-xl font-semibold text-chavi-gray mb-2">{{ diagnosis.diagnosis }}</h3>
+                  <div class="flex-grow">
+                    <h3 class="text-lg font-semibold text-gray-800">{{ diagnosis.cancer_system }} - {{ diagnosis.presentation_type }}</h3>
                     <p class="text-gray-600">Diagnosed on: {{ diagnosis.diagnosis_date|date:"d/m/Y" }}</p>
                   </div>
-                  {% url 'admin:client_app_diagnosis_change' diagnosis.chavi_diagnosis_id as edit_diagnosis_url %}
+                  {% url 'client_app:diagnosis_edit' diagnosis.chavi_diagnosis_id as edit_diagnosis_url %}
                   {% include 'components/button.html' with text='Edit Diagnosis' href=edit_diagnosis_url icon='fas fa-edit' style='primary' %}
                 </div>
               </div>

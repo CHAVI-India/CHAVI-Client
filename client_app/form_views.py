@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.contrib import messages
 from .models import *
 from .forms import *
@@ -262,6 +262,71 @@ class PatientDicomFileCreateView(BaseFormView):
 class DiagnosisCreateView(BaseFormView):
     model = Diagnosis
     form_class = DiagnosisForm
+    
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient.patient_id}'
+
+
+class DiagnosisUpdateView(LoginRequiredMixin, UpdateView):
+    model = Diagnosis
+    form_class = DiagnosisForm
+    template_name = 'client_app/form_template.html'
+    pk_url_kwarg = 'pk'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Edit {self.model._meta.verbose_name}"
+        context['model_name'] = self.model._meta.verbose_name
+        return context
+    
+    def get_form(self, form_class=None):
+        """Modify form to make patient readonly and filter DICOM studies"""
+        form = super().get_form(form_class)
+        
+        # Get the patient from the diagnosis object
+        patient_obj = self.object.patient
+        
+        # For Select2 widgets to show the current value, we need to ensure
+        # the widget's choices include the current selection
+        for field_name, field in form.fields.items():
+            if hasattr(form.instance, field_name):
+                current_value = getattr(form.instance, field_name)
+                if current_value and isinstance(field, forms.ModelChoiceField):
+                    # Ensure the current value is in the queryset
+                    if not isinstance(field, forms.ModelMultipleChoiceField):
+                        # For single select, add current value to choices if not already there
+                        if hasattr(field.widget, 'choices'):
+                            field.widget.choices = [(current_value.pk, str(current_value))]
+                        print(f"  Set {field_name} widget choice to {current_value}")
+        
+        # Make patient field readonly
+        if 'patient' in form.fields:
+            from django import forms as django_forms
+            form.fields['patient'].queryset = Patient.objects.filter(pk=patient_obj.pk)
+            form.fields['patient'].initial = patient_obj
+            form.fields['patient'].empty_label = None
+            form.fields['patient'].required = False
+            form.fields['patient'].widget.attrs.update({
+                'readonly': 'readonly',
+                'style': 'pointer-events: none; background-color: #f3f4f6;',
+            })
+            form.fields['patient'].help_text = 'Patient cannot be changed when editing.'
+            print(f"✓ Set patient to {patient_obj} (readonly)")
+        
+        # Filter DICOM studies to only show studies for this patient
+        if 'study_instance_uid' in form.fields:
+            from .models import DICOMStudy
+            form.fields['study_instance_uid'].queryset = DICOMStudy.objects.filter(patient=patient_obj)
+            print(f"✓ Filtered DICOM studies to patient {patient_obj.patient_id}")
+        
+        return form
+    
+    def form_valid(self, form):
+        """Ensure patient is set correctly"""
+        # Patient field is readonly, so set it from the object
+        form.instance.patient = self.object.patient
+        print(f"✓ Ensured patient is {self.object.patient}")
+        return super().form_valid(form)
     
     def get_success_url(self):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient.patient_id}'
