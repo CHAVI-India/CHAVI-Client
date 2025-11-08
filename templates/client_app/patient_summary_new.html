@@ -240,55 +240,164 @@
               <!-- Disease Description Section -->
               <div class="mb-8">
                 <h4 class="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-200">Disease Description</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  <!-- Pathology -->
-                  <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="font-medium text-gray-900">Pathology</span>
-                      {% for diag_item in diagnosis_data %}
-                        {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
-                          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.diagnostic_data.pathologies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                            {{ diag_item.diagnostic_data.pathologies.count }}
-                          </span>
-                        {% endif %}
-                      {% endfor %}
+                
+                <!-- Pathology Section with nested children -->
+                {% for diag_item in diagnosis_data %}
+                  {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
+                    <div class="mb-4">
+                      <div class="flex items-center gap-2 mb-3">
+                        <span class="font-medium text-gray-900">Pathology</span>
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.diagnostic_data.pathologies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                          {{ diag_item.diagnostic_data.pathologies.count }}
+                        </span>
+                      </div>
+                      <div class="flex gap-2 mb-4">
+                        <a href="{% url 'client_app:pathology_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                          <i class="fas fa-list mr-1.5"></i>View All
+                        </a>
+                        {% url 'client_app:pathology_add' as pathology_add_url %}
+                        <a href="{{ pathology_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                          <i class="fas fa-plus mr-1.5"></i>Add
+                        </a>
+                      </div>
+                      
+                      {% if diag_item.diagnostic_data.pathologies.pathologies_with_children %}
+                        <div class="space-y-3">
+                          {% for pathology_data in diag_item.diagnostic_data.pathologies.pathologies_with_children %}
+                            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                              <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                <h6 class="font-medium text-gray-900">
+                                  Pathology: {{ pathology_data.pathology }}
+                                </h6>
+                                {% url 'client_app:pathology_edit' pathology_data.pathology.chavi_pathology_id as edit_pathology_url %}
+                                <a href="{{ edit_pathology_url }}" class="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors">Edit</a>
+                              </div>
+                              <div class="px-4 py-3 space-y-4">
+                                <!-- IHC Tests -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Immunohistochemistry</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if pathology_data.ihc_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ pathology_data.ihc_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:immunohistochemistry_list' %}?pathology_id={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:immunohistochemistry_add' as ihc_add_url %}
+                                    <a href="{{ ihc_add_url }}?pathology={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                                
+                                <!-- Cytogenetics Tests -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Cytogenetics</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if pathology_data.cytogenetics_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ pathology_data.cytogenetics_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:cytogenetics_list' %}?pathology_id={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:cytogenetics_add' as cyto_add_url %}
+                                    <a href="{{ cyto_add_url }}?pathology={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                                
+                                <!-- Somatic Genomic Alterations -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Somatic Genomic Alterations</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if pathology_data.somatic_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ pathology_data.somatic_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:somaticgenomicalterations_list' %}?pathology_id={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:somaticgenomicalterations_add' as somatic_add_url %}
+                                    <a href="{{ somatic_add_url }}?pathology={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                                
+                                <!-- Gene Expression Data -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Gene Expression Data</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if pathology_data.gene_expression_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ pathology_data.gene_expression_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:geneexpressiondata_list' %}?pathology_id={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:geneexpressiondata_add' as gene_add_url %}
+                                    <a href="{{ gene_add_url }}?pathology={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                                
+                                <!-- Epigenetic Data -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Epigenetic Data</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if pathology_data.epigenetic_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ pathology_data.epigenetic_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:epigeneticdata_list' %}?pathology_id={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:epigeneticdata_add' as epi_add_url %}
+                                    <a href="{{ epi_add_url }}?pathology={{ pathology_data.pathology.chavi_pathology_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% else %}
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
+                          No pathology reports have been recorded for this diagnosis.
+                        </div>
+                      {% endif %}
                     </div>
-                    <div class="flex gap-2">
-                      <a href="{% url 'client_app:pathology_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
-                        <i class="fas fa-list mr-1.5"></i>View All
-                      </a>
-                      {% url 'client_app:pathology_add' as pathology_add_url %}
-                      <a href="{{ pathology_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
-                        <i class="fas fa-plus mr-1.5"></i>Add
-                      </a>
+                    
+                    <!-- Stage Information -->
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div class="flex items-center gap-2 mb-3">
+                        <span class="font-medium text-gray-900">Stage Information</span>
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.diagnostic_data.stage_information.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                          {{ diag_item.diagnostic_data.stage_information.count }}
+                        </span>
+                      </div>
+                      <div class="flex gap-2">
+                        <a href="{% url 'client_app:stageinformation_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                          <i class="fas fa-list mr-1.5"></i>View All
+                        </a>
+                        {% url 'client_app:stageinformation_add' as stage_add_url %}
+                        <a href="{{ stage_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                          <i class="fas fa-plus mr-1.5"></i>Add
+                        </a>
+                      </div>
                     </div>
-                  </div>
-
-                  <!-- Stage Information -->
-                  <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="font-medium text-gray-900">Stage Information</span>
-                      {% for diag_item in diagnosis_data %}
-                        {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
-                          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.diagnostic_data.stage_information.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                            {{ diag_item.diagnostic_data.stage_information.count }}
-                          </span>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
-                    <div class="flex gap-2">
-                      <a href="{% url 'client_app:stageinformation_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
-                        <i class="fas fa-list mr-1.5"></i>View All
-                      </a>
-                      {% url 'client_app:stageinformation_add' as stage_add_url %}
-                      <a href="{{ stage_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
-                        <i class="fas fa-plus mr-1.5"></i>Add
-                      </a>
-                    </div>
-                  </div>
-
-                </div>
+                  {% endif %}
+                {% endfor %}
               </div>
 
               <!-- Lesions Section -->
@@ -331,19 +440,20 @@
                             </div>
                             <div class="px-4 py-3">
                               <!-- Lesion Responses -->
-                              <div class="flex justify-between items-center">
-                                <div class="flex items-center gap-2">
-                                  <span class="font-medium text-gray-900">Responses</span>
-                                  <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if lesion_data.responses_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                                    {{ lesion_data.responses_count }}
-                                  </span>
-                                </div>
-                                <div class="flex gap-2">
-                                  {% url 'admin:client_app_lesionresponse_changelist' as lesion_response_list_url %}
-                                  {% url 'client_app:lesionresponse_add' as lesion_response_add_url %}
-                                  <a href="{{ lesion_response_list_url }}?lesion__exact={{ lesion_data.lesion.chavi_lesion_id }}" class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors">View</a>
-                                  <a href="{{ lesion_response_add_url }}?lesion={{ lesion_data.lesion.chavi_lesion_id }}" class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors">Add</a>
-                                </div>
+                              <div class="flex items-center gap-2 mb-2">
+                                <span class="font-medium text-gray-900">Responses</span>
+                                <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if lesion_data.responses_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                  {{ lesion_data.responses_count }}
+                                </span>
+                              </div>
+                              <div class="flex gap-2">
+                                <a href="{% url 'client_app:lesionresponse_list' %}?lesion_id={{ lesion_data.lesion.chavi_lesion_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                  <i class="fas fa-list mr-1.5"></i>View All
+                                </a>
+                                {% url 'client_app:lesionresponse_add' as lesion_response_add_url %}
+                                <a href="{{ lesion_response_add_url }}?lesion={{ lesion_data.lesion.chavi_lesion_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                  <i class="fas fa-plus mr-1.5"></i>Add
+                                </a>
                               </div>
                             </div>
                           </div>
@@ -361,76 +471,169 @@
               <!-- Treatment Section -->
               <div class="mb-8">
                 <h4 class="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-200">Treatment</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  
-                  <!-- Surgery -->
-                  <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="font-medium text-gray-900">Surgery</span>
-                      {% for diag_item in diagnosis_data %}
-                        {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
-                          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.surgeries.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                            {{ diag_item.treatment_data.surgeries.count }}
-                          </span>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
-                    <div class="flex gap-2">
-                      <a href="{% url 'client_app:surgery_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
-                        <i class="fas fa-list mr-1.5"></i>View All
-                      </a>
-                      {% url 'client_app:surgery_add' as surgery_add_url %}
-                      <a href="{{ surgery_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
-                        <i class="fas fa-plus mr-1.5"></i>Add
-                      </a>
-                    </div>
+                
+                <!-- Surgery (simple card) -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="font-medium text-gray-900">Surgery</span>
+                    {% for diag_item in diagnosis_data %}
+                      {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.surgeries.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                          {{ diag_item.treatment_data.surgeries.count }}
+                        </span>
+                      {% endif %}
+                    {% endfor %}
                   </div>
+                  <div class="flex gap-2">
+                    <a href="{% url 'client_app:surgery_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                      <i class="fas fa-list mr-1.5"></i>View All
+                    </a>
+                    {% url 'client_app:surgery_add' as surgery_add_url %}
+                    <a href="{{ surgery_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                      <i class="fas fa-plus mr-1.5"></i>Add
+                    </a>
+                  </div>
+                </div>
 
-                  <!-- Radiotherapy -->
-                  <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="font-medium text-gray-900">Radiotherapy</span>
-                      {% for diag_item in diagnosis_data %}
-                        {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
-                          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.radiotherapies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                            {{ diag_item.treatment_data.radiotherapies.count }}
-                          </span>
-                        {% endif %}
-                      {% endfor %}
+                <!-- Radiotherapy with nested children -->
+                {% for diag_item in diagnosis_data %}
+                  {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
+                    <div class="mb-4">
+                      <div class="flex items-center gap-2 mb-3">
+                        <span class="font-medium text-gray-900">Radiotherapy</span>
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.radiotherapies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                          {{ diag_item.treatment_data.radiotherapies.count }}
+                        </span>
+                      </div>
+                      <div class="flex gap-2 mb-4">
+                        <a href="{% url 'client_app:radiotherapy_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                          <i class="fas fa-list mr-1.5"></i>View All
+                        </a>
+                        {% url 'client_app:radiotherapy_add' as radio_add_url %}
+                        <a href="{{ radio_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                          <i class="fas fa-plus mr-1.5"></i>Add
+                        </a>
+                      </div>
+                      
+                      {% if diag_item.treatment_data.radiotherapies.radiotherapies_with_children %}
+                        <div class="space-y-3">
+                          {% for radio_data in diag_item.treatment_data.radiotherapies.radiotherapies_with_children %}
+                            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                              <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                <h6 class="font-medium text-gray-900">
+                                  Radiotherapy: {{ radio_data.radiotherapy }}
+                                </h6>
+                                {% url 'client_app:radiotherapy_edit' radio_data.radiotherapy.chavi_radiotherapy_id as edit_radio_url %}
+                                <a href="{{ edit_radio_url }}" class="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors">Edit</a>
+                              </div>
+                              <div class="px-4 py-3 space-y-4">
+                                <!-- Radiotherapy Volumes -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Radiotherapy Volumes</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if radio_data.volumes_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ radio_data.volumes_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:radiotherapyvolume_list' %}?radiotherapy_id={{ radio_data.radiotherapy.chavi_radiotherapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:radiotherapyvolume_add' as vol_add_url %}
+                                    <a href="{{ vol_add_url }}?radiotherapy={{ radio_data.radiotherapy.chavi_radiotherapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                                
+                                <!-- Radiotherapy Dose Volume Data -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Dose Volume Data</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if radio_data.dose_volumes_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ radio_data.dose_volumes_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:radiotherapydosevolumedata_list' %}?radiotherapy_id={{ radio_data.radiotherapy.chavi_radiotherapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:radiotherapydosevolumedata_add' as dose_add_url %}
+                                    <a href="{{ dose_add_url }}?radiotherapy={{ radio_data.radiotherapy.chavi_radiotherapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
                     </div>
-                    <div class="flex gap-2">
-                      <a href="{% url 'client_app:radiotherapy_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
-                        <i class="fas fa-list mr-1.5"></i>View All
-                      </a>
-                      {% url 'client_app:radiotherapy_add' as radio_add_url %}
-                      <a href="{{ radio_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
-                        <i class="fas fa-plus mr-1.5"></i>Add
-                      </a>
-                    </div>
-                  </div>
+                  {% endif %}
+                {% endfor %}
 
-                  <!-- Systemic Therapy -->
-                  <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center gap-2 mb-3">
-                      <span class="font-medium text-gray-900">Systemic Therapy</span>
-                      {% for diag_item in diagnosis_data %}
-                        {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
-                          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.systemic_therapies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
-                            {{ diag_item.treatment_data.systemic_therapies.count }}
-                          </span>
-                        {% endif %}
-                      {% endfor %}
+                <!-- Systemic Therapy with nested schedules -->
+                {% for diag_item in diagnosis_data %}
+                  {% if diag_item.diagnosis.chavi_diagnosis_id == diagnosis.chavi_diagnosis_id %}
+                    <div class="mb-4">
+                      <div class="flex items-center gap-2 mb-3">
+                        <span class="font-medium text-gray-900">Systemic Therapy</span>
+                        <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if diag_item.treatment_data.systemic_therapies.count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                          {{ diag_item.treatment_data.systemic_therapies.count }}
+                        </span>
+                      </div>
+                      <div class="flex gap-2 mb-4">
+                        <a href="{% url 'client_app:systemictherapy_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                          <i class="fas fa-list mr-1.5"></i>View All
+                        </a>
+                        {% url 'client_app:systemictherapy_add' as systemic_add_url %}
+                        <a href="{{ systemic_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                          <i class="fas fa-plus mr-1.5"></i>Add
+                        </a>
+                      </div>
+                      
+                      {% if diag_item.treatment_data.systemic_therapies.systemic_therapies_with_schedules %}
+                        <div class="space-y-3">
+                          {% for therapy_data in diag_item.treatment_data.systemic_therapies.systemic_therapies_with_schedules %}
+                            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                              <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                <h6 class="font-medium text-gray-900">
+                                  Systemic Therapy: {{ therapy_data.systemic_therapy }}
+                                </h6>
+                                {% url 'client_app:systemictherapy_edit' therapy_data.systemic_therapy.chavi_systemic_therapy_id as edit_therapy_url %}
+                                <a href="{{ edit_therapy_url }}" class="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors">Edit</a>
+                              </div>
+                              <div class="px-4 py-3">
+                                <!-- Drug Schedules -->
+                                <div>
+                                  <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900 text-sm">Drug Schedules</span>
+                                    <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full {% if therapy_data.schedules_count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %}">
+                                      {{ therapy_data.schedules_count }}
+                                    </span>
+                                  </div>
+                                  <div class="flex gap-2">
+                                    <a href="{% url 'client_app:systemictherapyschedule_list' %}?systemic_therapy_id={{ therapy_data.systemic_therapy.chavi_systemic_therapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
+                                      <i class="fas fa-list mr-1.5"></i>View All
+                                    </a>
+                                    {% url 'client_app:systemictherapyschedule_add' as schedule_add_url %}
+                                    <a href="{{ schedule_add_url }}?systemic_therapy={{ therapy_data.systemic_therapy.chavi_systemic_therapy_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
+                                      <i class="fas fa-plus mr-1.5"></i>Add
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
                     </div>
-                    <div class="flex gap-2">
-                      <a href="{% url 'client_app:systemictherapy_list' %}?diagnosis_id={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-chavi-primary bg-white border border-chavi-primary rounded-lg hover:bg-chavi-primary hover:text-white transition-colors">
-                        <i class="fas fa-list mr-1.5"></i>View All
-                      </a>
-                      {% url 'client_app:systemictherapy_add' as systemic_add_url %}
-                      <a href="{{ systemic_add_url }}?diagnosis={{ diagnosis.chavi_diagnosis_id }}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-chavi-primary rounded-lg hover:bg-chavi-primary-dark transition-colors">
-                        <i class="fas fa-plus mr-1.5"></i>Add
-                      </a>
-                    </div>
-                  </div>
+                  {% endif %}
+                {% endfor %}
+                
+                <!-- Other simple treatment cards in a grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                   <!-- Other Treatment -->
                   <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">

@@ -104,5 +104,29 @@ urlpatterns = [
     path('outcome/<uuid:pk>/edit/', list_views.OutcomeUpdateView.as_view(), name='outcome_edit'),
     path('adverse-effects/', list_views.AdverseEffectsListView.as_view(), name='adverseeffects_list'),
     path('adverse-effects/<uuid:pk>/edit/', list_views.AdverseEffectsUpdateView.as_view(), name='adverseeffects_edit'),
+    path('lesion-response/', list_views.LesionResponseListView.as_view(), name='lesionresponse_list'),
+    path('lesion-response/<uuid:pk>/edit/', list_views.LesionResponseUpdateView.as_view(), name='lesionresponse_edit'),
+    
+    # Pathology child models
+    path('immunohistochemistry/', list_views.ImmunohistochemistryListView.as_view(), name='immunohistochemistry_list'),
+    path('immunohistochemistry/<uuid:pk>/edit/', list_views.ImmunohistochemistryUpdateView.as_view(), name='immunohistochemistry_edit'),
+    path('cytogenetics/', list_views.CytogeneticsListView.as_view(), name='cytogenetics_list'),
+    path('cytogenetics/<uuid:pk>/edit/', list_views.CytogeneticsUpdateView.as_view(), name='cytogenetics_edit'),
+    path('somatic-genomic-alterations/', list_views.SomaticGenomicAlterationsListView.as_view(), name='somaticgenomicalterations_list'),
+    path('somatic-genomic-alterations/<uuid:pk>/edit/', list_views.SomaticGenomicAlterationsUpdateView.as_view(), name='somaticgenomicalterations_edit'),
+    path('gene-expression-data/', list_views.GeneExpressionDataListView.as_view(), name='geneexpressiondata_list'),
+    path('gene-expression-data/<uuid:pk>/edit/', list_views.GeneExpressionDataUpdateView.as_view(), name='geneexpressiondata_edit'),
+    path('epigenetic-data/', list_views.EpigeneticDataListView.as_view(), name='epigeneticdata_list'),
+    path('epigenetic-data/<uuid:pk>/edit/', list_views.EpigeneticDataUpdateView.as_view(), name='epigeneticdata_edit'),
+    
+    # Systemic Therapy child models
+    path('systemic-therapy-schedule/', list_views.SystemicTherapyScheduleListView.as_view(), name='systemictherapyschedule_list'),
+    path('systemic-therapy-schedule/<uuid:pk>/edit/', list_views.SystemicTherapyScheduleUpdateView.as_view(), name='systemictherapyschedule_edit'),
+    
+    # Radiotherapy child models
+    path('radiotherapy-volume/', list_views.RadiotherapyVolumeListView.as_view(), name='radiotherapyvolume_list'),
+    path('radiotherapy-volume/<uuid:pk>/edit/', list_views.RadiotherapyVolumeUpdateView.as_view(), name='radiotherapyvolume_edit'),
+    path('radiotherapy-dose-volume/', list_views.RadiotherapyDoseVolumeDataListView.as_view(), name='radiotherapydosevolumedata_list'),
+    path('radiotherapy-dose-volume/<uuid:pk>/edit/', list_views.RadiotherapyDoseVolumeDataUpdateView.as_view(), name='radiotherapydosevolumedata_edit'),
 ]
 

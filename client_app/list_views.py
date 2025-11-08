@@ -476,3 +476,258 @@ class AdverseEffectsUpdateView(BaseUpdateView):
     form_class = AdverseEffectsForm
     def get_success_url(self):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.diagnosis.patient.patient_id}'
+
+
+class LesionResponseListView(BaseListView):
+    model = LesionResponse
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        lesion_id = self.request.GET.get('lesion_id')
+        if lesion_id:
+            queryset = queryset.filter(lesion__chavi_lesion_id=lesion_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lesion_id = self.request.GET.get('lesion_id')
+        if lesion_id:
+            lesion = Lesion.objects.get(chavi_lesion_id=lesion_id)
+            context['lesion'] = lesion
+            context['diagnosis'] = lesion.diagnosis
+            context['patient'] = lesion.diagnosis.patient
+            context['add_url'] = reverse('client_app:lesionresponse_add') + f'?lesion={lesion_id}'
+        return context
+
+class LesionResponseUpdateView(BaseUpdateView):
+    model = LesionResponse
+    form_class = LesionResponseForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.lesion.diagnosis.patient.patient_id}'
+
+
+# Pathology child models
+class ImmunohistochemistryListView(BaseListView):
+    model = Immunohistochemistry
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            queryset = queryset.filter(pathology__chavi_pathology_id=pathology_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            pathology = Pathology.objects.get(chavi_pathology_id=pathology_id)
+            context['pathology'] = pathology
+            context['diagnosis'] = pathology.diagnosis
+            context['patient'] = pathology.diagnosis.patient
+            context['add_url'] = reverse('client_app:immunohistochemistry_add') + f'?pathology={pathology_id}'
+        return context
+
+class ImmunohistochemistryUpdateView(BaseUpdateView):
+    model = Immunohistochemistry
+    form_class = ImmunohistochemistryForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.pathology.diagnosis.patient.patient_id}'
+
+
+class CytogeneticsListView(BaseListView):
+    model = Cytogenetics
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            queryset = queryset.filter(pathology__chavi_pathology_id=pathology_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            pathology = Pathology.objects.get(chavi_pathology_id=pathology_id)
+            context['pathology'] = pathology
+            context['diagnosis'] = pathology.diagnosis
+            context['patient'] = pathology.diagnosis.patient
+            context['add_url'] = reverse('client_app:cytogenetics_add') + f'?pathology={pathology_id}'
+        return context
+
+class CytogeneticsUpdateView(BaseUpdateView):
+    model = Cytogenetics
+    form_class = CytogeneticsForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.pathology.diagnosis.patient.patient_id}'
+
+
+class SomaticGenomicAlterationsListView(BaseListView):
+    model = SomaticGenomicAlterations
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            queryset = queryset.filter(pathology__chavi_pathology_id=pathology_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            pathology = Pathology.objects.get(chavi_pathology_id=pathology_id)
+            context['pathology'] = pathology
+            context['diagnosis'] = pathology.diagnosis
+            context['patient'] = pathology.diagnosis.patient
+            context['add_url'] = reverse('client_app:somaticgenomicalterations_add') + f'?pathology={pathology_id}'
+        return context
+
+class SomaticGenomicAlterationsUpdateView(BaseUpdateView):
+    model = SomaticGenomicAlterations
+    form_class = SomaticGenomicAlterationsForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.pathology.diagnosis.patient.patient_id}'
+
+
+class GeneExpressionDataListView(BaseListView):
+    model = GeneExpressionData
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            queryset = queryset.filter(pathology__chavi_pathology_id=pathology_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            pathology = Pathology.objects.get(chavi_pathology_id=pathology_id)
+            context['pathology'] = pathology
+            context['diagnosis'] = pathology.diagnosis
+            context['patient'] = pathology.diagnosis.patient
+            context['add_url'] = reverse('client_app:geneexpressiondata_add') + f'?pathology={pathology_id}'
+        return context
+
+class GeneExpressionDataUpdateView(BaseUpdateView):
+    model = GeneExpressionData
+    form_class = GeneExpressionDataForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.pathology.diagnosis.patient.patient_id}'
+
+
+class EpigeneticDataListView(BaseListView):
+    model = EpigeneticData
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            queryset = queryset.filter(pathology__chavi_pathology_id=pathology_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pathology_id = self.request.GET.get('pathology_id')
+        if pathology_id:
+            pathology = Pathology.objects.get(chavi_pathology_id=pathology_id)
+            context['pathology'] = pathology
+            context['diagnosis'] = pathology.diagnosis
+            context['patient'] = pathology.diagnosis.patient
+            context['add_url'] = reverse('client_app:epigeneticdata_add') + f'?pathology={pathology_id}'
+        return context
+
+class EpigeneticDataUpdateView(BaseUpdateView):
+    model = EpigeneticData
+    form_class = EpigeneticDataForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.pathology.diagnosis.patient.patient_id}'
+
+
+# Systemic Therapy child models
+class SystemicTherapyScheduleListView(BaseListView):
+    model = SystemicTherapySchedule
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        systemic_therapy_id = self.request.GET.get('systemic_therapy_id')
+        if systemic_therapy_id:
+            queryset = queryset.filter(systemic_therapy__chavi_systemic_therapy_id=systemic_therapy_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        systemic_therapy_id = self.request.GET.get('systemic_therapy_id')
+        if systemic_therapy_id:
+            systemic_therapy = SystemicTherapy.objects.get(chavi_systemic_therapy_id=systemic_therapy_id)
+            context['systemic_therapy'] = systemic_therapy
+            context['diagnosis'] = systemic_therapy.diagnosis
+            context['patient'] = systemic_therapy.diagnosis.patient
+            context['add_url'] = reverse('client_app:systemictherapyschedule_add') + f'?systemic_therapy={systemic_therapy_id}'
+        return context
+
+class SystemicTherapyScheduleUpdateView(BaseUpdateView):
+    model = SystemicTherapySchedule
+    form_class = SystemicTherapyScheduleForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.systemic_therapy.diagnosis.patient.patient_id}'
+
+
+# Radiotherapy child models
+class RadiotherapyVolumeListView(BaseListView):
+    model = RadiotherapyVolume
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        radiotherapy_id = self.request.GET.get('radiotherapy_id')
+        if radiotherapy_id:
+            queryset = queryset.filter(radiotherapy__chavi_radiotherapy_id=radiotherapy_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        radiotherapy_id = self.request.GET.get('radiotherapy_id')
+        if radiotherapy_id:
+            radiotherapy = Radiotherapy.objects.get(chavi_radiotherapy_id=radiotherapy_id)
+            context['radiotherapy'] = radiotherapy
+            context['diagnosis'] = radiotherapy.diagnosis
+            context['patient'] = radiotherapy.diagnosis.patient
+            context['add_url'] = reverse('client_app:radiotherapyvolume_add') + f'?radiotherapy={radiotherapy_id}'
+        return context
+
+class RadiotherapyVolumeUpdateView(BaseUpdateView):
+    model = RadiotherapyVolume
+    form_class = RadiotherapyVolumeForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.radiotherapy.diagnosis.patient.patient_id}'
+
+
+class RadiotherapyDoseVolumeDataListView(BaseListView):
+    model = RadiotherapyDoseVolumeData
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        radiotherapy_id = self.request.GET.get('radiotherapy_id')
+        if radiotherapy_id:
+            queryset = queryset.filter(radiotherapy__chavi_radiotherapy_id=radiotherapy_id)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        radiotherapy_id = self.request.GET.get('radiotherapy_id')
+        if radiotherapy_id:
+            radiotherapy = Radiotherapy.objects.get(chavi_radiotherapy_id=radiotherapy_id)
+            context['radiotherapy'] = radiotherapy
+            context['diagnosis'] = radiotherapy.diagnosis
+            context['patient'] = radiotherapy.diagnosis.patient
+            context['add_url'] = reverse('client_app:radiotherapydosevolumedata_add') + f'?radiotherapy={radiotherapy_id}'
+        return context
+
+class RadiotherapyDoseVolumeDataUpdateView(BaseUpdateView):
+    model = RadiotherapyDoseVolumeData
+    form_class = RadiotherapyDoseVolumeDataForm
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.radiotherapy.diagnosis.patient.patient_id}'

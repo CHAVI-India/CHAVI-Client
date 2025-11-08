@@ -119,6 +119,51 @@ class PatientSummaryView(LoginRequiredMixin, TemplateView):
                     'responses_count': lesion_responses.count()
                 })
             
+            # Get pathology child data for each pathology
+            pathologies_with_children = []
+            for pathology in pathologies:
+                ihc_tests = Immunohistochemistry.objects.filter(pathology=pathology)
+                cytogenetics_tests = Cytogenetics.objects.filter(pathology=pathology)
+                somatic_alterations = SomaticGenomicAlterations.objects.filter(pathology=pathology)
+                gene_expression = GeneExpressionData.objects.filter(pathology=pathology)
+                epigenetic_data = EpigeneticData.objects.filter(pathology=pathology)
+                pathologies_with_children.append({
+                    'pathology': pathology,
+                    'ihc_tests': ihc_tests,
+                    'ihc_count': ihc_tests.count(),
+                    'cytogenetics_tests': cytogenetics_tests,
+                    'cytogenetics_count': cytogenetics_tests.count(),
+                    'somatic_alterations': somatic_alterations,
+                    'somatic_count': somatic_alterations.count(),
+                    'gene_expression': gene_expression,
+                    'gene_expression_count': gene_expression.count(),
+                    'epigenetic_data': epigenetic_data,
+                    'epigenetic_count': epigenetic_data.count()
+                })
+            
+            # Get systemic therapy schedule data for each systemic therapy
+            systemic_therapies_with_schedules = []
+            for systemic_therapy in systemic_therapies:
+                schedules = SystemicTherapySchedule.objects.filter(systemic_therapy=systemic_therapy)
+                systemic_therapies_with_schedules.append({
+                    'systemic_therapy': systemic_therapy,
+                    'schedules': schedules,
+                    'schedules_count': schedules.count()
+                })
+            
+            # Get radiotherapy child data for each radiotherapy
+            radiotherapies_with_children = []
+            for radiotherapy in radiotherapies:
+                volumes = RadiotherapyVolume.objects.filter(radiotherapy=radiotherapy)
+                dose_volumes = RadiotherapyDoseVolumeData.objects.filter(radiotherapy=radiotherapy)
+                radiotherapies_with_children.append({
+                    'radiotherapy': radiotherapy,
+                    'volumes': volumes,
+                    'volumes_count': volumes.count(),
+                    'dose_volumes': dose_volumes,
+                    'dose_volumes_count': dose_volumes.count()
+                })
+            
             # Organize data into sections
             diagnosis_info = {
                 'diagnosis': diagnosis,
@@ -127,7 +172,8 @@ class PatientSummaryView(LoginRequiredMixin, TemplateView):
                 'diagnostic_data': {
                     'pathologies': {
                         'objects': pathologies,
-                        'count': pathologies.count()
+                        'count': pathologies.count(),
+                        'pathologies_with_children': pathologies_with_children
                     },
                     'stage_information': {
                         'objects': stage_information,
@@ -148,11 +194,13 @@ class PatientSummaryView(LoginRequiredMixin, TemplateView):
                     },
                     'systemic_therapies': {
                         'objects': systemic_therapies,
-                        'count': systemic_therapies.count()
+                        'count': systemic_therapies.count(),
+                        'systemic_therapies_with_schedules': systemic_therapies_with_schedules
                     },
                     'radiotherapies': {
                         'objects': radiotherapies,
-                        'count': radiotherapies.count()
+                        'count': radiotherapies.count(),
+                        'radiotherapies_with_children': radiotherapies_with_children
                     },
                     'other_treatments': {
                         'objects': other_treatments,
