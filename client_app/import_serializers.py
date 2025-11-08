@@ -285,8 +285,15 @@ class PatientImportSerializer(serializers.ModelSerializer):
         lab_data = validated_data.pop('laboratoryresults_set', [])
         pro_data = validated_data.pop('patientreportedoutcome_set', [])
         
+        # Extract ManyToMany fields (must be set after object creation)
+        patient_project_data = validated_data.pop('patient_project', [])
+        
         # Create Patient
         patient = Patient.objects.create(**validated_data)
+        
+        # Set ManyToMany relationships
+        if patient_project_data:
+            patient.patient_project.set(patient_project_data)
         
         # Create nested Diagnosis objects (with all their nested objects)
         for diag_data in diagnosis_data:

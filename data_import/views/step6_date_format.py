@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FileDateFieldMapping, DateFormat, FileImportSessionStep
-from ..services import FieldIntrospectionService, DateFormatParser
+from ..services import FieldIntrospectionService, DateFormatParser, ModelHierarchyService
 
 
 class Step6DateFormatView(BaseImportView):
@@ -53,31 +53,37 @@ class Step6DateFormatView(BaseImportView):
                 field_info = fields.get(field_name)
                 
                 if field_info and field_info.get('type') in ['DateField', 'DateTimeField']:
-                    # Get sample values from CSV
+                    # Get sample values from CSV paired with column names
                     csv_columns = mapping.csv_field_names
-                    sample_values = []
+                    columns_with_samples = []
                     if csv_columns and rows:
-                        # Get sample from first non-empty row for each CSV column
+                        # Get 3-4 sample values for each CSV column
                         for col in csv_columns:
+                            sample_values = []
                             if col in headers:
                                 col_index = headers.index(col)
-                                # Find first non-empty value
-                                for row in rows[:10]:  # Check first 10 rows
+                                # Find first 4 non-empty values
+                                for row in rows[:20]:  # Check first 20 rows
                                     if isinstance(row, dict):
-                                        value = row.get(col, '').strip()
+                                        value = str(row.get(col, '')).strip()
                                     else:
-                                        value = row[col_index].strip() if col_index < len(row) else ''
+                                        value = str(row[col_index]).strip() if col_index < len(row) else ''
                                     
-                                    if value:
+                                    if value and value not in sample_values:
                                         sample_values.append(value)
-                                        break
+                                        if len(sample_values) >= 4:
+                                            break
+                            
+                            columns_with_samples.append({
+                                'column_name': col,
+                                'sample_values': sample_values
+                            })
                     
                     date_fields_info.append({
                         'mapping': mapping,
                         'model_name': model_name,
                         'field_name': field_name,
-                        'csv_columns': csv_columns,
-                        'sample_values': sample_values,
+                        'columns_with_samples': columns_with_samples,
                     })
         
         # Get existing date format mappings

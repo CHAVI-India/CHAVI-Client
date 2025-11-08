@@ -40,3 +40,15 @@ def get_nested_item(dictionary, keys):
             return None
     
     return result
+
+
+@register.filter
+def index(sequence, i):
+    """
+    Get an item from a list/sequence by index.
+    Usage: {{ mylist|index:0 }}
+    """
+    try:
+        return sequence[int(i)]
+    except (IndexError, TypeError, ValueError):
+        return None

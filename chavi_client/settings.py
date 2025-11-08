@@ -70,6 +70,8 @@ INSTALLED_APPS = [
     'data_import',
     'django_cleanup.apps.CleanupConfig',
     'import_export',
+    'crispy_forms',
+    'crispy_tailwind',
     'allauth_ui',
     'allauth',
     'allauth.account',
@@ -611,3 +613,7 @@ SELECT2_CACHE_BACKEND = 'default'
 SELECT2_JS = ''  # Use CDN or specify local path
 SELECT2_CSS = ''  # Use CDN or specify local path
 SELECT2_I18N = ''  # Optional: internationalization
+
+# Django Crispy Forms Configuration
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"

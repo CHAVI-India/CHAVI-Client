@@ -1,5 +1,6 @@
 from django.urls import path, include
 from . import views
+from . import form_views
 
 app_name = 'client_app'  # This defines the namespace
 
@@ -23,5 +24,43 @@ urlpatterns = [
     
     # Lookup API endpoints
     path('api/lookup_data/', include('lookup.urls')),
+    
+    # Patient-level form URLs
+    path('comorbidity/add/', form_views.ComorbidityCreateView.as_view(), name='comorbidity_add'),
+    path('symptom/add/', form_views.SymptomCreateView.as_view(), name='symptom_add'),
+    path('patient-assessment/add/', form_views.PatientAssessmentCreateView.as_view(), name='patientassessment_add'),
+    path('laboratory-results/add/', form_views.LaboratoryResultsCreateView.as_view(), name='laboratoryresults_add'),
+    path('patient-outcome/add/', form_views.PatientOutcomeCreateView.as_view(), name='patientoutcome_add'),
+    path('patient-reported-outcome/add/', form_views.PatientReportedOutcomeCreateView.as_view(), name='patientreportedoutcome_add'),
+    path('germline-genomic-alterations/add/', form_views.GermlineGenomicAlterationsCreateView.as_view(), name='germlinegenomicalterations_add'),
+    path('dicom-file/add/', form_views.PatientDicomFileCreateView.as_view(), name='patientdicomfile_add'),
+    
+    # Diagnosis-level form URLs
+    path('diagnosis/add/', form_views.DiagnosisCreateView.as_view(), name='diagnosis_add'),
+    path('pathology/add/', form_views.PathologyCreateView.as_view(), name='pathology_add'),
+    path('stage-information/add/', form_views.StageInformationCreateView.as_view(), name='stageinformation_add'),
+    path('lesion/add/', form_views.LesionCreateView.as_view(), name='lesion_add'),
+    path('lesion-response/add/', form_views.LesionResponseCreateView.as_view(), name='lesionresponse_add'),
+    path('surgery/add/', form_views.SurgeryCreateView.as_view(), name='surgery_add'),
+    path('radiotherapy/add/', form_views.RadiotherapyCreateView.as_view(), name='radiotherapy_add'),
+    path('systemic-therapy/add/', form_views.SystemicTherapyCreateView.as_view(), name='systemictherapy_add'),
+    path('other-treatment/add/', form_views.OtherTreatmentCreateView.as_view(), name='othertreatment_add'),
+    path('concomitant-medications/add/', form_views.ConcomitantMedicationsCreateView.as_view(), name='concomitantmedications_add'),
+    path('outcome/add/', form_views.OutcomeCreateView.as_view(), name='outcome_add'),
+    path('adverse-effects/add/', form_views.AdverseEffectsCreateView.as_view(), name='adverseeffects_add'),
+    
+    # Pathology sub-forms
+    path('immunohistochemistry/add/', form_views.ImmunohistochemistryCreateView.as_view(), name='immunohistochemistry_add'),
+    path('cytogenetics/add/', form_views.CytogeneticsCreateView.as_view(), name='cytogenetics_add'),
+    path('somatic-genomic-alterations/add/', form_views.SomaticGenomicAlterationsCreateView.as_view(), name='somaticgenomicalterations_add'),
+    path('gene-expression-data/add/', form_views.GeneExpressionDataCreateView.as_view(), name='geneexpressiondata_add'),
+    path('epigenetic-data/add/', form_views.EpigeneticDataCreateView.as_view(), name='epigeneticdata_add'),
+    
+    # Radiotherapy sub-forms
+    path('radiotherapy-volume/add/', form_views.RadiotherapyVolumeCreateView.as_view(), name='radiotherapyvolume_add'),
+    path('radiotherapy-dose-volume-data/add/', form_views.RadiotherapyDoseVolumeDataCreateView.as_view(), name='radiotherapydosevolumedata_add'),
+    
+    # Systemic Therapy sub-forms
+    path('systemic-therapy-schedule/add/', form_views.SystemicTherapyScheduleCreateView.as_view(), name='systemictherapyschedule_add'),
 ]
 

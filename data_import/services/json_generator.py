@@ -251,6 +251,10 @@ class JSONGeneratorService:
             if model_name == 'Patient':
                 patient_data[field_name] = JSONGeneratorService._resolve_relation_value(value, headers, patient_rows[0])
         
+        # Add patient_project from session projects
+        if session.project_name.exists():
+            patient_data['patient_project'] = [project.chavi_project_id for project in session.project_name.all()]
+        
         # Process all child models of Patient recursively
         JSONGeneratorService._add_child_models(
             patient_data, 'Patient', level_1_plus_models, patient_rows, headers, 

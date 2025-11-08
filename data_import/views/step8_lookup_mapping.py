@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.apps import apps
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FieldLookupValues, FileImportSessionStep
-from ..services import FieldIntrospectionService, CSVProcessorService
+from ..services import FieldIntrospectionService, CSVProcessorService, ModelHierarchyService
 
 
 class Step8LookupMappingView(BaseImportView):

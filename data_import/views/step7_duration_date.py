@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FileDurationDateMapping, FileImportSessionStep, DateFormat, ReferenceDateType, DurationUnits
-from ..services import FieldIntrospectionService
+from ..services import FieldIntrospectionService, ModelHierarchyService
 from ..forms import Step7DurationDateForm
 import json
 

@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .base import BaseImportView
 from ..models import FileMappedModel, FileMappedField, FileColumnFieldValueMapping, FileImportSessionStep
-from ..services import FieldIntrospectionService, CSVProcessorService
+from ..services import FieldIntrospectionService, CSVProcessorService, ModelHierarchyService
 
 
 class Step5ColumnValueMappingView(BaseImportView):

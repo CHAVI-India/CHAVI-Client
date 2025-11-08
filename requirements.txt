@@ -7,6 +7,7 @@ cffi==2.0.0
 chardet==5.2.0
 charset-normalizer==3.4.4
 colorclass==2.2.2
+crispy-tailwind==1.0.3
 cryptography==46.0.3
 diff-match-patch==20241021
 Django==5.2.7
@@ -16,6 +17,7 @@ django-allauth-ui==1.8.1
 django-appconf==1.1.0
 django-cleanup==9.0.0
 django-colorfield==0.14.0
+django-crispy-forms==2.5
 django-extensions==4.1
 django-import-export==4.3.10
 django-ordered-model==3.7.4
