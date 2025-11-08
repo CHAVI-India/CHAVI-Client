@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import CreateView, UpdateView
+from django.views.generic import CreateView, UpdateView, ListView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from .models import *
 from .forms import *
@@ -485,3 +485,46 @@ class SystemicTherapyScheduleCreateView(BaseFormView):
     
     def get_success_url(self):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.systemic_therapy.diagnosis.patient.patient_id}'
+
+
+# Base classes for List and Update views
+class BaseListView(LoginRequiredMixin, ListView):
+    """Base view for listing model instances"""
+    template_name = 'client_app/model_list.html'
+    paginate_by = 25
+    edit_url_name = None  # Override in subclass
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"{self.model._meta.verbose_name_plural}"
+        context['model_name'] = self.model._meta.verbose_name
+        context['model_name_plural'] = self.model._meta.verbose_name_plural
+        context['edit_url_name'] = self.edit_url_name or f'client_app:{self.model._meta.model_name}_edit'
+        return context
+
+
+class BaseUpdateView(LoginRequiredMixin, UpdateView):
+    """Base view for updating model instances"""
+    template_name = 'client_app/form_template.html'
+    pk_url_kwarg = 'pk'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Edit {self.model._meta.verbose_name}"
+        context['model_name'] = self.model._meta.verbose_name
+        return context
+    
+    def get_form(self, form_class=None):
+        """Set widget choices for Select2 fields with current values"""
+        form = super().get_form(form_class)
+        
+        # For Select2 widgets to show current values
+        for field_name, field in form.fields.items():
+            if hasattr(form.instance, field_name):
+                current_value = getattr(form.instance, field_name)
+                if current_value and isinstance(field, forms.ModelChoiceField):
+                    if not isinstance(field, forms.ModelMultipleChoiceField):
+                        if hasattr(field.widget, 'choices'):
+                            field.widget.choices = [(current_value.pk, str(current_value))]
+        
+        return form

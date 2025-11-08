@@ -1,6 +1,7 @@
 from django.urls import path, include
 from . import views
 from . import form_views
+from . import list_views
 
 app_name = 'client_app'  # This defines the namespace
 
@@ -63,5 +64,45 @@ urlpatterns = [
     
     # Systemic Therapy sub-forms
     path('systemic-therapy-schedule/add/', form_views.SystemicTherapyScheduleCreateView.as_view(), name='systemictherapyschedule_add'),
+    
+    # List and Edit URLs
+    # Patient-level
+    path('comorbidity/', list_views.ComorbidityListView.as_view(), name='comorbidity_list'),
+    path('comorbidity/<uuid:pk>/edit/', list_views.ComorbidityUpdateView.as_view(), name='comorbidity_edit'),
+    path('symptom/', list_views.SymptomListView.as_view(), name='symptom_list'),
+    path('symptom/<uuid:pk>/edit/', list_views.SymptomUpdateView.as_view(), name='symptom_edit'),
+    path('patient-assessment/', list_views.PatientAssessmentListView.as_view(), name='patientassessment_list'),
+    path('patient-assessment/<uuid:pk>/edit/', list_views.PatientAssessmentUpdateView.as_view(), name='patientassessment_edit'),
+    path('laboratory-results/', list_views.LaboratoryResultsListView.as_view(), name='laboratoryresults_list'),
+    path('laboratory-results/<uuid:pk>/edit/', list_views.LaboratoryResultsUpdateView.as_view(), name='laboratoryresults_edit'),
+    path('patient-outcome/', list_views.PatientOutcomeListView.as_view(), name='patientoutcome_list'),
+    path('patient-outcome/<uuid:pk>/edit/', list_views.PatientOutcomeUpdateView.as_view(), name='patientoutcome_edit'),
+    path('patient-reported-outcome/', list_views.PatientReportedOutcomeListView.as_view(), name='patientreportedoutcome_list'),
+    path('patient-reported-outcome/<uuid:pk>/edit/', list_views.PatientReportedOutcomeUpdateView.as_view(), name='patientreportedoutcome_edit'),
+    path('germline-genomic-alterations/', list_views.GermlineGenomicAlterationsListView.as_view(), name='germlinegenomicalterations_list'),
+    path('germline-genomic-alterations/<uuid:pk>/edit/', list_views.GermlineGenomicAlterationsUpdateView.as_view(), name='germlinegenomicalterations_edit'),
+    
+    # Diagnosis-level
+    path('diagnosis/', list_views.DiagnosisListView.as_view(), name='diagnosis_list'),
+    path('pathology/', list_views.PathologyListView.as_view(), name='pathology_list'),
+    path('pathology/<uuid:pk>/edit/', list_views.PathologyUpdateView.as_view(), name='pathology_edit'),
+    path('stage-information/', list_views.StageInformationListView.as_view(), name='stageinformation_list'),
+    path('stage-information/<uuid:pk>/edit/', list_views.StageInformationUpdateView.as_view(), name='stageinformation_edit'),
+    path('lesion/', list_views.LesionListView.as_view(), name='lesion_list'),
+    path('lesion/<uuid:pk>/edit/', list_views.LesionUpdateView.as_view(), name='lesion_edit'),
+    path('surgery/', list_views.SurgeryListView.as_view(), name='surgery_list'),
+    path('surgery/<uuid:pk>/edit/', list_views.SurgeryUpdateView.as_view(), name='surgery_edit'),
+    path('radiotherapy/', list_views.RadiotherapyListView.as_view(), name='radiotherapy_list'),
+    path('radiotherapy/<uuid:pk>/edit/', list_views.RadiotherapyUpdateView.as_view(), name='radiotherapy_edit'),
+    path('systemic-therapy/', list_views.SystemicTherapyListView.as_view(), name='systemictherapy_list'),
+    path('systemic-therapy/<uuid:pk>/edit/', list_views.SystemicTherapyUpdateView.as_view(), name='systemictherapy_edit'),
+    path('other-treatment/', list_views.OtherTreatmentListView.as_view(), name='othertreatment_list'),
+    path('other-treatment/<uuid:pk>/edit/', list_views.OtherTreatmentUpdateView.as_view(), name='othertreatment_edit'),
+    path('concomitant-medications/', list_views.ConcomitantMedicationsListView.as_view(), name='concomitantmedications_list'),
+    path('concomitant-medications/<uuid:pk>/edit/', list_views.ConcomitantMedicationsUpdateView.as_view(), name='concomitantmedications_edit'),
+    path('outcome/', list_views.OutcomeListView.as_view(), name='outcome_list'),
+    path('outcome/<uuid:pk>/edit/', list_views.OutcomeUpdateView.as_view(), name='outcome_edit'),
+    path('adverse-effects/', list_views.AdverseEffectsListView.as_view(), name='adverseeffects_list'),
+    path('adverse-effects/<uuid:pk>/edit/', list_views.AdverseEffectsUpdateView.as_view(), name='adverseeffects_edit'),
 ]
 
