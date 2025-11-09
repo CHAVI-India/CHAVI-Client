@@ -18,93 +18,175 @@
         </p>
     </div>
     
-    <!-- Main Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
-        {% if not user.is_authenticated %}
-        <!-- Login Card -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">Login</h3>
+    {% if not user.is_authenticated %}
+    <!-- Login Prompt for Non-Authenticated Users -->
+    <div class="bg-gradient-to-r from-chavi-primary to-chavi-secondary rounded-lg p-8 text-white text-center mb-8">
+        <h2 class="text-2xl font-bold mb-4">
+            <i class="fas fa-lock mr-2"></i>Login Required
+        </h2>
+        <p class="text-lg opacity-90 mb-6">
+            Please login to access patient data, DICOM files, and clinical information management features.
+        </p>
+        <a href="{% url 'account_login' %}" class="inline-flex items-center justify-center gap-x-2 py-3 px-6 text-base font-semibold rounded-lg border-2 border-white transition-all duration-200 bg-white text-chavi-primary hover:bg-opacity-90 hover:shadow-lg hover:-translate-y-0.5">
+            <i class="fas fa-sign-in-alt"></i>
+            Login Now
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- Patient Data Section -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
+            <i class="fas fa-user-injured mr-3 text-chavi-primary"></i>Patient Data Management
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Patient Search Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">Patient Search</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Search for patients in the CHAVI database and view their information.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'client_app:patient_search' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-search"></i>
+                        Search Patients
+                    </a>
+                    {% else %}
+                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
             </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">Login to access the CHAVI client system and manage patient data.</p>
-                <a href="{% url 'account_login' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Login
-                </a>
+            
+            <!-- Patient Data Export Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">Patient Data Export</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Export de-identified patient clinical data for research purposes.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'client_app:patient_data_export' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-file-export"></i>
+                        Export Data
+                    </a>
+                    {% else %}
+                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- CSV Data Import Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">CSV Data Import</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Import patient data from CSV files with intelligent field mapping and validation.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'data_import:session_list' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-file-import"></i>
+                        Import Data
+                    </a>
+                    {% else %}
+                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
             </div>
         </div>
-        {% endif %}
-        
-        <!-- Patient Search Card -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">Patient Search</h3>
+    </div>
+    
+    <!-- DICOM Section -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
+            <i class="fas fa-file-medical mr-3 text-chavi-primary"></i>DICOM Management
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Bulk DICOM Upload Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">Bulk DICOM Upload</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Upload DICOM studies from multiple patients with automatic and manual patient matching.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'client_app:bulk_dicom_upload' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-upload"></i>
+                        Upload DICOM
+                    </a>
+                    {% else %}
+                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
             </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">Search for patients that exist in the CHAVI database and view their information.</p>
-                <a href="{% url 'client_app:patient_search' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-search"></i>
-                    Search Patients
-                </a>
-            </div>
-        </div>
-        
-        <!-- Bulk DICOM Upload Card -->
-        {% if user.is_authenticated %}
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">Bulk DICOM Upload</h3>
-            </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">Upload DICOM studies from multiple patients with automatic and manual patient matching.</p>
-                <a href="{% url 'client_app:bulk_dicom_upload' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-upload"></i>
-                    Upload DICOM
-                </a>
-            </div>
-        </div>
-        
-        <!-- Data Import Card -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">CSV Data Import</h3>
-            </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">Import patient data from CSV files with intelligent field mapping and validation.</p>
-                <a href="{% url 'data_import:session_list' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-file-import"></i>
-                    Import Data
-                </a>
-            </div>
-        </div>
-        {% endif %}
-        
-        <!-- Admin Dashboard Card -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">Admin Dashboard</h3>
-            </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">Access the main administrative dashboard to manage the system and user accounts.</p>
-                <a href="{% url 'admin:index' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-cog"></i>
-                    Admin Panel
-                </a>
+            
+            <!-- DICOM Export Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">DICOM Export</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Export de-identified DICOM imaging studies for research and analysis.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'client_app:dicom_data_export' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-file-export"></i>
+                        Export DICOM
+                    </a>
+                    {% else %}
+                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
             </div>
         </div>
-        
-        <!-- Documentation Card -->
-        <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-chavi-gray">Documentation</h3>
+    </div>
+    
+    <!-- System Section -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
+            <i class="fas fa-cog mr-3 text-chavi-primary"></i>System Administration
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Admin Dashboard Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">Admin Dashboard</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Access the main administrative dashboard to manage the system and user accounts.</p>
+                    <a href="{% url 'admin:index' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-cog"></i>
+                        Admin Panel
+                    </a>
+                </div>
             </div>
-            <div class="px-6 py-4">
-                <p class="text-gray-600 leading-relaxed mb-4">View detailed documentation about the system features and how to use them effectively.</p>
-                <a href="{% url 'documentation-index' %}" target="_blank" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                    <i class="fas fa-book"></i>
-                    View Docs
-                </a>
+            
+            <!-- Documentation Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray">Documentation</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">View detailed documentation about the system features and how to use them effectively.</p>
+                    <a href="{% url 'documentation-index' %}" target="_blank" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-book"></i>
+                        View Docs
+                    </a>
+                </div>
             </div>
         </div>
     </div>
