@@ -52,42 +52,44 @@
                         </a>
                         
                         {% if user.is_authenticated %}
-                        <!-- Patient Data Dropdown -->
+                        <!-- Data Import Dropdown -->
                         <div class="relative group">
                             <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-user-injured mr-1"></i>Patient Data<i class="fas fa-chevron-down ml-1 text-xs"></i>
+                                <i class="fas fa-file-import mr-1"></i>Data Import<i class="fas fa-chevron-down ml-1 text-xs"></i>
                             </button>
                             <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                                 <div class="py-1">
-                                    <a href="{% url 'client_app:patient_search' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-search mr-2"></i>Patient Search
-                                    </a>
-                                    <a href="{% url 'client_app:patient_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-export mr-2"></i>Patient Data Export
-                                    </a>
                                     <a href="{% url 'data_import:session_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-import mr-2"></i>CSV Data Import
+                                        <i class="fas fa-file-csv mr-2"></i>CSV Data Import
+                                    </a>
+                                    <a href="{% url 'client_app:bulk_dicom_upload' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-file-medical mr-2"></i>DICOM Upload
                                     </a>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- DICOM Dropdown -->
+                        <!-- Data Export Dropdown -->
                         <div class="relative group">
                             <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-file-medical mr-1"></i>DICOM<i class="fas fa-chevron-down ml-1 text-xs"></i>
+                                <i class="fas fa-file-export mr-1"></i>Data Export<i class="fas fa-chevron-down ml-1 text-xs"></i>
                             </button>
                             <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                                 <div class="py-1">
-                                    <a href="{% url 'client_app:bulk_dicom_upload' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
+                                    <a href="{% url 'client_app:patient_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-user-injured mr-2"></i>Patient Data Export
                                     </a>
                                     <a href="{% url 'client_app:dicom_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-export mr-2"></i>DICOM Export
+                                        <i class="fas fa-file-medical mr-2"></i>DICOM Export
                                     </a>
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Patient Search -->
+                        <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                            <i class="fas fa-search mr-1"></i>Search
+                        </a>
                         {% else %}
                         <a href="{% url 'account_login' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-sign-in-alt mr-1"></i>Login to Access Data
@@ -143,24 +145,26 @@
                     <i class="fas fa-home mr-2"></i>Home
                 </a>
                 {% if user.is_authenticated %}
-                <!-- Patient Data Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70">PATIENT DATA</div>
-                <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-search mr-2"></i>Patient Search
-                </a>
-                <a href="{% url 'client_app:patient_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-export mr-2"></i>Patient Data Export
-                </a>
+                <!-- Data Import Section -->
+                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70">DATA IMPORT</div>
                 <a href="{% url 'data_import:session_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-import mr-2"></i>CSV Data Import
+                    <i class="fas fa-file-csv mr-2"></i>CSV Data Import
                 </a>
-                <!-- DICOM Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">DICOM</div>
                 <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-upload mr-2"></i>Bulk DICOM Upload
+                    <i class="fas fa-file-medical mr-2"></i>DICOM Upload
+                </a>
+                <!-- Data Export Section -->
+                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">DATA EXPORT</div>
+                <a href="{% url 'client_app:patient_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-user-injured mr-2"></i>Patient Data Export
                 </a>
                 <a href="{% url 'client_app:dicom_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-file-medical mr-2"></i>DICOM Export
+                </a>
+                <!-- Patient Management -->
+                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">PATIENT MANAGEMENT</div>
+                <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-search mr-2"></i>Patient Search
                 </a>
                 {% endif %}
                 <!-- System Section -->
