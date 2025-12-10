@@ -23,7 +23,7 @@ django-import-export==4.3.14
 django-ordered-model==3.7.4
 django-select2==8.4.3
 django-smart-selects==1.7.2
-django-unfold==0.72.0
+django-unfold==0.73.1
 django-widget-tweaks==1.5.0
 djangorestframework==3.16.1
 docopt==0.6.2
@@ -82,4 +82,4 @@ tqdm-loggable==0.2
 typeguard==2.13.3
 typing_extensions==4.15.0
 tzdata==2025.2
-urllib3==2.5.0
+urllib3==2.6.1
