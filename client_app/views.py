@@ -802,6 +802,7 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         """Handle export request - starts background task"""
         import uuid
         import threading
+        from django.core.cache import cache
         
         # Get selected study UIDs from the form
         selected_uids = request.POST.getlist('selected_studies')
@@ -819,6 +820,16 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         
         # Generate a unique task ID
         task_id = str(uuid.uuid4())
+        
+        # Initialize cache with starting status BEFORE starting the thread
+        cache.set(f'export_progress_{task_id}', {
+            'status': 'initializing',
+            'progress': 0,
+            'message': 'Initializing export...',
+            'total': queryset.count(),
+            'current': 0,
+            'processed': 0
+        }, timeout=3600)  # 1 hour timeout
         
         # Start export in background thread using parallel export
         def run_export():
