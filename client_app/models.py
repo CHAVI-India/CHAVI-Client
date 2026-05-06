@@ -92,6 +92,16 @@ class Project(models.Model):
         db_table="project"
 
 # Core Patient Models
+def _make_canonical_id(patient_id):
+    """Strip non-alphanumeric characters and uppercase a patient ID.
+    e.g. 'MR/25/004771' -> 'MR25004771', '25_004771' -> '25004771'
+    Used to normalise IDs before fuzzy/canonical matching so that
+    format variants from different systems resolve to the same string.
+    """
+    import re
+    return re.sub(r'[^a-zA-Z0-9]', '', patient_id).upper()
+
+
 class Patient(DateValidationMixin, models.Model):
     ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
     center = models.ForeignKey(SiteConfiguration, 

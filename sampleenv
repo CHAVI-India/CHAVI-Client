@@ -15,3 +15,6 @@ LOOKUP_API_KEY =  Key-From-CHAVI-Backend
 LOOKUP_API_TIMEOUT =  120
 #HTTP_PROXY = 
 #HTTPS_PROXY =
+
+# Encryption key
+DJANGO_ENCRYPTED_MODEL_FIELDS_KEY=your-32-byte-secret-key-here

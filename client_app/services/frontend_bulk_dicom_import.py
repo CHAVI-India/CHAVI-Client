@@ -12,7 +12,7 @@ from pydicom import dcmread
 from datetime import datetime
 from django.utils import timezone
 import shutil
-from ..models import Patient, DICOMStudy, UnprocessedDICOMStudies, BulkDICOMUploadSession, BulkDICOMStudyMatch
+from ..models import Patient, DICOMStudy, UnprocessedDICOMStudies, BulkDICOMUploadSession, BulkDICOMStudyMatch, _make_canonical_id
 import logging
 import uuid
 
@@ -102,17 +102,39 @@ def extract_and_analyze_upload(session):
             patient_id = data['patient_id']
             
             # Try to find matching patient
+            # Stage 1: exact patient_id match
             try:
                 patient = Patient.objects.get(patient_id=patient_id)
                 match_status = BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED
                 matched_patient = patient
                 auto_matched += 1
-                logger.info(f"Auto-matched study {study_uid} to patient {patient_id}")
+                logger.info(f"Auto-matched (exact) study {study_uid} to patient {patient_id}")
             except Patient.DoesNotExist:
-                match_status = BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED
-                matched_patient = None
-                manual_required += 1
-                logger.info(f"Manual match required for study {study_uid} with patient ID {patient_id}")
+                # Stage 2: normalised match — handles format variants in Python
+                # e.g. DICOM '25_004771' normalises to '25004771'
+                #      DB 'MR/25/004771' normalises to 'MR25004771'
+                # Match if the DICOM canonical is a suffix of (or equal to) the DB canonical
+                canonical_dicom = _make_canonical_id(patient_id)
+                canonical_match = None
+                for db_patient in Patient.objects.only('patient_id'):
+                    canonical_db = _make_canonical_id(db_patient.patient_id)
+                    if canonical_db == canonical_dicom or canonical_db.endswith(canonical_dicom):
+                        canonical_match = db_patient
+                        break
+                if canonical_match:
+                    match_status = BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED
+                    matched_patient = canonical_match
+                    auto_matched += 1
+                    logger.info(
+                        f"Auto-matched (normalised) study {study_uid}: "
+                        f"DICOM '{patient_id}' -> Patient '{canonical_match.patient_id}'"
+                    )
+                else:
+                    # Stage 3: no match — queue for manual review
+                    match_status = BulkDICOMStudyMatch.MatchStatus.MANUAL_MATCH_REQUIRED
+                    matched_patient = None
+                    manual_required += 1
+                    logger.info(f"Manual match required for study {study_uid} with patient ID {patient_id}")
             
             # Create temporary folder for this study
             sanitized_patient_id = sanitize(patient_id)

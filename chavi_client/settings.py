@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'slippers',
     'django_select2',
+    'encrypted_model_fields',
 ]
 
 MIDDLEWARE = [
@@ -630,3 +631,7 @@ CACHES = {
         }
     }
 }
+
+
+# Django Encrypted Model Fields Configuration
+ENCRYPTED_MODEL_FIELDS_KEY = os.environ.get('DJANGO_ENCRYPTED_MODEL_FIELDS_KEY', 'FUXVBYgTzPS0fYQt_3mzVIart6sHxGiiANCIFnfK0T8=')

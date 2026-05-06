@@ -6,6 +6,7 @@ from django.views.generic import TemplateView, View, ListView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from unfold.views import UnfoldModelAdminViewMixin
 from .models import *
+from .models import _make_canonical_id
 from django.urls import reverse, reverse_lazy
 from django.http import Http404, JsonResponse
 from django.contrib import admin, messages
@@ -16,6 +17,7 @@ from .services.dicom_data_export import export_dicom_data
 from .services.parallel_dicom_export import export_dicom_data_parallel
 from django.db import transaction
 from django.db.models import Q
+from rapidfuzz import process as fuzz_process, fuzz
 
 # Create your views here.
 
@@ -377,6 +379,33 @@ class BulkDICOMUploadView(LoginRequiredMixin, TemplateView):
             return redirect('client_app:bulk_dicom_upload')
 
 
+def _get_fuzzy_patient_suggestions(dicom_patient_id, patient_qs, top_n=3, score_cutoff=30):
+    """Return top_n fuzzy-matched patients for a given DICOM patient ID.
+    Each result is a dict: {patient_id, gender, score}.
+    Normalises IDs before scoring so separator/prefix differences don't
+    penalise otherwise-identical numeric cores (e.g. '25_004771' vs 'MR/25/004771').
+    """
+    norm_query = _make_canonical_id(dicom_patient_id)
+    all_ids = list(patient_qs.values_list('patient_id', 'gender'))
+    # Map normalised key -> (original_pid, gender)
+    choices = {_make_canonical_id(pid): (pid, gender) for pid, gender in all_ids}
+    matches = fuzz_process.extract(
+        norm_query,
+        list(choices.keys()),
+        scorer=fuzz.partial_ratio,
+        limit=top_n,
+        score_cutoff=score_cutoff,
+    )
+    return [
+        {
+            'patient_id': choices[match[0]][0],
+            'gender': choices[match[0]][1] or 'N/A',
+            'score': round(match[1]),
+        }
+        for match in matches
+    ]
+
+
 class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
     """View for matching DICOM studies to patients"""
     template_name = "client_app/bulk_dicom_matching.html"
@@ -398,11 +427,22 @@ class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
         # Get all patients for the select2 dropdown
         patients = Patient.objects.all().order_by('patient_id')
         
+        # Attach fuzzy suggestions to each manual_required study
+        manual_required_with_suggestions = []
+        for study in manual_required:
+            suggestions = _get_fuzzy_patient_suggestions(study.dicom_patient_id, patients)
+            manual_required_with_suggestions.append({
+                'study': study,
+                'suggestions': suggestions,
+                'top_suggestion': suggestions[0] if suggestions else None,
+            })
+        
         context.update({
             'title': 'Match DICOM Studies to Patients',
             'session': session,
             'auto_matched': auto_matched,
             'manual_required': manual_required,
+            'manual_required_with_suggestions': manual_required_with_suggestions,
             'manually_matched': manually_matched,
             'patients': patients,
             'total_studies': study_matches.count(),
@@ -588,18 +628,36 @@ class PatientSearchAPIView(LoginRequiredMixin, View):
     def get(self, request):
         search_term = request.GET.get('q', '')
         
-        if search_term:
-            patients = Patient.objects.filter(patient_id__icontains=search_term)[:20]
-        else:
-            patients = Patient.objects.all()[:20]
+        all_patients = Patient.objects.all()
         
-        results = [
-            {
-                'id': patient.patient_id,
-                'text': f"{patient.patient_id} - {patient.gender or 'N/A'}"
-            }
-            for patient in patients
-        ]
+        if search_term:
+            # Use fuzzy matching when a search term is provided
+            # Normalise both the query and candidate IDs before scoring
+            all_ids = list(all_patients.values_list('patient_id', 'gender'))
+            norm_choices = {_make_canonical_id(pid): (pid, gender) for pid, gender in all_ids}
+            fuzzy_matches = fuzz_process.extract(
+                _make_canonical_id(search_term),
+                list(norm_choices.keys()),
+                scorer=fuzz.partial_ratio,
+                limit=20,
+                score_cutoff=20,
+            )
+            results = [
+                {
+                    'id': norm_choices[match[0]][0],
+                    'text': f"{norm_choices[match[0]][0]} - {norm_choices[match[0]][1] or 'N/A'} ({round(match[1])}%)"
+                }
+                for match in fuzzy_matches
+            ]
+        else:
+            patients = all_patients[:20]
+            results = [
+                {
+                    'id': patient.patient_id,
+                    'text': f"{patient.patient_id} - {patient.gender or 'N/A'}"
+                }
+                for patient in patients
+            ]
         
         return JsonResponse({'results': results})
 
