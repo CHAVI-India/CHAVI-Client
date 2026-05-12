@@ -24,7 +24,7 @@ django-import-export==4.4.1
 django-ordered-model==3.7.4
 django-select2==8.4.8
 django-smart-selects==1.7.2
-django-unfold==0.92.0
+django-unfold==0.93.0
 django-widget-tweaks==1.5.1
 djangorestframework==3.17.1
 docopt==0.6.2
@@ -32,7 +32,7 @@ docutils==0.22.4
 fido2==2.2.0
 graphviz==0.21
 gunicorn==26.0.0
-idna==3.14
+idna==3.15
 imagesize==2.0.0
 Jinja2==3.1.6
 markdown-it-py==4.2.0
@@ -40,7 +40,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 numpy==2.4.4
 packaging==26.2
-pandas==3.0.2
+pandas==3.0.3
 pillow==12.2.0
 pip-check-updates==0.28.0
 psycopg2-binary==2.9.12
@@ -54,7 +54,7 @@ pytz==2026.2
 PyYAML==6.0.3
 qrcode==8.2
 RapidFuzz==3.14.5
-requests==2.33.1
+requests==2.34.0
 rich==15.0.0
 roman-numerals==4.1.0
 roman-numerals-py==4.1.0
