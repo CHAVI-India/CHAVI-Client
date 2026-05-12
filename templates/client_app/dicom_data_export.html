@@ -265,6 +265,24 @@
                 </div>
                 {% endif %}
                 
+                <!-- Export Options -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div class="flex items-center mb-4">
+                        <input type="checkbox" 
+                               id="include_patient_data" 
+                               name="include_patient_data" 
+                               value="true"
+                               class="w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                        <label for="include_patient_data" class="ml-2 text-sm font-medium text-gray-700">
+                            <i class="fas fa-file-medical mr-1 text-chavi-primary"></i>
+                            Include patient clinical data (JSON) in export
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4 ml-6">
+                        When enabled, a second ZIP file containing patient clinical data (diagnoses, treatments, outcomes, etc.) will also be generated.
+                    </p>
+                </div>
+                
                 <!-- Export Button -->
                 <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
                     <div class="flex items-center justify-between">
@@ -302,6 +320,7 @@
             <li><i class="fas fa-check mr-2"></i>Only studies with valid folder paths will be included in the export</li>
             <li><i class="fas fa-check mr-2"></i>Use the filters above to narrow down the study list before selecting studies to export</li>
             <li><i class="fas fa-check mr-2"></i>You can select individual studies or use "Select All" to export all filtered studies</li>
+            <li><i class="fas fa-file-medical mr-2"></i>Enable "Include patient clinical data" to also export JSON files with diagnoses, treatments, outcomes, and more</li>
             <li><i class="fas fa-exclamation-triangle mr-2"></i>Large exports may take some time to process</li>
         </ul>
     </div>

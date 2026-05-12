@@ -14,6 +14,9 @@ from django.conf import settings
 from django.core.cache import cache
 import shutil
 
+# Import patient data export function
+from .patient_data_export import export_patient_data_to_file
+
 
 logger = logging.getLogger(__name__)
 
@@ -84,16 +87,18 @@ def process_study_files(study_data):
         return {'success': False, 'study_uid': study_uid, 'error': str(e)}
 
 
-def export_dicom_data_parallel(queryset, task_id):
+def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
     """
     Export DICOM data using multiprocessing for faster processing with progress tracking.
     
     This function processes DICOM studies in parallel and creates a ZIP file containing
-    all DICOM files organized by patient ID and study UID.
+    all DICOM files organized by patient ID and study UID. Optionally also includes
+    patient clinical data as JSON files.
     
     Args:
         queryset: Django queryset of DICOMStudy objects to export
         task_id (str): Unique task identifier for progress tracking
+        include_patient_data (bool): Whether to also export patient clinical data
         
     Returns:
         dict: Result dictionary with status, message, and file path information
@@ -106,7 +111,17 @@ def export_dicom_data_parallel(queryset, task_id):
     zip_filename = f'dicom_export_{task_id}.zip'
     zip_path = temp_dir / zip_filename
     
+    # Patient data zip path (temporary, will be combined if requested)
+    patient_zip_path = temp_dir / f'patient_data_{task_id}.zip'
+    
     try:
+        # Get unique patients from the studies if patient data export is requested
+        patient_ids = set()
+        if include_patient_data:
+            for study in queryset:
+                if study.patient and study.patient.patient_id:
+                    patient_ids.add(study.patient.patient_id)
+        
         # Prepare study data for multiprocessing
         total_studies = queryset.count()
         study_data_list = []
@@ -115,7 +130,7 @@ def export_dicom_data_parallel(queryset, task_id):
             study_data_list.append({
                 'study_uid': study.study_instance_uid,
                 'folder_path': study.folder_path,
-                'patient_id': study.patient.patient_id
+                'patient_id': study.patient.patient_id if study.patient else 'unknown'
             })
         
         # Update progress: Starting
@@ -124,7 +139,9 @@ def export_dicom_data_parallel(queryset, task_id):
             'progress': 0,
             'total': total_studies,
             'current': 0,
-            'message': 'Starting export...'
+            'message': 'Starting export...',
+            'include_patient_data': include_patient_data,
+            'total_patients': len(patient_ids) if include_patient_data else 0
         }, timeout=3600)
         
         # Use multiprocessing to process studies in parallel
@@ -138,34 +155,61 @@ def export_dicom_data_parallel(queryset, task_id):
             for i, result in enumerate(pool.imap_unordered(process_study_files, study_data_list)):
                 processed_results.append(result)
                 
-                # Update progress (0-50% for processing)
-                progress = int((i + 1) / total_studies * 50)
+                # Update progress (0-40% for processing DICOM files)
+                progress = int((i + 1) / total_studies * 40)
                 cache.set(f'export_progress_{task_id}', {
                     'status': 'processing',
                     'progress': progress,
                     'total': total_studies,
                     'current': i + 1,
-                    'message': f'Processing study {i + 1} of {total_studies}...'
+                    'message': f'Processing study {i + 1} of {total_studies}...',
+                    'include_patient_data': include_patient_data,
+                    'total_patients': len(patient_ids) if include_patient_data else 0
                 }, timeout=3600)
         
         logger.info(f"Completed parallel processing. Creating ZIP file...")
         
-        # Update progress: Creating ZIP
+        # Export patient data if requested
+        patient_data_result = None
+        if include_patient_data and patient_ids:
+            logger.info(f"Exporting patient data for {len(patient_ids)} patients...")
+            cache.set(f'export_progress_{task_id}', {
+                'status': 'patient_data',
+                'progress': 40,
+                'total': total_studies,
+                'current': total_studies,
+                'message': f'Exporting patient clinical data for {len(patient_ids)} patients...',
+                'include_patient_data': include_patient_data,
+                'total_patients': len(patient_ids)
+            }, timeout=3600)
+            
+            # Import Patient model
+            from ..models import Patient
+            patient_queryset = Patient.objects.filter(patient_id__in=patient_ids)
+            patient_data_result = export_patient_data_to_file(patient_queryset, patient_zip_path)
+            
+            logger.info(f"Patient data export complete: {patient_data_result}")
+        
+        # Update progress: Creating DICOM ZIP
         cache.set(f'export_progress_{task_id}', {
             'status': 'zipping',
-            'progress': 50,
+            'progress': 50 if include_patient_data else 50,
             'total': total_studies,
             'current': total_studies,
-            'message': 'Creating ZIP file...'
+            'message': 'Creating DICOM ZIP file...',
+            'include_patient_data': include_patient_data,
+            'total_patients': len(patient_ids) if include_patient_data else 0
         }, timeout=3600)
         
-        # Create the zip file with collected files
+        # Create the DICOM zip file with collected files
         processed_studies = 0
         skipped_studies = 0
         total_files = 0
         error_messages = []
         
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+        dicom_zip_path = temp_dir / f'dicom_only_{task_id}.zip'
+        
+        with zipfile.ZipFile(dicom_zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
             for idx, result in enumerate(processed_results):
                 if result['success']:
                     for file_info in result['files']:
@@ -182,14 +226,18 @@ def export_dicom_data_parallel(queryset, task_id):
                     error_messages.append(error_msg)
                     logger.warning(error_msg)
                 
-                # Update progress during zipping (50-100%)
-                progress = 50 + int((idx + 1) / len(processed_results) * 50)
+                # Update progress during zipping (50-90% for DICOM, 50-70% if including patient data)
+                max_progress = 90 if not include_patient_data else 70
+                progress_range = max_progress - 50
+                progress = 50 + int((idx + 1) / len(processed_results) * progress_range)
                 cache.set(f'export_progress_{task_id}', {
                     'status': 'zipping',
                     'progress': progress,
                     'total': len(processed_results),
                     'current': idx + 1,
-                    'message': f'Adding files to ZIP: {idx + 1} of {len(processed_results)} studies...'
+                    'message': f'Adding DICOM files to ZIP: {idx + 1} of {len(processed_results)} studies...',
+                    'include_patient_data': include_patient_data,
+                    'total_patients': len(patient_ids) if include_patient_data else 0
                 }, timeout=3600)
         
         # If no studies were processed, return error
@@ -197,7 +245,8 @@ def export_dicom_data_parallel(queryset, task_id):
             cache.set(f'export_progress_{task_id}', {
                 'status': 'error',
                 'progress': 100,
-                'message': 'No valid DICOM studies were found to export.'
+                'message': 'No valid DICOM studies were found to export.',
+                'include_patient_data': include_patient_data
             }, timeout=3600)
             logger.error("No valid DICOM studies were found to export")
             return {
@@ -205,12 +254,26 @@ def export_dicom_data_parallel(queryset, task_id):
                 'message': 'No valid DICOM studies were found to export.'
             }
         
+        # If patient data was included, keep both files separate
+        if include_patient_data and patient_data_result and patient_data_result.get('success'):
+            # Rename DICOM zip to final name
+            dicom_zip_path.rename(zip_path)
+            
+            # Patient data zip is already at patient_zip_path
+            
+            final_message = f'Export complete! {processed_studies} DICOM studies ({total_files} files), {patient_data_result.get("processed_patients", 0)} patient records.'
+        else:
+            # Just rename the DICOM-only zip to the final name
+            dicom_zip_path.rename(zip_path)
+            final_message = f'Export complete! {processed_studies} studies, {total_files} files.'
+        
         # Verify the zip file exists and is not empty
         if not zip_path.exists() or zip_path.stat().st_size == 0:
             cache.set(f'export_progress_{task_id}', {
                 'status': 'error',
                 'progress': 100,
-                'message': 'Failed to create zip file.'
+                'message': 'Failed to create zip file.',
+                'include_patient_data': include_patient_data
             }, timeout=3600)
             logger.error("Failed to create zip file")
             return {
@@ -220,34 +283,54 @@ def export_dicom_data_parallel(queryset, task_id):
         
         # Update progress: Complete
         logger.info(f"Export complete: {processed_studies} studies, {total_files} files, {skipped_studies} skipped")
-        cache.set(f'export_progress_{task_id}', {
+        
+        # Build cache data with both file paths if patient data is included
+        cache_data = {
             'status': 'complete',
             'progress': 100,
             'total': total_studies,
             'processed': processed_studies,
             'skipped': skipped_studies,
             'total_files': total_files,
-            'message': f'Export complete! {processed_studies} studies, {total_files} files.',
+            'message': final_message,
             'zip_path': str(zip_path),
             'zip_filename': zip_filename,
+            'include_patient_data': include_patient_data,
+            'total_patients': len(patient_ids) if include_patient_data else 0,
+            'processed_patients': patient_data_result.get('processed_patients', 0) if patient_data_result else 0,
             'errors': error_messages[:10]  # Store first 10 errors
-        }, timeout=3600)
+        }
         
-        return {
+        # Add patient data zip path if applicable
+        if include_patient_data and patient_data_result and patient_data_result.get('success'):
+            cache_data['patient_data_zip_path'] = str(patient_zip_path)
+            cache_data['patient_data_zip_filename'] = f'patient_data_{task_id}.zip'
+        
+        cache.set(f'export_progress_{task_id}', cache_data, timeout=3600)
+        
+        return_data = {
             'success': True,
-            'message': f'Successfully exported {processed_studies} studies ({total_files} files). {skipped_studies} studies were skipped.',
+            'message': final_message,
             'zip_path': str(zip_path),
             'processed': processed_studies,
             'skipped': skipped_studies,
-            'total_files': total_files
+            'total_files': total_files,
+            'include_patient_data': include_patient_data,
+            'processed_patients': patient_data_result.get('processed_patients', 0) if patient_data_result else 0
         }
+        
+        if include_patient_data and patient_data_result and patient_data_result.get('success'):
+            return_data['patient_data_zip_path'] = str(patient_zip_path)
+        
+        return return_data
             
     except Exception as e:
         logger.error(f"Error creating zip file: {str(e)}", exc_info=True)
         cache.set(f'export_progress_{task_id}', {
             'status': 'error',
             'progress': 100,
-            'message': f'Error: {str(e)}'
+            'message': f'Error: {str(e)}',
+            'include_patient_data': include_patient_data
         }, timeout=3600)
         return {
             'success': False,

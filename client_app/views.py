@@ -876,6 +876,9 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
             messages.error(request, "No DICOM studies found for export")
             return redirect('client_app:dicom_data_export')
         
+        # Check if patient data export is requested
+        include_patient_data = request.POST.get('include_patient_data') == 'true'
+        
         # Generate a unique task ID
         task_id = str(uuid.uuid4())
         
@@ -886,12 +889,13 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
             'message': 'Initializing export...',
             'total': queryset.count(),
             'current': 0,
-            'processed': 0
+            'processed': 0,
+            'include_patient_data': include_patient_data
         }, timeout=3600)  # 1 hour timeout
         
         # Start export in background thread using parallel export
         def run_export():
-            export_dicom_data_parallel(queryset, task_id)
+            export_dicom_data_parallel(queryset, task_id, include_patient_data=include_patient_data)
         
         thread = threading.Thread(target=run_export)
         thread.daemon = True
@@ -900,7 +904,8 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         # Return task ID to client for progress tracking
         context = {
             'task_id': task_id,
-            'study_count': queryset.count()
+            'study_count': queryset.count(),
+            'include_patient_data': include_patient_data
         }
         return render(request, 'client_app/dicom_export_progress.html', context)
 
@@ -923,7 +928,7 @@ class DICOMExportProgressView(LoginRequiredMixin, View):
 
 
 class DICOMExportDownloadView(LoginRequiredMixin, View):
-    """Download the completed DICOM export ZIP file"""
+    """Download the completed DICOM export ZIP file(s)"""
     
     def get(self, request, task_id):
         from django.core.cache import cache
@@ -937,24 +942,68 @@ class DICOMExportDownloadView(LoginRequiredMixin, View):
             messages.error(request, "Export not ready or not found")
             return redirect('client_app:dicom_data_export')
         
-        zip_path = Path(progress_data.get('zip_path'))
+        # Determine which file to download (dicom or patient)
+        file_type = request.GET.get('file', 'dicom')
         
-        if not zip_path.exists():
-            messages.error(request, "Export file not found")
-            return redirect('client_app:dicom_data_export')
+        if file_type == 'patient' and progress_data.get('include_patient_data'):
+            # Download patient data file
+            zip_path = Path(progress_data.get('patient_data_zip_path', ''))
+            if not zip_path or not zip_path.exists():
+                messages.error(request, "Patient data file not found")
+                return redirect('client_app:dicom_data_export')
+            filename = f'patient_data_export_{task_id}.zip'
+            cleanup_both = True  # Clean up both files after patient data download
+        else:
+            # Download DICOM file (default)
+            zip_path = Path(progress_data.get('zip_path'))
+            if not zip_path.exists():
+                messages.error(request, "Export file not found")
+                return redirect('client_app:dicom_data_export')
+            filename = f'dicom_export_{task_id}.zip'
+            cleanup_both = progress_data.get('include_patient_data')
         
         try:
             response = FileResponse(open(zip_path, 'rb'), content_type='application/zip')
-            response['Content-Disposition'] = f'attachment; filename=dicom_export_{task_id}.zip'
+            response['Content-Disposition'] = f'attachment; filename={filename}'
             
-            # Clean up after download
+            # Clean up after download - track which files have been downloaded
             def cleanup():
                 import time
                 time.sleep(2)  # Wait a bit before cleanup
                 try:
-                    if zip_path.exists():
-                        os.remove(zip_path)
-                    cache.delete(f'export_progress_{task_id}')
+                    # Update cache to track which file was downloaded
+                    current_data = cache.get(f'export_progress_{task_id}')
+                    if current_data:
+                        if file_type == 'dicom':
+                            current_data['dicom_downloaded'] = True
+                        else:
+                            current_data['patient_data_downloaded'] = True
+                        
+                        # Only clean up both files and cache if both have been downloaded
+                        # or if there's only one file (no patient data)
+                        dicom_downloaded = current_data.get('dicom_downloaded', False)
+                        patient_data_downloaded = current_data.get('patient_data_downloaded', False)
+                        has_patient_data = current_data.get('include_patient_data', False)
+                        
+                        should_cleanup_all = not has_patient_data or (dicom_downloaded and patient_data_downloaded)
+                        
+                        if should_cleanup_all:
+                            # Clean up DICOM file
+                            dicom_path = Path(current_data.get('zip_path', ''))
+                            if dicom_path.exists():
+                                os.remove(dicom_path)
+                            
+                            # Clean up patient data file if it exists
+                            if has_patient_data:
+                                patient_path = Path(current_data.get('patient_data_zip_path', ''))
+                                if patient_path.exists():
+                                    os.remove(patient_path)
+                            
+                            # Delete cache entry
+                            cache.delete(f'export_progress_{task_id}')
+                        else:
+                            # Update cache with download tracking
+                            cache.set(f'export_progress_{task_id}', current_data, timeout=3600)
                 except Exception:
                     pass
             
