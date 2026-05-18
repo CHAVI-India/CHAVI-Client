@@ -155,8 +155,8 @@ def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
             for i, result in enumerate(pool.imap_unordered(process_study_files, study_data_list)):
                 processed_results.append(result)
                 
-                # Update progress (0-40% for processing DICOM files)
-                progress = int((i + 1) / total_studies * 40)
+                # Update progress (0-10% for processing/collecting file lists)
+                progress = int((i + 1) / total_studies * 10)
                 cache.set(f'export_progress_{task_id}', {
                     'status': 'processing',
                     'progress': progress,
@@ -175,7 +175,7 @@ def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
             logger.info(f"Exporting patient data for {len(patient_ids)} patients...")
             cache.set(f'export_progress_{task_id}', {
                 'status': 'patient_data',
-                'progress': 40,
+                'progress': 10,
                 'total': total_studies,
                 'current': total_studies,
                 'message': f'Exporting patient clinical data for {len(patient_ids)} patients...',
@@ -191,9 +191,10 @@ def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
             logger.info(f"Patient data export complete: {patient_data_result}")
         
         # Update progress: Creating DICOM ZIP
+        zip_start_progress = 15 if include_patient_data else 10
         cache.set(f'export_progress_{task_id}', {
             'status': 'zipping',
-            'progress': 50 if include_patient_data else 50,
+            'progress': zip_start_progress,
             'total': total_studies,
             'current': total_studies,
             'message': 'Creating DICOM ZIP file...',
@@ -226,10 +227,10 @@ def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
                     error_messages.append(error_msg)
                     logger.warning(error_msg)
                 
-                # Update progress during zipping (50-90% for DICOM, 50-70% if including patient data)
-                max_progress = 90 if not include_patient_data else 70
-                progress_range = max_progress - 50
-                progress = 50 + int((idx + 1) / len(processed_results) * progress_range)
+                # Update progress during zipping (10-95% for DICOM, 15-95% if including patient data)
+                max_progress = 95
+                progress_range = max_progress - zip_start_progress
+                progress = zip_start_progress + int((idx + 1) / len(processed_results) * progress_range)
                 cache.set(f'export_progress_{task_id}', {
                     'status': 'zipping',
                     'progress': progress,
