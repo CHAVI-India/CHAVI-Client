@@ -750,15 +750,52 @@ class PatientDataExportView(LoginRequiredMixin, TemplateView):
     
     def post(self, request):
         """Handle export request"""
-        # Get selected patient IDs from the form
-        selected_ids = request.POST.getlist('selected_patients')
+        # Check if "Select All across all pages" was used
+        export_all = request.POST.get('export_all') == 'true'
         
-        if not selected_ids:
-            messages.error(request, "Please select at least one patient to export")
-            return redirect('client_app:patient_data_export')
-        
-        # Get the patients
-        queryset = Patient.objects.filter(patient_id__in=selected_ids)
+        if export_all:
+            # Re-apply filters to get ALL matching patients across all pages
+            queryset = Patient.objects.all()
+            
+            patient_id = request.POST.get('filter_patient_id', '')
+            if patient_id:
+                queryset = queryset.filter(patient_id__icontains=patient_id)
+            
+            created_from_date = request.POST.get('filter_created_from_date', '')
+            created_from_time = request.POST.get('filter_created_from_time', '00:00')
+            if created_from_date:
+                queryset = queryset.filter(created_at__gte=f"{created_from_date} {created_from_time}:00")
+            
+            created_to_date = request.POST.get('filter_created_to_date', '')
+            created_to_time = request.POST.get('filter_created_to_time', '23:59')
+            if created_to_date:
+                queryset = queryset.filter(created_at__lte=f"{created_to_date} {created_to_time}:59")
+            
+            updated_from_date = request.POST.get('filter_updated_from_date', '')
+            updated_from_time = request.POST.get('filter_updated_from_time', '00:00')
+            if updated_from_date:
+                queryset = queryset.filter(updated_at__gte=f"{updated_from_date} {updated_from_time}:00")
+            
+            updated_to_date = request.POST.get('filter_updated_to_date', '')
+            updated_to_time = request.POST.get('filter_updated_to_time', '23:59')
+            if updated_to_date:
+                queryset = queryset.filter(updated_at__lte=f"{updated_to_date} {updated_to_time}:59")
+            
+            project_filter = request.POST.get('filter_project', '')
+            if project_filter:
+                queryset = queryset.filter(patient_project__chavi_project_id=project_filter)
+            
+            queryset = queryset.order_by('-created_at').distinct()
+        else:
+            # Get selected patient IDs from the form
+            selected_ids = request.POST.getlist('selected_patients')
+            
+            if not selected_ids:
+                messages.error(request, "Please select at least one patient to export")
+                return redirect('client_app:patient_data_export')
+            
+            # Get the patients
+            queryset = Patient.objects.filter(patient_id__in=selected_ids)
         
         if queryset.count() == 0:
             messages.error(request, "No patients found for export")
@@ -862,15 +899,54 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         import threading
         from django.core.cache import cache
         
-        # Get selected study UIDs from the form
-        selected_uids = request.POST.getlist('selected_studies')
+        # Check if "Select All across all pages" was used
+        export_all = request.POST.get('export_all') == 'true'
         
-        if not selected_uids:
-            messages.error(request, "Please select at least one DICOM study to export")
-            return redirect('client_app:dicom_data_export')
-        
-        # Get the DICOM studies
-        queryset = DICOMStudy.objects.filter(study_instance_uid__in=selected_uids)
+        if export_all:
+            # Re-apply filters to get ALL matching studies across all pages
+            queryset = DICOMStudy.objects.all()
+            
+            patient_id = request.POST.get('filter_patient_id', '')
+            if patient_id:
+                queryset = queryset.filter(patient__patient_id__icontains=patient_id)
+            
+            created_from_date = request.POST.get('filter_created_from_date', '')
+            created_from_time = request.POST.get('filter_created_from_time', '00:00')
+            if created_from_date:
+                queryset = queryset.filter(created_at__gte=f"{created_from_date} {created_from_time}:00")
+            
+            created_to_date = request.POST.get('filter_created_to_date', '')
+            created_to_time = request.POST.get('filter_created_to_time', '23:59')
+            if created_to_date:
+                queryset = queryset.filter(created_at__lte=f"{created_to_date} {created_to_time}:59")
+            
+            updated_from_date = request.POST.get('filter_updated_from_date', '')
+            updated_from_time = request.POST.get('filter_updated_from_time', '00:00')
+            if updated_from_date:
+                queryset = queryset.filter(updated_at__gte=f"{updated_from_date} {updated_from_time}:00")
+            
+            updated_to_date = request.POST.get('filter_updated_to_date', '')
+            updated_to_time = request.POST.get('filter_updated_to_time', '23:59')
+            if updated_to_date:
+                queryset = queryset.filter(updated_at__lte=f"{updated_to_date} {updated_to_time}:59")
+            
+            project_filter = request.POST.get('filter_project', '')
+            if project_filter:
+                queryset = queryset.filter(
+                    dicomstudyproject__project__chavi_project_id=project_filter
+                ).distinct()
+            
+            queryset = queryset.order_by('-created_at').distinct()
+        else:
+            # Get selected study UIDs from the form
+            selected_uids = request.POST.getlist('selected_studies')
+            
+            if not selected_uids:
+                messages.error(request, "Please select at least one DICOM study to export")
+                return redirect('client_app:dicom_data_export')
+            
+            # Get the DICOM studies
+            queryset = DICOMStudy.objects.filter(study_instance_uid__in=selected_uids)
         
         if queryset.count() == 0:
             messages.error(request, "No DICOM studies found for export")

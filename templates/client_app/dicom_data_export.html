@@ -159,7 +159,13 @@
                 <button type="button" 
                         onclick="selectAll()"
                         class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm">
-                    <i class="fas fa-check-double mr-1"></i>Select All
+                    <i class="fas fa-check-double mr-1"></i>Select Page
+                </button>
+                <button type="button" 
+                        onclick="selectAllAcrossPages()"
+                        class="bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+                        id="selectAllPagesBtn">
+                    <i class="fas fa-check-double mr-1"></i>Select All {{ total_studies }}
                 </button>
                 <button type="button" 
                         onclick="deselectAll()"
@@ -172,6 +178,17 @@
         {% if studies %}
             <form method="post" action="{% url 'client_app:dicom_data_export' %}" id="exportForm">
                 {% csrf_token %}
+                <input type="hidden" name="export_all" id="exportAllField" value="">
+                <input type="hidden" name="filter_patient_id" value="{{ patient_id_search }}">
+                <input type="hidden" name="filter_created_from_date" value="{{ created_from_date }}">
+                <input type="hidden" name="filter_created_from_time" value="{{ created_from_time }}">
+                <input type="hidden" name="filter_created_to_date" value="{{ created_to_date }}">
+                <input type="hidden" name="filter_created_to_time" value="{{ created_to_time }}">
+                <input type="hidden" name="filter_updated_from_date" value="{{ updated_from_date }}">
+                <input type="hidden" name="filter_updated_from_time" value="{{ updated_from_time }}">
+                <input type="hidden" name="filter_updated_to_date" value="{{ updated_to_date }}">
+                <input type="hidden" name="filter_updated_to_time" value="{{ updated_to_time }}">
+                <input type="hidden" name="filter_project" value="{{ project_filter }}">
                 
                 <!-- Studies Table -->
                 <div class="overflow-x-auto">
@@ -327,16 +344,25 @@
 </div>
 
 <script>
+    const TOTAL_STUDIES = {{ total_studies }};
+    let selectAllAcrossActive = false;
+
     // Update selected count
     function updateSelectedCount() {
-        const checkboxes = document.querySelectorAll('.study-checkbox:checked');
-        const count = checkboxes.length;
-        document.getElementById('selectedCount').textContent = count;
-        document.getElementById('exportButton').disabled = count === 0;
+        if (selectAllAcrossActive) {
+            document.getElementById('selectedCount').textContent = TOTAL_STUDIES + ' (all across all pages)';
+            document.getElementById('exportButton').disabled = false;
+        } else {
+            const checkboxes = document.querySelectorAll('.study-checkbox:checked');
+            const count = checkboxes.length;
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('exportButton').disabled = count === 0;
+        }
     }
     
-    // Toggle all checkboxes
+    // Toggle all checkboxes on current page
     function toggleAll(source) {
+        clearSelectAllAcross();
         const checkboxes = document.querySelectorAll('.study-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = source.checked;
@@ -344,8 +370,9 @@
         updateSelectedCount();
     }
     
-    // Select all studies
+    // Select all studies on current page
     function selectAll() {
+        clearSelectAllAcross();
         const checkboxes = document.querySelectorAll('.study-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = true;
@@ -353,9 +380,30 @@
         document.getElementById('selectAllCheckbox').checked = true;
         updateSelectedCount();
     }
+
+    // Select all studies across ALL pages
+    function selectAllAcrossPages() {
+        selectAllAcrossActive = true;
+        document.getElementById('exportAllField').value = 'true';
+        const checkboxes = document.querySelectorAll('.study-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        document.getElementById('selectAllCheckbox').checked = true;
+        document.getElementById('selectAllPagesBtn').classList.add('ring-2', 'ring-offset-2', 'ring-chavi-primary');
+        updateSelectedCount();
+    }
+
+    // Clear select-all-across-pages state
+    function clearSelectAllAcross() {
+        selectAllAcrossActive = false;
+        document.getElementById('exportAllField').value = '';
+        document.getElementById('selectAllPagesBtn').classList.remove('ring-2', 'ring-offset-2', 'ring-chavi-primary');
+    }
     
     // Deselect all studies
     function deselectAll() {
+        clearSelectAllAcross();
         const checkboxes = document.querySelectorAll('.study-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = false;
@@ -368,7 +416,10 @@
     document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = document.querySelectorAll('.study-checkbox');
         checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectedCount);
+            checkbox.addEventListener('change', function() {
+                clearSelectAllAcross();
+                updateSelectedCount();
+            });
         });
         updateSelectedCount();
     });
