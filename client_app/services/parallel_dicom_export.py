@@ -210,7 +210,7 @@ def export_dicom_data_parallel(queryset, task_id, include_patient_data=False):
         
         dicom_zip_path = temp_dir / f'dicom_only_{task_id}.zip'
         
-        with zipfile.ZipFile(dicom_zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+        with zipfile.ZipFile(dicom_zip_path, 'w', zipfile.ZIP_STORED, allowZip64=True) as zipf:
             for idx, result in enumerate(processed_results):
                 if result['success']:
                     for file_info in result['files']:

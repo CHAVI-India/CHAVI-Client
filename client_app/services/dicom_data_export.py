@@ -36,7 +36,7 @@ def export_dicom_data(modeladmin, request, queryset):
     
     try:
         # Create a zip file
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_STORED, allowZip64=True) as zipf:
             # Track statistics
             total_studies = queryset.count()
             processed_studies = 0
