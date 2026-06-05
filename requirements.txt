@@ -10,9 +10,9 @@ colorclass==2.2.2
 crispy-tailwind==1.0.3
 cryptography==48.0.0
 diff-match-patch==20241021
-Django==6.0.5
+Django==6.0.6
 django-admin-index==4.0.0
-django-allauth==65.17.0
+django-allauth==65.18.0
 django-allauth-ui==1.8.1
 django-appconf==1.2.0
 django-cleanup==9.0.0
@@ -24,7 +24,7 @@ django-import-export==4.4.1
 django-ordered-model==3.7.4
 django-select2==8.4.8
 django-smart-selects==1.7.2
-django-unfold==0.94.0
+django-unfold==0.95.0
 django-widget-tweaks==1.5.1
 djangorestframework==3.17.1
 docopt==0.6.2
@@ -32,7 +32,7 @@ docutils==0.22.4
 fido2==2.2.0
 graphviz==0.21
 gunicorn==26.0.0
-idna==3.16
+idna==3.18
 imagesize==2.0.0
 Jinja2==3.1.6
 markdown-it-py==4.2.0
@@ -60,10 +60,10 @@ roman-numerals==4.1.0
 roman-numerals-py==4.1.0
 six==1.17.0
 slippers==0.6.3
-snowballstemmer==3.0.1
-soupsieve==2.8.3
+snowballstemmer==3.1.1
+soupsieve==2.8.4
 Sphinx==9.1.0
-sphinx-autodoc-typehints==3.10.2
+sphinx-autodoc-typehints==3.10.5
 sphinx-pdj-theme==0.7.3
 sphinx_rtd_theme==3.1.0
 sphinxcontrib-applehelp==2.0.0
