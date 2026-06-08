@@ -203,7 +203,7 @@ Document content:
             ).select_related('field', 'field__lookup_content_type').order_by('order')
             
             if table_fields.exists():
-                schema_parts.append(f"\n{table_name.UPPER()} Fields:")
+                schema_parts.append(f"\n{table_name.upper()} Fields:")
                 for table_field in table_fields:
                     field = table_field.field
                     field_info = f"  - {field.clientapp_field_name} ({field.get_field_type_display()})"

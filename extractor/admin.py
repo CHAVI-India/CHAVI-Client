@@ -19,6 +19,8 @@ from .models import (
     ExtractionResult,
     RecordCreation,
     RecordCreationField,
+    EmbeddingConfiguration,
+    LookupEmbedding,
 )
 from allauth.account.decorators import secure_admin_login
 
@@ -333,6 +335,116 @@ class RecordCreationAdmin(ModelAdmin):
             'fields': [('created_at', 'updated_at')]
         }),
     )
+
+
+@admin.register(EmbeddingConfiguration)
+class EmbeddingConfigurationAdmin(ModelAdmin):
+    list_display = ['model_name', 'model_provider', 'embedding_dimension', 'is_active_badge', 'similarity_threshold', 'top_k_results', 'created_at']
+    list_filter = [
+        'is_active',
+        ('model_provider', ChoicesDropdownFilter),
+        ('created_at', RangeDateTimeFilter),
+    ]
+    search_fields = ['model_name', 'model_provider']
+    readonly_fields = ['created_at', 'updated_at']
+    list_display_links = ['model_name']
+    
+    fieldsets = (
+        ('Model Configuration', {
+            'fields': ['model_name', 'model_provider', 'embedding_dimension', 'api_key'],
+            'description': 'Configure the embedding model to use for semantic search'
+        }),
+        ('Search Settings', {
+            'fields': ['is_active', 'similarity_threshold', 'top_k_results'],
+            'description': 'Control how semantic search behaves during extraction'
+        }),
+        ('Timestamps', {
+            'fields': [('created_at', 'updated_at')],
+            'classes': ['collapse']
+        }),
+    )
+    
+    def is_active_badge(self, obj):
+        """Display active status as a badge."""
+        if obj.is_active:
+            return '✓ Active'
+        return '✗ Inactive'
+    is_active_badge.short_description = 'Status'
+    
+    def save_model(self, request, obj, form, change):
+        # If setting this config as active, deactivate others
+        if obj.is_active:
+            EmbeddingConfiguration.objects.exclude(pk=obj.pk).update(is_active=False)
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(LookupEmbedding)
+class LookupEmbeddingAdmin(ModelAdmin):
+    list_display = ['lookup_table', 'object_id', 'field_name', 'text_value_preview', 'embedding_config', 'created_at']
+    list_filter = [
+        ('content_type', RelatedDropdownFilter),
+        ('embedding_config', RelatedDropdownFilter),
+        ('created_at', RangeDateTimeFilter),
+    ]
+    search_fields = ['object_id', 'text_value', 'field_name']
+    autocomplete_fields = ['embedding_config']
+    readonly_fields = ['content_type', 'object_id', 'field_name', 'text_value', 'embedding', 'embedding_config', 'created_at', 'updated_at', 'embedding_preview', 'embedding_dimension']
+    list_display_links = ['object_id']
+    
+    fieldsets = (
+        ('Lookup Reference', {
+            'fields': ['content_type', 'object_id', 'field_name'],
+            'description': 'Reference to the lookup table entry'
+        }),
+        ('Embedding Data', {
+            'fields': ['text_value', 'embedding_config', 'embedding_dimension', 'embedding_preview'],
+            'description': 'Pre-computed embedding vector for semantic search'
+        }),
+        ('Timestamps', {
+            'fields': [('created_at', 'updated_at')],
+            'classes': ['collapse']
+        }),
+    )
+    
+    def lookup_table(self, obj):
+        """Display lookup table name."""
+        return obj.content_type.model
+    lookup_table.short_description = 'Lookup Table'
+    lookup_table.admin_order_field = 'content_type'
+    
+    def text_value_preview(self, obj):
+        """Show truncated text value."""
+        if len(obj.text_value) > 50:
+            return f"{obj.text_value[:50]}..."
+        return obj.text_value
+    text_value_preview.short_description = 'Text Value'
+    
+    def embedding_dimension(self, obj):
+        """Show embedding dimension."""
+        if obj.embedding:
+            return len(obj.embedding)
+        return 0
+    embedding_dimension.short_description = 'Dimensions'
+    
+    def embedding_preview(self, obj):
+        """Show first few dimensions of embedding."""
+        if obj.embedding:
+            preview = str(obj.embedding[:5])
+            return f"{preview}... (total: {len(obj.embedding)} dims)"
+        return "No embedding"
+    embedding_preview.short_description = 'Embedding Vector Preview'
+    
+    # Make this read-only in admin (embeddings should be computed via management command)
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        # Allow viewing but not editing
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        # Allow deletion to refresh embeddings
+        return True
 
 
 # endregion
