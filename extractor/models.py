@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from pgvector.django import VectorField
 from logging import getLogger
 
 log = getLogger(__name__)
@@ -426,4 +427,103 @@ class RecordCreationField(models.Model):
     class Meta:
         ordering = ['-created_at']
         constraints = [models.UniqueConstraint(fields=['record_creation', 'extraction_result'], name='unique_field_per_record_creation')]
+
+
+class EmbeddingConfiguration(models.Model):
+    '''
+    Configuration for the embedding model used for semantic search in lookup matching.
+    '''
+    model_name = models.CharField(
+        max_length=255,
+        help_text="Name of the embedding model (e.g., 'all-MiniLM-L6-v2', 'BioBERT')"
+    )
+    model_provider = models.CharField(
+        max_length=100,
+        default='sentence-transformers',
+        help_text="Provider: 'sentence-transformers', 'openai', 'huggingface'"
+    )
+    embedding_dimension = models.IntegerField(
+        help_text="Dimension of the embedding vectors (e.g., 384, 768, 1536)"
+    )
+    api_key = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="API key if using a cloud provider like OpenAI"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this configuration is currently active"
+    )
+    similarity_threshold = models.FloatField(
+        default=0.7,
+        help_text="Minimum similarity score (0-1) for considering a match valid"
+    )
+    top_k_results = models.IntegerField(
+        default=5,
+        help_text="Number of top similar results to show to LLM"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.model_name} ({'Active' if self.is_active else 'Inactive'})"
+    
+    class Meta:
+        ordering = ['-is_active', '-created_at']
+        verbose_name = "Embedding Configuration"
+        verbose_name_plural = "Embedding Configurations"
+
+
+class LookupEmbedding(models.Model):
+    '''
+    Pre-computed embeddings for lookup table entries to enable fast semantic search.
+    Uses pgvector for efficient similarity search.
+    '''
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to={'app_label': 'lookup'},
+        help_text="The lookup table this embedding belongs to"
+    )
+    object_id = models.CharField(
+        max_length=255,
+        help_text="Primary key of the lookup record"
+    )
+    field_name = models.CharField(
+        max_length=255,
+        help_text="Field name that was embedded (e.g., 'icd_description')"
+    )
+    text_value = models.TextField(
+        help_text="The original text that was embedded"
+    )
+    embedding = VectorField(
+        dimensions=None,  # Will be set based on EmbeddingConfiguration
+        help_text="Vector embedding of the text"
+    )
+    embedding_config = models.ForeignKey(
+        EmbeddingConfiguration,
+        on_delete=models.CASCADE,
+        help_text="Configuration used to generate this embedding"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.content_type.model}.{self.object_id} - {self.field_name}"
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['content_type', 'field_name']),
+            models.Index(fields=['object_id']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content_type', 'object_id', 'field_name', 'embedding_config'],
+                name='unique_lookup_embedding'
+            )
+        ]
+        verbose_name = "Lookup Embedding"
+        verbose_name_plural = "Lookup Embeddings"
 

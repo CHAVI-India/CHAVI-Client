@@ -12,6 +12,7 @@ from extractor.models import (
     InstructorMessage
 )
 from extractor.services.pydantic_builder import PydanticModelBuilder
+from extractor.services.semantic_search import SemanticSearchService
 
 log = getLogger(__name__)
 
@@ -155,8 +156,11 @@ class InstructorExtractionService:
                 'content': content
             })
         
-        # Build field schema information
-        field_schema = InstructorExtractionService.build_field_schema_description(response_model)
+        # Build field schema information with document context for semantic search
+        field_schema = InstructorExtractionService.build_field_schema_description(
+            response_model,
+            processed_content
+        )
         
         # Add the user message with field schema and processed content
         user_content = f"""Extract the following fields from the document:
@@ -181,10 +185,10 @@ Document content:
         return messages
     
     @staticmethod
-    def build_field_schema_description(response_model: ResponseModel) -> str:
+    def build_field_schema_description(response_model: ResponseModel, document_content: str = "") -> str:
         """
         Build a human-readable description of the fields to extract.
-        Includes lookup table values for fields that reference lookup tables.
+        Uses semantic search to show only relevant lookup options based on document context.
         """
         model_tables = ResponseModelTable.objects.filter(
             response_model=response_model
@@ -199,38 +203,39 @@ Document content:
             ).select_related('field', 'field__lookup_content_type').order_by('order')
             
             if table_fields.exists():
-                schema_parts.append(f"\n{table_name.upper()} Fields:")
+                schema_parts.append(f"\n{table_name.UPPER()} Fields:")
                 for table_field in table_fields:
                     field = table_field.field
                     field_info = f"  - {field.clientapp_field_name} ({field.get_field_type_display()})"
                     
-                    # Add lookup information and values if applicable
+                    # Add lookup information using semantic search
                     if field.lookup_field and field.lookup_content_type:
                         lookup_model = field.lookup_content_type.model_class()
-                        all_lookup_options = InstructorExtractionService.get_lookup_options(
-                            lookup_model, 
-                            field.lookup_table_pk_field_name,
-                            field.lookup_table_value_field_name
-                        )
                         
-                        if all_lookup_options:
-                            # For large lookup tables (>50 options), we'll filter dynamically later
-                            # For now, show a reasonable subset
-                            if len(all_lookup_options) > 50:
-                                # Large lookup - show count and indicate dynamic matching
-                                field_info += f"\n    Lookup Table: {field.lookup_content_type.model} ({len(all_lookup_options)} options)"
-                                field_info += f"\n    IMPORTANT: Extract the exact text from the document for this field."
-                                field_info += f"\n    The system will automatically match it to the correct lookup code."
-                            else:
-                                # Small lookup - show all options
-                                labels = [opt['label'] for opt in all_lookup_options[:20]]
-                                field_info += f"\n    Valid Options: {', '.join(labels)}"
-                                if len(all_lookup_options) > 20:
-                                    field_info += f" ... ({len(all_lookup_options)} total)"
-                                field_info += f"\n    IMPORTANT: Extract the text from the document and match it to the CLOSEST option from the list above."
-                                field_info += f"\n    Return ONLY the matched option label, not the original text. If no good match exists, return null."
+                        # Use semantic search to get relevant options
+                        if document_content:
+                            filtered_options = SemanticSearchService.get_filtered_lookup_options(
+                                lookup_model,
+                                field.lookup_table_pk_field_name,
+                                field.lookup_table_value_field_name,
+                                document_content
+                            )
                         else:
-                            field_info += f" [Lookup: {field.lookup_content_type.model}]"
+                            # Fallback to all options if no document context
+                            filtered_options = InstructorExtractionService.get_lookup_options(
+                                lookup_model,
+                                field.lookup_table_pk_field_name,
+                                field.lookup_table_value_field_name
+                            )[:10]  # Limit to 10
+                        
+                        if filtered_options:
+                            labels = [opt['label'] for opt in filtered_options]
+                            field_info += f"\n    Valid Options (most relevant): {', '.join(labels)}"
+                            field_info += f"\n    IMPORTANT: Match the extracted text to the CLOSEST option from this list."
+                            field_info += f"\n    Return ONLY the matched option label. If no good match, return null."
+                        else:
+                            field_info += f"\n    Lookup Table: {field.lookup_content_type.model}"
+                            field_info += f"\n    Extract the exact text from the document."
                     
                     schema_parts.append(field_info)
         

@@ -1,6 +1,6 @@
 services:
   chaviclient-database:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     restart: always
     container_name: chaviclient-database
     ports:
