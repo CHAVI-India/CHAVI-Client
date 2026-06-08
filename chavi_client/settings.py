@@ -234,6 +234,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+        'extractor': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 
@@ -541,6 +546,68 @@ UNFOLD = {
                         "icon": "settings",
                         "link": "/admin/lookup/",
                     }
+                ],
+            },  
+            {
+                "title": _("Data Extraction"),
+                "separator": True,  # Top border
+                "collapsible": True,  # Collapsible group of links
+                "items": [
+                    {
+                        "title": _("Client Configuration"),
+                        "icon": "settings_suggest",
+                        "link": reverse_lazy("admin:extractor_clientconfiguration_changelist"),
+                    },
+                    {
+                        "title": _("File Uploads"),
+                        "icon": "upload_file",
+                        "link": reverse_lazy("admin:extractor_fileupload_changelist"),
+                    },
+                    {
+                        "title": _("Processed Text"),
+                        "icon": "description",
+                        "link": reverse_lazy("admin:extractor_processedtext_changelist"),
+                    },
+                    {
+                        "title": _("Database Tables"),
+                        "icon": "table_chart",
+                        "link": reverse_lazy("admin:extractor_databasetable_changelist"),
+                    },
+                    {
+                        "title": _("Database Fields"),
+                        "icon": "view_column",
+                        "link": reverse_lazy("admin:extractor_databasefield_changelist"),
+                    },
+                    {
+                        "title": _("Response Models"),
+                        "icon": "schema",
+                        "link": reverse_lazy("admin:extractor_responsemodel_changelist"),
+                    },
+                    {
+                        "title": _("Response Model Tables"),
+                        "icon": "table_rows",
+                        "link": reverse_lazy("admin:extractor_responsemodeltable_changelist"),
+                    },
+                    {
+                        "title": _("Instructor Messages"),
+                        "icon": "chat",
+                        "link": reverse_lazy("admin:extractor_instructormessage_changelist"),
+                    },
+                    {
+                        "title": _("Extraction Jobs"),
+                        "icon": "work",
+                        "link": reverse_lazy("admin:extractor_extractionjob_changelist"),
+                    },
+                    {
+                        "title": _("Extraction Results"),
+                        "icon": "fact_check",
+                        "link": reverse_lazy("admin:extractor_extractionresult_changelist"),
+                    },
+                    {
+                        "title": _("Record Creation"),
+                        "icon": "add_box",
+                        "link": reverse_lazy("admin:extractor_recordcreation_changelist"),
+                    },
                 ],
             },  
             {

@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Extraction Results - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-clipboard-list text-chavi-primary mr-2"></i>
+                    Extraction Results
+                </h1>
+                <p class="text-gray-600 mt-2">View and manage all data extraction jobs</p>
+            </div>
+            <a href="{% url 'extractor:extraction_dashboard' %}" 
+               class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                <i class="fas fa-plus mr-2"></i>
+                New Extraction
+            </a>
+        </div>
+
+        {% if jobs_with_stats %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            File
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Patient
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Response Model
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fields Extracted
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Extracted By
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                        </th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for item in jobs_with_stats %}
+                    {% with job=item.job %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {{ job.processed_file.file_upload.file.name|truncatechars:30 }}
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        ID: {{ job.id }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% if job.processed_file.file_upload.patient_id %}
+                                <i class="fas fa-user-check text-green-600 mr-1"></i>
+                                {{ job.processed_file.file_upload.patient_id.patient_id }}
+                            {% else %}
+                                <span class="text-gray-400">
+                                    <i class="fas fa-user-times mr-1"></i>
+                                    Not linked
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ job.response_model.name }}</div>
+                            <div class="text-xs text-gray-500">{{ job.response_model.client.llm_model_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if job.extraction_status == 'pending' %}bg-yellow-100 text-yellow-800
+                                {% elif job.extraction_status == 'processing' %}bg-blue-100 text-blue-800
+                                {% elif job.extraction_status == 'completed' %}bg-green-100 text-green-800
+                                {% elif job.extraction_status == 'failed' %}bg-red-100 text-red-800
+                                {% endif %}">
+                                {% if job.extraction_status == 'pending' %}<i class="fas fa-clock mr-1"></i>
+                                {% elif job.extraction_status == 'processing' %}<i class="fas fa-spinner fa-spin mr-1"></i>
+                                {% elif job.extraction_status == 'completed' %}<i class="fas fa-check mr-1"></i>
+                                {% elif job.extraction_status == 'failed' %}<i class="fas fa-times mr-1"></i>
+                                {% endif %}
+                                {{ job.get_extraction_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold">
+                                {{ item.result_count }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ job.extracted_by.username }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ job.created_at|date:"M d, Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'extractor:extraction_job_detail' job.id %}" 
+                               class="text-chavi-primary hover:text-chavi-secondary"
+                               title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">No extraction jobs yet</h3>
+            <p class="text-gray-500 mb-6">Start extracting data from your processed files</p>
+            <a href="{% url 'extractor:extraction_dashboard' %}" 
+               class="inline-block bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                <i class="fas fa-magic mr-2"></i>
+                Start Extraction
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

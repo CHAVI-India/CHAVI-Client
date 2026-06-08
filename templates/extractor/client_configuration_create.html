@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Create LLM Configuration - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-robot text-chavi-primary mr-2"></i>
+                Create LLM Client Configuration
+            </h1>
+            <p class="text-gray-600">
+                Configure connection to a Large Language Model provider for data extraction
+            </p>
+        </div>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="llm_model_name" class="block text-sm font-medium text-gray-700 mb-2">
+                        Model Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" 
+                           id="llm_model_name" 
+                           name="llm_model_name" 
+                           required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                           placeholder="e.g., gpt-4, claude-3-opus">
+                    <p class="mt-1 text-sm text-gray-500">The specific model name to use</p>
+                </div>
+
+                <div>
+                    <label for="model_provider" class="block text-sm font-medium text-gray-700 mb-2">
+                        Provider <span class="text-red-500">*</span>
+                    </label>
+                    <select id="model_provider" 
+                            name="model_provider" 
+                            required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                        <option value="">-- Select provider --</option>
+                        {% for provider in providers %}
+                        <option value="{{ provider }}">{{ provider }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">The LLM service provider</p>
+                </div>
+            </div>
+
+            <div>
+                <label for="model_base_url" class="block text-sm font-medium text-gray-700 mb-2">
+                    Base URL <span class="text-red-500">*</span>
+                </label>
+                <input type="url" 
+                       id="model_base_url" 
+                       name="model_base_url" 
+                       required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                       placeholder="https://api.openai.com/v1">
+                <p class="mt-1 text-sm text-gray-500">API endpoint URL for the LLM provider</p>
+            </div>
+
+            <div>
+                <label for="model_api_key" class="block text-sm font-medium text-gray-700 mb-2">
+                    API Key <span class="text-red-500">*</span>
+                </label>
+                <input type="password" 
+                       id="model_api_key" 
+                       name="model_api_key" 
+                       required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                       placeholder="sk-...">
+                <p class="mt-1 text-sm text-gray-500">
+                    <i class="fas fa-lock mr-1"></i>
+                    API key will be encrypted and stored securely
+                </p>
+            </div>
+
+            <div class="border-t border-gray-200 pt-6">
+                <div class="flex items-center mb-4">
+                    <input type="checkbox" 
+                           id="model_api_key_expires" 
+                           name="model_api_key_expires"
+                           class="h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                    <label for="model_api_key_expires" class="ml-2 text-sm font-medium text-gray-700">
+                        API Key Expires
+                    </label>
+                </div>
+
+                <div id="expiry-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
+                    <div>
+                        <label for="model_api_key_validity" class="block text-sm font-medium text-gray-700 mb-2">
+                            Expiry Date
+                        </label>
+                        <input type="date" 
+                               id="model_api_key_validity" 
+                               name="model_api_key_validity"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                    </div>
+
+                    <div>
+                        <label for="model_api_refresh_key" class="block text-sm font-medium text-gray-700 mb-2">
+                            Refresh Key
+                        </label>
+                        <input type="password" 
+                               id="model_api_refresh_key" 
+                               name="model_api_refresh_key"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                               placeholder="Refresh token">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+                <a href="{% url 'extractor:client_configuration_list' %}" 
+                   class="text-gray-600 hover:text-gray-800 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back to List
+                </a>
+                <button type="submit" 
+                        class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                    <i class="fas fa-save mr-2"></i>
+                    Create Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const expiresCheckbox = document.getElementById('model_api_key_expires');
+    const expiryFields = document.getElementById('expiry-fields');
+    
+    expiresCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            expiryFields.classList.remove('hidden');
+        } else {
+            expiryFields.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock %}

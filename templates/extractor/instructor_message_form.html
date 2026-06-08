@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if instructor_message %}Edit{% else %}Create{% endif %} Instructor Message - CHAVI Client
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">
+                <i class="fas fa-comment-dots text-chavi-primary mr-2"></i>
+                {% if instructor_message %}Edit{% else %}Create{% endif %} Instructor Message
+            </h1>
+            <p class="text-gray-600 mt-2">
+                Configure prompts for {{ response_model.name }}
+            </p>
+        </div>
+
+        <!-- Info Box -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+                <i class="fas fa-info-circle text-blue-600 text-xl mr-3 mt-1"></i>
+                <div class="text-sm text-blue-800">
+                    <p class="font-semibold mb-2">About Instructor Messages</p>
+                    <p class="mb-2">Messages follow the standard LLM format: <code class="bg-blue-100 px-1 rounded">{"role": "system/user", "content": "your text"}</code></p>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>System messages</strong> provide instructions and context to guide the LLM</li>
+                        <li><strong>User messages</strong> are automatically generated with:
+                            <ul class="list-circle list-inside ml-4 mt-1">
+                                <li>Field schema from your ResponseModel configuration</li>
+                                <li>The document content to extract from</li>
+                            </ul>
+                        </li>
+                        <li>Messages are sent to the LLM in creation order</li>
+                        <li>Multiple system messages can be used to build complex instructions</li>
+                        <li>Clear, specific instructions produce better extraction results</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Role Selection -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-user-tag mr-2"></i>Message Role
+                </label>
+                <select name="role" 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
+                        required>
+                    {% for value, label in roles %}
+                    <option value="{{ value }}" 
+                            {% if instructor_message and instructor_message.role == value %}selected{% endif %}
+                            {% if not instructor_message and value == 'system' %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                    System messages provide instructions; User messages contain data to extract
+                </p>
+            </div>
+
+            <!-- Prompt Text -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-pen-fancy mr-2"></i>Prompt Text
+                </label>
+                <textarea name="prompt" 
+                          rows="12"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent font-mono text-sm"
+                          placeholder="Enter your prompt instructions here...&#10;&#10;Example:&#10;You are a medical data extraction assistant. Extract the following information from the provided medical document:&#10;- Patient demographics&#10;- Diagnosis information&#10;- Treatment details&#10;&#10;Be precise and only extract information that is explicitly stated in the document."
+                          required>{% if instructor_message %}{{ prompt_text }}{% endif %}</textarea>
+                <p class="text-xs text-gray-500 mt-1">
+                    Write clear, specific instructions for the LLM to follow
+                </p>
+            </div>
+
+            <!-- Example Prompts -->
+            <details class="bg-gray-50 rounded-lg p-4">
+                <summary class="cursor-pointer font-semibold text-gray-700 hover:text-chavi-primary">
+                    <i class="fas fa-lightbulb mr-2"></i>Example System Prompts (Instructor Format)
+                </summary>
+                <div class="mt-4 space-y-4">
+                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                        <p class="font-semibold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-hospital-user mr-1"></i>Medical Data Extraction (System Role)
+                        </p>
+                        <pre class="text-xs text-gray-600 whitespace-pre-wrap">You are a medical data extraction assistant. Extract structured information from medical documents with high accuracy.
+
+Instructions:
+- Extract ONLY information explicitly stated in the document
+- Use standard medical terminology and codes
+- If information is unclear or missing, set the field to null/empty
+- Pay careful attention to dates (use YYYY-MM-DD format), measurements, and medical codes
+- Maintain patient confidentiality and data integrity
+- Do not infer, assume, or hallucinate missing information
+
+The document content will be provided in the next message.</pre>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                        <p class="font-semibold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-database mr-1"></i>Structured Data Extraction (System Role)
+                        </p>
+                        <pre class="text-xs text-gray-600 whitespace-pre-wrap">Extract structured data from the provided document according to the defined schema.
+
+Requirements:
+- Use exact values as they appear in the document
+- Convert dates to YYYY-MM-DD format
+- Extract numerical values without units (units are defined in the schema)
+- Maintain data integrity and accuracy
+- Leave fields empty if information is not present
+- Do not infer or assume missing information
+- Follow the Pydantic model schema exactly
+
+The user message will contain the document to extract from.</pre>
+                    </div>
+
+                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                        <p class="font-semibold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-clipboard-check mr-1"></i>Multi-Step Instructions (System Role)
+                        </p>
+                        <pre class="text-xs text-gray-600 whitespace-pre-wrap">You are extracting patient diagnosis information from medical records.
+
+Step-by-step process:
+1. Identify the patient demographics section
+2. Locate all diagnosis entries with their ICD codes
+3. Extract diagnosis dates and descriptions
+4. Identify the treating physician
+5. Extract any follow-up information
+
+Quality checks:
+- Verify all dates are in YYYY-MM-DD format
+- Ensure ICD codes are complete and valid
+- Cross-reference patient ID across sections
+- Flag any inconsistencies in the notes field</pre>
+                    </div>
+
+                    <div class="bg-gray-100 rounded-lg p-3 mt-3">
+                        <p class="text-xs text-gray-700">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <strong>Note:</strong> The actual document content is automatically added as a user message when extraction runs. 
+                            You only need to configure the system instructions here.
+                        </p>
+                    </div>
+
+                    <div class="bg-white rounded-lg p-4 border-2 border-blue-200 mt-4">
+                        <p class="font-semibold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-code mr-1"></i>How Messages Are Sent to Instructor
+                        </p>
+                        <pre class="text-xs text-gray-600 whitespace-pre-wrap bg-gray-900 text-gray-100 p-3 rounded">client.chat.completions.create(
+    model="your-model",
+    response_model=YourPydanticModel,
+    messages=[
+        {
+            "role": "system",
+            "content": "Your system prompt text here..."
+        },
+        {
+            "role": "user", 
+            "content": """Extract the following fields:
+            
+DIAGNOSIS Fields:
+  - diagnosis_code (string)
+  - diagnosis_date (date)
+  - diagnosis_description (string)
+  
+Document content:
+[Your uploaded document text]"""
+        }
+    ]
+)</pre>
+                        <p class="text-xs text-gray-600 mt-2">
+                            <i class="fas fa-magic text-purple-600 mr-1"></i>
+                            The field schema and document content are <strong>automatically generated</strong> from your ResponseModel configuration.
+                            You only need to write the system instructions.
+                        </p>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <a href="{% url 'extractor:response_model_detail' response_model.id %}" 
+                   class="text-gray-600 hover:text-gray-800 font-semibold">
+                    <i class="fas fa-arrow-left mr-2"></i>Cancel
+                </a>
+                <button type="submit" 
+                        class="bg-chavi-gradient text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                    <i class="fas fa-save mr-2"></i>
+                    {% if instructor_message %}Update{% else %}Create{% endif %} Message
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ response_model.name }} - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    {{ response_model.name }}
+                </h1>
+                <p class="text-gray-600">
+                    <i class="fas fa-robot mr-2"></i>
+                    {{ response_model.client.llm_model_name }} ({{ response_model.client.model_provider }})
+                </p>
+            </div>
+            <a href="{% url 'extractor:response_model_list' %}" 
+               class="text-gray-600 hover:text-gray-800 transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to List
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-blue-600 font-medium">Tables</p>
+                        <p class="text-2xl font-bold text-blue-900">{{ tables_summary|length }}</p>
+                    </div>
+                    <i class="fas fa-table text-3xl text-blue-400"></i>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-green-600 font-medium">Total Fields</p>
+                        <p class="text-2xl font-bold text-green-900">
+                            {% for table in tables_summary %}{{ table.fields|length }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                        </p>
+                    </div>
+                    <i class="fas fa-list text-3xl text-green-400"></i>
+                </div>
+            </div>
+            
+            <div class="bg-purple-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-purple-600 font-medium">Created</p>
+                        <p class="text-lg font-bold text-purple-900">{{ response_model.created_at|date:"M d, Y" }}</p>
+                    </div>
+                    <i class="fas fa-calendar text-3xl text-purple-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Configuration Details</h2>
+            
+            {% for table_summary in tables_summary %}
+            <div class="border border-gray-200 rounded-lg p-6 mb-4">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-table text-chavi-primary mr-2"></i>
+                    {{ table_summary.table.database_table.clientapp_content_type.model|title }}
+                </h3>
+                
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm font-medium text-gray-700 mb-3">
+                        Configured Fields ({{ table_summary.fields|length }}):
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {% for field in table_summary.fields %}
+                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-800 text-sm">
+                                        {{ field.field.clientapp_field_name }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ field.field.get_field_type_display }}
+                                    </p>
+                                    {% if field.field.lookup_field and field.field.lookup_content_type %}
+                                    <p class="text-xs text-blue-600 mt-1">
+                                        <i class="fas fa-link mr-1"></i>
+                                        {{ field.field.lookup_content_type.model }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                    #{{ field.order }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500">No tables configured.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Instructor Messages Section -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">
+                    <i class="fas fa-comment-dots text-chavi-primary mr-2"></i>
+                    Instructor Messages (Prompts)
+                </h2>
+                <a href="{% url 'extractor:instructor_message_create' response_model.id %}" 
+                   class="bg-chavi-gradient text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add Message
+                </a>
+            </div>
+
+            {% if instructor_messages %}
+            <div class="space-y-4">
+                {% for message in instructor_messages %}
+                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold
+                                {% if message.role == 'system' %}bg-purple-100 text-purple-800
+                                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                <i class="fas fa-{% if message.role == 'system' %}cog{% else %}user{% endif %} mr-1"></i>
+                                {{ message.get_role_display }}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                Created {{ message.created_at|date:"M d, Y H:i" }}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <a href="{% url 'extractor:instructor_message_edit' message.id %}" 
+                               class="text-chavi-primary hover:text-chavi-secondary text-sm"
+                               title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button onclick="deleteMessage({{ message.id }})"
+                                    class="text-red-600 hover:text-red-800 text-sm"
+                                    title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">{% if message.prompt.content %}{{ message.prompt.content }}{% else %}{{ message.prompt }}{% endif %}</pre>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                <i class="fas fa-exclamation-triangle text-yellow-600 text-3xl mb-3"></i>
+                <p class="text-yellow-800 font-semibold mb-2">No Instructor Messages Configured</p>
+                <p class="text-yellow-700 text-sm mb-4">
+                    Add system prompts to guide the LLM during data extraction. Without prompts, the LLM may not extract data accurately.
+                </p>
+                <a href="{% url 'extractor:instructor_message_create' response_model.id %}" 
+                   class="inline-block bg-yellow-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-yellow-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add First Message
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Generated Pydantic Model</h2>
+            <div class="bg-gray-900 rounded-lg p-6 overflow-x-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm text-gray-400">Python Code</span>
+                    <button onclick="copyToClipboard()" 
+                            class="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                        <i class="fas fa-copy mr-1"></i>
+                        Copy to Clipboard
+                    </button>
+                </div>
+                <pre id="pydantic-code" class="text-sm text-gray-100"><code>{{ pydantic_code }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form for delete -->
+<form id="deleteMessageForm" method="POST" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<script>
+function copyToClipboard() {
+    const code = document.getElementById('pydantic-code').textContent;
+    navigator.clipboard.writeText(code).then(function() {
+        alert('Pydantic model code copied to clipboard!');
+    }, function(err) {
+        console.error('Could not copy text: ', err);
+    });
+}
+
+function deleteMessage(messageId) {
+    if (confirm('Are you sure you want to delete this instructor message?\n\nThis action cannot be undone.')) {
+        const form = document.getElementById('deleteMessageForm');
+        form.action = `/extractor/messages/${messageId}/delete/`;
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

@@ -35,6 +35,8 @@ urlpatterns = [
     path('select2/', include('django_select2.urls')),
     # Data import workflow
     path('import/', include('data_import.urls')),
+    # Extractor URLs
+    path('extractor/', include('extractor.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Home URL now points to the homepage view instead of redirecting

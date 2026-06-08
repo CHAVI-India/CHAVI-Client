@@ -81,6 +81,16 @@ class FileUpload(models.Model):
             self.file_type = file_type
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        '''
+        Override delete to remove the physical file from disk when the model instance is deleted.
+        '''
+        if self.file:
+            if os.path.isfile(self.file.path):
+                os.remove(self.file.path)
+                log.info(f"Deleted file from disk: {self.file.path}")
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return self.file.name
 
@@ -97,6 +107,15 @@ class ProcessedText(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    def delete(self, *args, **kwargs):
+        '''
+        Override delete to remove the processed file from disk when the model instance is deleted.
+        '''
+        if self.processed_file_path:
+            if os.path.isfile(self.processed_file_path):
+                os.remove(self.processed_file_path)
+                log.info(f"Deleted processed file from disk: {self.processed_file_path}")
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         if self.file_upload and self.file_upload.file:

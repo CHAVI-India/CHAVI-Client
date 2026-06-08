@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ configuration.llm_model_name }} - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-robot text-chavi-primary mr-2"></i>
+                    {{ configuration.llm_model_name }}
+                </h1>
+                <p class="text-gray-600">{{ configuration.model_provider }}</p>
+            </div>
+            <div class="flex space-x-3">
+                <a href="{% url 'extractor:client_configuration_list' %}" 
+                   class="text-gray-600 hover:text-gray-800 transition-colors px-4 py-2">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back to List
+                </a>
+                <button onclick="testConnection()" 
+                        id="test-connection-btn"
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                    <i class="fas fa-plug mr-2"></i>
+                    Test Connection
+                </button>
+                <a href="{% url 'extractor:client_configuration_edit' configuration.id %}" 
+                   class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
+                    <i class="fas fa-edit mr-2"></i>
+                    Edit
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-blue-600 font-medium">Response Models</p>
+                        <p class="text-2xl font-bold text-blue-900">{{ response_models.count }}</p>
+                    </div>
+                    <i class="fas fa-cogs text-3xl text-blue-400"></i>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-green-600 font-medium">Status</p>
+                        <p class="text-lg font-bold text-green-900">Active</p>
+                    </div>
+                    <i class="fas fa-check-circle text-3xl text-green-400"></i>
+                </div>
+            </div>
+            
+            <div class="bg-purple-50 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-purple-600 font-medium">Created</p>
+                        <p class="text-lg font-bold text-purple-900">{{ configuration.created_at|date:"M d, Y" }}</p>
+                    </div>
+                    <i class="fas fa-calendar text-3xl text-purple-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Configuration Details</h2>
+                
+                <div class="bg-gray-50 rounded-lg p-6 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Model Name</p>
+                            <p class="text-lg text-gray-800">{{ configuration.llm_model_name }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Provider</p>
+                            <p class="text-lg text-gray-800">{{ configuration.model_provider }}</p>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <p class="text-sm font-medium text-gray-500">Base URL</p>
+                            <p class="text-lg text-gray-800 break-all">{{ configuration.model_base_url }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">API Key</p>
+                            <p class="text-lg text-gray-800">
+                                <i class="fas fa-lock mr-2"></i>
+                                ••••••••••••••••
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">API Key Expires</p>
+                            <p class="text-lg text-gray-800">
+                                {% if configuration.model_api_key_expires %}
+                                    <i class="fas fa-check text-green-600 mr-2"></i>
+                                    Yes ({{ configuration.model_api_key_validity|date:"M d, Y" }})
+                                {% else %}
+                                    <i class="fas fa-times text-gray-400 mr-2"></i>
+                                    No
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Created At</p>
+                            <p class="text-lg text-gray-800">{{ configuration.created_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Last Updated</p>
+                            <p class="text-lg text-gray-800">{{ configuration.updated_at|date:"M d, Y H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if response_models %}
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Response Models Using This Configuration</h2>
+                
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <div class="space-y-3">
+                        {% for model in response_models %}
+                        <div class="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+                            <div>
+                                <p class="font-semibold text-gray-800">{{ model.name }}</p>
+                                <p class="text-sm text-gray-600">Created: {{ model.created_at|date:"M d, Y" }}</p>
+                            </div>
+                            <a href="{% url 'extractor:response_model_detail' model.id %}" 
+                               class="text-chavi-primary hover:text-chavi-secondary transition-colors">
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+                <form method="post" action="{% url 'extractor:client_configuration_delete' configuration.id %}" 
+                      onsubmit="return confirm('Are you sure you want to delete this configuration? This action cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md"
+                            {% if response_models.count > 0 %}disabled title="Cannot delete: configuration is in use"{% endif %}>
+                        <i class="fas fa-trash mr-2"></i>
+                        Delete Configuration
+                    </button>
+                </form>
+                
+                <a href="{% url 'extractor:wizard_start' %}" 
+                   class="bg-chavi-gradient text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                    <i class="fas fa-magic mr-2"></i>
+                    Create Response Model
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Connection Modal -->
+<div id="test-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-plug text-chavi-primary mr-2"></i>
+            Testing API Connection
+        </h3>
+        <div id="test-content" class="mb-4">
+            <div class="flex items-center justify-center py-8">
+                <i class="fas fa-spinner fa-spin text-4xl text-chavi-primary"></i>
+            </div>
+            <p class="text-center text-gray-600">Testing connection to API...</p>
+        </div>
+        <div class="flex justify-end">
+            <button onclick="closeTestModal()" 
+                    class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function closeTestModal() {
+    document.getElementById('test-modal').classList.add('hidden');
+}
+
+async function testConnection() {
+    const modal = document.getElementById('test-modal');
+    const content = document.getElementById('test-content');
+    const btn = document.getElementById('test-connection-btn');
+    
+    modal.classList.remove('hidden');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Testing...';
+    
+    content.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <i class="fas fa-spinner fa-spin text-4xl text-chavi-primary"></i>
+        </div>
+        <p class="text-center text-gray-600">Testing connection to API...</p>
+    `;
+    
+    try {
+        const response = await fetch('{% url "extractor:client_configuration_test_connection" configuration.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            content.innerHTML = `
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mr-3"></i>
+                        <div class="flex-1">
+                            <h4 class="text-green-800 font-semibold mb-2">${data.message}</h4>
+                            <div class="text-sm text-green-700 space-y-1">
+                                <p><strong>Model:</strong> ${data.details.model}</p>
+                                <p><strong>Provider:</strong> ${data.details.provider}</p>
+                                <p><strong>Response Time:</strong> ${data.details.response_time}</p>
+                                <p><strong>Status:</strong> ${data.details.status_code}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            let troubleshootingHtml = '';
+            if (data.details && data.details.troubleshooting) {
+                troubleshootingHtml = `
+                    <div class="mt-3 text-sm text-red-700">
+                        <p class="font-semibold mb-1">💡 Troubleshooting:</p>
+                        <ul class="list-disc list-inside space-y-1">
+                            ${data.details.troubleshooting.map(hint => `<li>${hint}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            let endpointHtml = '';
+            if (data.details && data.details.endpoint) {
+                endpointHtml = `
+                    <div class="mt-2 text-sm text-red-700">
+                        <p><strong>Endpoint:</strong> <code class="bg-red-100 px-1 rounded">${data.details.endpoint}</code></p>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = `
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3"></i>
+                        <div class="flex-1">
+                            <h4 class="text-red-800 font-semibold mb-2">${data.message}</h4>
+                            ${endpointHtml}
+                            ${troubleshootingHtml}
+                            ${data.details && data.details.error ? `
+                                <details class="mt-3">
+                                    <summary class="text-sm text-red-700 cursor-pointer font-semibold">Technical Details</summary>
+                                    <pre class="bg-red-100 p-2 rounded mt-2 text-xs overflow-x-auto">${data.details.error}</pre>
+                                </details>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        content.innerHTML = `
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3"></i>
+                    <div class="flex-1">
+                        <h4 class="text-red-800 font-semibold mb-2">Connection Test Failed</h4>
+                        <p class="text-sm text-red-700">${error.message}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Test Connection';
+    }
+}
+</script>
+{% endblock %}

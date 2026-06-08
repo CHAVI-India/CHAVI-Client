@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}Start Extraction Wizard - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-magic text-chavi-primary mr-2"></i>
+                Extraction Pipeline Configuration Wizard
+            </h1>
+            <p class="text-gray-600">
+                Configure a new extraction pipeline to parse structured data from documents using LLMs
+            </p>
+        </div>
+
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-info-circle text-blue-500"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800">Before you begin</h3>
+                    <div class="mt-2 text-sm text-blue-700">
+                        <p>This wizard will help you:</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Automatically discover database tables and fields from client_app</li>
+                            <li>Select which tables and fields to extract</li>
+                            <li>Build a Pydantic model for structured data extraction</li>
+                            <li>Configure the extraction pipeline with validation rules</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="border-t border-gray-200 pt-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Wizard Steps</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">
+                                1
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Name & Client</h3>
+                            <p class="text-sm text-gray-600">Choose a name and select the LLM client configuration</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">
+                                2
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Select Tables</h3>
+                            <p class="text-sm text-gray-600">Choose database tables for data extraction</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">
+                                3
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Select Fields</h3>
+                            <p class="text-sm text-gray-600">Choose specific fields from each table</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">
+                                4
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">Review & Build</h3>
+                            <p class="text-sm text-gray-600">Review configuration and generate Pydantic model</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="progress-section" class="border-t border-gray-200 pt-6 hidden">
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Schema Discovery Progress</h3>
+                    
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">Progress</span>
+                            <span id="progress-percentage" class="text-sm font-medium text-chavi-primary">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div id="progress-bar" class="bg-chavi-gradient h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="progress-log" class="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm">
+                        <div class="text-gray-500">Waiting to start...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-6">
+                <div class="flex justify-between items-center">
+                    <a href="{% url 'extractor:response_model_list' %}" 
+                       class="text-gray-600 hover:text-gray-800 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Back to Response Models
+                    </a>
+                    <button id="start-button" type="button" onclick="startSchemaRefresh()"
+                            class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh Schema & Start Wizard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function addProgressLog(message, type = 'info') {
+    const logContainer = document.getElementById('progress-log');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let iconClass = 'fa-info-circle text-blue-500';
+    if (type === 'success') iconClass = 'fa-check-circle text-green-500';
+    if (type === 'error') iconClass = 'fa-exclamation-circle text-red-500';
+    if (type === 'processing') iconClass = 'fa-cog fa-spin text-chavi-primary';
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = 'mb-2 flex items-start';
+    logEntry.innerHTML = `
+        <span class="text-gray-400 mr-2">[${timestamp}]</span>
+        <i class="fas ${iconClass} mr-2 mt-0.5"></i>
+        <span class="flex-1">${message}</span>
+    `;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function updateProgress(percentage) {
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+    
+    progressBar.style.width = percentage + '%';
+    progressPercentage.textContent = percentage + '%';
+}
+
+async function startSchemaRefresh() {
+    const startButton = document.getElementById('start-button');
+    const progressSection = document.getElementById('progress-section');
+    const progressLog = document.getElementById('progress-log');
+    
+    startButton.disabled = true;
+    startButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+    progressSection.classList.remove('hidden');
+    progressLog.innerHTML = '';
+    
+    addProgressLog('Starting schema discovery...', 'processing');
+    
+    try {
+        const response = await fetch('{% url "extractor:wizard_start_refresh_schema" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            data.progress_updates.forEach(update => {
+                let type = 'info';
+                if (update.status === 'completed') type = 'success';
+                if (update.status === 'error') type = 'error';
+                if (update.status.includes('processing')) type = 'processing';
+                
+                addProgressLog(update.message, type);
+                if (update.progress > 0) {
+                    updateProgress(update.progress);
+                }
+            });
+            
+            updateProgress(100);
+            addProgressLog(`✓ Schema discovery complete! Tables: ${data.result.tables_created}, Fields: ${data.result.fields_created}`, 'success');
+            
+            setTimeout(() => {
+                window.location.href = '{% url "extractor:wizard_step1" %}';
+            }, 2000);
+        } else {
+            addProgressLog(`✗ Error: ${data.error}`, 'error');
+            startButton.disabled = false;
+            startButton.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Retry Schema Refresh';
+        }
+    } catch (error) {
+        addProgressLog(`✗ Network error: ${error.message}`, 'error');
+        startButton.disabled = false;
+        startButton.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Retry Schema Refresh';
+    }
+}
+</script>
+{% endblock %}

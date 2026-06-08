@@ -39,7 +39,7 @@
         <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
             <i class="fas fa-file-import mr-3 text-chavi-primary"></i>Data Import
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- CSV Data Import Card -->
             <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -75,6 +75,99 @@
                     </a>
                     {% else %}
                     <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- LLM Extraction Section -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
+            <i class="fas fa-magic mr-3 text-chavi-primary"></i>LLM-Powered Data Extraction
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- File Upload Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
+                        <i class="fas fa-file-upload text-blue-600 mr-2"></i>
+                        Upload Files
+                    </h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Upload PDF, CSV, or Excel files for AI-powered data extraction. Files are automatically processed into usable formats.</p>
+                    {% if user.is_authenticated %}
+                    <div class="space-y-2">
+                        <a href="{% url 'extractor:file_upload_create' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                            <i class="fas fa-cloud-upload-alt mr-2"></i>
+                            Upload New File
+                        </a>
+                        <a href="{% url 'extractor:file_upload_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-chavi-primary hover:bg-gray-50 border-chavi-primary">
+                            <i class="fas fa-list mr-2"></i>
+                            View All Files
+                        </a>
+                    </div>
+                    {% else %}
+                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Extraction Configuration Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
+                        <i class="fas fa-cogs text-purple-600 mr-2"></i>
+                        Configure Models
+                    </h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Set up LLM clients and define extraction schemas. Configure response models and field mappings.</p>
+                    {% if user.is_authenticated %}
+                    <div class="space-y-2">
+                        <a href="{% url 'extractor:client_configuration_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                            <i class="fas fa-server mr-2"></i>
+                            LLM Clients
+                        </a>
+                        <a href="{% url 'extractor:response_model_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-purple-600 hover:bg-gray-50 border-purple-600">
+                            <i class="fas fa-project-diagram mr-2"></i>
+                            Response Models
+                        </a>
+                    </div>
+                    {% else %}
+                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Extraction Wizard Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
+                        <i class="fas fa-hat-wizard text-green-600 mr-2"></i>
+                        Extraction Wizard
+                    </h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Step-by-step wizard to create new extraction pipelines. Select tables, fields, and generate Pydantic models.</p>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'extractor:wizard_start' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                        <i class="fas fa-magic mr-2"></i>
+                        Start Wizard
+                    </a>
+                    {% else %}
+                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
                         <i class="fas fa-lock mr-1"></i>
                         Login Required
                     </button>
