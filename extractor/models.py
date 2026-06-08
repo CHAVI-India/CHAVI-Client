@@ -333,13 +333,26 @@ class ExtractionJob(models.Model):
         ordering = ['-created_at']
 
 
+class DataAccuracyChoices(models.TextChoices):
+    '''
+    This will store the accuracy of the extracted data
+    '''
+    ACCURATE = "accurate", "Accurate"
+    PARTIAL = "partial", "Partial"
+    INACCURATE = "inaccurate", "Inaccurate"
+
 class ExtractionResult(models.Model):
     '''
-    This will store the extracted data for a specific field
+    This will store the extracted data for a specific field. We will also store the details of who verified the data and if the extracted data was correct or not. If the extracted data was edited then it will also be corrected.
     '''
     extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE,help_text="Extraction job for which the data has been extracted")
     database_field = models.ForeignKey(DatabaseField, on_delete=models.CASCADE,help_text="Database table field for which the data has been extracted")
     extracted_data = EncryptedTextField(help_text="Extracted data after Instructor parses the text. This will be stored as an encrypted text.")
+    data_accuracy = models.CharField(max_length=50, choices=DataAccuracyChoices.choices, default=DataAccuracyChoices.ACCURATE)
+    data_edited = models.BooleanField(default=False, help_text="Whether the data was edited by the user")
+    edited_data = EncryptedTextField(help_text="Edited data after user edits the extracted data. This will be stored as an encrypted text.",null=True,blank=True)
+    verified_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who verified the data")
+    verification_date_time = models.DateTimeField(help_text="Date and time when the data was verified",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
