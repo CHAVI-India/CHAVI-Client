@@ -59,7 +59,7 @@ class FileUpload(models.Model):
     '''
     file = models.FileField(upload_to='uploads/', validators=[FileExtensionValidator(['pdf', 'csv', 'xlsx'])])
     file_type = models.CharField(max_length=100, choices=FileTypeChoices.choices, blank=True)
-    patient_id = models.ForeignKey('client_app.Patients', on_delete=models.CASCADE, null=True, blank=True, help_text="Please select the patient for whose data is being extracted.")
+    patient_id = models.ForeignKey('client_app.Patient', on_delete=models.CASCADE, null=True, blank=True, help_text="Please select the patient for whose data is being extracted.")
     processing_status = models.CharField(max_length=100, choices=ProcessingStatusChoices.choices, default=ProcessingStatusChoices.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

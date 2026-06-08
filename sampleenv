@@ -17,4 +17,4 @@ LOOKUP_API_TIMEOUT =  120
 #HTTPS_PROXY =
 
 # Encryption key
-DJANGO_ENCRYPTED_MODEL_FIELDS_KEY=your-32-byte-secret-key-here
+DJANGO_FIELD_ENCRYPTION_KEY=your-32-byte-secret-key-here

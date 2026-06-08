@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'lookup',
     'client_app',
     'data_import',
+    'extractor',
     'django_cleanup.apps.CleanupConfig',
     'import_export',
     'crispy_forms',
@@ -634,4 +635,4 @@ CACHES = {
 
 
 # Django Encrypted Model Fields Configuration
-ENCRYPTED_MODEL_FIELDS_KEY = os.environ.get('DJANGO_ENCRYPTED_MODEL_FIELDS_KEY', 'FUXVBYgTzPS0fYQt_3mzVIart6sHxGiiANCIFnfK0T8=')
+FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY', 'FUXVBYgTzPS0fYQt_3mzVIart6sHxGiiANCIFnfK0T8=')
