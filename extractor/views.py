@@ -11,7 +11,7 @@ from extractor.models import (
     ResponseModel, ResponseModelTable, ResponseModelTableField,
     DatabaseTable, DatabaseField, ClientConfiguration,
     ExtractionJob, ExtractionResult, ExtractionStatusChoices,
-    InstructorMessage, InstructorRole
+    InstructorMessage, InstructorRole, EmbeddingConfiguration, LookupEmbedding
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.pydantic_builder import PydanticModelBuilder
@@ -1204,3 +1204,15 @@ def instructor_message_delete(request, message_id):
     messages.success(request, "Instructor message deleted successfully!")
     
     return redirect('extractor:response_model_detail', response_model_id=response_model_id)
+
+
+# Import semantic search views
+from extractor.views_semantic_search import (
+    semantic_search_settings,
+    embedding_config_create,
+    embedding_config_edit,
+    embedding_config_delete,
+    embedding_config_activate,
+    compute_embeddings,
+    get_embedding_progress,
+)

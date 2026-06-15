@@ -39,9 +39,10 @@ class SemanticSearchService:
         try:
             if config.model_provider == 'sentence-transformers':
                 from sentence_transformers import SentenceTransformer
-                cls._embedding_model = SentenceTransformer(config.model_name)
+                # Force CPU usage to avoid CUDA compatibility issues
+                cls._embedding_model = SentenceTransformer(config.model_name, device='cpu')
                 cls._current_config = config
-                log.info(f"Loaded embedding model: {config.model_name}")
+                log.info(f"Loaded embedding model: {config.model_name} (using CPU)")
                 return cls._embedding_model, config
             
             elif config.model_provider == 'openai':
@@ -106,11 +107,12 @@ class SemanticSearchService:
     ) -> List[Dict[str, any]]:
         """
         Find the most similar lookup entries to the query text using semantic search.
+        Searches across ALL embedded fields for the lookup table.
         
         Args:
             lookup_model_class: The Django model class for the lookup table
             pk_field_name: Name of the primary key field
-            value_field_name: Name of the value field that was embedded
+            value_field_name: Name of the value field (used for display, not filtering)
             query_text: The text to search for
             top_k: Number of results to return (uses config default if None)
             
@@ -137,28 +139,36 @@ class SemanticSearchService:
         
         # Perform similarity search using pgvector
         try:
-            # Use pgvector's <=> operator for cosine distance
-            # Lower distance = more similar
+            from pgvector.django import CosineDistance
+            
+            # Search across ALL fields for this lookup table (not just one field)
+            # This allows matching against code, label, description, etc.
             similar_embeddings = LookupEmbedding.objects.filter(
                 content_type=content_type,
-                field_name=value_field_name,
                 embedding_config=config
             ).annotate(
-                distance=F('embedding').cosine_distance(query_embedding)
-            ).order_by('distance')[:top_k]
+                distance=CosineDistance('embedding', query_embedding)
+            ).order_by('distance')[:top_k * 3]  # Get more results since we're searching multiple fields
             
-            results = []
+            # Group by object_id and keep the best match per record
+            best_matches = {}
             for emb in similar_embeddings:
-                # Convert distance to similarity (1 - distance for cosine)
+                object_id = emb.object_id
                 similarity = 1 - emb.distance
                 
                 # Filter by threshold
                 if similarity >= config.similarity_threshold:
-                    results.append({
-                        'code': emb.object_id,
-                        'label': emb.text_value,
-                        'similarity': float(similarity)
-                    })
+                    # Keep the best match for each object_id
+                    if object_id not in best_matches or similarity > best_matches[object_id]['similarity']:
+                        best_matches[object_id] = {
+                            'code': object_id,
+                            'label': emb.text_value,
+                            'field_name': emb.field_name,
+                            'similarity': float(similarity)
+                        }
+            
+            # Sort by similarity and return top_k
+            results = sorted(best_matches.values(), key=lambda x: x['similarity'], reverse=True)[:top_k]
             
             log.info(f"Found {len(results)} similar entries for query: '{query_text[:50]}...'")
             return results

@@ -38,5 +38,13 @@ urlpatterns = [
     path('extraction/results/<int:job_id>/', views.extraction_job_detail, name='extraction_job_detail'),
     path('extraction/results/<int:result_id>/update/', views.extraction_result_update, name='extraction_result_update'),
     
+    path('semantic-search/', views.semantic_search_settings, name='semantic_search_settings'),
+    path('semantic-search/config/create/', views.embedding_config_create, name='embedding_config_create'),
+    path('semantic-search/config/<int:config_id>/edit/', views.embedding_config_edit, name='embedding_config_edit'),
+    path('semantic-search/config/<int:config_id>/delete/', views.embedding_config_delete, name='embedding_config_delete'),
+    path('semantic-search/config/<int:config_id>/activate/', views.embedding_config_activate, name='embedding_config_activate'),
+    path('semantic-search/compute/', views.compute_embeddings, name='compute_embeddings'),
+    path('semantic-search/progress/<str:task_id>/', views.get_embedding_progress, name='get_embedding_progress'),
+    
     path('api/tables/<int:table_id>/fields/', views.api_get_table_fields, name='api_get_table_fields'),
 ]

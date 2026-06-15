@@ -64,35 +64,24 @@ class Command(BaseCommand):
         if not embedding_model:
             return
 
-        # Get all lookup fields that need embeddings
-        lookup_fields = DatabaseField.objects.filter(
-            lookup_field=True,
-            lookup_content_type__isnull=False
-        ).select_related('lookup_content_type')
-
+        # Get all lookup content types
         if specific_table:
-            lookup_fields = lookup_fields.filter(
-                lookup_content_type__model=specific_table
+            content_types = ContentType.objects.filter(
+                app_label='lookup',
+                model=specific_table
             )
+        else:
+            content_types = ContentType.objects.filter(app_label='lookup')
 
-        if not lookup_fields.exists():
-            self.stdout.write(self.style.WARNING('No lookup fields found to process'))
+        if not content_types.exists():
+            self.stdout.write(self.style.WARNING('No lookup tables found to process'))
             return
-
-        # Group by content type
-        content_types = {}
-        for field in lookup_fields:
-            ct = field.lookup_content_type
-            if ct not in content_types:
-                content_types[ct] = []
-            content_types[ct].append(field)
 
         # Process each lookup table
         total_processed = 0
-        for content_type, fields in content_types.items():
+        for content_type in content_types:
             processed = self.process_lookup_table(
                 content_type,
-                fields,
                 embedding_model,
                 embedding_config,
                 refresh,
@@ -110,8 +99,9 @@ class Command(BaseCommand):
             if config.model_provider == 'sentence-transformers':
                 from sentence_transformers import SentenceTransformer
                 self.stdout.write(f'Loading model: {config.model_name}...')
-                model = SentenceTransformer(config.model_name)
-                self.stdout.write(self.style.SUCCESS('Model loaded successfully'))
+                # Force CPU usage to avoid CUDA compatibility issues
+                model = SentenceTransformer(config.model_name, device='cpu')
+                self.stdout.write(self.style.SUCCESS('Model loaded successfully (using CPU)'))
                 return model
             
             elif config.model_provider == 'openai':
@@ -140,9 +130,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error loading model: {e}'))
             return None
 
-    def process_lookup_table(self, content_type, fields, model, config, refresh, batch_size):
-        """Process all records in a lookup table."""
+    def process_lookup_table(self, content_type, model, config, refresh, batch_size):
+        """Process all records in a lookup table, computing embeddings for all text fields."""
+        from django.db import models as django_models
+        
         lookup_model = content_type.model_class()
+        if not lookup_model:
+            return 0
+            
         table_name = content_type.model
         
         self.stdout.write(f'\nProcessing table: {table_name}')
@@ -155,31 +150,46 @@ class Command(BaseCommand):
             ).delete()[0]
             self.stdout.write(f'  Deleted {deleted_count} existing embeddings')
         
+        # Get primary key field
+        pk_field = lookup_model._meta.pk.name
+        
+        # Get all text fields (excluding timestamps and auto-created fields)
+        text_fields = []
+        for field in lookup_model._meta.get_fields():
+            if field.auto_created or field.is_relation:
+                continue
+            if field.name in ['created_at', 'updated_at', 'id']:
+                continue
+            if isinstance(field, (django_models.CharField, django_models.TextField)):
+                text_fields.append(field.name)
+        
+        if not text_fields:
+            self.stdout.write(self.style.WARNING(f'  No text fields found in {table_name}'))
+            return 0
+        
+        self.stdout.write(f'  Text fields to embed: {", ".join(text_fields)}')
+        
+        # Get all records
+        records = lookup_model.objects.all()
+        total_records = records.count()
+        
+        self.stdout.write(f'  Total records: {total_records}')
+        
         processed_count = 0
         
-        # Process each field that needs embeddings
-        for field in fields:
-            pk_field = field.lookup_table_pk_field_name
-            value_field = field.lookup_table_value_field_name
+        # Process in batches
+        for i in range(0, total_records, batch_size):
+            batch = records[i:i + batch_size]
+            batch_embeddings = []
             
-            self.stdout.write(f'  Processing field: {value_field}')
-            
-            # Get all records
-            records = lookup_model.objects.all()
-            total_records = records.count()
-            
-            self.stdout.write(f'    Total records: {total_records}')
-            
-            # Process in batches
-            for i in range(0, total_records, batch_size):
-                batch = records[i:i + batch_size]
-                batch_embeddings = []
+            for record in batch:
+                pk_value = getattr(record, pk_field)
                 
-                for record in batch:
-                    pk_value = getattr(record, pk_field)
-                    text_value = getattr(record, value_field, None)
+                # Process each text field
+                for field_name in text_fields:
+                    text_value = getattr(record, field_name, None)
                     
-                    if not text_value:
+                    if not text_value or str(text_value).strip() == '':
                         continue
                     
                     # Check if embedding already exists (if not refresh)
@@ -187,7 +197,7 @@ class Command(BaseCommand):
                         exists = LookupEmbedding.objects.filter(
                             content_type=content_type,
                             object_id=str(pk_value),
-                            field_name=value_field,
+                            field_name=field_name,
                             embedding_config=config
                         ).exists()
                         if exists:
@@ -212,7 +222,7 @@ class Command(BaseCommand):
                             LookupEmbedding(
                                 content_type=content_type,
                                 object_id=str(pk_value),
-                                field_name=value_field,
+                                field_name=field_name,
                                 text_value=str(text_value),
                                 embedding=embedding_list,
                                 embedding_config=config
@@ -220,17 +230,17 @@ class Command(BaseCommand):
                         )
                         
                     except Exception as e:
-                        log.error(f'Error computing embedding for {pk_value}: {e}')
+                        log.error(f'Error computing embedding for {pk_value}.{field_name}: {e}')
                         continue
-                
-                # Bulk create embeddings
-                if batch_embeddings:
-                    LookupEmbedding.objects.bulk_create(
-                        batch_embeddings,
-                        ignore_conflicts=True
-                    )
-                    processed_count += len(batch_embeddings)
-                    self.stdout.write(f'    Processed: {i + len(batch)}/{total_records}')
+            
+            # Bulk create embeddings
+            if batch_embeddings:
+                LookupEmbedding.objects.bulk_create(
+                    batch_embeddings,
+                    ignore_conflicts=True
+                )
+                processed_count += len(batch_embeddings)
+                self.stdout.write(f'  Processed: {i + len(batch)}/{total_records}')
         
         self.stdout.write(self.style.SUCCESS(
             f'  Completed {table_name}: {processed_count} embeddings created'

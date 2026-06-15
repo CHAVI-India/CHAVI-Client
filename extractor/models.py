@@ -2,6 +2,7 @@ import os
 from django.db import models
 from django.core.validators import FileExtensionValidator,URLValidator
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -526,4 +527,73 @@ class LookupEmbedding(models.Model):
         ]
         verbose_name = "Lookup Embedding"
         verbose_name_plural = "Lookup Embeddings"
+
+
+class BackgroundTask(models.Model):
+    """
+    Track background task progress without external dependencies.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('complete', 'Complete'),
+        ('failed', 'Failed'),
+    ]
+    
+    task_id = models.CharField(max_length=100, unique=True, db_index=True)
+    task_name = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Progress tracking
+    current_step = models.CharField(max_length=255, blank=True)
+    progress_percent = models.IntegerField(default=0)
+    total_items = models.IntegerField(default=0)
+    processed_items = models.IntegerField(default=0)
+    
+    # Results
+    result_data = models.JSONField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.task_name} ({self.status})"
+    
+    def mark_running(self):
+        self.status = 'running'
+        self.started_at = timezone.now()
+        self.save(update_fields=['status', 'started_at'])
+    
+    def mark_complete(self, result_data=None):
+        self.status = 'complete'
+        self.progress_percent = 100
+        self.completed_at = timezone.now()
+        if result_data:
+            self.result_data = result_data
+        self.save(update_fields=['status', 'progress_percent', 'completed_at', 'result_data'])
+    
+    def mark_failed(self, error_message):
+        self.status = 'failed'
+        self.error_message = error_message
+        self.completed_at = timezone.now()
+        self.save(update_fields=['status', 'error_message', 'completed_at'])
+    
+    def update_progress(self, current_step, processed_items=None, total_items=None):
+        self.current_step = current_step
+        if processed_items is not None:
+            self.processed_items = processed_items
+        if total_items is not None:
+            self.total_items = total_items
+        
+        # Calculate percentage
+        if self.total_items > 0:
+            self.progress_percent = int((self.processed_items / self.total_items) * 100)
+        
+        self.save(update_fields=['current_step', 'processed_items', 'total_items', 'progress_percent'])
 

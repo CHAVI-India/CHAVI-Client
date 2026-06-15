@@ -244,7 +244,7 @@ Document content:
     @staticmethod
     def map_label_to_code(lookup_model, pk_field_name: str, value_field_name: str, extracted_label: str) -> Optional[str]:
         """
-        Map an extracted label back to its lookup code.
+        Map an extracted label back to its lookup code using semantic search.
         
         Args:
             lookup_model: The Django model class for the lookup table
@@ -265,9 +265,26 @@ Document content:
             ).values_list(pk_field_name, flat=True).first()
             
             if result:
+                log.info(f"Exact match for '{extracted_label}': {result}")
                 return str(result)
             
-            # Try partial match if exact match fails
+            # Try semantic search if embeddings are available
+            from extractor.services.semantic_search import SemanticSearchService
+            
+            semantic_results = SemanticSearchService.find_similar_lookup_entries(
+                lookup_model_class=lookup_model,
+                pk_field_name=pk_field_name,
+                value_field_name=value_field_name,
+                query_text=extracted_label,
+                top_k=1
+            )
+            
+            if semantic_results:
+                best_match = semantic_results[0]
+                log.info(f"Semantic match for '{extracted_label}': {best_match['label']} (similarity: {best_match['similarity']:.3f})")
+                return str(best_match['code'])
+            
+            # Fallback to partial match if semantic search doesn't work
             result = lookup_model.objects.filter(
                 **{f"{value_field_name}__icontains": extracted_label}
             ).values_list(pk_field_name, flat=True).first()
@@ -280,7 +297,7 @@ Document content:
             return None
             
         except Exception as e:
-            log.error(f"Error mapping label to code: {e}")
+            log.error(f"Error mapping label to code: {e}", exc_info=True)
             return None
     
     @staticmethod

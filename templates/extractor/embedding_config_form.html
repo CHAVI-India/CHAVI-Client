@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Embedding Configuration{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+            {% if is_edit %}
+            <i class="fas fa-edit text-blue-600 mr-3"></i>Edit Configuration
+            {% else %}
+            <i class="fas fa-plus text-purple-600 mr-3"></i>New Embedding Configuration
+            {% endif %}
+        </h1>
+        <p class="text-gray-600">Configure the embedding model for semantic search</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <form method="post">
+            {% csrf_token %}
+            
+            <!-- Model Selection -->
+            {% if not is_edit %}
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Quick Select Model
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for option in model_options %}
+                    <div class="border rounded-lg p-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors model-option"
+                         onclick="selectModel('{{ option.name }}', '{{ option.provider }}', {{ option.dimension }})">
+                        <div class="font-semibold text-gray-900">{{ option.name|truncatechars:30 }}</div>
+                        <div class="text-sm text-gray-600 mt-1">{{ option.description }}</div>
+                        <div class="text-xs text-gray-500 mt-2">
+                            {{ option.provider }} • {{ option.dimension }} dims
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="border-t border-gray-200 my-6"></div>
+            {% endif %}
+
+            <!-- Model Name -->
+            <div class="mb-4">
+                <label for="model_name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Model Name <span class="text-red-500">*</span>
+                </label>
+                <input type="text" 
+                       id="model_name" 
+                       name="model_name" 
+                       value="{% if is_edit %}{{ config.model_name }}{% endif %}"
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="e.g., all-MiniLM-L6-v2">
+                <p class="text-xs text-gray-500 mt-1">Name of the embedding model from HuggingFace or OpenAI</p>
+            </div>
+
+            <!-- Model Provider -->
+            <div class="mb-4">
+                <label for="model_provider" class="block text-sm font-medium text-gray-700 mb-2">
+                    Model Provider <span class="text-red-500">*</span>
+                </label>
+                <select id="model_provider" 
+                        name="model_provider" 
+                        required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="sentence-transformers" {% if is_edit and config.model_provider == 'sentence-transformers' %}selected{% endif %}>
+                        sentence-transformers (Local)
+                    </option>
+                    <option value="openai" {% if is_edit and config.model_provider == 'openai' %}selected{% endif %}>
+                        OpenAI (Cloud)
+                    </option>
+                </select>
+            </div>
+
+            <!-- Embedding Dimension -->
+            <div class="mb-4">
+                <label for="embedding_dimension" class="block text-sm font-medium text-gray-700 mb-2">
+                    Embedding Dimension <span class="text-red-500">*</span>
+                </label>
+                <input type="number" 
+                       id="embedding_dimension" 
+                       name="embedding_dimension" 
+                       value="{% if is_edit %}{{ config.embedding_dimension }}{% else %}384{% endif %}"
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="384">
+                <p class="text-xs text-gray-500 mt-1">Vector size (384, 768, 1536, etc.)</p>
+            </div>
+
+            <!-- API Key (optional) -->
+            <div class="mb-4">
+                <label for="api_key" class="block text-sm font-medium text-gray-700 mb-2">
+                    API Key (Optional)
+                </label>
+                <input type="password" 
+                       id="api_key" 
+                       name="api_key" 
+                       value="{% if is_edit %}{{ config.api_key }}{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="Required for OpenAI models">
+                <p class="text-xs text-gray-500 mt-1">Only needed for cloud providers like OpenAI</p>
+            </div>
+
+            <div class="border-t border-gray-200 my-6"></div>
+
+            <!-- Search Settings -->
+            <h3 class="font-semibold text-gray-900 mb-4">Search Settings</h3>
+
+            <!-- Similarity Threshold -->
+            <div class="mb-4">
+                <label for="similarity_threshold" class="block text-sm font-medium text-gray-700 mb-2">
+                    Similarity Threshold
+                </label>
+                <input type="number" 
+                       id="similarity_threshold" 
+                       name="similarity_threshold" 
+                       step="0.1"
+                       min="0"
+                       max="1"
+                       value="{% if is_edit %}{{ config.similarity_threshold }}{% else %}0.7{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Minimum similarity score (0-1) to consider a match valid</p>
+            </div>
+
+            <!-- Top K Results -->
+            <div class="mb-4">
+                <label for="top_k_results" class="block text-sm font-medium text-gray-700 mb-2">
+                    Top K Results
+                </label>
+                <input type="number" 
+                       id="top_k_results" 
+                       name="top_k_results" 
+                       min="1"
+                       max="20"
+                       value="{% if is_edit %}{{ config.top_k_results }}{% else %}5{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Number of most similar options to show to the LLM</p>
+            </div>
+
+            <!-- Is Active -->
+            <div class="mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" 
+                           name="is_active" 
+                           {% if is_edit and config.is_active %}checked{% elif not is_edit %}checked{% endif %}
+                           class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                    <span class="ml-2 text-sm font-medium text-gray-700">Set as active configuration</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1 ml-6">Only one configuration can be active at a time</p>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <a href="{% url 'extractor:semantic_search_settings' %}" 
+                   class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit" 
+                        class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                    {% if is_edit %}
+                    <i class="fas fa-save mr-2"></i>Save Changes
+                    {% else %}
+                    <i class="fas fa-plus mr-2"></i>Create Configuration
+                    {% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function selectModel(name, provider, dimension) {
+    document.getElementById('model_name').value = name;
+    document.getElementById('model_provider').value = provider;
+    document.getElementById('embedding_dimension').value = dimension;
+    
+    // Highlight selected option
+    document.querySelectorAll('.model-option').forEach(el => {
+        el.classList.remove('border-purple-500', 'bg-purple-50');
+    });
+    event.currentTarget.classList.add('border-purple-500', 'bg-purple-50');
+}
+</script>
+{% endblock %}

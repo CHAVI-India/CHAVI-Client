@@ -337,15 +337,39 @@ class SchemaDiscoveryService:
     @classmethod
     def _guess_lookup_value_field(cls, model):
         """
-        Attempts to guess the value field for a lookup table.
-        Common patterns: 'name', 'value', 'description', 'code'
+        Determines the display field for a lookup table by parsing its __str__ method.
+        Falls back to common field name patterns if __str__ parsing fails.
         """
+        import re
+        import inspect
+        
+        # Try to parse the __str__ method to find which field it uses
+        try:
+            str_method = inspect.getsource(model.__str__)
+            # Look for patterns like: return f'{self.field_name}' or return self.field_name
+            matches = re.findall(r'self\.(\w+)', str_method)
+            
+            if matches:
+                # Get the first field referenced in __str__
+                field_name = matches[0]
+                
+                # Verify this field actually exists
+                field_names = [f.name for f in model._meta.get_fields() if not f.auto_created]
+                if field_name in field_names:
+                    log.info(f"Detected display field '{field_name}' from __str__ method for {model.__name__}")
+                    return field_name
+        except Exception as e:
+            log.debug(f"Could not parse __str__ method for {model.__name__}: {e}")
+        
+        # Fallback: prioritize human-readable fields for semantic search
         field_names = [f.name for f in model._meta.get_fields() if not f.auto_created]
         
-        for candidate in ['name', 'value', 'description', 'code', 'label']:
+        for candidate in ['label', 'description', 'name', 'value', 'code']:
             if candidate in field_names:
+                log.info(f"Using fallback field '{candidate}' for {model.__name__}")
                 return candidate
         
+        # Last resort: find any CharField/TextField
         for field in model._meta.get_fields():
             if isinstance(field, (django_models.CharField, django_models.TextField)):
                 if field.name not in ['id', 'created_at', 'updated_at']:
