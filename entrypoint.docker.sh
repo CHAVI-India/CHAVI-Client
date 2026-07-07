@@ -23,26 +23,36 @@ echo "✓ Database is ready!"
 
 # Run migrations
 echo "[2/5] Running database migrations..."
-if ! python manage.py migrate --noinput; then
+if ! python manage.py migrate --noinput 2>&1; then
     echo "========================================="
-    echo "ERROR: Migration failed!"
+    echo "⚠ WARNING: Migration failed!"
     echo "========================================="
     echo ""
-    echo "This usually indicates:"
-    echo "  • Database schema conflicts"
-    echo "  • Inconsistent migration state"
-    echo "  • Missing dependencies"
+    echo "Running diagnostic script..."
     echo ""
-    echo "To diagnose the issue, run:"
-    echo "  docker exec -it chaviclient-django python manage.py showmigrations"
+    
+    # Run diagnostic script
+    bash /app/scripts/diagnose-migrations.sh
+    
     echo ""
-    echo "For automated diagnosis and repair, run:"
-    echo "  docker exec -it chaviclient-django bash /app/scripts/diagnose-migrations.sh"
-    echo ""
-    echo "For manual repair (use with caution):"
-    echo "  docker exec -it chaviclient-django bash /app/scripts/repair-migrations.sh"
     echo "========================================="
-    exit 1
+    echo "CONTAINER STAYING ALIVE FOR MANUAL REPAIR"
+    echo "========================================="
+    echo ""
+    echo "The container will stay running so you can fix the issue."
+    echo ""
+    echo "To connect to the container:"
+    echo "  docker exec -it chaviclient-django bash"
+    echo ""
+    echo "Then run the repair script:"
+    echo "  bash /app/scripts/repair-migrations.sh"
+    echo ""
+    echo "Or fix manually using the diagnostic output above."
+    echo ""
+    echo "========================================="
+    
+    # Keep container alive for manual intervention
+    tail -f /dev/null
 fi
 echo "✓ Migrations completed successfully!"
 
