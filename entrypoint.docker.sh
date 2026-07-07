@@ -21,37 +21,28 @@ until python manage.py check --database default > /dev/null 2>&1; do
 done
 echo "✓ Database is ready!"
 
-# Run migrations with error handling
+# Run migrations
 echo "[2/5] Running database migrations..."
-if ! python manage.py migrate --noinput 2>&1; then
-    echo "⚠ WARNING: Migration failed! Attempting to fix..."
-    
-    # Check if it's a data_import migration issue
-    if python manage.py showmigrations data_import 2>&1 | grep -q "\[X\].*0001_initial"; then
-        echo "Detected data_import migration inconsistency"
-        echo "Attempting automatic recovery..."
-        
-        # Fake-unapply data_import migrations
-        python manage.py migrate data_import zero --fake 2>&1 || true
-        
-        # Reapply data_import migrations
-        if python manage.py migrate data_import 2>&1; then
-            echo "✓ data_import migrations fixed"
-            
-            # Retry all migrations
-            echo "Retrying all migrations..."
-            if ! python manage.py migrate --noinput 2>&1; then
-                echo "ERROR: Migration still failing after recovery attempt"
-                exit 1
-            fi
-        else
-            echo "ERROR: Could not fix data_import migrations"
-            exit 1
-        fi
-    else
-        echo "ERROR: Migration failed with unknown issue"
-        exit 1
-    fi
+if ! python manage.py migrate --noinput; then
+    echo "========================================="
+    echo "ERROR: Migration failed!"
+    echo "========================================="
+    echo ""
+    echo "This usually indicates:"
+    echo "  • Database schema conflicts"
+    echo "  • Inconsistent migration state"
+    echo "  • Missing dependencies"
+    echo ""
+    echo "To diagnose the issue, run:"
+    echo "  docker exec -it chaviclient-django python manage.py showmigrations"
+    echo ""
+    echo "For automated diagnosis and repair, run:"
+    echo "  docker exec -it chaviclient-django bash /app/scripts/diagnose-migrations.sh"
+    echo ""
+    echo "For manual repair (use with caution):"
+    echo "  docker exec -it chaviclient-django bash /app/scripts/repair-migrations.sh"
+    echo "========================================="
+    exit 1
 fi
 echo "✓ Migrations completed successfully!"
 

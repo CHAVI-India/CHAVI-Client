@@ -37,8 +37,10 @@ COPY --chown=appuser:appuser gunicorn.conf.py /app/gunicorn.conf.py
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1 
  
-# Make entry file executable (before switching user)
-RUN chmod +x /app/entrypoint.docker.sh
+# Make entry file and scripts executable (before switching user)
+RUN chmod +x /app/entrypoint.docker.sh && \
+    chmod +x /app/scripts/diagnose-migrations.sh && \
+    chmod +x /app/scripts/repair-migrations.sh
 
 # Switch to non-root user
 USER appuser
