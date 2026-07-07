@@ -174,6 +174,10 @@ EXTRACTION RULES:
 4. If the extracted text doesn't match any option well, return null
 5. For regular fields without options, extract the exact text from the document
 
+IMPORTANT: Return a JSON object with the ACTUAL EXTRACTED VALUES, not the schema definition.
+Example: {{"diagnostic_modality": "Histopathology", "cancer_side": "Left"}}
+NOT: {{"diagnostic_modality": {{"type": "string"}}, "cancer_side": {{"type": "string"}}}}
+
 Document content:
 {processed_content}"""
         
