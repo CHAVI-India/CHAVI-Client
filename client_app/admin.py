@@ -44,12 +44,16 @@ from import_export import fields
 from import_export.admin import ImportExportModelAdmin
 from unfold.contrib.import_export.forms import ExportForm, ImportForm, SelectableFieldsExportForm
 from unfold.decorators import action
-from client_app.services.patient_data_export import export_patient_data
+from client_app.tasks import (
+    task_export_patient_data,
+    task_process_dicom_per_patient,
+    task_process_bulk_dicom,
+    task_associate_dicom_to_project,
+    task_process_unprocessed_dicom,
+    task_export_dicom_data,
+)
 from allauth.account.decorators import secure_admin_login
-from client_app.services.dicom_data_import_per_patient import process_dicom
-from client_app.services.bulk_dicom_data_import import process_bulk_dicom
-from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
-from client_app.services.process_unprocessed_dicom import process_unprocessed_dicom
+from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project as associate_dicom_form_action
 from django.urls import path
 from .views import PatientSummaryView, PatientSearchView
 from django.urls import reverse
@@ -156,7 +160,18 @@ class PatientResource(resources.ModelResource):
 
 @admin.register(Patient)
 class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
-    actions = [export_patient_data]
+    actions = ['export_patient_data_async']
+
+    def export_patient_data_async(self, request, queryset):
+        patient_ids = list(queryset.values_list('patient_id', flat=True))
+        task_result = task_export_patient_data.delay(patient_ids, request.user.id)
+        self.message_user(
+            request,
+            f"Patient data export started for {len(patient_ids)} patients. "
+            f"Task ID: {task_result.id}. Check Task Results for the download link.",
+            messages.SUCCESS
+        )
+    export_patient_data_async.short_description = "Export selected patients' data as JSON (async)"
     list_filter = ['gender','chavi_consent','created_at']
     search_fields = ['patient_id']
     list_display = ['patient_id','gender','date_of_birth','chavi_consent','date_chavi_consent','created_at']
@@ -195,9 +210,18 @@ class PatientDicomFileAdmin(ModelAdmin):
             'fields': ['patient','file','processed','processing_log']  
         }),
     )
-    actions = [
-        process_dicom
-    ]
+    actions = ['process_dicom_async']
+
+    def process_dicom_async(self, request, queryset):
+        ids = list(queryset.values_list('id', flat=True))
+        task_result = task_process_dicom_per_patient.delay(ids, request.user.id)
+        self.message_user(
+            request,
+            f"DICOM processing started for {len(ids)} file(s). "
+            f"Task ID: {task_result.id}. Check Task Results for status.",
+            messages.SUCCESS
+        )
+    process_dicom_async.short_description = "Extract and Process DICOM File (async)"
     change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
     <h2>Guidance</h2>
@@ -1086,17 +1110,22 @@ class DICOMStudyAdmin(ModelAdmin):
     )
     readonly_fields = ['patient','study_date','study_instance_uid','study_description','series_descriptions','study_modalities','folder_path','created_at','updated_at']
     list_filter = ['study_date', 'patient','created_at','updated_at']
-    actions = ['associate_dicom_files_to_project', 'export_dicom_data']
+    actions = ['associate_dicom_files_to_project', 'export_dicom_data_async']
 
     def associate_dicom_files_to_project(self, request, queryset):
-        from client_app.services.associate_dicom_files_to_project import associate_dicom_files_to_project
-        return associate_dicom_files_to_project(self, request, queryset)
+        return associate_dicom_form_action(self, request, queryset)
     associate_dicom_files_to_project.short_description = _("Associate selected DICOM studies with a project")
 
-    def export_dicom_data(self, request, queryset):
-        from client_app.services.dicom_data_export import export_dicom_data
-        return export_dicom_data(self, request, queryset)
-    export_dicom_data.short_description = _("Export selected DICOM studies")
+    def export_dicom_data_async(self, request, queryset):
+        study_ids = list(queryset.values_list('pk', flat=True))
+        task_result = task_export_dicom_data.delay(study_ids, request.user.id)
+        self.message_user(
+            request,
+            f"DICOM export started for {len(study_ids)} studies. "
+            f"Task ID: {task_result.id}. Check Task Results for the download link.",
+            messages.SUCCESS
+        )
+    export_dicom_data_async.short_description = "Export DICOM data as ZIP (async)"
 
 
 @admin.register(DICOMStudyProject)
@@ -1492,7 +1521,18 @@ class SiteConfigurationAdmin(ModelAdmin):
 class BulkDICOMUploadAdmin(ModelAdmin):
     list_display = ['file','created_at', 'processed_at', 'status']
     readonly_fields = ['created_at', 'processed_at', 'status']
-    actions = [process_bulk_dicom]
+    actions = ['process_bulk_dicom_async']
+
+    def process_bulk_dicom_async(self, request, queryset):
+        ids = list(queryset.values_list('id', flat=True))
+        task_result = task_process_bulk_dicom.delay(ids, request.user.id)
+        self.message_user(
+            request,
+            f"Bulk DICOM processing started for {len(ids)} upload(s). "
+            f"Task ID: {task_result.id}. Check Task Results for status.",
+            messages.SUCCESS
+        )
+    process_bulk_dicom_async.short_description = "Process Bulk DICOM Files (async)"
     change_form_template = os.path.join(BASE_DIR, 'templates', 'admin', 'change_form.html')
     guidance_text = """
     <h2>Guidance</h2>
@@ -1537,7 +1577,18 @@ class UnprocessedDICOMStudiesAdmin(ModelAdmin, ImportExportModelAdmin):
     list_filter = ['status', 'dicom_patient_id']
     list_editable = ['patient_id']
     search_fields = ['study_instance_uid', 'patient_id__patient_id', 'dicom_patient_id']
-    actions = [process_unprocessed_dicom]
+    actions = ['process_unprocessed_dicom_async']
+
+    def process_unprocessed_dicom_async(self, request, queryset):
+        uids = list(queryset.values_list('study_instance_uid', flat=True))
+        task_result = task_process_unprocessed_dicom.delay(uids, request.user.id)
+        self.message_user(
+            request,
+            f"Processing started for {len(uids)} unprocessed study/studies. "
+            f"Task ID: {task_result.id}. Check Task Results for status.",
+            messages.SUCCESS
+        )
+    process_unprocessed_dicom_async.short_description = "Process selected unprocessed DICOM studies (async)"
     
     def get_queryset(self, request):
         """
@@ -1548,3 +1599,39 @@ class UnprocessedDICOMStudiesAdmin(ModelAdmin, ImportExportModelAdmin):
         if not request.GET.get('status__exact'):
             return queryset.exclude(status='Processed')
         return queryset
+
+
+# Register django_celery_results TaskResult model for admin task results
+from django_celery_results.models import TaskResult as CeleryTaskResult
+from django_celery_results.admin import TaskResultAdmin as DefaultTaskResultAdmin
+from django.utils.safestring import mark_safe
+import json as _json
+
+# Unregister the default admin to use our custom one with download links
+admin.site.unregister(CeleryTaskResult)
+
+
+@admin.register(CeleryTaskResult)
+class TaskResultAdmin(ModelAdmin):
+    list_display = ('task_id', 'task_name', 'status', 'date_created', 'date_done', 'download_link')
+    list_filter = ('status', 'task_name')
+    search_fields = ('task_id', 'task_name')
+    readonly_fields = ('task_id', 'task_name', 'task_args', 'task_kwargs', 'status', 'worker', 'content_type', 'content_encoding', 'result', 'date_created', 'date_done', 'traceback', 'meta', 'download_link')
+    ordering = ('-date_created',)
+
+    def download_link(self, obj):
+        try:
+            result_data = _json.loads(obj.result) if obj.result else None
+            if result_data and isinstance(result_data, dict) and result_data.get('zip_path'):
+                url = reverse('client_app:task_download', kwargs={'task_id': obj.task_id})
+                return mark_safe(f'<a href="{url}" class="button">Download</a>')
+        except (ValueError, TypeError):
+            pass
+        return "-"
+    download_link.short_description = "Download"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

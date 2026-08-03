@@ -1,0 +1,121 @@
+================================================================================
+MANUAL MIGRATION FIX - PostgreSQL Direct Approach
+================================================================================
+
+This guide shows how to manually fix the migration issue by directly inserting
+the migration record into the PostgreSQL database.
+
+PROBLEM:
+--------
+- Tables exist in the database (data_import_*)
+- But 0001_initial migration is not recorded in django_migrations table
+- Django tries to create tables again → DuplicateTable error
+
+SOLUTION:
+---------
+Manually add the migration record to tell Django "0001_initial was applied"
+
+
+STEP-BY-STEP INSTRUCTIONS:
+==========================
+
+1. Stop the restart loop:
+   ------------------------
+   docker-compose down
+
+
+2. Start only the database:
+   -------------------------
+   docker-compose up -d chaviclient-database
+
+
+3. Connect to PostgreSQL:
+   -----------------------
+   docker exec -it chaviclient-database psql -U postgres -d postgres
+
+
+4. Check current migration records:
+   ---------------------------------
+   SELECT * FROM django_migrations WHERE app = 'data_import' ORDER BY id;
+
+   Expected: You should see NO records or only 0002, 0003, etc.
+
+
+5. Insert the missing migration record:
+   -------------------------------------
+   INSERT INTO django_migrations (app, name, applied) 
+   VALUES ('data_import', '0001_initial', NOW());
+
+
+6. Verify it was added:
+   ---------------------
+   SELECT * FROM django_migrations WHERE app = 'data_import' ORDER BY id;
+
+   Expected: You should now see 0001_initial in the list
+
+
+7. Exit PostgreSQL:
+   -----------------
+   \q
+
+
+8. Start the application normally:
+   --------------------------------
+   docker-compose up
+
+
+WHAT THIS DOES:
+===============
+- Adds a record to django_migrations table
+- Tells Django that 0001_initial has already been applied
+- Django will skip 0001_initial and run remaining migrations (0002, 0003, etc.)
+- No tables are created, modified, or deleted
+- No data is touched
+- Only Django's migration tracking is updated
+
+
+WHY THIS IS SAFE:
+=================
+✓ The tables already exist in the database
+✓ You're only updating Django's bookkeeping (django_migrations table)
+✓ No schema changes are made
+✓ No data is modified
+✓ This is exactly what "python manage.py migrate --fake" does internally
+
+
+VERIFICATION:
+=============
+After step 8, you should see in the logs:
+- "✓ Migrations completed successfully!"
+- No DuplicateTable errors
+- Application starts normally
+
+
+ALTERNATIVE (Using Django Command):
+====================================
+If you prefer using Django's built-in command instead of manual SQL:
+
+1. docker-compose down
+2. docker-compose up -d chaviclient-database
+3. docker-compose run --rm chaviclient-django python manage.py migrate data_import 0001_initial --fake
+4. docker-compose up
+
+This does the exact same thing but uses Django's command instead of direct SQL.
+
+
+TROUBLESHOOTING:
+================
+If you still get errors after this:
+1. Check that the migration record was actually inserted:
+   docker exec -it chaviclient-database psql -U postgres -d postgres
+   SELECT * FROM django_migrations WHERE app = 'data_import';
+   
+2. Check that all expected tables exist:
+   SELECT tablename FROM pg_tables WHERE tablename LIKE 'data_import_%';
+   
+   Expected: 11-12 tables should exist
+
+3. If tables are missing, you may need to run the full repair script instead.
+
+
+================================================================================

@@ -11,10 +11,12 @@ from django.urls import reverse, reverse_lazy
 from django.http import Http404, JsonResponse
 from django.contrib import admin, messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .services.frontend_bulk_dicom_import import extract_and_analyze_upload, process_confirmed_matches
-from .services.patient_data_export import export_patient_data
-from .services.dicom_data_export import export_dicom_data
-from .services.parallel_dicom_export import export_dicom_data_parallel
+from .tasks import (
+    task_extract_and_analyze_upload,
+    task_process_confirmed_matches,
+    task_export_patient_data,
+    task_export_dicom_data_parallel,
+)
 from django.db import transaction
 from django.db.models import Q
 from rapidfuzz import process as fuzz_process, fuzz
@@ -364,15 +366,13 @@ class BulkDICOMUploadView(LoginRequiredMixin, TemplateView):
                 status=BulkDICOMUploadSession.StatusChoices.UPLOADED
             )
             
-            # Extract and analyze the upload
-            result = extract_and_analyze_upload(session)
+            # Dispatch Celery task for extraction and analysis
+            task_result = task_extract_and_analyze_upload.delay(
+                str(session.session_id), request.user.id
+            )
             
-            if result['success']:
-                messages.success(request, f"Upload analyzed: {result['total_studies']} studies found")
-                return redirect('client_app:bulk_dicom_matching', session_id=session.session_id)
-            else:
-                messages.error(request, f"Error analyzing upload: {result['error']}")
-                return redirect('client_app:bulk_dicom_upload')
+            messages.success(request, f"Upload received. Analyzing {uploaded_file.name} in background...")
+            return redirect('client_app:task_progress', task_id=task_result.id)
                 
         except Exception as e:
             messages.error(request, f"Error processing upload: {str(e)}")
@@ -567,21 +567,17 @@ class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
                     session.save()
                     logger.info("Session status updated to CONFIRMED")
                 
-                # Process the confirmed matches
-                logger.info("Starting to process confirmed matches")
-                result = process_confirmed_matches(session)
-                logger.info(f"Processing result: {result}")
+                # Dispatch Celery task for processing confirmed matches
+                logger.info("Dispatching Celery task for confirmed matches")
+                task_result = task_process_confirmed_matches.delay(
+                    str(session.session_id), request.user.id
+                )
                 
-                if result['success']:
-                    messages.success(
-                        request,
-                        f"Processing complete! {result['processed']} studies processed, "
-                        f"{result['unprocessed']} moved to unprocessed folder"
-                    )
-                    return redirect('client_app:bulk_dicom_complete', session_id=session.session_id)
-                else:
-                    messages.error(request, f"Error during processing: {result['error']}")
-                    return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
+                messages.success(
+                    request,
+                    "Processing started in background. You will be notified when it completes."
+                )
+                return redirect('client_app:task_progress', task_id=task_result.id)
                     
             except Exception as e:
                 logger.error(f"Exception in confirmation POST: {str(e)}", exc_info=True)
@@ -801,8 +797,12 @@ class PatientDataExportView(LoginRequiredMixin, TemplateView):
             messages.error(request, "No patients found for export")
             return redirect('client_app:patient_data_export')
         
-        # Call the export function
-        return export_patient_data(None, request, queryset)
+        # Dispatch Celery task for patient data export
+        patient_ids = list(queryset.values_list('patient_id', flat=True))
+        task_result = task_export_patient_data.delay(patient_ids, request.user.id)
+        
+        messages.success(request, f"Patient data export started for {len(patient_ids)} patients.")
+        return redirect('client_app:task_progress', task_id=task_result.id)
 
 
 class DICOMDataExportView(LoginRequiredMixin, TemplateView):
@@ -955,31 +955,18 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         # Check if patient data export is requested
         include_patient_data = request.POST.get('include_patient_data') == 'true'
         
-        # Generate a unique task ID
-        task_id = str(uuid.uuid4())
+        # Get study IDs for Celery task
+        study_ids = list(queryset.values_list('pk', flat=True))
+        task_uuid = str(uuid.uuid4())
         
-        # Initialize cache with starting status BEFORE starting the thread
-        cache.set(f'export_progress_{task_id}', {
-            'status': 'initializing',
-            'progress': 0,
-            'message': 'Initializing export...',
-            'total': queryset.count(),
-            'current': 0,
-            'processed': 0,
-            'include_patient_data': include_patient_data
-        }, timeout=3600)  # 1 hour timeout
+        # Dispatch Celery task for parallel DICOM export
+        task_result = task_export_dicom_data_parallel.delay(
+            study_ids, task_uuid, include_patient_data=include_patient_data, user_id=request.user.id
+        )
         
-        # Start export in background thread using parallel export
-        def run_export():
-            export_dicom_data_parallel(queryset, task_id, include_patient_data=include_patient_data)
-        
-        thread = threading.Thread(target=run_export)
-        thread.daemon = True
-        thread.start()
-        
-        # Return task ID to client for progress tracking
+        # Redirect to progress page with Celery task ID
         context = {
-            'task_id': task_id,
+            'task_id': task_result.id,
             'study_count': queryset.count(),
             'include_patient_data': include_patient_data
         }
@@ -987,110 +974,109 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
 
 
 class DICOMExportProgressView(LoginRequiredMixin, View):
-    """API endpoint to check DICOM export progress"""
+    """API endpoint to check DICOM export progress via celery-progress"""
     
     def get(self, request, task_id):
-        from django.core.cache import cache
+        from celery.result import AsyncResult
+        from celery_progress.backend import Progress
+        import json
         
-        progress_data = cache.get(f'export_progress_{task_id}')
-        
-        if not progress_data:
+        try:
+            progress = Progress(AsyncResult(task_id))
+            return JsonResponse(progress.get_info())
+        except Exception:
             return JsonResponse({
-                'status': 'not_found',
-                'message': 'Export task not found'
+                'state': 'PENDING',
+                'progress': {'pending': True, 'current': 0, 'total': 0, 'percent': 0},
+                'result': None,
+                'complete': False,
             })
-        
-        return JsonResponse(progress_data)
 
 
 class DICOMExportDownloadView(LoginRequiredMixin, View):
-    """Download the completed DICOM export ZIP file(s)"""
+    """Download the completed DICOM export ZIP file(s) from Celery task result"""
     
     def get(self, request, task_id):
-        from django.core.cache import cache
         from pathlib import Path
-        from django.http import FileResponse, Http404
-        import os
+        from django.http import FileResponse
+        from celery.result import AsyncResult
+        import json
         
-        progress_data = cache.get(f'export_progress_{task_id}')
+        result = AsyncResult(task_id)
         
-        if not progress_data or progress_data.get('status') != 'complete':
-            messages.error(request, "Export not ready or not found")
+        if not result.ready() or not result.successful():
+            messages.error(request, "Export not ready or failed")
+            return redirect('client_app:dicom_data_export')
+        
+        task_data = result.result
+        if not task_data or not task_data.get('success'):
+            messages.error(request, "Export failed or no data available")
             return redirect('client_app:dicom_data_export')
         
         # Determine which file to download (dicom or patient)
         file_type = request.GET.get('file', 'dicom')
         
-        if file_type == 'patient' and progress_data.get('include_patient_data'):
-            # Download patient data file
-            zip_path = Path(progress_data.get('patient_data_zip_path', ''))
-            if not zip_path or not zip_path.exists():
-                messages.error(request, "Patient data file not found")
-                return redirect('client_app:dicom_data_export')
-            filename = f'patient_data_export_{task_id}.zip'
-            cleanup_both = True  # Clean up both files after patient data download
+        if file_type == 'patient' and task_data.get('patient_data_zip_path'):
+            zip_path = Path(task_data['patient_data_zip_path'])
+            filename = task_data.get('patient_data_zip_filename', f'patient_data_{task_id}.zip')
         else:
-            # Download DICOM file (default)
-            zip_path = Path(progress_data.get('zip_path'))
-            if not zip_path.exists():
-                messages.error(request, "Export file not found")
-                return redirect('client_app:dicom_data_export')
-            filename = f'dicom_export_{task_id}.zip'
-            cleanup_both = progress_data.get('include_patient_data')
+            zip_path = Path(task_data['zip_path'])
+            filename = task_data.get('zip_filename', f'dicom_export_{task_id}.zip')
+        
+        if not zip_path.exists():
+            messages.error(request, "Export file not found")
+            return redirect('client_app:dicom_data_export')
         
         try:
             response = FileResponse(open(zip_path, 'rb'), content_type='application/zip')
             response['Content-Disposition'] = f'attachment; filename={filename}'
-            
-            # Clean up after download - track which files have been downloaded
-            def cleanup():
-                import time
-                time.sleep(2)  # Wait a bit before cleanup
-                try:
-                    # Update cache to track which file was downloaded
-                    current_data = cache.get(f'export_progress_{task_id}')
-                    if current_data:
-                        if file_type == 'dicom':
-                            current_data['dicom_downloaded'] = True
-                        else:
-                            current_data['patient_data_downloaded'] = True
-                        
-                        # Only clean up both files and cache if both have been downloaded
-                        # or if there's only one file (no patient data)
-                        dicom_downloaded = current_data.get('dicom_downloaded', False)
-                        patient_data_downloaded = current_data.get('patient_data_downloaded', False)
-                        has_patient_data = current_data.get('include_patient_data', False)
-                        
-                        should_cleanup_all = not has_patient_data or (dicom_downloaded and patient_data_downloaded)
-                        
-                        if should_cleanup_all:
-                            # Clean up DICOM file
-                            dicom_path = Path(current_data.get('zip_path', ''))
-                            if dicom_path.exists():
-                                os.remove(dicom_path)
-                            
-                            # Clean up patient data file if it exists
-                            if has_patient_data:
-                                patient_path = Path(current_data.get('patient_data_zip_path', ''))
-                                if patient_path.exists():
-                                    os.remove(patient_path)
-                            
-                            # Delete cache entry
-                            cache.delete(f'export_progress_{task_id}')
-                        else:
-                            # Update cache with download tracking
-                            cache.set(f'export_progress_{task_id}', current_data, timeout=3600)
-                except Exception:
-                    pass
-            
-            import threading
-            cleanup_thread = threading.Thread(target=cleanup)
-            cleanup_thread.daemon = True
-            cleanup_thread.start()
-            
             return response
         except Exception as e:
             messages.error(request, f"Error downloading file: {str(e)}")
             return redirect('client_app:dicom_data_export')
 
 
+class TaskProgressView(LoginRequiredMixin, TemplateView):
+    """Generic progress page for any Celery task using celery-progress"""
+    template_name = "client_app/task_progress.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['task_id'] = self.kwargs.get('task_id')
+        context['title'] = "Task Progress"
+        return context
+
+
+class TaskDownloadView(LoginRequiredMixin, View):
+    """Generic download view that reads file path from Celery task result"""
+
+    def get(self, request, task_id):
+        from pathlib import Path
+        from django.http import FileResponse
+        from celery.result import AsyncResult
+
+        result = AsyncResult(task_id)
+
+        if not result.ready() or not result.successful():
+            messages.error(request, "Task not ready or failed")
+            return redirect('client_app:homepage')
+
+        task_data = result.result
+        if not task_data or not task_data.get('success'):
+            messages.error(request, "Task produced no downloadable result")
+            return redirect('client_app:homepage')
+
+        zip_path = Path(task_data.get('zip_path', ''))
+        if not zip_path.exists():
+            messages.error(request, "File not found")
+            return redirect('client_app:homepage')
+
+        filename = task_data.get('zip_filename', f'export_{task_id}.zip')
+
+        try:
+            response = FileResponse(open(zip_path, 'rb'), content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename={filename}'
+            return response
+        except Exception as e:
+            messages.error(request, f"Error downloading file: {str(e)}")
+            return redirect('client_app:homepage')

@@ -13,6 +13,8 @@ urlpatterns = [
     path('dicom-data-export/', views.DICOMDataExportView.as_view(), name='dicom_data_export'),
     path('dicom-export-progress/<str:task_id>/', views.DICOMExportProgressView.as_view(), name='dicom_export_progress'),
     path('dicom-export-download/<str:task_id>/', views.DICOMExportDownloadView.as_view(), name='dicom_export_download'),
+    path('task-progress/<str:task_id>/', views.TaskProgressView.as_view(), name='task_progress'),
+    path('task-download/<str:task_id>/', views.TaskDownloadView.as_view(), name='task_download'),
     
     # Bulk DICOM Upload URLs
     path('bulk-dicom-upload/', views.BulkDICOMUploadView.as_view(), name='bulk_dicom_upload'),

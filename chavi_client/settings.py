@@ -82,6 +82,9 @@ INSTALLED_APPS = [
     'slippers',
     'django_select2',
     'encrypted_model_fields',
+    'django_celery_results',
+    'django_celery_beat',
+    'celery_progress',
 ]
 
 MIDDLEWARE = [
@@ -532,6 +535,11 @@ UNFOLD = {
                         'icon': 'settings',
                         'link': reverse_lazy("admin:client_app_unprocesseddicomstudies_changelist"),
                     },
+                    {
+                        'title': _("Celery Task Results"),
+                        'icon': 'task_alt',
+                        'link': reverse_lazy("admin:django_celery_results_taskresult_changelist"),
+                    },
                                         
                 ],
             },                           
@@ -703,3 +711,27 @@ CACHES = {
 
 # Django Encrypted Model Fields Configuration
 FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY', 'FUXVBYgTzPS0fYQt_3mzVIart6sHxGiiANCIFnfK0T8=')
+
+
+# Celery Configuration
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')
+CELERY_RESULT_BACKEND = 'django-cache'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 3600  # 1 hour max per task
+CELERY_TASK_SOFT_TIME_LIMIT = 3300  # 55 min soft limit
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Celery extended settings
+CELERY_TASK_ACKS_LATE = True  # Tasks acknowledged after execution, not before
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Prevent worker from prefetching too many tasks
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Re-queue task if worker crashes
+CELERY_BROKER_CONNECTION_MAX_RETRIES = None  # Retry indefinitely on broker connection
+CELERY_BROKER_CONNECTION_RETRY_DELAY = 5  # 5 second delay between retries
+CELERY_RESULT_EXTENDED = True  # Store extended result metadata (name, args, kwargs, origin)
+CELERY_TASK_DEFAULT_QUEUE = 'default'  # Default queue name
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Recycle worker after 100 tasks to prevent memory leaks
+CELERY_WORKER_LOST_WAIT = 10  # Seconds to wait before marking worker as lost

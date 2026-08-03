@@ -15,12 +15,31 @@ services:
       timeout: 5s
       retries: 5
 
+  chaviclient-rabbitmq:
+    image: rabbitmq:4-management
+    restart: always
+    container_name: chaviclient-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - .env
+    volumes:
+      - chaviclient_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmqctl status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
   chaviclient-django:
     image: chaviapp/chaviclient:main
     container_name: chaviclient-django
     restart: always
     depends_on:
       chaviclient-database:
+        condition: service_healthy
+      chaviclient-rabbitmq:
         condition: service_healthy
     env_file:
       - .env      
@@ -29,6 +48,39 @@ services:
       - ./media:/app/media
       - ./static:/app/static
     command: ["./entrypoint.docker.sh"]
+
+  chaviclient-celery-worker:
+    image: chaviapp/chaviclient:main
+    container_name: chaviclient-celery-worker
+    restart: always
+    depends_on:
+      chaviclient-database:
+        condition: service_healthy
+      chaviclient-rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - chaviclient_app_data:/app
+      - ./media:/app/media
+      - ./static:/app/static
+    command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "--concurrency=2"]
+
+  chaviclient-celery-beat:
+    image: chaviapp/chaviclient:main
+    container_name: chaviclient-celery-beat
+    restart: always
+    depends_on:
+      chaviclient-database:
+        condition: service_healthy
+      chaviclient-rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - chaviclient_app_data:/app
+      - ./media:/app/media
+    command: ["celery", "-A", "chavi_client", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
   chaviclient-proxy:
     image: nginx:latest
@@ -44,4 +96,5 @@ services:
 volumes:
   chaviclient_postgres_data:
   chaviclient_app_data:
+  chaviclient_rabbitmq_data:
 

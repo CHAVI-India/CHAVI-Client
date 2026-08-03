@@ -41,41 +41,21 @@ def associate_dicom_files_to_project(modeladmin, request: HttpRequest, queryset)
         logger.debug(f"Form is valid: {form.is_valid()}")
         if form.is_valid():
             project = form.cleaned_data['project']
-            associations_created = 0
             
-            logger.info(f"Processing association of {queryset.count()} DICOM studies with project {project}")
+            logger.info(f"Dispatching Celery task to associate {queryset.count()} DICOM studies with project {project}")
             
-            for dicom_study in queryset:
-                try:
-                    logger.debug(f"Attempting to create association for DICOM study {dicom_study}")
-                    association, created = DICOMStudyProject.objects.get_or_create(
-                        study_instance_uid=dicom_study,
-                        project=project
-                    )
-                    if created:
-                        associations_created += 1
-                        logger.info(f"Created association between DICOM study {dicom_study} and project {project}")
-                except Exception as e:
-                    logger.error(f"Error creating association: {str(e)}")
-                    messages.error(
-                        request,
-                        _('Error associating DICOM study {} with project {}: {}').format(
-                            dicom_study, project, str(e)
-                        )
-                    )
+            from client_app.tasks import task_associate_dicom_to_project
+            dicom_study_ids = list(queryset.values_list('pk', flat=True))
+            task_result = task_associate_dicom_to_project.delay(
+                dicom_study_ids, project.chavi_project_id, request.user.id
+            )
             
-            if associations_created > 0:
-                messages.success(
-                    request,
-                    _('Successfully associated {} DICOM studies with project {}').format(
-                        associations_created, project.project_name
-                    )
+            messages.success(
+                request,
+                _('Association task started for {} DICOM studies with project {}. Task ID: {}. Check Task Results for status.').format(
+                    len(dicom_study_ids), project.project_name, task_result.id
                 )
-            else:
-                messages.warning(
-                    request,
-                    _('No new associations were created. The DICOM studies may already be associated with this project.')
-                )
+            )
             
             return reverse_lazy('admin:client_app_dicomstudy_changelist')
         else:

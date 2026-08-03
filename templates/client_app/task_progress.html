@@ -1,20 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}DICOM Export Progress{% endblock %}
+{% block title %}Task Progress{% endblock %}
 
 {% block content %}
 <div class="w-full px-4 sm:px-6 lg:px-8 py-8">
     <!-- Page Header -->
     <div class="flex flex-col items-center mb-8">
-        <h1 class="text-3xl font-bold text-chavi-gray mb-2">DICOM Export in Progress</h1>
-        <p class="text-gray-600">
-            Exporting {{ study_count }} DICOM studies{% if include_patient_data %} with patient clinical data{% endif %}...
-        </p>
-        {% if include_patient_data %}
-        <div class="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-            <i class="fas fa-file-medical mr-2"></i>Patient data export enabled
-        </div>
-        {% endif %}
+        <h1 class="text-3xl font-bold text-chavi-gray mb-2">Task in Progress</h1>
+        <p class="text-gray-600">Your task is being processed in the background...</p>
     </div>
     
     <!-- Progress Card -->
@@ -42,29 +35,17 @@
                 </div>
                 <div class="ml-3 flex-1">
                     <p class="text-sm text-blue-800" id="statusMessage">
-                        Starting export process...
+                        Starting task...
                     </p>
                 </div>
             </div>
         </div>
         
-        <!-- Statistics -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="statsContainer" style="display: none;">
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-chavi-primary" id="statTotal">-</div>
-                <div class="text-xs text-gray-600 mt-1">Total Studies</div>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-green-600" id="statProcessed">-</div>
-                <div class="text-xs text-gray-600 mt-1">Processed</div>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <div class="text-2xl font-bold text-blue-600" id="statFiles">-</div>
-                <div class="text-xs text-gray-600 mt-1">DICOM Files</div>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-4 text-center" id="patientStatContainer" style="display: none;">
-                <div class="text-2xl font-bold text-purple-600" id="statPatients">-</div>
-                <div class="text-xs text-gray-600 mt-1">Patients</div>
+        <!-- Task ID Info -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6">
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-500">Task ID:</span>
+                <span class="text-xs font-mono text-gray-700" id="taskIdDisplay">{{ task_id }}</span>
             </div>
         </div>
         
@@ -72,33 +53,27 @@
         <div id="completeContainer" style="display: none;">
             <div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
                 <i class="fas fa-check-circle text-green-600 text-5xl mb-4"></i>
-                <h3 class="text-xl font-semibold text-green-900 mb-2">Export Complete!</h3>
+                <h3 class="text-xl font-semibold text-green-900 mb-2">Task Complete!</h3>
                 <p class="text-green-800 mb-4" id="completeMessage"></p>
                 
-                {% if include_patient_data %}
-                <!-- Two download buttons when patient data is included -->
-                <div class="flex flex-col sm:flex-row gap-3 justify-center mb-4">
-                    <a href="{% url 'client_app:dicom_export_download' task_id=task_id %}?file=dicom" 
-                       class="inline-block bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-md transition-colors duration-200">
-                        <i class="fas fa-download mr-2"></i>Download DICOM ZIP
-                    </a>
-                    <a href="{% url 'client_app:dicom_export_download' task_id=task_id %}?file=patient" 
-                       class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-md transition-colors duration-200">
-                        <i class="fas fa-file-medical mr-2"></i>Download Patient Data ZIP
+                <div id="downloadContainer" style="display: none;">
+                    <a href="{% url 'client_app:task_download' task_id=task_id %}" 
+                       class="inline-block bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200 mb-4">
+                        <i class="fas fa-download mr-2"></i>Download File
                     </a>
                 </div>
-                {% else %}
-                <!-- Single download button for DICOM only -->
-                <a href="{% url 'client_app:dicom_export_download' task_id=task_id %}" 
-                   class="inline-block bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200">
-                    <i class="fas fa-download mr-2"></i>Download ZIP File
-                </a>
-                {% endif %}
+                
+                <div id="redirectContainer" style="display: none;">
+                    <a href="#" id="redirectLink" 
+                       class="inline-block bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-3 px-8 rounded-md transition-colors duration-200 mb-4">
+                        <i class="fas fa-arrow-right mr-2"></i>Continue
+                    </a>
+                </div>
                 
                 <div class="mt-4">
-                    <a href="{% url 'client_app:dicom_data_export' %}" 
+                    <a href="{% url 'client_app:homepage' %}" 
                        class="text-sm text-gray-600 hover:text-gray-800">
-                        <i class="fas fa-arrow-left mr-1"></i>Back to Export Page
+                        <i class="fas fa-home mr-1"></i>Back to Home
                     </a>
                 </div>
             </div>
@@ -108,11 +83,11 @@
         <div id="errorContainer" style="display: none;">
             <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
                 <i class="fas fa-exclamation-circle text-red-600 text-5xl mb-4"></i>
-                <h3 class="text-xl font-semibold text-red-900 mb-2">Export Failed</h3>
+                <h3 class="text-xl font-semibold text-red-900 mb-2">Task Failed</h3>
                 <p class="text-red-800 mb-4" id="errorMessage"></p>
-                <a href="{% url 'client_app:dicom_data_export' %}" 
+                <a href="{% url 'client_app:homepage' %}" 
                    class="inline-block bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200">
-                    <i class="fas fa-arrow-left mr-2"></i>Back to Export Page
+                    <i class="fas fa-home mr-2"></i>Back to Home
                 </a>
             </div>
         </div>
@@ -123,13 +98,9 @@
                 <i class="fas fa-info-circle mr-2"></i>Please Note
             </h4>
             <ul class="text-xs text-blue-800 space-y-1">
-                <li><i class="fas fa-check mr-2"></i>This page will automatically update as the export progresses</li>
-                <li><i class="fas fa-check mr-2"></i>Using multiprocessing for faster ZIP creation (up to 4 parallel processes)</li>
-                <li><i class="fas fa-check mr-2"></i>Large exports may take several minutes to complete</li>
-                <li><i class="fas fa-check mr-2"></i>Do not close this page until the export is complete</li>
-                {% if include_patient_data %}
-                <li><i class="fas fa-file-medical mr-2"></i>Patient clinical data (diagnoses, treatments, outcomes) will be included in the export</li>
-                {% endif %}
+                <li><i class="fas fa-check mr-2"></i>This page will automatically update as the task progresses</li>
+                <li><i class="fas fa-check mr-2"></i>Large tasks may take several minutes to complete</li>
+                <li><i class="fas fa-check mr-2"></i>You can check task results in the admin under Task Results</li>
             </ul>
         </div>
     </div>
@@ -138,24 +109,20 @@
 <script>
     const taskId = '{{ task_id }}';
     const progressUrl = '{% url "celery_progress:task_status" task_id=task_id %}';
-    const includePatientData = {{ include_patient_data|yesno:"true,false" }};
     let pollInterval;
     
     function updateProgress() {
         fetch(progressUrl)
             .then(response => response.json())
             .then(data => {
-                // celery-progress returns: {state, progress: {pending, current, total, percent}, result, complete}
                 const state = data.state || 'PENDING';
                 const progressInfo = data.progress || {};
                 const percent = progressInfo.percent || 0;
-                const current = progressInfo.current || 0;
-                const total = progressInfo.total || 0;
                 const description = progressInfo.description || '';
                 
                 if (state === 'FAILURE') {
                     clearInterval(pollInterval);
-                    showError(data.result || 'An error occurred during export');
+                    showError(data.result || 'An error occurred during task execution');
                     return;
                 }
                 
@@ -172,18 +139,11 @@
                 if (state === 'PENDING') {
                     statusLabel = 'Waiting to start...';
                 } else if (state === 'PROGRESS') {
-                    statusLabel = 'Processing DICOM Studies';
+                    statusLabel = 'In Progress';
                 } else if (state === 'SUCCESS') {
                     statusLabel = 'Complete';
                 }
                 document.getElementById('progressLabel').textContent = statusLabel;
-                
-                // Update statistics only when task is actually progressing (not PENDING which defaults total=100)
-                if (total > 0 && state === 'PROGRESS') {
-                    document.getElementById('statsContainer').style.display = 'grid';
-                    document.getElementById('statTotal').textContent = total;
-                    if (current) document.getElementById('statProcessed').textContent = current;
-                }
                 
                 // Handle completion
                 if (state === 'SUCCESS') {
@@ -193,18 +153,24 @@
                     document.getElementById('statusBox').style.display = 'none';
                     
                     const result = data.result || {};
-                    if (result.success) {
-                        document.getElementById('completeMessage').textContent = result.message || 'Export complete!';
-                        document.getElementById('completeContainer').style.display = 'block';
-                        if (result.total_files) {
-                            document.getElementById('statFiles').textContent = result.total_files;
-                        }
-                        if (result.processed_patients && includePatientData) {
-                            document.getElementById('patientStatContainer').style.display = 'block';
-                            document.getElementById('statPatients').textContent = result.processed_patients;
-                        }
+                    if (result.success === false) {
+                        showError(result.error || result.message || 'Task failed');
                     } else {
-                        showError(result.message || 'Export produced no results');
+                        document.getElementById('completeMessage').textContent = 
+                            result.message || 'Task completed successfully!';
+                        document.getElementById('completeContainer').style.display = 'block';
+                        
+                        // Show download link if zip_path is in result
+                        if (result.zip_path) {
+                            document.getElementById('downloadContainer').style.display = 'block';
+                        }
+                        
+                        // Show redirect link if session_id is in result (bulk DICOM workflow)
+                        if (result.session_id) {
+                            const redirectLink = document.getElementById('redirectLink');
+                            redirectLink.href = '/bulk-dicom-matching/' + result.session_id + '/';
+                            document.getElementById('redirectContainer').style.display = 'block';
+                        }
                     }
                 }
             })
@@ -222,10 +188,9 @@
     }
     
     // Start polling for progress updates
-    updateProgress(); // Initial call
-    pollInterval = setInterval(updateProgress, 1000); // Poll every second
+    updateProgress();
+    pollInterval = setInterval(updateProgress, 1000);
     
-    // Clean up on page unload
     window.addEventListener('beforeunload', function() {
         if (pollInterval) {
             clearInterval(pollInterval);

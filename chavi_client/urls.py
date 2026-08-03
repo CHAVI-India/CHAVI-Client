@@ -39,6 +39,8 @@ urlpatterns = [
     path('extractor/', include('extractor.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
+    # Celery progress endpoint for task progress bars
+    path('celery-progress/', include('celery_progress.urls')),
     # Home URL now points to the homepage view instead of redirecting
     path('home/', HomePageView.as_view(), name='home'),
     # Documentation URLs
