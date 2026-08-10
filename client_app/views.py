@@ -2,11 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 import os
 from django.conf import settings
 from django.views.static import serve
-from django.views.generic import TemplateView, View, ListView, CreateView
+from django.views.generic import TemplateView, View, ListView, CreateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from unfold.views import UnfoldModelAdminViewMixin
 from .models import *
-from .models import _make_canonical_id
+from .models import _make_canonical_id, TaskRun, Notification
 from django.urls import reverse, reverse_lazy
 from django.http import Http404, JsonResponse
 from django.contrib import admin, messages
@@ -16,10 +16,16 @@ from .tasks import (
     task_process_confirmed_matches,
     task_export_patient_data,
     task_export_dicom_data_parallel,
+    task_export_dicom_data,
+    task_process_dicom_per_patient,
+    task_process_bulk_dicom,
+    task_process_unprocessed_dicom,
+    task_associate_dicom_to_project,
 )
 from django.db import transaction
 from django.db.models import Q
 from rapidfuzz import process as fuzz_process, fuzz
+from django.utils import timezone
 
 # Create your views here.
 
@@ -370,7 +376,9 @@ class BulkDICOMUploadView(LoginRequiredMixin, TemplateView):
             task_result = task_extract_and_analyze_upload.delay(
                 str(session.session_id), request.user.id
             )
-            
+            session.celery_task_id = task_result.id
+            session.save(update_fields=['celery_task_id'])
+
             messages.success(request, f"Upload received. Analyzing {uploaded_file.name} in background...")
             return redirect('client_app:task_progress', task_id=task_result.id)
                 
@@ -572,7 +580,9 @@ class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
                 task_result = task_process_confirmed_matches.delay(
                     str(session.session_id), request.user.id
                 )
-                
+                session.celery_task_id = task_result.id
+                session.save(update_fields=['celery_task_id'])
+
                 messages.success(
                     request,
                     "Processing started in background. You will be notified when it completes."
@@ -1080,3 +1090,185 @@ class TaskDownloadView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Error downloading file: {str(e)}")
             return redirect('client_app:homepage')
+
+
+# ---------------------------------------------------------------------------
+# Task Run views — list, detail, resume, retry
+# ---------------------------------------------------------------------------
+
+class TaskRunListView(LoginRequiredMixin, ListView):
+    model = TaskRun
+    template_name = 'client_app/taskrun_list.html'
+    context_object_name = 'task_runs'
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = TaskRun.objects.all().select_related('user')
+        status_filter = self.request.GET.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        type_filter = self.request.GET.get('type')
+        if type_filter:
+            qs = qs.filter(task_type=type_filter)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['status_choices'] = TaskRun.Status.choices
+        ctx['type_choices'] = TaskRun.TaskType.choices
+        ctx['current_status'] = self.request.GET.get('status', '')
+        ctx['current_type'] = self.request.GET.get('type', '')
+        return ctx
+
+
+class TaskRunDetailView(LoginRequiredMixin, DetailView):
+    model = TaskRun
+    template_name = 'client_app/taskrun_detail.html'
+    context_object_name = 'task_run'
+    pk_url_kwarg = 'pk'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = self.get_object()
+        from celery.result import AsyncResult
+        try:
+            async_result = AsyncResult(obj.task_id)
+            ctx['celery_state'] = async_result.state
+            ctx['celery_info'] = async_result.info if not isinstance(async_result.info, Exception) else str(async_result.info)
+        except Exception:
+            ctx['celery_state'] = 'UNKNOWN'
+            ctx['celery_info'] = None
+        return ctx
+
+
+class TaskRunResumeView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        task_run = get_object_or_404(TaskRun, pk=pk)
+        if task_run.status not in (TaskRun.Status.FAILURE, TaskRun.Status.STALLED):
+            messages.error(request, "Only failed or stalled tasks can be resumed.")
+            return redirect('client_app:taskrun_detail', pk=task_run.pk)
+
+        task_run.resume_count += 1
+        task_run.status = TaskRun.Status.PENDING
+        task_run.error_log = None
+        task_run.save(update_fields=['resume_count', 'status', 'error_log', 'updated_at'])
+
+        Notification.objects.create(
+            user=task_run.user or request.user,
+            notification_type=Notification.NotificationType.TASK_RESUMED,
+            title=f"Task resumed: {task_run.task_name}",
+            message=f"Task '{task_run.task_name}' has been resumed (attempt #{task_run.resume_count}).",
+            task_run=task_run,
+        )
+
+        result = task_run.result_summary or {}
+        session_id = result.get('session_id') or str(task_run.related_session_id) if task_run.related_session_id else None
+        user_id = (task_run.user.id if task_run.user else request.user.id)
+
+        task_map = {
+            'task_extract_and_analyze_upload': lambda: task_extract_and_analyze_upload.delay(str(session_id), user_id) if session_id else None,
+            'task_process_confirmed_matches': lambda: task_process_confirmed_matches.delay(str(session_id), user_id) if session_id else None,
+        }
+
+        dispatch_fn = task_map.get(task_run.task_name)
+        if dispatch_fn:
+            new_result = dispatch_fn()
+            if new_result:
+                task_run.task_id = new_result.id
+                task_run.save(update_fields=['task_id'])
+                messages.success(request, f"Task resumed. New task ID: {new_result.id}")
+                return redirect('client_app:task_progress', task_id=new_result.id)
+
+        messages.error(request, f"Task '{task_run.task_name}' does not support automatic resume. Please retry from the original page.")
+        return redirect('client_app:taskrun_detail', pk=task_run.pk)
+
+
+class TaskRunRetryView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        task_run = get_object_or_404(TaskRun, pk=pk)
+        if task_run.status not in (TaskRun.Status.FAILURE, TaskRun.Status.STALLED, TaskRun.Status.SUCCESS):
+            messages.error(request, "Only failed, stalled, or completed tasks can be retried.")
+            return redirect('client_app:taskrun_detail', pk=task_run.pk)
+
+        user_id = (task_run.user.id if task_run.user else request.user.id)
+        result = task_run.result_summary or {}
+        session_id = result.get('session_id') or (str(task_run.related_session_id) if task_run.related_session_id else None)
+
+        task_map = {
+            'task_extract_and_analyze_upload': lambda: task_extract_and_analyze_upload.delay(str(session_id), user_id) if session_id else None,
+            'task_process_confirmed_matches': lambda: task_process_confirmed_matches.delay(str(session_id), user_id) if session_id else None,
+        }
+
+        dispatch_fn = task_map.get(task_run.task_name)
+        if dispatch_fn:
+            new_result = dispatch_fn()
+            if new_result:
+                new_run = TaskRun.objects.create(
+                    task_id=new_result.id,
+                    task_name=task_run.task_name,
+                    task_type=task_run.task_type,
+                    status=TaskRun.Status.PENDING,
+                    user=task_run.user or request.user,
+                    related_session_id=task_run.related_session_id,
+                )
+                messages.success(request, f"Task retried. New task ID: {new_result.id}")
+                return redirect('client_app:task_progress', task_id=new_result.id)
+
+        messages.error(request, f"Task '{task_run.task_name}' does not support automatic retry. Please retry from the original page.")
+        return redirect('client_app:taskrun_detail', pk=task_run.pk)
+
+
+# ---------------------------------------------------------------------------
+# Bulk DICOM Sessions listing
+# ---------------------------------------------------------------------------
+
+class BulkDICOMSessionListView(LoginRequiredMixin, ListView):
+    model = BulkDICOMUploadSession
+    template_name = 'client_app/bulk_dicom_session_list.html'
+    context_object_name = 'sessions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = BulkDICOMUploadSession.objects.all().select_related('uploaded_by').order_by('-created_at')
+        status_filter = self.request.GET.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['status_choices'] = BulkDICOMUploadSession.StatusChoices.choices
+        ctx['current_status'] = self.request.GET.get('status', '')
+        return ctx
+
+
+# ---------------------------------------------------------------------------
+# Notification API endpoints
+# ---------------------------------------------------------------------------
+
+class NotificationListView(LoginRequiredMixin, View):
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user).order_by('-created_at')[:20]
+        data = []
+        for n in notifications:
+            data.append({
+                'id': n.id,
+                'type': n.notification_type,
+                'title': n.title,
+                'message': n.message,
+                'is_read': n.is_read,
+                'created_at': n.created_at.isoformat(),
+                'task_run_id': n.task_run_id,
+            })
+        return JsonResponse({'notifications': data, 'unread_count': Notification.objects.filter(user=request.user, is_read=False).count()})
+
+
+class NotificationMarkReadView(LoginRequiredMixin, View):
+    def post(self, request, pk=None):
+        if pk:
+            notif = get_object_or_404(Notification, pk=pk, user=request.user)
+            notif.is_read = True
+            notif.save(update_fields=['is_read'])
+        else:
+            Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return JsonResponse({'success': True, 'unread_count': Notification.objects.filter(user=request.user, is_read=False).count()})

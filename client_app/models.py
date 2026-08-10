@@ -2112,14 +2112,28 @@ class BulkDICOMUploadSession(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     
     error_log = models.TextField(null=True, blank=True)
-    
+
+    # Checkpoint / resume fields
+    celery_task_id = models.CharField(max_length=255, null=True, blank=True, help_text="Celery task id of the most recently dispatched task")
+    progress_current = models.IntegerField(default=0)
+    progress_total = models.IntegerField(default=0)
+    progress_description = models.CharField(max_length=255, null=True, blank=True)
+    last_progress_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp of last progress update, used for stall detection")
+    resume_count = models.IntegerField(default=0, help_text="Number of times this session has been resumed")
+
     class Meta:
         verbose_name = "Bulk DICOM Upload Session"
         verbose_name_plural = "Bulk DICOM Upload Sessions"
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"Session {self.session_id} - {self.status}"
+
+    @property
+    def progress_percent(self):
+        if self.progress_total > 0:
+            return int(self.progress_current / self.progress_total * 100)
+        return 0
 
 
 # Model to track individual studies within a bulk upload session
@@ -2181,6 +2195,133 @@ class BulkDICOMStudyMatch(models.Model):
     
     def __str__(self):
         return f"{self.study_instance_uid} - {self.dicom_patient_id} ({self.match_status})"
-    
 
-    
+
+# Model to track all DICOM-related Celery task runs with progress and resume capability
+class TaskRun(models.Model):
+    '''Tracks all dispatched DICOM import/export Celery tasks with progress, status, and resume support.'''
+
+    class TaskType(models.TextChoices):
+        DICOM_IMPORT = 'DICOM_IMPORT', 'DICOM Import'
+        DICOM_EXPORT = 'DICOM_EXPORT', 'DICOM Export'
+        BULK_DICOM = 'BULK_DICOM', 'Bulk DICOM'
+        PATIENT_EXPORT = 'PATIENT_EXPORT', 'Patient Export'
+        ASSOCIATE = 'ASSOCIATE', 'Associate to Project'
+        UNPROCESSED = 'UNPROCESSED', 'Process Unprocessed DICOM'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        STARTED = 'STARTED', 'Started'
+        PROGRESS = 'PROGRESS', 'In Progress'
+        SUCCESS = 'SUCCESS', 'Success'
+        FAILURE = 'FAILURE', 'Failure'
+        STALLED = 'STALLED', 'Stalled'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    task_id = models.CharField(max_length=255, unique=True, help_text="Celery task id")
+    task_name = models.CharField(max_length=255, help_text="Celery task name")
+    task_type = models.CharField(
+        max_length=30,
+        choices=TaskType.choices,
+        default=TaskType.DICOM_IMPORT
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    user = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='task_runs'
+    )
+
+    progress_current = models.IntegerField(default=0)
+    progress_total = models.IntegerField(default=0)
+    progress_description = models.CharField(max_length=255, null=True, blank=True)
+    last_progress_at = models.DateTimeField(null=True, blank=True)
+
+    resume_count = models.IntegerField(default=0, help_text="Number of times this task has been resumed")
+    manifest_path = models.CharField(max_length=500, null=True, blank=True, help_text="Path to JSONL manifest for per-file checkpointing")
+
+    result_summary = models.JSONField(null=True, blank=True, help_text="Task return value stored as JSON")
+    error_log = models.TextField(null=True, blank=True)
+
+    related_session_id = models.UUIDField(null=True, blank=True, help_text="Links to BulkDICOMUploadSession when applicable")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Task Run"
+        verbose_name_plural = "Task Runs"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['user']),
+            models.Index(fields=['task_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} ({self.task_id[:8]}...) - {self.status}"
+
+    @property
+    def progress_percent(self):
+        if self.progress_total > 0:
+            return int(self.progress_current / self.progress_total * 100)
+        return 0
+
+    @property
+    def duration_seconds(self):
+        if self.completed_at and self.created_at:
+            return (self.completed_at - self.created_at).total_seconds()
+        elif self.last_progress_at and self.created_at:
+            return (self.last_progress_at - self.created_at).total_seconds()
+        return None
+
+
+# In-app notification model for task events
+class Notification(models.Model):
+    '''In-app notifications for task completion, failure, stall, and resume events.'''
+
+    class NotificationType(models.TextChoices):
+        TASK_COMPLETED = 'TASK_COMPLETED', 'Task Completed'
+        TASK_FAILED = 'TASK_FAILED', 'Task Failed'
+        TASK_STALLED = 'TASK_STALLED', 'Task Stalled'
+        TASK_RESUMED = 'TASK_RESUMED', 'Task Resumed'
+
+    user = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    notification_type = models.CharField(
+        max_length=30,
+        choices=NotificationType.choices,
+        default=NotificationType.TASK_COMPLETED
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    task_run = models.ForeignKey(
+        TaskRun,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+        ]
+
+    def __str__(self):
+        return f"{self.notification_type} - {self.title} ({'read' if self.is_read else 'unread'})"

@@ -715,7 +715,7 @@ FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY', 'FUXVBYgTzP
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')
-CELERY_RESULT_BACKEND = 'django-cache'
+CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -735,3 +735,21 @@ CELERY_RESULT_EXTENDED = True  # Store extended result metadata (name, args, kwa
 CELERY_TASK_DEFAULT_QUEUE = 'default'  # Default queue name
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Recycle worker after 100 tasks to prevent memory leaks
 CELERY_WORKER_LOST_WAIT = 10  # Seconds to wait before marking worker as lost
+
+# RabbitMQ 4.x compatibility: make pidbox (control) and event queues exclusive
+# instead of transient non-exclusive (rejected by RabbitMQ 4.3.0+ by default)
+CELERY_CONTROL_QUEUE_EXCLUSIVE = True
+CELERY_EVENT_QUEUE_EXCLUSIVE = True
+
+# Celery Beat Schedule
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'detect-stalled-tasks': {
+        'task': 'client_app.tasks.task_detect_stalled_tasks',
+        'schedule': crontab(minute='*/5'),
+    },
+    'cleanup-stale-exports': {
+        'task': 'client_app.tasks.task_cleanup_stale_exports',
+        'schedule': crontab(minute=0, hour=3),  # 3 AM daily
+    },
+}

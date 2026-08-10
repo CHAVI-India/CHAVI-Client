@@ -1635,3 +1635,29 @@ class TaskResultAdmin(ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(TaskRun)
+class TaskRunAdmin(ModelAdmin):
+    list_display = ('task_name', 'task_type', 'status', 'progress_current', 'progress_total', 'user', 'created_at', 'resume_count')
+    list_filter = ('status', 'task_type', 'user')
+    list_filter_submit = True
+    search_fields = ('task_id', 'task_name', 'user__username')
+    readonly_fields = ('task_id', 'task_name', 'task_type', 'created_at', 'updated_at', 'completed_at', 'result_summary', 'manifest_path')
+    ordering = ('-created_at',)
+    list_per_page = 30
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Notification)
+class NotificationAdmin(ModelAdmin):
+    list_display = ('notification_type', 'title', 'user', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'user')
+    search_fields = ('title', 'message', 'user__username')
+    ordering = ('-created_at',)
+    list_per_page = 30
+
+    def has_add_permission(self, request):
+        return False

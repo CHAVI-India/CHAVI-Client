@@ -21,6 +21,7 @@ urlpatterns = [
     path('bulk-dicom-matching/<uuid:session_id>/', views.BulkDICOMMatchingView.as_view(), name='bulk_dicom_matching'),
     path('bulk-dicom-confirmation/<uuid:session_id>/', views.BulkDICOMConfirmationView.as_view(), name='bulk_dicom_confirmation'),
     path('bulk-dicom-complete/<uuid:session_id>/', views.BulkDICOMCompleteView.as_view(), name='bulk_dicom_complete'),
+    path('bulk-dicom-sessions/', views.BulkDICOMSessionListView.as_view(), name='bulk_dicom_session_list'),
     
     # API endpoint for patient search (Select2)
     path('api/patient-search/', views.PatientSearchAPIView.as_view(), name='api_patient_search'),
@@ -130,5 +131,16 @@ urlpatterns = [
     path('radiotherapy-volume/<uuid:pk>/edit/', list_views.RadiotherapyVolumeUpdateView.as_view(), name='radiotherapyvolume_edit'),
     path('radiotherapy-dose-volume/', list_views.RadiotherapyDoseVolumeDataListView.as_view(), name='radiotherapydosevolumedata_list'),
     path('radiotherapy-dose-volume/<uuid:pk>/edit/', list_views.RadiotherapyDoseVolumeDataUpdateView.as_view(), name='radiotherapydosevolumedata_edit'),
+
+    # Task Run management
+    path('tasks/', views.TaskRunListView.as_view(), name='taskrun_list'),
+    path('tasks/<int:pk>/', views.TaskRunDetailView.as_view(), name='taskrun_detail'),
+    path('tasks/<int:pk>/resume/', views.TaskRunResumeView.as_view(), name='taskrun_resume'),
+    path('tasks/<int:pk>/retry/', views.TaskRunRetryView.as_view(), name='taskrun_retry'),
+
+    # Notification API
+    path('api/notifications/', views.NotificationListView.as_view(), name='api_notifications'),
+    path('api/notifications/read/', views.NotificationMarkReadView.as_view(), name='api_notifications_mark_all_read'),
+    path('api/notifications/<int:pk>/read/', views.NotificationMarkReadView.as_view(), name='api_notification_mark_read'),
 ]
 

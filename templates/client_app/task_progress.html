@@ -70,7 +70,11 @@
                     </a>
                 </div>
                 
-                <div class="mt-4">
+                <div class="mt-4 flex justify-center gap-4">
+                    <a href="{% url 'client_app:taskrun_list' %}" 
+                       class="text-sm text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-tasks mr-1"></i>View Task Runs
+                    </a>
                     <a href="{% url 'client_app:homepage' %}" 
                        class="text-sm text-gray-600 hover:text-gray-800">
                         <i class="fas fa-home mr-1"></i>Back to Home
@@ -85,6 +89,10 @@
                 <i class="fas fa-exclamation-circle text-red-600 text-5xl mb-4"></i>
                 <h3 class="text-xl font-semibold text-red-900 mb-2">Task Failed</h3>
                 <p class="text-red-800 mb-4" id="errorMessage"></p>
+                <a href="{% url 'client_app:taskrun_list' %}" 
+                   class="inline-block bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-3 px-8 rounded-md transition-colors duration-200 mr-3">
+                    <i class="fas fa-tasks mr-2"></i>View Task Runs
+                </a>
                 <a href="{% url 'client_app:homepage' %}" 
                    class="inline-block bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200">
                     <i class="fas fa-home mr-2"></i>Back to Home
@@ -100,7 +108,8 @@
             <ul class="text-xs text-blue-800 space-y-1">
                 <li><i class="fas fa-check mr-2"></i>This page will automatically update as the task progresses</li>
                 <li><i class="fas fa-check mr-2"></i>Large tasks may take several minutes to complete</li>
-                <li><i class="fas fa-check mr-2"></i>You can check task results in the admin under Task Results</li>
+                <li><i class="fas fa-check mr-2"></i>You can check all task runs on the <a href="{% url 'client_app:taskrun_list' %}" class="text-chavi-primary hover:underline">Tasks page</a></li>
+                <li><i class="fas fa-check mr-2"></i>Failed tasks can be resumed from the task detail page</li>
             </ul>
         </div>
     </div>

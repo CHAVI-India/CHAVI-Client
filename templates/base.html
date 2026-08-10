@@ -65,6 +65,9 @@
                                     <a href="{% url 'client_app:bulk_dicom_upload' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i class="fas fa-file-medical mr-2"></i>DICOM Upload
                                     </a>
+                                    <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-list mr-2"></i>DICOM Sessions
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -124,6 +127,33 @@
                         <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-search mr-1"></i>Search
                         </a>
+
+                        <!-- Task Runs -->
+                        <a href="{% url 'client_app:taskrun_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                            <i class="fas fa-tasks mr-1"></i>Tasks
+                        </a>
+
+                        <!-- Notification Bell -->
+                        <div class="relative group" id="notification-bell">
+                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all relative">
+                                <i class="fas fa-bell"></i>
+                                <span id="notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden"></span>
+                            </button>
+                            <div class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 max-h-96 overflow-y-auto">
+                                <div class="py-2">
+                                    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                                        <span class="text-sm font-semibold text-gray-700">Notifications</span>
+                                        <button onclick="markAllRead()" class="text-xs text-chavi-primary hover:underline">Mark all read</button>
+                                    </div>
+                                    <div id="notif-list">
+                                        <div class="px-4 py-6 text-center text-gray-400 text-sm">Loading...</div>
+                                    </div>
+                                    <div class="border-t border-gray-100 px-4 py-2 text-center">
+                                        <a href="{% url 'client_app:taskrun_list' %}" class="text-xs text-chavi-primary hover:underline">View all tasks</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         {% else %}
                         <a href="{% url 'account_login' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-sign-in-alt mr-1"></i>Login to Access Data
@@ -255,6 +285,65 @@
             const menu = document.getElementById('mobile-menu');
             menu.classList.toggle('hidden');
         }
+
+        // Notification polling
+        {% if user.is_authenticated %}
+        const NOTIF_API = "{% url 'client_app:api_notifications' %}";
+        const NOTIF_MARK_READ = "{% url 'client_app:api_notifications_mark_all_read' %}";
+
+        function fetchNotifications() {
+            fetch(NOTIF_API)
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('notif-badge');
+                    const list = document.getElementById('notif-list');
+                    if (data.unread_count > 0) {
+                        badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                    if (data.notifications.length === 0) {
+                        list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 text-sm">No notifications</div>';
+                        return;
+                    }
+                    let html = '';
+                    data.notifications.forEach(n => {
+                        const iconMap = {
+                            'TASK_COMPLETED': 'fa-check-circle text-green-600',
+                            'TASK_FAILED': 'fa-exclamation-circle text-red-600',
+                            'TASK_STALLED': 'fa-pause-circle text-yellow-600',
+                            'TASK_RESUMED': 'fa-play-circle text-blue-600',
+                        };
+                        const icon = iconMap[n.type] || 'fa-bell text-gray-400';
+                        const bg = n.is_read ? '' : 'bg-blue-50';
+                        html += `<div class="px-4 py-3 border-b border-gray-50 ${bg} hover:bg-gray-50">` +
+                            `<div class="flex items-start">` +
+                            `<i class="fas ${icon} mr-2 mt-0.5"></i>` +
+                            `<div class="flex-1 min-w-0">` +
+                            `<p class="text-sm font-medium text-gray-900 truncate">${n.title}</p>` +
+                            `<p class="text-xs text-gray-500 mt-0.5">${n.message}</p>` +
+                            `</div></div></div>`;
+                    });
+                    list.innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        function markAllRead() {
+            fetch(NOTIF_MARK_READ, {method: 'POST', headers: {'X-CSRFToken': getCsrfToken()}})
+                .then(r => r.json())
+                .then(() => fetchNotifications());
+        }
+
+        function getCsrfToken() {
+            const cookie = document.cookie.split('; ').find(c => c.startsWith('csrftoken='));
+            return cookie ? cookie.split('=')[1] : '';
+        }
+
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+        {% endif %}
     </script>
     
     {% block extra_js %}{% endblock %}

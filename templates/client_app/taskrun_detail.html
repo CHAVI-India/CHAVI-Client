@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Task Detail — {{ task_run.task_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Back link -->
+    <a href="{% url 'client_app:taskrun_list' %}" class="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block">
+        <i class="fas fa-arrow-left mr-1"></i> Back to Task Runs
+    </a>
+
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ task_run.task_name }}</h1>
+                <p class="text-sm text-gray-500 mt-1">Task ID: <code>{{ task_run.task_id }}</code></p>
+            </div>
+            <div>
+                {% with status=task_run.status %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if status == 'SUCCESS' %}bg-green-100 text-green-800
+                        {% elif status == 'FAILURE' %}bg-red-100 text-red-800
+                        {% elif status == 'STALLED' %}bg-yellow-100 text-yellow-800
+                        {% elif status == 'PROGRESS' or status == 'STARTED' %}bg-blue-100 text-blue-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ task_run.get_status_display }}
+                    </span>
+                {% endwith %}
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="mb-6">
+            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                <span>{{ task_run.progress_description|default:"—" }}</span>
+                <span>{{ task_run.progress_current }} / {{ task_run.progress_total }} ({{ task_run.progress_percent }}%)</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div class="bg-chavi-primary rounded-full h-3 transition-all duration-500" style="width: {{ task_run.progress_percent }}%"></div>
+            </div>
+        </div>
+
+        <!-- Details grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <dt class="font-medium text-gray-500">Type</dt>
+                <dd class="text-gray-900">{{ task_run.get_task_type_display }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">User</dt>
+                <dd class="text-gray-900">{{ task_run.user.username|default:"—" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Created</dt>
+                <dd class="text-gray-900">{{ task_run.created_at|date:"M d, Y H:i:s" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Completed</dt>
+                <dd class="text-gray-900">{{ task_run.completed_at|date:"M d, Y H:i:s"|default:"—" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Last Progress</dt>
+                <dd class="text-gray-900">{{ task_run.last_progress_at|date:"M d, Y H:i:s"|default:"—" }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Resume Count</dt>
+                <dd class="text-gray-900">{{ task_run.resume_count }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Duration</dt>
+                <dd class="text-gray-900">
+                    {% if task_run.duration_seconds %}
+                        {{ task_run.duration_seconds|floatformat:0 }}s
+                    {% else %}
+                        —
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-500">Celery State</dt>
+                <dd class="text-gray-900">{{ celery_state|default:"UNKNOWN" }}</dd>
+            </div>
+            {% if task_run.related_session_id %}
+            <div>
+                <dt class="font-medium text-gray-500">Related Session</dt>
+                <dd class="text-gray-900">
+                    <a href="{% url 'client_app:bulk_dicom_matching' task_run.related_session_id %}" class="text-chavi-primary hover:underline">
+                        {{ task_run.related_session_id }}
+                    </a>
+                </dd>
+            </div>
+            {% endif %}
+            {% if task_run.manifest_path %}
+            <div>
+                <dt class="font-medium text-gray-500">Manifest Path</dt>
+                <dd class="text-gray-900 text-xs break-all"><code>{{ task_run.manifest_path }}</code></dd>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Error log -->
+    {% if task_run.error_log %}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <h2 class="text-sm font-semibold text-red-800 mb-2">
+            <i class="fas fa-exclamation-triangle mr-1"></i> Error Log
+        </h2>
+        <pre class="text-sm text-red-700 whitespace-pre-wrap break-words">{{ task_run.error_log }}</pre>
+    </div>
+    {% endif %}
+
+    <!-- Result summary -->
+    {% if task_run.result_summary %}
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <h2 class="text-sm font-semibold text-green-800 mb-2">
+            <i class="fas fa-check-circle mr-1"></i> Result
+        </h2>
+        <pre class="text-sm text-green-700 whitespace-pre-wrap">{{ task_run.result_summary|pprint }}</pre>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="flex gap-3">
+        {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' %}
+        <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
+                <i class="fas fa-play mr-1"></i> Resume
+            </button>
+        </form>
+        {% endif %}
+        {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' or task_run.status == 'SUCCESS' %}
+        <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
+                <i class="fas fa-redo mr-1"></i> Retry
+            </button>
+        </form>
+        {% endif %}
+        {% if task_run.task_id %}
+        <a href="{% url 'client_app:task_progress' task_run.task_id %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
+            <i class="fas fa-chart-line mr-1"></i> View Progress
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
