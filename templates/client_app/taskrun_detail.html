@@ -122,20 +122,29 @@
     <!-- Actions -->
     <div class="flex gap-3">
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' %}
-        <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
-                <i class="fas fa-play mr-1"></i> Resume
-            </button>
-        </form>
+            {% if task_run.task_args %}
+            <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
+                    <i class="fas fa-play mr-1"></i> Resume
+                </button>
+            </form>
+            {% endif %}
         {% endif %}
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' or task_run.status == 'SUCCESS' %}
-        <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
-                <i class="fas fa-redo mr-1"></i> Retry
-            </button>
-        </form>
+            {% if task_run.task_args %}
+            <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
+                    <i class="fas fa-redo mr-1"></i> Retry
+                </button>
+            </form>
+            {% endif %}
+        {% endif %}
+        {% if not task_run.task_args and task_run.status == 'FAILURE' or not task_run.task_args and task_run.status == 'STALLED' or not task_run.task_args and task_run.status == 'SUCCESS' %}
+        <p class="text-sm text-gray-400 italic self-center">
+            <i class="fas fa-info-circle mr-1"></i>Resume/Retry unavailable: this task predates automatic resume support (no stored arguments).
+        </p>
         {% endif %}
         {% if task_run.task_id %}
         <a href="{% url 'client_app:task_progress' task_run.task_id %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-300">

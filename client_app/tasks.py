@@ -49,21 +49,31 @@ logger = logging.getLogger(__name__)
 _last_progress_write = {}
 
 
-def _create_task_run(task_name, task_type, user_id, celery_task_id=None, related_session_id=None, manifest_path=None):
-    """Create or update a TaskRun row tracking a dispatched Celery task."""
+def _create_task_run(task_name, task_type, user_id, celery_task_id=None, related_session_id=None,
+                      manifest_path=None, task_args=None, task_kwargs=None):
+    """Create or update a TaskRun row tracking a dispatched Celery task.
+
+    task_args/task_kwargs should be the original call arguments (e.g. self.request.args /
+    self.request.kwargs) so that resume/retry can redispatch the same task generically.
+    """
     from django.contrib.auth import get_user_model
     User = get_user_model()
     user = User.objects.filter(id=user_id).first() if user_id else None
+    defaults = {
+        'task_name': task_name,
+        'task_type': task_type,
+        'status': TaskRun.Status.STARTED if celery_task_id else TaskRun.Status.PENDING,
+        'user': user,
+        'related_session_id': related_session_id,
+        'manifest_path': str(manifest_path) if manifest_path else None,
+    }
+    if task_args is not None:
+        defaults['task_args'] = list(task_args)
+    if task_kwargs is not None:
+        defaults['task_kwargs'] = dict(task_kwargs)
     task_run, created = TaskRun.objects.update_or_create(
         task_id=celery_task_id or '',
-        defaults={
-            'task_name': task_name,
-            'task_type': task_type,
-            'status': TaskRun.Status.STARTED if celery_task_id else TaskRun.Status.PENDING,
-            'user': user,
-            'related_session_id': related_session_id,
-            'manifest_path': str(manifest_path) if manifest_path else None,
-        }
+        defaults=defaults,
     )
     return task_run
 
@@ -163,7 +173,7 @@ def task_associate_dicom_to_project(self, dicom_study_ids, project_id, user_id):
 
     task_run = _create_task_run(
         'task_associate_dicom_to_project', TaskRun.TaskType.ASSOCIATE,
-        user_id, celery_task_id=self.request.id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs
     )
 
     try:
@@ -216,7 +226,7 @@ def task_process_bulk_dicom(self, upload_ids, user_id):
 
     task_run = _create_task_run(
         'task_process_bulk_dicom', TaskRun.TaskType.BULK_DICOM,
-        user_id, celery_task_id=self.request.id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs
     )
 
     try:
@@ -380,7 +390,7 @@ def task_export_dicom_data(self, study_ids, user_id):
 
     task_run = _create_task_run(
         'task_export_dicom_data', TaskRun.TaskType.DICOM_EXPORT,
-        user_id, celery_task_id=self.request.id, manifest_path=str(manifest)
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs, manifest_path=str(manifest)
     )
 
     processed_studies = 0
@@ -481,7 +491,7 @@ def task_process_dicom_per_patient(self, patient_dicom_file_ids, user_id):
 
     task_run = _create_task_run(
         'task_process_dicom_per_patient', TaskRun.TaskType.DICOM_IMPORT,
-        user_id, celery_task_id=self.request.id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs
     )
 
     try:
@@ -646,7 +656,7 @@ def task_extract_and_analyze_upload(self, session_id, user_id):
 
     task_run = _create_task_run(
         'task_extract_and_analyze_upload', TaskRun.TaskType.BULK_DICOM,
-        user_id, celery_task_id=self.request.id, related_session_id=session.session_id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs, related_session_id=session.session_id
     )
 
     try:
@@ -833,7 +843,7 @@ def task_process_confirmed_matches(self, session_id, user_id):
 
     task_run = _create_task_run(
         'task_process_confirmed_matches', TaskRun.TaskType.BULK_DICOM,
-        user_id, celery_task_id=self.request.id, related_session_id=session.session_id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs, related_session_id=session.session_id
     )
 
     try:
@@ -1015,7 +1025,7 @@ def task_export_dicom_data_parallel(self, study_ids, task_id, include_patient_da
 
     task_run = _create_task_run(
         'task_export_dicom_data_parallel', TaskRun.TaskType.DICOM_EXPORT,
-        user_id, celery_task_id=self.request.id, manifest_path=str(manifest)
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs, manifest_path=str(manifest)
     )
 
     try:
@@ -1151,7 +1161,7 @@ def task_export_patient_data(self, patient_ids, user_id):
 
     task_run = _create_task_run(
         'task_export_patient_data', TaskRun.TaskType.PATIENT_EXPORT,
-        user_id, celery_task_id=self.request.id, manifest_path=str(manifest)
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs, manifest_path=str(manifest)
     )
 
     total = len(patient_ids)
@@ -1345,7 +1355,7 @@ def task_process_unprocessed_dicom(self, unprocessed_study_uids, user_id):
 
     task_run = _create_task_run(
         'task_process_unprocessed_dicom', TaskRun.TaskType.UNPROCESSED,
-        user_id, celery_task_id=self.request.id
+        user_id, celery_task_id=self.request.id, task_args=self.request.args, task_kwargs=self.request.kwargs
     )
 
     try:

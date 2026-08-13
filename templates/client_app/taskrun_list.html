@@ -100,12 +100,16 @@
                                 <i class="fas fa-eye"></i> View
                             </a>
                             {% if task.status == 'FAILURE' or task.status == 'STALLED' %}
-                            <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">
-                                {% csrf_token %}
-                                <button type="submit" class="text-green-600 hover:text-green-800 mr-2" title="Resume">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                            </form>
+                                {% if task.task_args %}
+                                <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-green-600 hover:text-green-800 mr-2" title="Resume">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <i class="fas fa-play text-gray-300 mr-2" title="Resume unavailable: this task predates automatic resume support (no stored arguments)"></i>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>

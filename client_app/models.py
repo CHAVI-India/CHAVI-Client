@@ -2246,6 +2246,9 @@ class TaskRun(models.Model):
     resume_count = models.IntegerField(default=0, help_text="Number of times this task has been resumed")
     manifest_path = models.CharField(max_length=500, null=True, blank=True, help_text="Path to JSONL manifest for per-file checkpointing")
 
+    task_args = models.JSONField(null=True, blank=True, help_text="Original positional arguments used to dispatch this task, for resume/retry")
+    task_kwargs = models.JSONField(null=True, blank=True, help_text="Original keyword arguments used to dispatch this task, for resume/retry")
+
     result_summary = models.JSONField(null=True, blank=True, help_text="Task return value stored as JSON")
     error_log = models.TextField(null=True, blank=True)
 

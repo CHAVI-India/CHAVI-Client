@@ -1141,6 +1141,35 @@ class TaskRunDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
+# Registry of task_name -> Celery task callable, used to generically redispatch
+# tasks for resume/retry using their originally stored args/kwargs.
+TASK_REGISTRY = {
+    'task_extract_and_analyze_upload': task_extract_and_analyze_upload,
+    'task_process_confirmed_matches': task_process_confirmed_matches,
+    'task_export_patient_data': task_export_patient_data,
+    'task_export_dicom_data_parallel': task_export_dicom_data_parallel,
+    'task_export_dicom_data': task_export_dicom_data,
+    'task_process_dicom_per_patient': task_process_dicom_per_patient,
+    'task_process_bulk_dicom': task_process_bulk_dicom,
+    'task_process_unprocessed_dicom': task_process_unprocessed_dicom,
+    'task_associate_dicom_to_project': task_associate_dicom_to_project,
+}
+
+
+def _redispatch_task_run(task_run):
+    """Redispatch a TaskRun using its stored task_args/task_kwargs.
+
+    Returns the new celery AsyncResult, or None if the task cannot be redispatched
+    (unknown task name or no stored arguments).
+    """
+    task_func = TASK_REGISTRY.get(task_run.task_name)
+    if not task_func or task_run.task_args is None:
+        return None
+    args = task_run.task_args or []
+    kwargs = task_run.task_kwargs or {}
+    return task_func.delay(*args, **kwargs)
+
+
 class TaskRunResumeView(LoginRequiredMixin, View):
     def post(self, request, pk):
         task_run = get_object_or_404(TaskRun, pk=pk)
@@ -1148,10 +1177,16 @@ class TaskRunResumeView(LoginRequiredMixin, View):
             messages.error(request, "Only failed or stalled tasks can be resumed.")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)
 
+        new_result = _redispatch_task_run(task_run)
+        if not new_result:
+            messages.error(request, f"Task '{task_run.task_name}' does not support automatic resume (no stored arguments found).")
+            return redirect('client_app:taskrun_detail', pk=task_run.pk)
+
         task_run.resume_count += 1
         task_run.status = TaskRun.Status.PENDING
         task_run.error_log = None
-        task_run.save(update_fields=['resume_count', 'status', 'error_log', 'updated_at'])
+        task_run.task_id = new_result.id
+        task_run.save(update_fields=['resume_count', 'status', 'error_log', 'task_id', 'updated_at'])
 
         Notification.objects.create(
             user=task_run.user or request.user,
@@ -1161,26 +1196,8 @@ class TaskRunResumeView(LoginRequiredMixin, View):
             task_run=task_run,
         )
 
-        result = task_run.result_summary or {}
-        session_id = result.get('session_id') or str(task_run.related_session_id) if task_run.related_session_id else None
-        user_id = (task_run.user.id if task_run.user else request.user.id)
-
-        task_map = {
-            'task_extract_and_analyze_upload': lambda: task_extract_and_analyze_upload.delay(str(session_id), user_id) if session_id else None,
-            'task_process_confirmed_matches': lambda: task_process_confirmed_matches.delay(str(session_id), user_id) if session_id else None,
-        }
-
-        dispatch_fn = task_map.get(task_run.task_name)
-        if dispatch_fn:
-            new_result = dispatch_fn()
-            if new_result:
-                task_run.task_id = new_result.id
-                task_run.save(update_fields=['task_id'])
-                messages.success(request, f"Task resumed. New task ID: {new_result.id}")
-                return redirect('client_app:task_progress', task_id=new_result.id)
-
-        messages.error(request, f"Task '{task_run.task_name}' does not support automatic resume. Please retry from the original page.")
-        return redirect('client_app:taskrun_detail', pk=task_run.pk)
+        messages.success(request, f"Task resumed. New task ID: {new_result.id}")
+        return redirect('client_app:task_progress', task_id=new_result.id)
 
 
 class TaskRunRetryView(LoginRequiredMixin, View):
@@ -1190,32 +1207,23 @@ class TaskRunRetryView(LoginRequiredMixin, View):
             messages.error(request, "Only failed, stalled, or completed tasks can be retried.")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)
 
-        user_id = (task_run.user.id if task_run.user else request.user.id)
-        result = task_run.result_summary or {}
-        session_id = result.get('session_id') or (str(task_run.related_session_id) if task_run.related_session_id else None)
+        new_result = _redispatch_task_run(task_run)
+        if not new_result:
+            messages.error(request, f"Task '{task_run.task_name}' does not support automatic retry (no stored arguments found).")
+            return redirect('client_app:taskrun_detail', pk=task_run.pk)
 
-        task_map = {
-            'task_extract_and_analyze_upload': lambda: task_extract_and_analyze_upload.delay(str(session_id), user_id) if session_id else None,
-            'task_process_confirmed_matches': lambda: task_process_confirmed_matches.delay(str(session_id), user_id) if session_id else None,
-        }
-
-        dispatch_fn = task_map.get(task_run.task_name)
-        if dispatch_fn:
-            new_result = dispatch_fn()
-            if new_result:
-                new_run = TaskRun.objects.create(
-                    task_id=new_result.id,
-                    task_name=task_run.task_name,
-                    task_type=task_run.task_type,
-                    status=TaskRun.Status.PENDING,
-                    user=task_run.user or request.user,
-                    related_session_id=task_run.related_session_id,
-                )
-                messages.success(request, f"Task retried. New task ID: {new_result.id}")
-                return redirect('client_app:task_progress', task_id=new_result.id)
-
-        messages.error(request, f"Task '{task_run.task_name}' does not support automatic retry. Please retry from the original page.")
-        return redirect('client_app:taskrun_detail', pk=task_run.pk)
+        TaskRun.objects.create(
+            task_id=new_result.id,
+            task_name=task_run.task_name,
+            task_type=task_run.task_type,
+            status=TaskRun.Status.PENDING,
+            user=task_run.user or request.user,
+            related_session_id=task_run.related_session_id,
+            task_args=task_run.task_args,
+            task_kwargs=task_run.task_kwargs,
+        )
+        messages.success(request, f"Task retried. New task ID: {new_result.id}")
+        return redirect('client_app:task_progress', task_id=new_result.id)
 
 
 # ---------------------------------------------------------------------------
