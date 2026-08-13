@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import datetime
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 from celery_progress.backend import ProgressRecorder
 from django.conf import settings
 from django.utils import timezone
@@ -142,6 +143,56 @@ def _fail_task_run(task_run, error):
             )
 
 
+MAX_AUTO_CONTINUE_ATTEMPTS = 20
+
+
+def _auto_continue_task(task_run, task_func, args, kwargs, reason="approaching time limit"):
+    """Automatically redispatch a task that is about to hit its soft time limit.
+
+    Reuses the same TaskRun row (updating its task_id to the new Celery task ID) so
+    resume history stays consolidated, and notifies the user. Relies on the task's
+    own checkpointing (manifest / existing-record skip logic) to continue from where
+    it left off.
+
+    Caps the number of auto-continue attempts to avoid an infinite loop if a task
+    never makes forward progress (e.g. it fails at the same item every time).
+    """
+    if task_run and task_run.resume_count >= MAX_AUTO_CONTINUE_ATTEMPTS:
+        _fail_task_run(
+            task_run,
+            f"Exceeded maximum auto-continue attempts ({MAX_AUTO_CONTINUE_ATTEMPTS}) "
+            f"without completing. The task may be stuck on the same item; manual "
+            f"investigation is required."
+        )
+        return None
+
+    new_result = task_func.apply_async(args=list(args), kwargs=dict(kwargs), countdown=2)
+    if task_run:
+        task_run.resume_count += 1
+        task_run.status = TaskRun.Status.PENDING
+        task_run.task_id = new_result.id
+        task_run.progress_description = f"Auto-continued ({reason}); follow-up task dispatched"
+        task_run.save(update_fields=[
+            'resume_count', 'status', 'task_id', 'progress_description', 'updated_at'
+        ])
+        if task_run.user:
+            Notification.objects.create(
+                user=task_run.user,
+                notification_type=Notification.NotificationType.TASK_RESUMED,
+                title=f"Task auto-continued: {task_run.task_name}",
+                message=(
+                    f"Task '{task_run.task_name}' was {reason} and has been "
+                    f"automatically continued (attempt #{task_run.resume_count})."
+                ),
+                task_run=task_run,
+            )
+    logger.warning(
+        f"Auto-continuing task '{task_run.task_name if task_run else ''}' due to {reason}. "
+        f"New task id: {new_result.id}"
+    )
+    return new_result
+
+
 def _update_session_progress(session, current, total, description=''):
     """Update progress fields on a BulkDICOMUploadSession."""
     session.progress_current = current
@@ -201,6 +252,10 @@ def task_associate_dicom_to_project(self, dicom_study_ids, project_id, user_id):
         }
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_associate_dicom_to_project, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
@@ -367,6 +422,10 @@ def task_process_bulk_dicom(self, upload_ids, user_id):
         }
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_process_bulk_dicom, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
@@ -469,6 +528,10 @@ def task_export_dicom_data(self, study_ids, user_id):
         _complete_task_run(task_run, result)
         cleanup_manifest(manifest)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_export_dicom_data, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        return {'success': False, 'message': 'Exceeded maximum auto-continue attempts'}
     except Exception as e:
         logger.error(f"Error creating zip file: {str(e)}")
         _fail_task_run(task_run, e)
@@ -640,6 +703,10 @@ def task_process_dicom_per_patient(self, patient_dicom_file_ids, user_id):
         result = {'results': results}
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_process_dicom_per_patient, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
@@ -823,6 +890,10 @@ def task_extract_and_analyze_upload(self, session_id, user_id):
         _complete_task_run(task_run, result)
         return result
 
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_extract_and_analyze_upload, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        return {'success': False, 'error': 'Exceeded maximum auto-continue attempts'}
     except Exception as e:
         logger.error(f"Error during extraction and analysis: {str(e)}", exc_info=True)
         session.status = BulkDICOMUploadSession.StatusChoices.FAILED
@@ -995,6 +1066,10 @@ def task_process_confirmed_matches(self, session_id, user_id):
         _complete_task_run(task_run, result)
         return result
 
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_process_confirmed_matches, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        return {'success': False, 'error': 'Exceeded maximum auto-continue attempts'}
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}", exc_info=True)
         session.status = BulkDICOMUploadSession.StatusChoices.FAILED
@@ -1139,6 +1214,10 @@ def task_export_dicom_data_parallel(self, study_ids, task_id, include_patient_da
         _complete_task_run(task_run, return_data)
         cleanup_manifest(manifest)
         return return_data
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_export_dicom_data_parallel, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
@@ -1334,6 +1413,10 @@ def task_export_patient_data(self, patient_ids, user_id):
         _complete_task_run(task_run, result)
         cleanup_manifest(manifest)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_export_patient_data, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
@@ -1484,6 +1567,10 @@ def task_process_unprocessed_dicom(self, unprocessed_study_uids, user_id):
         result = {'results': results}
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        if _auto_continue_task(task_run, task_process_unprocessed_dicom, self.request.args, self.request.kwargs):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         _fail_task_run(task_run, e)
         raise
