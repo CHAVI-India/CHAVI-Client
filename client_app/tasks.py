@@ -435,16 +435,20 @@ def task_process_bulk_dicom(self, upload_ids, user_id):
 # 3. Export DICOM data (admin action)
 # ---------------------------------------------------------------------------
 @shared_task(bind=True)
-def task_export_dicom_data(self, study_ids, user_id):
+def task_export_dicom_data(self, study_ids, user_id, task_id=None):
     """Export DICOM data into a single zip file."""
     progress = ProgressRecorder(self)
     total = len(study_ids)
 
+    # task_id is a stable job identifier that persists across resume/retry
+    # (unlike self.request.id, which is a new Celery ID on every redispatch).
+    task_id = task_id or self.request.id
+
     temp_dir = Path(settings.MEDIA_ROOT) / 'temp_export'
     temp_dir.mkdir(exist_ok=True)
-    zip_path = temp_dir / f'dicom_export_{self.request.id}.zip'
+    zip_path = temp_dir / f'dicom_export_{task_id}.zip'
 
-    manifest = manifest_path_for_task(self.request.id)
+    manifest = manifest_path_for_task(task_id)
     completed_ids = read_manifest(manifest)
 
     task_run = _create_task_run(
@@ -1095,7 +1099,7 @@ def task_export_dicom_data_parallel(self, study_ids, task_id, include_patient_da
     zip_path = temp_dir / zip_filename
     patient_zip_path = temp_dir / f'patient_data_{task_id}.zip'
 
-    manifest = manifest_path_for_task(self.request.id)
+    manifest = manifest_path_for_task(task_id)
     completed_ids = read_manifest(manifest)
 
     task_run = _create_task_run(
@@ -1227,15 +1231,19 @@ def task_export_dicom_data_parallel(self, study_ids, task_id, include_patient_da
 # 8. Export patient data (admin action + frontend view)
 # ---------------------------------------------------------------------------
 @shared_task(bind=True)
-def task_export_patient_data(self, patient_ids, user_id):
+def task_export_patient_data(self, patient_ids, user_id, task_id=None):
     """Export patient data as individual JSON files within a zip archive."""
     progress = ProgressRecorder(self)
 
+    # task_id is a stable job identifier that persists across resume/retry
+    # (unlike self.request.id, which is a new Celery ID on every redispatch).
+    task_id = task_id or self.request.id
+
     temp_dir = Path(settings.MEDIA_ROOT) / 'temp_export'
     temp_dir.mkdir(exist_ok=True)
-    zip_path = temp_dir / f'patient_data_export_{self.request.id}.zip'
+    zip_path = temp_dir / f'patient_data_export_{task_id}.zip'
 
-    manifest = manifest_path_for_task(self.request.id)
+    manifest = manifest_path_for_task(task_id)
     completed_ids = read_manifest(manifest)
 
     task_run = _create_task_run(

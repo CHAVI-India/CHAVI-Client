@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 import os
+import uuid
 from django.conf import settings
 from django.views.static import serve
 from django.views.generic import TemplateView, View, ListView, CreateView, DetailView
@@ -809,7 +810,8 @@ class PatientDataExportView(LoginRequiredMixin, TemplateView):
         
         # Dispatch Celery task for patient data export
         patient_ids = list(queryset.values_list('patient_id', flat=True))
-        task_result = task_export_patient_data.delay(patient_ids, request.user.id)
+        task_uuid = str(uuid.uuid4())
+        task_result = task_export_patient_data.delay(patient_ids, request.user.id, task_uuid)
         
         messages.success(request, f"Patient data export started for {len(patient_ids)} patients.")
         return redirect('client_app:task_progress', task_id=task_result.id)

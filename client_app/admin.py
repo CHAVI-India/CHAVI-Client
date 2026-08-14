@@ -1,4 +1,5 @@
 import os
+import uuid
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
@@ -164,7 +165,8 @@ class PatientAdmin(ModelAdmin, ImportExportModelAdmin):
 
     def export_patient_data_async(self, request, queryset):
         patient_ids = list(queryset.values_list('patient_id', flat=True))
-        task_result = task_export_patient_data.delay(patient_ids, request.user.id)
+        task_uuid = str(uuid.uuid4())
+        task_result = task_export_patient_data.delay(patient_ids, request.user.id, task_uuid)
         self.message_user(
             request,
             f"Patient data export started for {len(patient_ids)} patients. "
@@ -1118,7 +1120,8 @@ class DICOMStudyAdmin(ModelAdmin):
 
     def export_dicom_data_async(self, request, queryset):
         study_ids = list(queryset.values_list('pk', flat=True))
-        task_result = task_export_dicom_data.delay(study_ids, request.user.id)
+        task_uuid = str(uuid.uuid4())
+        task_result = task_export_dicom_data.delay(study_ids, request.user.id, task_uuid)
         self.message_user(
             request,
             f"DICOM export started for {len(study_ids)} studies. "
