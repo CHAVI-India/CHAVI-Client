@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tempfile
+import urllib.parse
 import zipfile
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
@@ -34,7 +35,58 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = Patient.objects.all().order_by('patient_id')
-        for p in qs:
+
+        # --- Text search by patient_id ---
+        search = self.request.GET.get('search', '').strip()
+        if search:
+            qs = qs.filter(patient_id__icontains=search)
+
+        # --- Deid status filter ---
+        deid_status = self.request.GET.get('deid_status', 'all')
+        if deid_status == 'deidentified':
+            qs = qs.filter(
+                pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
+            )
+        elif deid_status == 'not_deidentified':
+            qs = qs.exclude(
+                pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
+            )
+
+        # --- Gender filter ---
+        gender = self.request.GET.get('gender', 'all')
+        if gender and gender != 'all':
+            qs = qs.filter(gender=gender)
+
+        # --- Job status filter ---
+        job_status = self.request.GET.get('job_status', 'all')
+        if job_status and job_status != 'all':
+            patient_ids_with_status = DeidentificationJob.objects.filter(
+                status=job_status
+            ).values_list('study__patient_id', flat=True)
+            qs = qs.filter(pk__in=patient_ids_with_status)
+
+        # --- Created date range ---
+        created_from = self.request.GET.get('created_from', '').strip()
+        created_to = self.request.GET.get('created_to', '').strip()
+        if created_from:
+            qs = qs.filter(created_at__date__gte=created_from)
+        if created_to:
+            qs = qs.filter(created_at__date__lte=created_to)
+
+        # --- Updated date range ---
+        updated_from = self.request.GET.get('updated_from', '').strip()
+        updated_to = self.request.GET.get('updated_to', '').strip()
+        if updated_from:
+            qs = qs.filter(updated_at__date__gte=updated_from)
+        if updated_to:
+            qs = qs.filter(updated_at__date__lte=updated_to)
+
+        return qs
+
+    def paginate_queryset(self, queryset, page_size):
+        paginator, page, object_list, is_paginated = super().paginate_queryset(queryset, page_size)
+        # Annotate only the page items for performance
+        for p in object_list:
             studies = DICOMStudy.objects.filter(patient=p)
             p.study_count = studies.count()
             p.has_deid = DeidPatient.objects.filter(patient=p).exists()
@@ -50,11 +102,24 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
             p.deid_jobs_processing = jobs.filter(status=DeidentificationJob.Status.PROCESSING).count()
             p.deid_jobs_pending = jobs.filter(status=DeidentificationJob.Status.PENDING).count()
 
-        return qs
+        return paginator, page, object_list, is_paginated
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Deidentification — Patient List'
+        # Pass filter values back to template for form state retention
+        context['search'] = self.request.GET.get('search', '')
+        context['deid_status'] = self.request.GET.get('deid_status', 'all')
+        context['gender'] = self.request.GET.get('gender', 'all')
+        context['job_status'] = self.request.GET.get('job_status', 'all')
+        context['created_from'] = self.request.GET.get('created_from', '')
+        context['created_to'] = self.request.GET.get('created_to', '')
+        context['updated_from'] = self.request.GET.get('updated_from', '')
+        context['updated_to'] = self.request.GET.get('updated_to', '')
+        # Build query string without page for pagination links
+        get_params = self.request.GET.copy()
+        get_params.pop('page', None)
+        context['query_string'] = get_params.urlencode()
         return context
 
 
@@ -177,12 +242,111 @@ class LegacyImportResultsView(StaffPermissionRequiredMixin, View):
             result_data = task_run.result_summary
             unmatched_rows = result_data.get('unmatched_rows', [])
 
+        # Filter by type if requested
+        filter_type = request.GET.get('type', 'all')
+        if filter_type and filter_type != 'all':
+            unmatched_rows = [r for r in unmatched_rows if r.get('type') == filter_type]
+
+        # Group rows hierarchically: patient → studies → series → instances
+        hierarchy = _build_unmatched_hierarchy(unmatched_rows)
+
         return render(request, self.template_name, {
             'page_title': 'Legacy Import Results',
             'task_run': task_run,
             'unmatched_rows': unmatched_rows,
+            'hierarchy': hierarchy,
             'stats': result_data,
+            'filter_type': filter_type,
         })
+
+
+def _build_unmatched_hierarchy(rows):
+    """Group flat unmatched rows into a nested patient → study → series → instance tree."""
+    patients = {}  # key: patient_id (or '__orphan__' for rows with no parent)
+    studies = {}
+    series_map = {}
+
+    for row in rows:
+        rtype = row.get('type', '')
+
+        if rtype == 'patient':
+            pid = row.get('original_id', '')
+            if pid not in patients:
+                patients[pid] = {
+                    'patient_row': row,
+                    'studies': [],
+                }
+            else:
+                patients[pid]['patient_row'] = row
+
+        elif rtype == 'study':
+            pid = row.get('parent_patient_id', '') or '__orphan__'
+            if pid not in patients:
+                patients[pid] = {'patient_row': None, 'studies': []}
+            study_entry = {
+                'study_row': row,
+                'original_id': row.get('original_id', ''),
+                'series': [],
+            }
+            patients[pid]['studies'].append(study_entry)
+            studies[row.get('original_id', '')] = study_entry
+
+        elif rtype == 'series':
+            study_uid = row.get('parent_study_uid', '')
+            if study_uid and study_uid in studies:
+                series_entry = {
+                    'series_row': row,
+                    'original_id': row.get('original_id', ''),
+                    'instances': [],
+                }
+                studies[study_uid]['series'].append(series_entry)
+                series_map[row.get('original_id', '')] = series_entry
+            else:
+                # Orphan series - add to orphan patient
+                pid = '__orphan__'
+                if pid not in patients:
+                    patients[pid] = {'patient_row': None, 'studies': []}
+                orphan_study = {
+                    'study_row': None,
+                    'original_id': '',
+                    'series': [],
+                }
+                patients[pid]['studies'].append(orphan_study)
+                orphan_study['series'].append({
+                    'series_row': row,
+                    'original_id': row.get('original_id', ''),
+                    'instances': [],
+                })
+                series_map[row.get('original_id', '')] = orphan_study['series'][-1]
+
+        elif rtype == 'instance':
+            series_uid = row.get('parent_series_uid', '')
+            if series_uid and series_uid in series_map:
+                series_map[series_uid]['instances'].append({
+                    'instance_row': row,
+                })
+            else:
+                # Orphan instance
+                pid = '__orphan__'
+                if pid not in patients:
+                    patients[pid] = {'patient_row': None, 'studies': []}
+                orphan_study = {
+                    'study_row': None,
+                    'original_id': '',
+                    'series': [],
+                }
+                patients[pid]['studies'].append(orphan_study)
+                orphan_series = {
+                    'series_row': None,
+                    'original_id': '',
+                    'instances': [],
+                }
+                orphan_study['series'].append(orphan_series)
+                orphan_series['instances'].append({
+                    'instance_row': row,
+                })
+
+    return patients
 
 
 class CreateMissingPatientView(StaffPermissionRequiredMixin, View):
@@ -233,6 +397,258 @@ class CreateMissingStudyView(StaffPermissionRequiredMixin, View):
             study_date=study_date,
         )
         return JsonResponse({'success': True, 'study_instance_uid': study_instance_uid})
+
+
+class CreateMissingSeriesView(StaffPermissionRequiredMixin, View):
+    """Create a new client_app.DICOMSeries from unmatched legacy data."""
+    permission_required = 'deidentification.add_deidpatient'
+
+    def post(self, request):
+        series_instance_uid = request.POST.get('series_instance_uid', '').strip()
+        study_instance_uid = request.POST.get('study_instance_uid', '').strip()
+        modality = request.POST.get('modality', '').strip() or 'CT'
+        series_date = request.POST.get('series_date', '').strip() or None
+        frame_of_reference_uid = request.POST.get('frame_of_reference_uid', '').strip() or None
+
+        if not series_instance_uid or not study_instance_uid:
+            return JsonResponse({'error': 'series_instance_uid and study_instance_uid are required'}, status=400)
+
+        from client_app.models import DICOMStudy, DICOMSeries
+        study = DICOMStudy.objects.filter(study_instance_uid=study_instance_uid).first()
+        if not study:
+            return JsonResponse({'error': f'Study {study_instance_uid} not found'}, status=404)
+
+        if DICOMSeries.objects.filter(series_instance_uid=series_instance_uid).exists():
+            return JsonResponse({'error': f'Series {series_instance_uid} already exists'}, status=400)
+
+        DICOMSeries.objects.create(
+            study=study,
+            series_instance_uid=series_instance_uid,
+            modality=modality,
+            series_date=series_date,
+            frame_of_reference_uid=frame_of_reference_uid,
+        )
+
+        # Store deidentified mapping if parent deid study exists and deid values provided
+        deid_series_uid = request.POST.get('deidentified_series_instance_uid', '').strip()
+        deid_series_date = request.POST.get('deidentified_series_date', '').strip() or None
+        deid_frame_uid = request.POST.get('deidentified_frame_of_reference_uid', '').strip() or None
+
+        if deid_series_uid:
+            from deidentification.models import DeidStudy, DeidSeries
+            deid_study = DeidStudy.objects.filter(study=study).first()
+            if deid_study:
+                series = DICOMSeries.objects.get(series_instance_uid=series_instance_uid)
+                DeidSeries.objects.update_or_create(
+                    series=series,
+                    defaults={
+                        'deid_study': deid_study,
+                        'deidentified_series_instance_uid': deid_series_uid,
+                        'deidentified_series_date': deid_series_date,
+                        'deidentified_frame_of_reference_uid': deid_frame_uid,
+                    },
+                )
+
+        return JsonResponse({'success': True, 'series_instance_uid': series_instance_uid})
+
+
+class CreateMissingInstanceView(StaffPermissionRequiredMixin, View):
+    """Create a new client_app.DICOMInstance from unmatched legacy data."""
+    permission_required = 'deidentification.add_deidpatient'
+
+    def post(self, request):
+        sop_instance_uid = request.POST.get('sop_instance_uid', '').strip()
+        series_instance_uid = request.POST.get('series_instance_uid', '').strip()
+
+        if not sop_instance_uid or not series_instance_uid:
+            return JsonResponse({'error': 'sop_instance_uid and series_instance_uid are required'}, status=400)
+
+        from client_app.models import DICOMSeries, DICOMInstance
+        series = DICOMSeries.objects.filter(series_instance_uid=series_instance_uid).first()
+        if not series:
+            return JsonResponse({'error': f'Series {series_instance_uid} not found'}, status=404)
+
+        if DICOMInstance.objects.filter(sop_instance_uid=sop_instance_uid).exists():
+            return JsonResponse({'error': f'Instance {sop_instance_uid} already exists'}, status=400)
+
+        DICOMInstance.objects.create(
+            series=series,
+            sop_instance_uid=sop_instance_uid,
+        )
+
+        # Store deidentified mapping if parent deid series exists and deid value provided
+        deid_sop_uid = request.POST.get('deidentified_sop_instance_uid', '').strip()
+
+        if deid_sop_uid:
+            from deidentification.models import DeidSeries, DeidInstance
+            deid_series = DeidSeries.objects.filter(series=series).first()
+            if deid_series:
+                instance = DICOMInstance.objects.get(sop_instance_uid=sop_instance_uid)
+                DeidInstance.objects.update_or_create(
+                    instance=instance,
+                    defaults={
+                        'deid_series': deid_series,
+                        'deidentified_sop_instance_uid': deid_sop_uid,
+                    },
+                )
+
+        return JsonResponse({'success': True, 'sop_instance_uid': sop_instance_uid})
+
+
+class BulkCreateMissingView(StaffPermissionRequiredMixin, View):
+    """Bulk create multiple missing records from unmatched legacy data."""
+    permission_required = 'deidentification.add_deidpatient'
+
+    def post(self, request):
+        import json as _json
+        try:
+            data = _json.loads(request.body)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+
+        records = data.get('records', [])
+        if not records:
+            return JsonResponse({'error': 'No records provided'}, status=400)
+
+        from client_app.models import Patient, DICOMStudy, DICOMSeries, DICOMInstance
+        from deidentification.models import DeidPatient, DeidStudy, DeidSeries, DeidInstance
+        from datetime import datetime
+
+        def _parse_date(val):
+            """Parse a date string in common formats, return None if blank or unparseable."""
+            if not val or not str(val).strip():
+                return None
+            val = str(val).strip()
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y%m%d', '%d-%m-%Y'):
+                try:
+                    return datetime.strptime(val, fmt).date()
+                except (ValueError, TypeError):
+                    continue
+            return None
+
+        # Sort records by type so parents are always created before children:
+        #   patient → study → series → instance
+        type_order = {'patient': 0, 'study': 1, 'series': 2, 'instance': 3}
+        records.sort(key=lambda r: type_order.get(r.get('type', ''), 9))
+
+        created = []
+        errors = []
+        skipped = []
+        auto_patients = set()  # track patients we auto-create
+
+        for rec in records:
+            rtype = rec.get('type', '')
+            try:
+                if rtype == 'patient':
+                    pid = rec.get('original_id', '').strip()
+                    if not pid or pid == '__orphan__':
+                        errors.append({'id': pid, 'error': 'patient_id required'})
+                        continue
+                    if Patient.objects.filter(patient_id=pid).exists():
+                        skipped.append({'type': 'patient', 'id': pid, 'reason': 'already exists'})
+                        continue
+                    dob = _parse_date(rec.get('date_of_birth', ''))
+                    Patient.objects.create(patient_id=pid, date_of_birth=dob)
+                    created.append({'type': 'patient', 'id': pid, 'dob': str(dob) if dob else None})
+
+                elif rtype == 'study':
+                    study_uid = rec.get('original_id', '').strip()
+                    patient_id = rec.get('parent_patient_id', '').strip()
+                    if not study_uid or not patient_id or patient_id == '__orphan__':
+                        errors.append({'id': study_uid, 'error': 'study_instance_uid and parent_patient_id required'})
+                        continue
+                    patient = Patient.objects.filter(patient_id=patient_id).first()
+                    if not patient:
+                        # Auto-create missing parent patient (no DOB available)
+                        patient = Patient.objects.create(patient_id=patient_id, date_of_birth=None)
+                        auto_patients.add(patient_id)
+                        created.append({'type': 'patient', 'id': patient_id, 'auto': True})
+                    if DICOMStudy.objects.filter(study_instance_uid=study_uid).exists():
+                        skipped.append({'type': 'study', 'id': study_uid, 'reason': 'already exists'})
+                        continue
+                    study_date = _parse_date(rec.get('deidentified_date', ''))
+                    DICOMStudy.objects.create(
+                        study_instance_uid=study_uid, patient=patient, study_date=study_date,
+                    )
+                    created.append({'type': 'study', 'id': study_uid})
+
+                elif rtype == 'series':
+                    series_uid = rec.get('original_id', '').strip()
+                    study_uid = rec.get('parent_study_uid', '').strip()
+                    if not series_uid or not study_uid:
+                        errors.append({'id': series_uid, 'error': 'series_instance_uid and parent_study_uid required'})
+                        continue
+                    study = DICOMStudy.objects.filter(study_instance_uid=study_uid).first()
+                    if not study:
+                        errors.append({'id': series_uid, 'error': f'Study {study_uid} not found'})
+                        continue
+                    if DICOMSeries.objects.filter(series_instance_uid=series_uid).exists():
+                        skipped.append({'type': 'series', 'id': series_uid, 'reason': 'already exists'})
+                        continue
+                    modality = rec.get('modality', 'CT') or 'CT'
+                    series_date = _parse_date(rec.get('deidentified_series_date', ''))
+                    frame_uid = rec.get('deidentified_frame_of_reference_uid', '').strip() or None
+                    series = DICOMSeries.objects.create(
+                        study=study, series_instance_uid=series_uid,
+                        modality=modality, series_date=series_date,
+                        frame_of_reference_uid=frame_uid,
+                    )
+                    # Store deidentified mapping if parent deid study exists
+                    deid_series_uid = rec.get('deidentified_id', '').strip()
+                    if deid_series_uid:
+                        deid_study = DeidStudy.objects.filter(study=study).first()
+                        if deid_study:
+                            DeidSeries.objects.update_or_create(
+                                series=series,
+                                defaults={
+                                    'deid_study': deid_study,
+                                    'deidentified_series_instance_uid': deid_series_uid,
+                                    'deidentified_series_date': series_date,
+                                    'deidentified_frame_of_reference_uid': frame_uid,
+                                },
+                            )
+                    created.append({'type': 'series', 'id': series_uid, 'for_uid': frame_uid})
+
+                elif rtype == 'instance':
+                    sop_uid = rec.get('original_id', '').strip()
+                    series_uid = rec.get('parent_series_uid', '').strip()
+                    if not sop_uid or not series_uid:
+                        errors.append({'id': sop_uid, 'error': 'sop_instance_uid and parent_series_uid required'})
+                        continue
+                    series = DICOMSeries.objects.filter(series_instance_uid=series_uid).first()
+                    if not series:
+                        errors.append({'id': sop_uid, 'error': f'Series {series_uid} not found'})
+                        continue
+                    if DICOMInstance.objects.filter(sop_instance_uid=sop_uid).exists():
+                        skipped.append({'type': 'instance', 'id': sop_uid, 'reason': 'already exists'})
+                        continue
+                    instance = DICOMInstance.objects.create(series=series, sop_instance_uid=sop_uid)
+                    # Store deidentified mapping if parent deid series exists
+                    deid_sop_uid = rec.get('deidentified_id', '').strip()
+                    if deid_sop_uid:
+                        deid_series = DeidSeries.objects.filter(series=series).first()
+                        if deid_series:
+                            DeidInstance.objects.update_or_create(
+                                instance=instance,
+                                defaults={
+                                    'deid_series': deid_series,
+                                    'deidentified_sop_instance_uid': deid_sop_uid,
+                                },
+                            )
+                    created.append({'type': 'instance', 'id': sop_uid})
+
+            except Exception as e:
+                errors.append({'id': rec.get('original_id', ''), 'error': str(e)})
+
+        return JsonResponse({
+            'success': True,
+            'created_count': len(created),
+            'error_count': len(errors),
+            'skipped_count': len(skipped),
+            'created': created,
+            'errors': errors,
+            'skipped': skipped,
+        })
 
 
 class BulkDeidentifyView(StaffPermissionRequiredMixin, View):

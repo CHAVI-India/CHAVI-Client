@@ -181,7 +181,15 @@ def deidentify_dicom_studies_bulk_task(self, study_ids, user_id=None):
         has_errors = any('error' in r for r in results)
 
         if total_failed > 0 or has_errors:
-            summary = f"Deidentification completed with issues: {total_processed} processed, {total_failed} failed"
+            error_lines = []
+            error_lines.append(f"Deidentification completed with issues: {total_processed} processed, {total_failed} failed")
+            error_lines.append("")
+            for r in results:
+                if 'error' in r:
+                    error_lines.append(f"  • Study {r['study_id'][:60]}: {r['error']}")
+                elif r.get('failed', 0) > 0:
+                    error_lines.append(f"  • Study {r['study_id'][:60]}: {r['failed']} file(s) failed during processing")
+            summary = "\n".join(error_lines)
             if task_run:
                 task_run.status = TaskRun.Status.FAILURE
                 task_run.error_log = summary
@@ -239,8 +247,8 @@ def import_legacy_mapping_task(self, db_path, key_path, user_id=None):
         _update_task_run(task_run, progress_recorder, 0, 1, 'Starting legacy import...')
 
         from deidentification.services.legacy_import import import_legacy_mappings
-        result = import_legacy_mappings(db_path, key_path, progress_callback=lambda desc: _update_task_run(
-            task_run, progress_recorder, 1, 1, desc, throttle_key=self.request.id,
+        result = import_legacy_mappings(db_path, key_path, progress_callback=lambda current, total, desc: _update_task_run(
+            task_run, progress_recorder, current, total, desc, throttle_key=self.request.id,
         ))
 
         _complete_task_run(task_run, result)

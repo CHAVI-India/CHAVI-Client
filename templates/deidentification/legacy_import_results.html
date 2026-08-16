@@ -44,65 +44,181 @@
     {% if unmatched_rows %}
     <div class="bg-white shadow rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">Unmatched Rows — Manual Reconciliation</h2>
-            <p class="text-sm text-gray-600 mt-1">
-                These legacy records have no corresponding entry in the current database.
-                Create the missing records below, then re-run the legacy import to link them.
-            </p>
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h2 class="text-lg font-semibold text-gray-900">Unmatched Records — Manual Reconciliation</h2>
+                    <div class="mt-2 bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+                        <p class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>How to resolve unmatched records:</p>
+                        <ol class="list-decimal list-inside space-y-1 ml-2">
+                            <li>Click <strong>Create All Missing Records</strong> above to create every unmatched record in one operation.</li>
+                            <li>Alternatively, expand a patient row to create records individually or per-patient.</li>
+                            <li>For <strong>Series</strong>, the parent Study UID is pre-filled from the hierarchy. For <strong>Instances</strong>, the parent Series UID is pre-filled.</li>
+                            <li>After creating all missing records, click <strong>Re-upload Legacy Files</strong> below to re-run the import and link deidentified mappings.</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3 ml-4">
+                    <button type="button" id="create-all-btn" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 shadow-sm">
+                        <i class="fas fa-magic mr-2"></i>Create All Missing Records
+                    </button>
+                    <form method="get" class="flex items-center space-x-2">
+                        <label class="text-sm font-medium text-gray-600 whitespace-nowrap">Filter:</label>
+                        <select name="type" onchange="this.form.submit()" class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-chavi-primary focus:border-chavi-primary">
+                        <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All</option>
+                        <option value="patient" {% if filter_type == 'patient' %}selected{% endif %}>Patient</option>
+                        <option value="study" {% if filter_type == 'study' %}selected{% endif %}>DICOM Study</option>
+                        <option value="series" {% if filter_type == 'series' %}selected{% endif %}>DICOM Series</option>
+                        <option value="instance" {% if filter_type == 'instance' %}selected{% endif %}>DICOM Instance</option>
+                    </select>
+                </form>
+                </div>
+            </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Original ID</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deidentified ID</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Extra Data</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for row in unmatched_rows %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs {% if row.type == 'patient' %}bg-blue-100 text-blue-800{% else %}bg-purple-100 text-purple-800{% endif %}">{{ row.type }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm font-mono text-xs text-gray-900">{{ row.original_id|truncatechars:50 }}</td>
-                        <td class="px-4 py-3 text-sm font-mono text-xs text-gray-500">{{ row.deidentified_id|truncatechars:50 }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-500">
-                            {% if row.type == 'patient' %}
-                                DOB: {{ row.date_of_birth|default:"—" }} | Shift: {{ row.date_shift|default:"—" }}
-                            {% elif row.type == 'study' %}
-                                Date: {{ row.deidentified_date|default:"—" }}
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            {% if row.type == 'patient' %}
-                            <button type="button"
-                                data-action="create-patient"
-                                data-patient-id="{{ row.original_id }}"
-                                data-dob="{{ row.date_of_birth|default:'' }}"
-                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium create-btn">
-                                <i class="fas fa-user-plus mr-1"></i>Create Patient
-                            </button>
-                            {% elif row.type == 'study' %}
+
+        <!-- Hierarchical accordion list -->
+        <div class="divide-y divide-gray-200">
+            {% for patient_id, patient_data in hierarchy.items %}
+            <div class="patient-block">
+                <!-- Patient row -->
+                <div class="flex items-center px-6 py-3 hover:bg-gray-50 cursor-pointer" onclick="toggleAccordion(this, 'patient-{{ forloop.counter }}')">
+                    <i class="fas fa-chevron-right text-gray-400 mr-3 transition-transform accordion-arrow"></i>
+                    {% if patient_data.patient_row %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-3">patient</span>
+                    <span class="text-sm font-mono text-xs text-gray-900 flex-1">{{ patient_data.patient_row.original_id|truncatechars:60 }}</span>
+                    <span class="text-xs text-gray-500 mr-4">DOB: {{ patient_data.patient_row.date_of_birth|default:"—" }} | Shift: {{ patient_data.patient_row.date_shift|default:"—" }}</span>
+                    <button type="button"
+                        data-action="create-patient"
+                        data-patient-id="{{ patient_data.patient_row.original_id }}"
+                        data-dob="{{ patient_data.patient_row.date_of_birth|default:'' }}"
+                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-sm create-btn mr-2"
+                        onclick="event.stopPropagation()">
+                        <i class="fas fa-user-plus mr-1"></i>Create
+                    </button>
+                    {% elif patient_id != '__orphan__' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-3">patient</span>
+                    <span class="text-sm font-mono text-xs text-gray-900 flex-1">{{ patient_id|truncatechars:60 }}</span>
+                    <span class="text-xs text-gray-500 mr-4">No legacy patient row — create from study reference</span>
+                    <button type="button"
+                        data-action="create-patient"
+                        data-patient-id="{{ patient_id }}"
+                        data-dob=""
+                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-sm create-btn mr-2"
+                        onclick="event.stopPropagation()">
+                        <i class="fas fa-user-plus mr-1"></i>Create
+                    </button>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-3">orphan</span>
+                    <span class="text-sm text-gray-500 flex-1 italic">Unmatched records with no parent patient</span>
+                    {% endif %}
+                    {% if patient_data.studies|length > 0 %}
+                    <span class="text-xs text-gray-400 ml-2">{{ patient_data.studies|length }} stud{{ patient_data.studies|length|pluralize:"y,ies" }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Nested studies -->
+                <div class="hidden bg-gray-50 border-l-4 border-blue-200 ml-6" id="patient-{{ forloop.counter }}">
+                    {% for study in patient_data.studies %}
+                    <div class="study-block">
+                        <div class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200" onclick="toggleAccordion(this, 'study-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
+                            <i class="fas fa-chevron-right text-gray-400 mr-2 text-xs transition-transform accordion-arrow"></i>
+                            {% if study.study_row %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800 mr-2">study</span>
+                            <span class="text-xs font-mono text-gray-900 flex-1">{{ study.study_row.original_id|truncatechars:55 }}</span>
+                            <span class="text-xs text-gray-500 mr-3">Date: {{ study.study_row.deidentified_date|default:"—" }}</span>
+                            {% if study.study_row.reason %}<span class="text-xs text-red-500 mr-2">{{ study.study_row.reason }}</span>{% endif %}
                             <button type="button"
                                 data-action="create-study"
-                                data-study-uid="{{ row.original_id }}"
-                                data-study-date="{{ row.deidentified_date|default:'' }}"
-                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium create-btn">
-                                <i class="fas fa-folder-plus mr-1"></i>Create Study
+                                data-study-uid="{{ study.study_row.original_id }}"
+                                data-study-date="{{ study.study_row.deidentified_date|default:'' }}"
+                                data-patient-id="{{ patient_id|default:'' }}"
+                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn mr-2"
+                                onclick="event.stopPropagation()">
+                                <i class="fas fa-folder-plus mr-1"></i>Create
                             </button>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-2">orphan</span>
+                            <span class="text-xs text-gray-500 flex-1 italic">Series/instances with no parent study</span>
                             {% endif %}
-                        </td>
-                    </tr>
+                            {% if study.series|length > 0 %}
+                            <span class="text-xs text-gray-400 ml-1">{{ study.series|length }} series</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Nested series -->
+                        <div class="hidden bg-white border-l-4 border-purple-200 ml-6" id="study-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                            {% for series_item in study.series %}
+                            <div class="series-block">
+                                <div class="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100" onclick="toggleAccordion(this, 'series-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
+                                    <i class="fas fa-chevron-right text-gray-400 mr-2 text-xs transition-transform accordion-arrow"></i>
+                                    {% if series_item.series_row %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 mr-2">series</span>
+                                    <span class="text-xs font-mono text-gray-900 flex-1">{{ series_item.series_row.original_id|truncatechars:55 }}</span>
+                                    <span class="text-xs text-gray-500 mr-3">Date: {{ series_item.series_row.deidentified_series_date|default:"—" }}</span>
+                                    {% if series_item.series_row.reason %}<span class="text-xs text-red-500 mr-2">{{ series_item.series_row.reason }}</span>{% endif %}
+                                    <button type="button"
+                                        data-action="create-series"
+                                        data-series-uid="{{ series_item.series_row.original_id }}"
+                                        data-series-date="{{ series_item.series_row.deidentified_series_date|default:'' }}"
+                                        data-frame-uid="{{ series_item.series_row.deidentified_frame_of_reference_uid|default:'' }}"
+                                        data-deid-series-uid="{{ series_item.series_row.deidentified_id|default:'' }}"
+                                        data-study-uid="{{ study.original_id|default:'' }}"
+                                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn mr-2"
+                                        onclick="event.stopPropagation()">
+                                        <i class="fas fa-layer-group mr-1"></i>Create
+                                    </button>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-2">orphan</span>
+                                    <span class="text-xs text-gray-500 flex-1 italic">Instances with no parent series</span>
+                                    {% endif %}
+                                    {% if series_item.instances|length > 0 %}
+                                    <span class="text-xs text-gray-400 ml-1">{{ series_item.instances|length }} instance{{ series_item.instances|length|pluralize:"s" }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Nested instances -->
+                                <div class="hidden bg-gray-50 border-l-4 border-amber-200 ml-6" id="series-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                                    {% for instance in series_item.instances %}
+                                    <div class="flex items-center px-4 py-1.5 hover:bg-gray-100 border-b border-gray-100">
+                                        <i class="fas fa-file-medical text-gray-300 mr-2 text-xs"></i>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-800 mr-2">instance</span>
+                                        <span class="text-xs font-mono text-gray-900 flex-1">{{ instance.instance_row.original_id|truncatechars:55 }}</span>
+                                        {% if instance.instance_row.reason %}<span class="text-xs text-red-500 mr-2">{{ instance.instance_row.reason }}</span>{% endif %}
+                                        <button type="button"
+                                            data-action="create-instance"
+                                            data-sop-uid="{{ instance.instance_row.original_id }}"
+                                            data-deid-sop-uid="{{ instance.instance_row.deidentified_id|default:'' }}"
+                                            data-series-uid="{{ series_item.original_id|default:'' }}"
+                                            class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn"
+                                            onclick="event.stopPropagation()">
+                                            <i class="fas fa-plus mr-1"></i>Create
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+
+                    <!-- Bulk create button for this patient -->
+                    {% if patient_id != '__orphan__' %}
+                    <div class="px-4 py-3 border-t border-gray-200 bg-blue-50">
+                        <button type="button"
+                            class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-chavi-primary rounded-md hover:bg-chavi-secondary bulk-create-btn"
+                            data-patient-id="{{ patient_id }}"
+                            data-records-json="{{ patient_data|json_script:'' }}">
+                            <i class="fas fa-layer-group mr-2"></i>Bulk Create All Missing Records for {{ patient_id|truncatechars:20 }}
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
         </div>
     </div>
 
-    <!-- Create Patient modal (inline) -->
+    <!-- Create Patient modal -->
     <div id="create-patient-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 class="text-lg font-semibold mb-4">Create Missing Patient</h3>
@@ -117,14 +233,14 @@
                     <input type="date" name="date_of_birth" id="patient_dob_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
                 </div>
                 <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closePatientForm()" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                    <button type="button" onclick="closeForm('create-patient-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
                     <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Create Study modal (inline) -->
+    <!-- Create Study modal -->
     <div id="create-study-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 class="text-lg font-semibold mb-4">Create Missing Study</h3>
@@ -143,10 +259,90 @@
                     <input type="date" name="study_date" id="study_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
                 </div>
                 <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeStudyForm()" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                    <button type="button" onclick="closeForm('create-study-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
                     <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Create Series modal -->
+    <div id="create-series-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-4">Create Missing Series</h3>
+            <form id="series-create-form" method="post" action="{% url 'deidentification:create_series' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Instance UID</label>
+                    <input type="text" name="series_instance_uid" id="series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Study Instance UID (parent)</label>
+                    <input type="text" name="study_instance_uid" id="series_study_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Modality</label>
+                    <input type="text" name="modality" id="series_modality_input" value="CT" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Date (optional)</label>
+                    <input type="date" name="series_date" id="series_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Frame of Reference UID (optional)</label>
+                    <input type="text" name="frame_of_reference_uid" id="series_frame_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <input type="hidden" name="deidentified_series_instance_uid" id="series_deid_uid_input">
+                <input type="hidden" name="deidentified_series_date" id="series_deid_date_input">
+                <input type="hidden" name="deidentified_frame_of_reference_uid" id="series_deid_frame_uid_input">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeForm('create-series-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Instance modal -->
+    <div id="create-instance-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-4">Create Missing Instance</h3>
+            <form id="instance-create-form" method="post" action="{% url 'deidentification:create_instance' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">SOP Instance UID</label>
+                    <input type="text" name="sop_instance_uid" id="instance_sop_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Instance UID (parent)</label>
+                    <input type="text" name="series_instance_uid" id="instance_series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+                </div>
+                <input type="hidden" name="deidentified_sop_instance_uid" id="instance_deid_sop_uid_input">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeForm('create-instance-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk create progress modal -->
+    <div id="bulk-create-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-2">Bulk Creating Records...</h3>
+            <div class="w-full bg-gray-200 rounded-full h-4 mb-3">
+                <div id="bulk-progress-bar" class="bg-chavi-primary h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="bulk-progress-text" class="text-sm text-gray-600">Preparing...</p>
+            <div id="bulk-results" class="hidden mt-4 text-sm">
+                <p id="bulk-success-count" class="text-green-600 font-medium"></p>
+                <p id="bulk-skipped-count" class="text-gray-500 font-medium"></p>
+                <p id="bulk-error-count" class="text-red-600 font-medium"></p>
+                <div id="bulk-error-list" class="mt-2 max-h-32 overflow-y-auto text-xs text-red-500"></div>
+            </div>
+            <div id="bulk-close-btn" class="hidden flex justify-end mt-4">
+                <button type="button" onclick="closeForm('bulk-create-modal'); window.location.href='{% url 'deidentification:legacy_import' %}';" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Continue</button>
+            </div>
         </div>
     </div>
     {% else %}
@@ -158,15 +354,19 @@
     </div>
     {% endif %}
 
-    <div class="mt-6">
-        <a href="{% url 'deidentification:legacy_import' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-            <i class="fas fa-redo mr-2"></i>Re-run Import
+    <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-yellow-800 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i>Next Step: Re-run the Legacy Import</h3>
+        <p class="text-sm text-yellow-700 mb-3">After creating all missing records above, you must re-upload the legacy database and encryption key to link the deidentified mappings.</p>
+        <a href="{% url 'deidentification:legacy_import' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-chavi-primary hover:bg-chavi-secondary">
+            <i class="fas fa-upload mr-2"></i>Re-upload Legacy Files
         </a>
     </div>
 </div>
 
 <script>
 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+const bulkCreateUrl = '{% url "deidentification:bulk_create" %}';
+const legacyImportUrl = '{% url "deidentification:legacy_import" %}';
 
 function parseDate(val) {
     if (!val) return '';
@@ -176,8 +376,26 @@ function parseDate(val) {
     return val;
 }
 
+function closeForm(id) {
+    document.getElementById(id).classList.add('hidden');
+}
+
+function toggleAccordion(headerEl, contentId) {
+    var content = document.getElementById(contentId);
+    var arrow = headerEl.querySelector('.accordion-arrow');
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        if (arrow) arrow.style.transform = 'rotate(90deg)';
+    } else {
+        content.classList.add('hidden');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Individual create buttons
 document.querySelectorAll('.create-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
         var action = this.dataset.action;
         if (action === 'create-patient') {
             document.getElementById('patient_id_input').value = this.dataset.patientId;
@@ -186,51 +404,160 @@ document.querySelectorAll('.create-btn').forEach(function(btn) {
         } else if (action === 'create-study') {
             document.getElementById('study_uid_input').value = this.dataset.studyUid;
             document.getElementById('study_date_input').value = parseDate(this.dataset.studyDate);
+            document.getElementById('study_patient_input').value = this.dataset.patientId || '';
             document.getElementById('create-study-form').classList.remove('hidden');
+        } else if (action === 'create-series') {
+            document.getElementById('series_uid_input').value = this.dataset.seriesUid;
+            document.getElementById('series_date_input').value = parseDate(this.dataset.seriesDate);
+            document.getElementById('series_frame_uid_input').value = this.dataset.frameUid || '';
+            document.getElementById('series_study_uid_input').value = this.dataset.studyUid || '';
+            document.getElementById('series_deid_uid_input').value = this.dataset.deidSeriesUid || '';
+            document.getElementById('series_deid_date_input').value = this.dataset.seriesDate || '';
+            document.getElementById('series_deid_frame_uid_input').value = this.dataset.frameUid || '';
+            document.getElementById('create-series-form').classList.remove('hidden');
+        } else if (action === 'create-instance') {
+            document.getElementById('instance_sop_uid_input').value = this.dataset.sopUid;
+            document.getElementById('instance_series_uid_input').value = this.dataset.seriesUid || '';
+            document.getElementById('instance_deid_sop_uid_input').value = this.dataset.deidSopUid || '';
+            document.getElementById('create-instance-form').classList.remove('hidden');
         }
     });
 });
 
-function closePatientForm() {
-    document.getElementById('create-patient-form').classList.add('hidden');
+// Form submit handlers — redirect to legacy import after success
+function handleFormSubmit(formId, successKey) {
+    var form = document.getElementById(formId);
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(this.action, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: new FormData(this),
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                alert('Record created: ' + data[successKey] + '\n\nPlease create any remaining missing records, then re-upload the legacy files.');
+                closeForm(formId);
+                window.location.href = legacyImportUrl;
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }).catch(err => alert('Error: ' + err));
+    });
 }
 
-function closeStudyForm() {
-    document.getElementById('create-study-form').classList.add('hidden');
+handleFormSubmit('patient-create-form', 'patient_id');
+handleFormSubmit('study-create-form', 'study_instance_uid');
+handleFormSubmit('series-create-form', 'series_instance_uid');
+handleFormSubmit('instance-create-form', 'sop_instance_uid');
+
+// Shared bulk create function
+function collectRecordsFromBtns(btns, fallbackPatientId) {
+    var records = [];
+    btns.forEach(function(b) {
+        var action = b.dataset.action;
+        if (action === 'create-patient') {
+            records.push({
+                type: 'patient',
+                original_id: b.dataset.patientId,
+                date_of_birth: b.dataset.dob || '',
+            });
+        } else if (action === 'create-study') {
+            records.push({
+                type: 'study',
+                original_id: b.dataset.studyUid,
+                deidentified_date: b.dataset.studyDate || '',
+                parent_patient_id: b.dataset.patientId || fallbackPatientId || '',
+            });
+        } else if (action === 'create-series') {
+            records.push({
+                type: 'series',
+                original_id: b.dataset.seriesUid,
+                deidentified_series_date: b.dataset.seriesDate || '',
+                deidentified_frame_of_reference_uid: b.dataset.frameUid || '',
+                deidentified_id: b.dataset.deidSeriesUid || '',
+                parent_study_uid: b.dataset.studyUid || '',
+            });
+        } else if (action === 'create-instance') {
+            records.push({
+                type: 'instance',
+                original_id: b.dataset.sopUid,
+                deidentified_id: b.dataset.deidSopUid || '',
+                parent_series_uid: b.dataset.seriesUid || '',
+            });
+        }
+    });
+    return records;
 }
 
-document.getElementById('patient-create-form')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    fetch(this.action, {
-        method: 'POST',
-        headers: {'X-CSRFToken': csrfToken},
-        body: new FormData(this),
-    }).then(r => r.json()).then(data => {
-        if (data.success) {
-            alert('Patient created: ' + data.patient_id);
-            closePatientForm();
-            window.location.reload();
-        } else {
-            alert('Error: ' + data.error);
-        }
-    }).catch(err => alert('Error: ' + err));
-});
+function submitBulkCreate(records) {
+    if (records.length === 0) {
+        alert('No missing records found to create.');
+        return;
+    }
 
-document.getElementById('study-create-form')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    fetch(this.action, {
+    // Sort records so parents are created before children
+    var typeOrder = {patient: 0, study: 1, series: 2, instance: 3};
+    records.sort(function(a, b) { return (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9); });
+
+    // Show progress modal
+    document.getElementById('bulk-create-modal').classList.remove('hidden');
+    document.getElementById('bulk-results').classList.add('hidden');
+    document.getElementById('bulk-close-btn').classList.add('hidden');
+    document.getElementById('bulk-progress-bar').style.width = '10%';
+    document.getElementById('bulk-progress-text').textContent = 'Creating ' + records.length + ' records...';
+
+    fetch(bulkCreateUrl, {
         method: 'POST',
-        headers: {'X-CSRFToken': csrfToken},
-        body: new FormData(this),
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({records: records}),
     }).then(r => r.json()).then(data => {
-        if (data.success) {
-            alert('Study created: ' + data.study_instance_uid);
-            closeStudyForm();
-            window.location.reload();
-        } else {
-            alert('Error: ' + data.error);
+        document.getElementById('bulk-progress-bar').style.width = '100%';
+        document.getElementById('bulk-progress-text').textContent = 'Done!';
+        document.getElementById('bulk-results').classList.remove('hidden');
+        document.getElementById('bulk-success-count').textContent = data.created_count + ' record(s) created successfully.';
+        document.getElementById('bulk-skipped-count').textContent = (data.skipped_count || 0) + ' record(s) skipped (already existed).';
+        document.getElementById('bulk-error-count').textContent = data.error_count + ' error(s).';
+        var errList = document.getElementById('bulk-error-list');
+        errList.innerHTML = '';
+        if (data.errors && data.errors.length > 0) {
+            data.errors.forEach(function(err) {
+                var div = document.createElement('div');
+                div.textContent = err.id + ': ' + err.error;
+                errList.appendChild(div);
+            });
         }
-    }).catch(err => alert('Error: ' + err));
+        document.getElementById('bulk-close-btn').classList.remove('hidden');
+    }).catch(err => {
+        document.getElementById('bulk-progress-text').textContent = 'Error: ' + err;
+        document.getElementById('bulk-close-btn').classList.remove('hidden');
+    });
+}
+
+// Global "Create All" button — collects every create-btn on the page
+var createAllBtn = document.getElementById('create-all-btn');
+if (createAllBtn) {
+    createAllBtn.addEventListener('click', function() {
+        var allBtns = document.querySelectorAll('.create-btn');
+        var records = collectRecordsFromBtns(allBtns, '');
+        submitBulkCreate(records);
+    });
+}
+
+// Per-patient bulk create buttons
+document.querySelectorAll('.bulk-create-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var patientId = this.dataset.patientId;
+        var patientBlock = this.closest('.patient-block') || this.closest('#patient-' + patientId);
+        if (!patientBlock) return;
+        var btns = patientBlock.querySelectorAll('.create-btn');
+        var records = collectRecordsFromBtns(btns, patientId);
+        submitBulkCreate(records);
+    });
 });
 </script>
 {% endblock %}

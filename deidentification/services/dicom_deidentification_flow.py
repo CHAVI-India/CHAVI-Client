@@ -60,7 +60,11 @@ def _enumerate_dicom_files(folder_path: str) -> List[Path]:
 def pass0_extract_metadata(study: DICOMStudy, progress_callback=None) -> int:
     folder_path = study.folder_path
     if not folder_path:
-        raise ValueError(f"Study {study.study_instance_uid} has no folder_path")
+        raise ValueError(
+            f"Study {study.study_instance_uid} has no DICOM files (folder_path is empty). "
+            f"This study was likely imported from legacy data without uploading the actual DICOM files. "
+            f"Please upload the DICOM files for this study before attempting deidentification."
+        )
 
     files = _enumerate_dicom_files(folder_path)
     total = len(files)

@@ -46,7 +46,7 @@
                 
                 <!-- Navigation Links -->
                 <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-2">
+                    <div class="ml-10 flex items-center space-x-2">
                         <a href="{% url 'client_app:homepage' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-home mr-1"></i>Home
                         </a>
@@ -108,7 +108,7 @@
                         
                         <!-- Data Export Dropdown -->
                         <div class="relative group">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-2 py-2 rounded-md text-sm font-medium transition-all">
                                 <i class="fas fa-file-export mr-1"></i>Data Export<i class="fas fa-chevron-down ml-1 text-xs"></i>
                             </button>
                             <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
@@ -119,19 +119,9 @@
                                     <a href="{% url 'client_app:dicom_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i class="fas fa-file-medical mr-2"></i>DICOM Export
                                     </a>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Deidentification Dropdown -->
-                        <div class="relative group">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-user-shield mr-1"></i>Deidentification<i class="fas fa-chevron-down ml-1 text-xs"></i>
-                            </button>
-                            <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                <div class="py-1">
+                                    <div class="border-t border-gray-100"></div>
                                     <a href="{% url 'deidentification:patient_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-users mr-2"></i>Patient List
+                                        <i class="fas fa-users mr-2"></i>Deidentification Patient List
                                     </a>
                                     <a href="{% url 'deidentification:legacy_import' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i class="fas fa-database mr-2"></i>Legacy Mapping Import
@@ -255,6 +245,12 @@
                 </a>
                 <a href="{% url 'client_app:dicom_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-file-medical mr-2"></i>DICOM Export
+                </a>
+                <a href="{% url 'deidentification:patient_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-users mr-2"></i>Deidentification Patient List
+                </a>
+                <a href="{% url 'deidentification:legacy_import' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-database mr-2"></i>Legacy Mapping Import
                 </a>
                 <!-- Patient Management -->
                 <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">PATIENT MANAGEMENT</div>
