@@ -61,6 +61,7 @@ djangorestframework==3.17.1
 docopt==0.6.2
 docstring_parser==0.18.0
 docutils==0.22.4
+en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl#sha256=293e9547a655b25499198ab15a525b05b9407a75f10255e405e8c3854329ab63
 et_xmlfile==2.0.0
 fido2==2.2.0
 filelock==3.32.3
