@@ -14,8 +14,7 @@ ENV PYTHONUNBUFFERED=1
 # Install dependencies first for caching benefit
 COPY requirements.txt /app/ 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
-    python -m spacy download en_core_web_lg
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
  
 # Stage 2: Production stage
 FROM python:3.13-slim-bookworm
