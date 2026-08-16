@@ -99,6 +99,16 @@
                             <a href="{% url 'client_app:taskrun_detail' task.pk %}" class="text-chavi-primary hover:text-chavi-secondary mr-3">
                                 <i class="fas fa-eye"></i> View
                             </a>
+                            {% if task.status == 'SUCCESS' and task.task_name == 'import_legacy_mapping' %}
+                                <a href="{% url 'deidentification:legacy_import_results' task.pk %}" class="text-green-600 hover:text-green-800 mr-3">
+                                    <i class="fas fa-clipboard-check"></i> Results
+                                </a>
+                            {% endif %}
+                            {% if task.status == 'SUCCESS' and task.task_name in 'build_dicom_download_zip,build_clinical_download_zip' %}
+                                <a href="{% url 'deidentification:download_result' task.pk %}" class="text-green-600 hover:text-green-800 mr-3">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                            {% endif %}
                             {% if task.status == 'FAILURE' or task.status == 'STALLED' %}
                                 {% if task.task_args %}
                                 <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">
+            <i class="fas fa-user-shield mr-2 text-chavi-primary"></i>Deidentification — Patient List
+        </h1>
+        <p class="mt-1 text-sm text-gray-600">Select patients to bulk deidentify, or click an individual patient to view studies.</p>
+    </div>
+
+    <!-- Bulk action bar -->
+    <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <button type="button" id="bulk-deidentify-btn" disabled
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-chavi-primary hover:bg-chavi-secondary disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-play mr-2"></i>Deidentify Selected (<span id="selected-count">0</span>)
+            </button>
+            <button type="button" id="deidentify-all-btn"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-layer-group mr-2"></i>Deidentify All Patients
+            </button>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button type="button" id="download-selected-btn" disabled
+                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-download mr-2"></i>Download Selected (DICOM)
+            </button>
+            <button type="button" id="download-selected-clinical-btn" disabled
+                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-file-medical mr-2"></i>Download Selected (Clinical)
+            </button>
+            <a href="{% url 'deidentification:bulk_download' %}"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-download mr-2"></i>Download All (DICOM)
+            </a>
+            <a href="{% url 'deidentification:bulk_download_clinical' %}"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-file-medical mr-2"></i>Download All (Clinical)
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Studies</th>
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Series</th>
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Instances</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deidentified</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for patient in patients %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <input type="checkbox" name="patient_ids" value="{{ patient.patient_id }}"
+                            class="patient-checkbox rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ patient.patient_id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.gender|default:"—" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.date_of_birth|default:"—" }}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.study_count|default:"0" }}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.series_count|default:"0" }}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.instance_count|default:"0" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if patient.has_deid %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="fas fa-check mr-1"></i>Yes
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            No
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if patient.deid_jobs_total == 0 %}
+                            <span class="text-gray-400 text-xs">No jobs</span>
+                        {% else %}
+                            <div class="flex items-center space-x-1 text-xs">
+                                {% if patient.deid_jobs_success %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-100 text-green-800" title="Success">
+                                    <i class="fas fa-check"></i> {{ patient.deid_jobs_success }}
+                                </span>
+                                {% endif %}
+                                {% if patient.deid_jobs_processing %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800" title="Processing">
+                                    <i class="fas fa-spinner"></i> {{ patient.deid_jobs_processing }}
+                                </span>
+                                {% endif %}
+                                {% if patient.deid_jobs_pending %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" title="Pending">
+                                    <i class="fas fa-clock"></i> {{ patient.deid_jobs_pending }}
+                                </span>
+                                {% endif %}
+                                {% if patient.deid_jobs_failed %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-100 text-red-800" title="Failed">
+                                    <i class="fas fa-times"></i> {{ patient.deid_jobs_failed }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <a href="{% url 'deidentification:patient_detail' patient.patient_id %}" class="text-chavi-primary hover:text-chavi-secondary font-medium">
+                            <i class="fas fa-eye mr-1"></i>View
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="px-6 py-12 text-center text-sm text-gray-400">No patients found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="mt-4 flex items-center justify-between">
+        <div class="text-sm text-gray-600">
+            Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+        </div>
+        <div class="flex space-x-2">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-50">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-50">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+const bulkBtn = document.getElementById('bulk-deidentify-btn');
+const downloadSelectedBtn = document.getElementById('download-selected-btn');
+const downloadSelectedClinicalBtn = document.getElementById('download-selected-clinical-btn');
+const selectedCountSpan = document.getElementById('selected-count');
+const selectAllCheckbox = document.getElementById('select-all');
+const patientCheckboxes = document.querySelectorAll('.patient-checkbox');
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.patient-checkbox:checked').length;
+    selectedCountSpan.textContent = count;
+    bulkBtn.disabled = count === 0;
+    downloadSelectedBtn.disabled = count === 0;
+    downloadSelectedClinicalBtn.disabled = count === 0;
+}
+
+selectAllCheckbox.addEventListener('change', function() {
+    patientCheckboxes.forEach(cb => cb.checked = this.checked);
+    updateSelectedCount();
+});
+
+patientCheckboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+
+function triggerBulkDeidentify(patientIds) {
+    fetch('{% url "deidentification:bulk_deidentify" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ patient_ids: patientIds }),
+    }).then(r => r.json()).then(data => {
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+        } else if (data.error) {
+            alert('Error: ' + data.error);
+        }
+    }).catch(err => alert('Error: ' + err));
+}
+
+bulkBtn.addEventListener('click', function() {
+    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
+    if (!confirm(`Deidentify ${selected.length} patient(s)? This will process all their DICOM studies.`)) return;
+    triggerBulkDeidentify(selected);
+});
+
+document.getElementById('deidentify-all-btn').addEventListener('click', function() {
+    if (!confirm('Deidentify ALL patients? This will process all DICOM studies for every patient in the system.')) return;
+    triggerBulkDeidentify([]);
+});
+
+downloadSelectedBtn.addEventListener('click', function() {
+    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
+    const url = `{% url 'deidentification:bulk_download' %}?patient_ids=` + encodeURIComponent(selected.join(','));
+    fetch(url).then(r => {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+            return r.json().then(data => {
+                if (data.redirect_url) {
+                    alert(data.message || 'Building ZIP in background. You will be notified when ready.');
+                    window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+        // File response — trigger download
+        return r.blob().then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'deidentified_dicom.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }).catch(err => alert('Error: ' + err));
+});
+
+downloadSelectedClinicalBtn.addEventListener('click', function() {
+    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
+    const url = `{% url 'deidentification:bulk_download_clinical' %}?patient_ids=` + encodeURIComponent(selected.join(','));
+    fetch(url).then(r => {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+            return r.json().then(data => {
+                if (data.redirect_url) {
+                    alert(data.message || 'Building ZIP in background. You will be notified when ready.');
+                    window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+        return r.blob().then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'deidentified_clinical.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }).catch(err => alert('Error: ' + err));
+});
+</script>
+{% endblock %}

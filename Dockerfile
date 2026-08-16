@@ -14,7 +14,8 @@ ENV PYTHONUNBUFFERED=1
 # Install dependencies first for caching benefit
 COPY requirements.txt /app/ 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt
+    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
+    python -m spacy download en_core_web_lg
  
 # Stage 2: Production stage
 FROM python:3.13-slim-bookworm
@@ -22,6 +23,11 @@ FROM python:3.13-slim-bookworm
 RUN useradd -m -r appuser && \
    mkdir /app && \
    chown -R appuser /app
+
+# Install system packages required by pytesseract / Presidio
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tesseract-ocr && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy the Python dependencies from the builder stage
 COPY --from=builder /install /usr/local

@@ -37,6 +37,8 @@ urlpatterns = [
     path('import/', include('data_import.urls')),
     # Extractor URLs
     path('extractor/', include('extractor.urls')),
+    # Deidentification URLs
+    path('deidentification/', include('deidentification.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Celery progress endpoint for task progress bars

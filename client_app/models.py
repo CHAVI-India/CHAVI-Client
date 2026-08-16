@@ -2208,6 +2208,7 @@ class TaskRun(models.Model):
         PATIENT_EXPORT = 'PATIENT_EXPORT', 'Patient Export'
         ASSOCIATE = 'ASSOCIATE', 'Associate to Project'
         UNPROCESSED = 'UNPROCESSED', 'Process Unprocessed DICOM'
+        DEIDENTIFICATION = 'DEIDENTIFICATION', 'Deidentification'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -2328,3 +2329,65 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.notification_type} - {self.title} ({'read' if self.is_read else 'unread'})"
+
+
+# DICOM Series and Instance models (for deidentification metadata extraction)
+class DICOMSeries(models.Model):
+    study = models.ForeignKey(
+        DICOMStudy,
+        on_delete=models.CASCADE,
+        related_name='series',
+        help_text="Reference to the DICOM study this series belongs to."
+    )
+    series_instance_uid = models.CharField(
+        max_length=128,
+        unique=True,
+        help_text="DICOM tag (0020,000E) — Series Instance UID."
+    )
+    series_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="DICOM tag (0008,0021) — Series Date."
+    )
+    modality = models.CharField(
+        max_length=16,
+        help_text="DICOM tag (0008,0060) — Modality (e.g. CT, MR, RTPLAN)."
+    )
+    frame_of_reference_uid = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+        help_text="DICOM tag (0020,0052) — Frame of Reference UID."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.modality} - {self.series_instance_uid[:30]}..."
+
+    class Meta:
+        verbose_name_plural = "DICOM Series"
+        db_table = "dicom_series"
+
+
+class DICOMInstance(models.Model):
+    series = models.ForeignKey(
+        DICOMSeries,
+        on_delete=models.CASCADE,
+        related_name='instances',
+        help_text="Reference to the DICOM series this instance belongs to."
+    )
+    sop_instance_uid = models.CharField(
+        max_length=128,
+        unique=True,
+        help_text="DICOM tag (0008,0018) — SOP Instance UID."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.sop_instance_uid[:30]}..."
+
+    class Meta:
+        verbose_name_plural = "DICOM Instances"
+        db_table = "dicom_instances"

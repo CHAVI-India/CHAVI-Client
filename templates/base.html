@@ -123,6 +123,23 @@
                             </div>
                         </div>
                         
+                        <!-- Deidentification Dropdown -->
+                        <div class="relative group">
+                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+                                <i class="fas fa-user-shield mr-1"></i>Deidentification<i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                            <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                <div class="py-1">
+                                    <a href="{% url 'deidentification:patient_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-users mr-2"></i>Patient List
+                                    </a>
+                                    <a href="{% url 'deidentification:legacy_import' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-database mr-2"></i>Legacy Mapping Import
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Patient Search -->
                         <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
                             <i class="fas fa-search mr-1"></i>Search

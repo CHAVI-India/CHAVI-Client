@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'celery_progress',
+    'deidentification',
 ]
 
 MIDDLEWARE = [
@@ -711,6 +712,12 @@ CACHES = {
 
 # Django Encrypted Model Fields Configuration
 FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY', 'FUXVBYgTzPS0fYQt_3mzVIart6sHxGiiANCIFnfK0T8=')
+
+
+# Deidentification Settings
+DEID_SKIP_PIXEL_SCRUB_MODALITIES = {'MR', 'RTPLAN', 'RTDOSE', 'RTSTRUCT', 'REG'}
+DEID_LOG_PIXEL_REDACTION_BBOXES = True
+DEID_SUB_BATCH_SIZE = 50
 
 
 # Celery Configuration

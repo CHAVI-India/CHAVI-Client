@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="mb-6">
+        <a href="{% url 'deidentification:patient_list' %}" class="text-sm text-gray-500 hover:text-gray-700">
+            <i class="fas fa-arrow-left mr-1"></i>Back to Patient List
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">
+            <i class="fas fa-user-shield mr-2 text-chavi-primary"></i>{{ patient.patient_id }}
+        </h1>
+        {% if deid_patient %}
+        <p class="mt-1 text-sm text-green-600">
+            <i class="fas fa-check-circle mr-1"></i>Deidentified — shift: {{ deid_patient.date_shift_value }} days
+        </p>
+        {% else %}
+        <p class="mt-1 text-sm text-gray-500">Not yet deidentified.</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Studies & Deidentification Jobs</h2>
+
+        <div class="mb-4 flex items-center justify-between">
+            <form method="post" action="{% url 'deidentification:trigger_deidentify' patient.patient_id %}" id="deidentify-form">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-chavi-primary hover:bg-chavi-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary">
+                    <i class="fas fa-play mr-2"></i>Deidentify All Studies
+                </button>
+            </form>
+            <div class="flex items-center space-x-3">
+                <a href="{% url 'deidentification:download_clinical' patient.patient_id %}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
+                   {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
+                    <i class="fas fa-file-medical mr-2"></i>Download Clinical Data (JSON)
+                </a>
+                <a href="{% url 'deidentification:download' patient.patient_id %}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
+                   {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
+                    <i class="fas fa-download mr-2"></i>Download DICOM (ZIP)
+                </a>
+            </div>
+        </div>
+
+        <div class="overflow-hidden border border-gray-200 rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Study UID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modality</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latest Job</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Files</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Download</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for item in study_jobs %}
+                    <tr class="hover:bg-gray-50" {% if item.latest_job and item.latest_job.status == 'PROCESSING' %}data-job-id="{{ item.latest_job.id }}"{% endif %}>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-mono text-xs">{{ item.study.study_instance_uid|truncatechars:40 }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_date|default:"—" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_modalities|default:"—" }}</td>
+                        <td class="px-4 py-3 text-sm job-status-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
+                            {% if item.latest_job %}
+                                {% with status=item.latest_job.status %}
+                                    {% if status == 'SUCCESS' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800">{{ status }}</span>
+                                    {% elif status == 'FAILURE' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">{{ status }}</span>
+                                    {% elif status == 'PROCESSING' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 animate-pulse">{{ status }}</span>
+                                    {% elif status == 'PARTIAL' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">{{ status }}</span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ status }}</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                <span class="text-gray-400 text-xs">No jobs</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500 job-files-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
+                            {% if item.latest_job %}
+                                {{ item.latest_job.processed_count }}/{{ item.latest_job.total_file_count }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {% if item.latest_job and item.latest_job.status == 'SUCCESS' %}
+                            <span class="text-green-600"><i class="fas fa-check"></i></span>
+                            {% elif item.latest_job and item.latest_job.status == 'PARTIAL' %}
+                            <span class="text-yellow-600"><i class="fas fa-exclamation-triangle"></i></span>
+                            {% elif item.latest_job and item.latest_job.status == 'FAILURE' %}
+                            <span class="text-red-600"><i class="fas fa-times"></i></span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {% if item.latest_job and item.latest_job.status in 'SUCCESS,PARTIAL' %}
+                            <a href="{% url 'deidentification:download' item.latest_job.id %}"
+                               class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium">
+                                <i class="fas fa-download mr-1"></i>Download
+                            </a>
+                            {% else %}
+                            <span class="text-gray-400 text-xs">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-400">No studies found for this patient.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('deidentify-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch(this.action, {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+    }).then(r => r.json()).then(data => {
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+        }
+    }).catch(err => alert('Error: ' + err));
+});
+
+// Auto-poll job statuses while any are PROCESSING
+(function() {
+    const statusCells = document.querySelectorAll('.job-status-cell[data-job-id]:not([data-job-id=""])');
+    const processingJobs = Array.from(statusCells).filter(cell => {
+        return cell.querySelector('.animate-pulse') !== null;
+    });
+    if (processingJobs.length === 0) return;
+
+    const pollInterval = 5000; // 5 seconds
+    const jobIds = processingJobs.map(cell => cell.dataset.jobId);
+
+    function pollStatuses() {
+        jobIds.forEach(jobId => {
+            fetch(`/deidentification/job/${jobId}/status/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status && data.status !== 'PROCESSING') {
+                        // Reload page to update all badges, download buttons, etc.
+                        window.location.reload();
+                    } else if (data.status === 'PROCESSING') {
+                        // Update file count if available
+                        const filesCell = document.querySelector(`.job-files-cell[data-job-id="${jobId}"]`);
+                        if (filesCell && data.processed_count !== undefined && data.total_file_count !== undefined) {
+                            filesCell.textContent = `${data.processed_count}/${data.total_file_count}`;
+                        }
+                    }
+                })
+                .catch(err => console.error('Poll error:', err));
+        });
+    }
+
+    setInterval(pollStatuses, pollInterval);
+})();
+</script>
+{% endblock %}
