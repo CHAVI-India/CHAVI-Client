@@ -22,5 +22,6 @@ urlpatterns = [
     path('legacy-import/create-series/', views.CreateMissingSeriesView.as_view(), name='create_series'),
     path('legacy-import/create-instance/', views.CreateMissingInstanceView.as_view(), name='create_instance'),
     path('legacy-import/bulk-create/', views.BulkCreateMissingView.as_view(), name='bulk_create'),
+    path('legacy-import/<int:task_id>/create-all/', views.BulkCreateMissingView.as_view(), name='create_all'),
     path('download-result/<int:task_id>/', views.DownloadResultView.as_view(), name='download_result'),
 ]

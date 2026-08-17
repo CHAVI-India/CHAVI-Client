@@ -235,8 +235,11 @@ class LegacyImportResultsView(StaffPermissionRequiredMixin, View):
     template_name = 'deidentification/legacy_import_results.html'
     permission_required = 'deidentification.add_deidpatient'
 
+    PAGE_SIZE = 25
+
     def get(self, request, task_id):
         from client_app.models import TaskRun
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
         task_run = get_object_or_404(TaskRun, id=task_id)
 
         unmatched_rows = []
@@ -254,13 +257,25 @@ class LegacyImportResultsView(StaffPermissionRequiredMixin, View):
         # Group rows hierarchically: patient → studies → series → instances
         hierarchy = _build_unmatched_hierarchy(unmatched_rows)
 
+        # Paginate at the patient level to avoid rendering thousands of rows at once
+        hierarchy_items = list(hierarchy.items())
+        paginator = Paginator(hierarchy_items, self.PAGE_SIZE)
+        page_num = request.GET.get('page', 1)
+        try:
+            page_obj = paginator.page(page_num)
+        except (EmptyPage, PageNotAnInteger):
+            page_obj = paginator.page(1)
+
+        page_hierarchy = dict(page_obj.object_list)
+
         return render(request, self.template_name, {
             'page_title': 'Legacy Import Results',
             'task_run': task_run,
             'unmatched_rows': unmatched_rows,
-            'hierarchy': hierarchy,
+            'hierarchy': page_hierarchy,
             'stats': result_data,
             'filter_type': filter_type,
+            'page_obj': page_obj,
         })
 
 
@@ -500,10 +515,35 @@ class CreateMissingInstanceView(StaffPermissionRequiredMixin, View):
 
 
 class BulkCreateMissingView(StaffPermissionRequiredMixin, View):
-    """Bulk create multiple missing records from unmatched legacy data."""
+    """Bulk create multiple missing records from unmatched legacy data.
+
+    Accepts either:
+    - JSON body with ``records`` list (used by per-patient bulk create, synchronous)
+    - ``task_id`` POST param (used by 'Create All' button, dispatches async Celery task)
+    """
     permission_required = 'deidentification.add_deidpatient'
 
-    def post(self, request):
+    def post(self, request, task_id=None):
+        # If task_id is provided (from URL kwarg or POST/GET), dispatch async Celery task with ALL unmatched rows
+        task_id = task_id or request.POST.get('task_id') or request.GET.get('task_id')
+        if task_id:
+            from client_app.models import TaskRun
+            task_run = get_object_or_404(TaskRun, id=task_id)
+            if not task_run.result_summary:
+                return JsonResponse({'error': 'No result data found for this task'}, status=400)
+
+            records = task_run.result_summary.get('unmatched_rows', [])
+            if not records:
+                return JsonResponse({'error': 'No unmatched records to create'}, status=400)
+
+            from deidentification.tasks import create_missing_records_task
+            result = create_missing_records_task.delay(records, user_id=request.user.id)
+            return JsonResponse({
+                'task_id': result.id,
+                'redirect_url': reverse('client_app:taskrun_list'),
+            })
+
+        # Otherwise, synchronous per-patient bulk create from JSON body
         import json as _json
         try:
             data = _json.loads(request.body)

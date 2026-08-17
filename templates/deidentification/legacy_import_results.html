@@ -50,7 +50,7 @@
                     <div class="mt-2 bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
                         <p class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>How to resolve unmatched records:</p>
                         <ol class="list-decimal list-inside space-y-1 ml-2">
-                            <li>Click <strong>Create All Missing Records</strong> above to create every unmatched record in one operation.</li>
+                            <li>Click <strong>Create All Missing Records</strong> above to dispatch a background task that creates every unmatched record. You will be redirected to the task list to monitor progress.</li>
                             <li>Alternatively, expand a patient row to create records individually or per-patient.</li>
                             <li>For <strong>Series</strong>, the parent Study UID is pre-filled from the hierarchy. For <strong>Instances</strong>, the parent Series UID is pre-filled.</li>
                             <li>After creating all missing records, click <strong>Re-upload Legacy Files</strong> below to re-run the import and link deidentified mappings.</li>
@@ -206,8 +206,7 @@
                     <div class="px-4 py-3 border-t border-gray-200 bg-blue-50">
                         <button type="button"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-chavi-primary rounded-md hover:bg-chavi-secondary bulk-create-btn"
-                            data-patient-id="{{ patient_id }}"
-                            data-records-json="{{ patient_data|json_script:'' }}">
+                            data-patient-id="{{ patient_id }}">
                             <i class="fas fa-layer-group mr-2"></i>Bulk Create All Missing Records for {{ patient_id|truncatechars:20 }}
                         </button>
                     </div>
@@ -217,6 +216,28 @@
             {% endfor %}
         </div>
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="mt-4 flex items-center justify-between bg-white shadow rounded-lg px-6 py-3">
+        <div class="text-sm text-gray-600">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            ({{ page_obj.paginator.count }} patients total)
+        </div>
+        <div class="flex items-center space-x-2">
+            {% if page_obj.has_previous %}
+            <a href="?type={{ filter_type }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                <i class="fas fa-chevron-left mr-1"></i>Previous
+            </a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?type={{ filter_type }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                Next<i class="fas fa-chevron-right ml-1"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Create Patient modal -->
     <div id="create-patient-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -537,13 +558,21 @@ function submitBulkCreate(records) {
     });
 }
 
-// Global "Create All" button — collects every create-btn on the page
+// Global "Create All" button — dispatches async Celery task with ALL unmatched records
 var createAllBtn = document.getElementById('create-all-btn');
 if (createAllBtn) {
     createAllBtn.addEventListener('click', function() {
-        var allBtns = document.querySelectorAll('.create-btn');
-        var records = collectRecordsFromBtns(allBtns, '');
-        submitBulkCreate(records);
+        var createAllUrl = '{% url "deidentification:create_all" task_run.id %}';
+        fetch(createAllUrl, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+        }).then(r => r.json()).then(data => {
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else if (data.error) {
+                alert('Error: ' + data.error);
+            }
+        }).catch(err => alert('Error: ' + err));
     });
 }
 

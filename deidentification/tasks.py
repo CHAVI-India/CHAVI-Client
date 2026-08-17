@@ -431,3 +431,173 @@ def build_clinical_download_zip_task(self, patient_ids, user_id=None):
         if task_run:
             _fail_task_run(task_run, str(e))
         raise
+
+
+@shared_task(bind=True, soft_time_limit=1800)
+def create_missing_records_task(self, records, user_id=None):
+    """Asynchronously create missing Patient/Study/Series/Instance records
+    from unmatched legacy import data.
+
+    ``records`` is a list of dicts with keys like:
+        type, original_id, date_of_birth, parent_patient_id,
+        deidentified_date, parent_study_uid, deidentified_series_date, etc.
+    """
+    from datetime import datetime
+    from client_app.models import Patient, DICOMStudy, DICOMSeries, DICOMInstance
+    from deidentification.models import DeidStudy, DeidSeries, DeidInstance
+
+    progress_recorder = ProgressRecorder(self)
+    task_run = None
+
+    try:
+        task_run = _create_task_run(
+            task_name='create_missing_records',
+            task_type=TaskRun.TaskType.DEIDENTIFICATION,
+            user_id=user_id,
+            celery_task_id=self.request.id,
+            task_args=self.request.args,
+            task_kwargs=self.request.kwargs,
+        )
+
+        def _parse_date(val):
+            if not val or not str(val).strip():
+                return None
+            val = str(val).strip()
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y%m%d', '%d-%m-%Y'):
+                try:
+                    return datetime.strptime(val, fmt).date()
+                except (ValueError, TypeError):
+                    continue
+            return None
+
+        type_order = {'patient': 0, 'study': 1, 'series': 2, 'instance': 3}
+        records.sort(key=lambda r: type_order.get(r.get('type', ''), 9))
+
+        total = len(records)
+        created = []
+        errors = []
+        skipped = []
+
+        for idx, rec in enumerate(records, 1):
+            rtype = rec.get('type', '')
+            try:
+                if rtype == 'patient':
+                    pid = rec.get('original_id', '').strip()
+                    if not pid or pid == '__orphan__':
+                        errors.append({'id': pid, 'error': 'patient_id required'})
+                        continue
+                    if Patient.objects.filter(patient_id=pid).exists():
+                        skipped.append({'type': 'patient', 'id': pid, 'reason': 'already exists'})
+                        continue
+                    dob = _parse_date(rec.get('date_of_birth', ''))
+                    Patient.objects.create(patient_id=pid, date_of_birth=dob)
+                    created.append({'type': 'patient', 'id': pid})
+
+                elif rtype == 'study':
+                    study_uid = rec.get('original_id', '').strip()
+                    patient_id = rec.get('parent_patient_id', '').strip()
+                    if not study_uid or not patient_id or patient_id == '__orphan__':
+                        errors.append({'id': study_uid, 'error': 'study_instance_uid and parent_patient_id required'})
+                        continue
+                    patient = Patient.objects.filter(patient_id=patient_id).first()
+                    if not patient:
+                        patient = Patient.objects.create(patient_id=patient_id, date_of_birth=None)
+                        created.append({'type': 'patient', 'id': patient_id, 'auto': True})
+                    if DICOMStudy.objects.filter(study_instance_uid=study_uid).exists():
+                        skipped.append({'type': 'study', 'id': study_uid, 'reason': 'already exists'})
+                        continue
+                    study_date = _parse_date(rec.get('deidentified_date', ''))
+                    DICOMStudy.objects.create(
+                        study_instance_uid=study_uid, patient=patient, study_date=study_date,
+                    )
+                    created.append({'type': 'study', 'id': study_uid})
+
+                elif rtype == 'series':
+                    series_uid = rec.get('original_id', '').strip()
+                    study_uid = rec.get('parent_study_uid', '').strip()
+                    if not series_uid or not study_uid:
+                        errors.append({'id': series_uid, 'error': 'series_instance_uid and parent_study_uid required'})
+                        continue
+                    study = DICOMStudy.objects.filter(study_instance_uid=study_uid).first()
+                    if not study:
+                        errors.append({'id': series_uid, 'error': f'Study {study_uid} not found'})
+                        continue
+                    if DICOMSeries.objects.filter(series_instance_uid=series_uid).exists():
+                        skipped.append({'type': 'series', 'id': series_uid, 'reason': 'already exists'})
+                        continue
+                    modality = rec.get('modality', 'CT') or 'CT'
+                    series_date = _parse_date(rec.get('deidentified_series_date', ''))
+                    frame_uid = rec.get('deidentified_frame_of_reference_uid', '').strip() or None
+                    series = DICOMSeries.objects.create(
+                        study=study, series_instance_uid=series_uid,
+                        modality=modality, series_date=series_date,
+                        frame_of_reference_uid=frame_uid,
+                    )
+                    deid_series_uid = rec.get('deidentified_id', '').strip()
+                    if deid_series_uid:
+                        deid_study = DeidStudy.objects.filter(study=study).first()
+                        if deid_study:
+                            DeidSeries.objects.update_or_create(
+                                series=series,
+                                defaults={
+                                    'deid_study': deid_study,
+                                    'deidentified_series_instance_uid': deid_series_uid,
+                                    'deidentified_series_date': series_date,
+                                    'deidentified_frame_of_reference_uid': frame_uid,
+                                },
+                            )
+                    created.append({'type': 'series', 'id': series_uid})
+
+                elif rtype == 'instance':
+                    sop_uid = rec.get('original_id', '').strip()
+                    series_uid = rec.get('parent_series_uid', '').strip()
+                    if not sop_uid or not series_uid:
+                        errors.append({'id': sop_uid, 'error': 'sop_instance_uid and parent_series_uid required'})
+                        continue
+                    series = DICOMSeries.objects.filter(series_instance_uid=series_uid).first()
+                    if not series:
+                        errors.append({'id': sop_uid, 'error': f'Series {series_uid} not found'})
+                        continue
+                    if DICOMInstance.objects.filter(sop_instance_uid=sop_uid).exists():
+                        skipped.append({'type': 'instance', 'id': sop_uid, 'reason': 'already exists'})
+                        continue
+                    instance = DICOMInstance.objects.create(series=series, sop_instance_uid=sop_uid)
+                    deid_sop_uid = rec.get('deidentified_id', '').strip()
+                    if deid_sop_uid:
+                        deid_series = DeidSeries.objects.filter(series=series).first()
+                        if deid_series:
+                            DeidInstance.objects.update_or_create(
+                                instance=instance,
+                                defaults={
+                                    'deid_series': deid_series,
+                                    'deidentified_sop_instance_uid': deid_sop_uid,
+                                },
+                            )
+                    created.append({'type': 'instance', 'id': sop_uid})
+
+            except Exception as e:
+                errors.append({'id': rec.get('original_id', ''), 'error': str(e)})
+
+            if idx % 10 == 0 or idx == total:
+                _update_task_run(
+                    task_run, progress_recorder, idx, total,
+                    f"Creating records {idx}/{total}",
+                    throttle_key=self.request.id,
+                )
+
+        result = {
+            'created_count': len(created),
+            'skipped_count': len(skipped),
+            'error_count': len(errors),
+            'created': created,
+            'skipped': skipped,
+            'errors': errors,
+        }
+        _complete_task_run(task_run, result)
+        return result
+
+    except Exception as e:
+        logger.error(f"Create missing records task failed: {e}", exc_info=True)
+        if task_run:
+            _fail_task_run(task_run, str(e))
+        raise
