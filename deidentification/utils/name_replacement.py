@@ -29,6 +29,8 @@ HASH_FIELDS = {
     'OtherPatientIDsSequence',
     'MedicalRecordLocator',
     'PatientInsurancePlanCodeSequence',
+    'ContentCreatorName',
+    'ContentDescription'
 }
 
 

@@ -2,9 +2,7 @@ import json
 import logging
 import os
 import shutil
-import tempfile
 import urllib.parse
-import zipfile
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.conf import settings
@@ -755,89 +753,39 @@ class BulkDeidentifyView(StaffPermissionRequiredMixin, View):
 class DeidDownloadView(StaffPermissionRequiredMixin, View):
     """Download deidentified DICOM files as a ZIP.
 
-    Single-patient and single-job downloads are served synchronously.
-    Bulk downloads (all patients or many selected) are dispatched as
-    background Celery tasks to avoid HTTP request timeouts.
+    All downloads are dispatched as background Celery tasks to avoid
+    HTTP request timeouts, regardless of patient count.
     """
     permission_required = 'deidentification.view_deidpatient'
 
     def get(self, request, job_id=None, patient_id=None):
-        import hashlib
-
         # Determine which patients to include
         if job_id:
             job = get_object_or_404(DeidentificationJob, id=job_id)
             if job.status not in (DeidentificationJob.Status.SUCCESS, DeidentificationJob.Status.PARTIAL):
                 return JsonResponse({'error': 'Deidentification not complete or failed'}, status=400)
-            patients = [job.study.patient]
+            pid_list = [job.study.patient.patient_id]
         elif patient_id:
             patient = get_object_or_404(Patient, patient_id=patient_id)
-            patients = [patient]
+            pid_list = [patient.patient_id]
         else:
             # Bulk download — get patient_ids from query param
             patient_ids = request.GET.get('patient_ids', '')
             if patient_ids:
-                patients = list(Patient.objects.filter(patient_id__in=patient_ids.split(',')))
+                pid_list = patient_ids.split(',')
             else:
-                patients = list(Patient.objects.all())
+                pid_list = list(Patient.objects.values_list('patient_id', flat=True))
 
-        if not patients:
+        if not pid_list:
             return JsonResponse({'error': 'No patients found'}, status=400)
 
-        # For bulk downloads (more than 3 patients), use async Celery task
-        if len(patients) > 3 and not job_id and not patient_id:
-            from deidentification.tasks import build_dicom_download_zip_task
-            pid_list = [p.patient_id for p in patients]
-            result = build_dicom_download_zip_task.delay(pid_list, user_id=request.user.id)
-            return JsonResponse({
-                'task_id': result.id,
-                'redirect_url': reverse('client_app:taskrun_list'),
-                'message': 'Building DICOM ZIP in background. You will be notified when it is ready.',
-            })
-
-        # Synchronous download for small sets
-        temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-        temp_zip.close()
-
-        try:
-            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for patient in patients:
-                    deid_patient = DeidPatient.objects.filter(patient=patient).first()
-                    if not deid_patient:
-                        continue
-
-                    patient_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()[:16]
-                    patient_folder = f"patient_{patient_hash}"
-
-                    # Add deidentified DICOM files only
-                    output_base = os.path.join(settings.MEDIA_ROOT, 'deidentification', 'output')
-                    deid_patient_dir = os.path.join(output_base, deid_patient.deidentified_patient_id)
-                    if os.path.isdir(deid_patient_dir):
-                        for deid_study in deid_patient.deid_studies.all():
-                            study_dir = os.path.join(deid_patient_dir, deid_study.deidentified_study_instance_uid)
-                            if not os.path.isdir(study_dir):
-                                continue
-                            for filename in os.listdir(study_dir):
-                                if filename.endswith('.dcm'):
-                                    file_path = os.path.join(study_dir, filename)
-                                    arcname = f"{patient_folder}/dicom/{deid_study.deidentified_study_instance_uid}/{filename}"
-                                    zf.write(file_path, arcname)
-
-            if job_id:
-                zip_name = f"deidentified_dicom_job_{job_id}.zip"
-            elif patient_id:
-                zip_name = f"deidentified_dicom_{patient_id}.zip"
-            else:
-                zip_name = f"deidentified_dicom_{len(patients)}_patients.zip"
-
-            response = FileResponse(open(temp_zip.name, 'rb'), content_type='application/zip')
-            response['Content-Disposition'] = f'attachment; filename={zip_name}'
-            return response
-        except Exception as e:
-            logger.error(f"Deid DICOM download failed: {e}", exc_info=True)
-            if os.path.exists(temp_zip.name):
-                os.unlink(temp_zip.name)
-            return JsonResponse({'error': f'Download failed: {str(e)}'}, status=500)
+        from deidentification.tasks import build_dicom_download_zip_task
+        result = build_dicom_download_zip_task.delay(pid_list, user_id=request.user.id, job_id=job_id)
+        return JsonResponse({
+            'task_id': result.id,
+            'redirect_url': reverse('client_app:taskrun_list'),
+            'message': 'Building DICOM ZIP in background. You will be notified when it is ready.',
+        })
 
 
 def _serialize_patient_clinical_data(patient, request):
@@ -930,80 +878,34 @@ def _serialize_patient_clinical_data(patient, request):
 class DeidClinicalDownloadView(StaffPermissionRequiredMixin, View):
     """Download deidentified clinical data as a ZIP of per-patient JSON files.
 
-    Single-patient downloads are served synchronously.
-    Bulk downloads are dispatched as background Celery tasks.
+    All downloads are dispatched as background Celery tasks to avoid
+    HTTP request timeouts, regardless of patient count.
     """
     permission_required = 'deidentification.view_deidpatient'
 
     def get(self, request, patient_id=None):
-        import hashlib
-        from client_app.services.patient_data_export import UUIDEncoder
-        from deidentification.services.clinical_data_deidentification import deidentify_clinical_data
-
         # Determine which patients to include
         if patient_id:
             patient = get_object_or_404(Patient, patient_id=patient_id)
-            patients = [patient]
+            pid_list = [patient.patient_id]
         else:
             # Bulk download — get patient_ids from query param
             patient_ids = request.GET.get('patient_ids', '')
             if patient_ids:
-                patients = list(Patient.objects.filter(patient_id__in=patient_ids.split(',')))
+                pid_list = patient_ids.split(',')
             else:
-                patients = list(Patient.objects.all())
+                pid_list = list(Patient.objects.values_list('patient_id', flat=True))
 
-        if not patients:
+        if not pid_list:
             return JsonResponse({'error': 'No patients found'}, status=400)
 
-        # For bulk downloads (more than 3 patients), use async Celery task
-        if len(patients) > 3 and not patient_id:
-            from deidentification.tasks import build_clinical_download_zip_task
-            pid_list = [p.patient_id for p in patients]
-            result = build_clinical_download_zip_task.delay(pid_list, user_id=request.user.id)
-            return JsonResponse({
-                'task_id': result.id,
-                'redirect_url': reverse('client_app:taskrun_list'),
-                'message': 'Building clinical data ZIP in background. You will be notified when it is ready.',
-            })
-
-        # Synchronous download for small sets
-        temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-        temp_zip.close()
-
-        try:
-            included_count = 0
-            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for patient in patients:
-                    deid_patient = DeidPatient.objects.filter(patient=patient).first()
-                    if not deid_patient:
-                        continue
-
-                    patient_data = _serialize_patient_clinical_data(patient, request)
-                    try:
-                        deidentified_clinical = deidentify_clinical_data(patient, patient_data)
-                    except ValueError as e:
-                        logger.warning(f"Skipping clinical data for {patient.patient_id}: {e}")
-                        continue
-
-                    patient_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()[:16]
-                    json_filename = f"patient_{patient_hash}_clinical_data.json"
-                    clinical_json = json.dumps(deidentified_clinical, indent=2, cls=UUIDEncoder)
-                    zf.writestr(json_filename, clinical_json)
-                    included_count += 1
-
-            if patient_id:
-                zip_name = f"deidentified_clinical_{patient_id}.zip"
-            else:
-                zip_name = f"deidentified_clinical_{included_count}_patients.zip"
-
-            response = FileResponse(open(temp_zip.name, 'rb'), content_type='application/zip')
-            response['Content-Disposition'] = f'attachment; filename={zip_name}'
-            return response
-        except Exception as e:
-            logger.error(f"Deid clinical download failed: {e}", exc_info=True)
-            if os.path.exists(temp_zip.name):
-                os.unlink(temp_zip.name)
-            return JsonResponse({'error': f'Download failed: {str(e)}'}, status=500)
+        from deidentification.tasks import build_clinical_download_zip_task
+        result = build_clinical_download_zip_task.delay(pid_list, user_id=request.user.id)
+        return JsonResponse({
+            'task_id': result.id,
+            'redirect_url': reverse('client_app:taskrun_list'),
+            'message': 'Building clinical data ZIP in background. You will be notified when it is ready.',
+        })
 
 
 class DownloadResultView(StaffPermissionRequiredMixin, View):

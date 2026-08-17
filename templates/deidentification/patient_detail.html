@@ -32,11 +32,13 @@
             </form>
             <div class="flex items-center space-x-3">
                 <a href="{% url 'deidentification:download_clinical' patient.patient_id %}"
+                   onclick="return handleDownloadClick(event, this.href)"
                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
                    {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
                     <i class="fas fa-file-medical mr-2"></i>Download Clinical Data (JSON)
                 </a>
                 <a href="{% url 'deidentification:download' patient.patient_id %}"
+                   onclick="return handleDownloadClick(event, this.href)"
                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
                    {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
                     <i class="fas fa-download mr-2"></i>Download DICOM (ZIP)
@@ -112,6 +114,7 @@
                         <td class="px-4 py-3 text-sm">
                             {% if item.latest_job and item.latest_job.status in 'SUCCESS,PARTIAL' %}
                             <a href="{% url 'deidentification:download' item.latest_job.id %}"
+                               onclick="return handleDownloadClick(event, this.href)"
                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium">
                                 <i class="fas fa-download mr-1"></i>Download
                             </a>
@@ -157,6 +160,30 @@
 </div>
 
 <script>
+function handleDownloadClick(e, url) {
+    e.preventDefault();
+    fetch(url).then(r => {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+            return r.json().then(data => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    alert(data.error);
+                }
+            });
+        }
+        return r.blob().then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'download.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }).catch(err => alert('Error: ' + err));
+    return false;
+}
+
 document.getElementById('deidentify-form')?.addEventListener('submit', function(e) {
     e.preventDefault();
     fetch(this.action, {

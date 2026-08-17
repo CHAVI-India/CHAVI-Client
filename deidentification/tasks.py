@@ -270,13 +270,12 @@ def import_legacy_mapping_task(self, db_path, key_path, user_id=None):
 
 
 @shared_task(bind=True, soft_time_limit=3600)
-def build_dicom_download_zip_task(self, patient_ids, user_id=None):
+def build_dicom_download_zip_task(self, patient_ids, user_id=None, job_id=None):
     """Build a ZIP of deidentified DICOM files for the given patient IDs in the background."""
-    import hashlib
     import tempfile
     import zipfile as _zipfile
     from django.conf import settings as _settings
-    from deidentification.models import DeidPatient
+    from deidentification.models import DeidPatient, DeidentificationJob
 
     progress_recorder = ProgressRecorder(self)
     task_run = None
@@ -304,25 +303,35 @@ def build_dicom_download_zip_task(self, patient_ids, user_id=None):
         zip_path = os.path.join(zip_dir, f"deidentified_dicom_{self.request.id}.zip")
         file_count = 0
 
+        # If job_id is provided, only include files from that job's study
+        job_study_uid = None
+        if job_id:
+            job = DeidentificationJob.objects.filter(id=job_id).select_related('study').first()
+            if job and job.study:
+                from deidentification.models import DeidStudy
+                deid_study = DeidStudy.objects.filter(study=job.study).first()
+                if deid_study:
+                    job_study_uid = deid_study.deidentified_study_instance_uid
+
         with _zipfile.ZipFile(zip_path, 'w', _zipfile.ZIP_DEFLATED) as zf:
             for idx, patient in enumerate(patients, 1):
                 deid_patient = DeidPatient.objects.filter(patient=patient).first()
                 if not deid_patient:
                     continue
 
-                patient_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()[:16]
-                patient_folder = f"patient_{patient_hash}"
-
                 deid_patient_dir = os.path.join(output_base, deid_patient.deidentified_patient_id)
                 if os.path.isdir(deid_patient_dir):
                     for deid_study in deid_patient.deid_studies.all():
+                        # If job_id is set, skip studies not belonging to this job
+                        if job_study_uid and deid_study.deidentified_study_instance_uid != job_study_uid:
+                            continue
                         study_dir = os.path.join(deid_patient_dir, deid_study.deidentified_study_instance_uid)
                         if not os.path.isdir(study_dir):
                             continue
                         for filename in os.listdir(study_dir):
                             if filename.endswith('.dcm'):
                                 file_path = os.path.join(study_dir, filename)
-                                arcname = f"{patient_folder}/dicom/{deid_study.deidentified_study_instance_uid}/{filename}"
+                                arcname = f"{deid_patient.deidentified_patient_id}/dicom/{deid_study.deidentified_study_instance_uid}/{filename}"
                                 zf.write(file_path, arcname)
                                 file_count += 1
 
@@ -352,7 +361,6 @@ def build_dicom_download_zip_task(self, patient_ids, user_id=None):
 @shared_task(bind=True, soft_time_limit=1800)
 def build_clinical_download_zip_task(self, patient_ids, user_id=None):
     """Build a ZIP of deidentified clinical JSON files for the given patient IDs in the background."""
-    import hashlib
     import json as _json
     import tempfile
     import zipfile as _zipfile
@@ -405,8 +413,8 @@ def build_clinical_download_zip_task(self, patient_ids, user_id=None):
                     logger.warning(f"Skipping clinical data for {patient.patient_id}: {e}")
                     continue
 
-                patient_hash = hashlib.sha256(str(patient.patient_id).encode()).hexdigest()[:16]
-                json_filename = f"patient_{patient_hash}_clinical_data.json"
+                patient_folder = deid_patient.deidentified_patient_id
+                json_filename = f"{patient_folder}_clinical_data.json"
                 clinical_json = _json.dumps(deidentified_clinical, indent=2, cls=UUIDEncoder)
                 zf.writestr(json_filename, clinical_json)
                 included_count += 1

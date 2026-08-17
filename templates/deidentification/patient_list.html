@@ -120,10 +120,12 @@
                 <i class="fas fa-file-medical mr-2"></i>Selected (Clinical)
             </button>
             <a href="{% url 'deidentification:bulk_download' %}"
+               onclick="return handleBulkDownloadClick(event, this.href)"
                 class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-download mr-2"></i>All (DICOM)
             </a>
             <a href="{% url 'deidentification:bulk_download_clinical' %}"
+               onclick="return handleBulkDownloadClick(event, this.href)"
                 class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-file-medical mr-2"></i>All (Clinical)
             </a>
@@ -238,6 +240,30 @@
 
 <script>
 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+
+function handleBulkDownloadClick(e, url) {
+    e.preventDefault();
+    fetch(url).then(r => {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+            return r.json().then(data => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    alert(data.error);
+                }
+            });
+        }
+        return r.blob().then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'download.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }).catch(err => alert('Error: ' + err));
+    return false;
+}
 
 // Study count filter: enable/disable value input based on operator
 (function() {

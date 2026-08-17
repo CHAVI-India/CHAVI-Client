@@ -2,18 +2,19 @@ import logging
 from typing import Callable
 
 import pydicom
+from pydicom.tag import Tag
 
 logger = logging.getLogger(__name__)
 
 ADDRESS_TAGS = {
-    (0x0040, 0x1102): "Anonymous Address",
-    (0x0008, 0x0081): "Anonymous Address",
-    (0x0008, 0x0092): "Anonymous Address",
+    Tag(0x0040, 0x1102): "Anonymous Address",
+    Tag(0x0008, 0x0081): "Anonymous Address",
+    Tag(0x0008, 0x0092): "Anonymous Address",
 }
 
 PHONE_TAGS = {
-    (0x0040, 0x1103): "1234567890",
-    (0x0010, 0x2154): "1234567890",
+    Tag(0x0040, 0x1103): "1234567890",
+    Tag(0x0010, 0x2154): "1234567890",
 }
 
 
