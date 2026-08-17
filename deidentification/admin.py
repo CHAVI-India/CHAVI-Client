@@ -36,10 +36,10 @@ class DeidInstanceAdmin(admin.ModelAdmin):
 
 @admin.register(DeidentificationJob)
 class DeidentificationJobAdmin(admin.ModelAdmin):
-    list_display = ('id', 'study', 'status', 'processed_count', 'failed_count', 'created_at')
+    list_display = ('id', 'study', 'status', 'processed_count', 'failed_count', 'failed_series_count', 'created_at')
     list_filter = ('status',)
     search_fields = ('study__study_instance_uid',)
-    readonly_fields = ('created_at', 'updated_at', 'completed_at')
+    readonly_fields = ('created_at', 'updated_at', 'completed_at', 'error_log')
 
 
 @admin.register(PixelRedactionLog)

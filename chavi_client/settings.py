@@ -221,6 +221,11 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs', 'dicom_import.log'),
             'formatter': 'detailed',
         },
+        'deidentification': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'deidentification.log'),
+            'formatter': 'detailed',
+        },
     },
     'loggers': {
         'django': {
@@ -242,6 +247,11 @@ LOGGING = {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': True,
+        },
+        'deidentification': {
+            'handlers': ['console', 'deidentification'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
 }

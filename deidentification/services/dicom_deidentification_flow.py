@@ -311,6 +311,7 @@ def pass2_deidentify_files(
     failed_count = 0
     failed_series_count = 0
     global_idx = 0
+    error_details = []  # accumulate human-readable error messages
 
     sub_batch_size = getattr(settings, 'DEID_SUB_BATCH_SIZE', DEFAULT_SUB_BATCH_SIZE)
     log_bboxes = getattr(settings, 'DEID_LOG_PIXEL_REDACTION_BBOXES', True)
@@ -329,14 +330,18 @@ def pass2_deidentify_files(
             study=study, series_instance_uid=series_uid
         ).first()
         if not dicom_series:
-            logger.error(f"Pass 2: DICOMSeries not found for {series_uid}")
+            msg = f"DICOMSeries not found for series {series_uid}"
+            logger.error(f"Pass 2: {msg}")
+            error_details.append(msg)
             failed_series_count += 1
             failed_count += len(series_files)
             continue
 
         deid_series = DeidSeries.objects.filter(series=dicom_series).first()
         if not deid_series:
-            logger.error(f"Pass 2: DeidSeries not found for {series_uid}")
+            msg = f"DeidSeries not found for series {series_uid} (no deidentification mapping exists)"
+            logger.error(f"Pass 2: {msg}")
+            error_details.append(msg)
             failed_series_count += 1
             failed_count += len(series_files)
             continue
@@ -382,7 +387,9 @@ def pass2_deidentify_files(
                         raise RuntimeError("Deidentification returned None")
 
                 except Exception as e:
-                    logger.error(f"Pass 2: Failed on {file_path} (series {series_uid}): {e}")
+                    msg = f"File {file_path.name} (series {series_uid}): {e}"
+                    logger.error(f"Pass 2: {msg}")
+                    error_details.append(msg)
                     series_failed = True
                     failed_count += 1
                     break
@@ -426,6 +433,11 @@ def pass2_deidentify_files(
         logger.info(f"Pass 2: Series {series_uid} written ({len(deidentified_results)} files)")
 
     logger.info(f"Pass 2 complete: processed={processed_count}, failed={failed_count}, failed_series={failed_series_count}")
+
+    if error_details:
+        job.error_log = "\n".join(error_details)
+        job.save(update_fields=['error_log', 'updated_at'])
+
     return processed_count, failed_count
 
 
@@ -474,9 +486,10 @@ def deidentify_study(
         return processed, failed
 
     except Exception as e:
+        import traceback
         logger.error(f"Deidentification failed for study {study.study_instance_uid}: {e}", exc_info=True)
         job.status = DeidentificationJob.Status.FAILURE
-        job.error_log = str(e)
+        job.error_log = f"Study {study.study_instance_uid}: {e}\n\nTraceback:\n{traceback.format_exc()}"
         job.completed_at = timezone.now()
         job.save(update_fields=['status', 'error_log', 'completed_at', 'updated_at'])
         raise

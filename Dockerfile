@@ -23,9 +23,13 @@ RUN useradd -m -r appuser && \
    mkdir /app && \
    chown -R appuser /app
 
-# Install system packages required by pytesseract / Presidio
+# Install system packages required by pytesseract / Presidio / pydicom
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tesseract-ocr && \
+    apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        libgl1 \
+        libglib2.0-0 \
+    && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the Python dependencies from the builder stage

@@ -54,6 +54,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latest Job</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Files</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Download</th>
                     </tr>
                 </thead>
@@ -99,6 +100,16 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3 text-sm">
+                            {% if item.latest_job and item.latest_job.error_log %}
+                            <button type="button" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.toggle('hidden')"
+                                class="text-red-600 hover:text-red-800 text-xs font-medium">
+                                <i class="fas fa-exclamation-circle mr-1"></i>View Details
+                            </button>
+                            {% else %}
+                            <span class="text-gray-400 text-xs">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
                             {% if item.latest_job and item.latest_job.status in 'SUCCESS,PARTIAL' %}
                             <a href="{% url 'deidentification:download' item.latest_job.id %}"
                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium">
@@ -111,13 +122,38 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-400">No studies found for this patient.</td>
+                        <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">No studies found for this patient.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <!-- Error detail panels -->
+    {% for item in study_jobs %}
+        {% if item.latest_job and item.latest_job.error_log %}
+        <div id="error-{{ item.latest_job.id }}" class="hidden mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-red-800">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>Error Details — Job #{{ item.latest_job.id }}
+                    ({% if item.latest_job.status == 'FAILURE' %}Failed{% elif item.latest_job.status == 'PARTIAL' %}Partial Success{% endif %})
+                </h3>
+                <button type="button" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.add('hidden')"
+                    class="text-red-600 hover:text-red-800 text-xs">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+            <div class="mb-2 text-xs text-gray-600">
+                Study: {{ item.study.study_instance_uid|truncatechars:60 }} |
+                Processed: {{ item.latest_job.processed_count }}/{{ item.latest_job.total_file_count }} |
+                Failed: {{ item.latest_job.failed_count }} |
+                Failed Series: {{ item.latest_job.failed_series_count }}
+            </div>
+            <pre class="text-xs text-red-700 whitespace-pre-wrap break-words bg-white rounded p-3 border border-red-100 max-h-96 overflow-y-auto">{{ item.latest_job.error_log }}</pre>
+        </div>
+        {% endif %}
+    {% endfor %}
 </div>
 
 <script>
