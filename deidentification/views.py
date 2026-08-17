@@ -34,7 +34,10 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
     permission_required = 'deidentification.view_deidpatient'
 
     def get_queryset(self):
-        qs = Patient.objects.all().order_by('patient_id')
+        from django.db.models import Count
+        qs = Patient.objects.all().annotate(
+            study_count=Count('patient')
+        ).order_by('patient_id')
 
         # --- Text search by patient_id ---
         search = self.request.GET.get('search', '').strip()
@@ -65,6 +68,22 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
             ).values_list('study__patient_id', flat=True)
             qs = qs.filter(pk__in=patient_ids_with_status)
 
+        # --- Study count filter ---
+        study_count_op = self.request.GET.get('study_count_op', 'all')
+        study_count_val = self.request.GET.get('study_count_val', '').strip()
+        if study_count_op == 'has_studies':
+            qs = qs.filter(study_count__gt=0)
+        elif study_count_op == 'no_studies':
+            qs = qs.filter(study_count=0)
+        elif study_count_op in ('eq', 'gte', 'gt') and study_count_val.isdigit():
+            val = int(study_count_val)
+            if study_count_op == 'eq':
+                qs = qs.filter(study_count=val)
+            elif study_count_op == 'gte':
+                qs = qs.filter(study_count__gte=val)
+            elif study_count_op == 'gt':
+                qs = qs.filter(study_count__gt=val)
+
         # --- Created date range ---
         created_from = self.request.GET.get('created_from', '').strip()
         created_to = self.request.GET.get('created_to', '').strip()
@@ -85,10 +104,9 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
 
     def paginate_queryset(self, queryset, page_size):
         paginator, page, object_list, is_paginated = super().paginate_queryset(queryset, page_size)
-        # Annotate only the page items for performance
+        # study_count is already annotated on the queryset; compute the rest per-page
         for p in object_list:
             studies = DICOMStudy.objects.filter(patient=p)
-            p.study_count = studies.count()
             p.has_deid = DeidPatient.objects.filter(patient=p).exists()
 
             series_ids = DICOMSeries.objects.filter(study__in=studies).values_list('pk', flat=True)
@@ -112,6 +130,8 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         context['deid_status'] = self.request.GET.get('deid_status', 'all')
         context['gender'] = self.request.GET.get('gender', 'all')
         context['job_status'] = self.request.GET.get('job_status', 'all')
+        context['study_count_op'] = self.request.GET.get('study_count_op', 'all')
+        context['study_count_val'] = self.request.GET.get('study_count_val', '')
         context['created_from'] = self.request.GET.get('created_from', '')
         context['created_to'] = self.request.GET.get('created_to', '')
         context['updated_from'] = self.request.GET.get('updated_from', '')
