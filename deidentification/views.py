@@ -206,19 +206,23 @@ class LegacyImportView(StaffPermissionRequiredMixin, View):
         if not db_file or not key_file:
             return JsonResponse({'error': 'Both db_file and key_file are required'}, status=400)
 
-        import tempfile as _tempfile
-        db_tmp = _tempfile.NamedTemporaryFile(suffix='.db', delete=False)
-        for chunk in db_file.chunks():
-            db_tmp.write(chunk)
-        db_tmp.close()
+        import uuid as _uuid
+        tmp_dir = os.path.join(settings.MEDIA_ROOT, 'legacy_import_tmp')
+        os.makedirs(tmp_dir, exist_ok=True)
+        unique = _uuid.uuid4().hex
 
-        key_tmp = _tempfile.NamedTemporaryFile(suffix='.key', delete=False)
-        for chunk in key_file.chunks():
-            key_tmp.write(chunk)
-        key_tmp.close()
+        db_tmp_path = os.path.join(tmp_dir, f"{unique}.db")
+        with open(db_tmp_path, 'wb') as db_tmp:
+            for chunk in db_file.chunks():
+                db_tmp.write(chunk)
+
+        key_tmp_path = os.path.join(tmp_dir, f"{unique}.key")
+        with open(key_tmp_path, 'wb') as key_tmp:
+            for chunk in key_file.chunks():
+                key_tmp.write(chunk)
 
         from deidentification.tasks import import_legacy_mapping_task
-        result = import_legacy_mapping_task.delay(db_tmp.name, key_tmp.name, user_id=request.user.id)
+        result = import_legacy_mapping_task.delay(db_tmp_path, key_tmp_path, user_id=request.user.id)
 
         return JsonResponse({
             'task_id': result.id,
