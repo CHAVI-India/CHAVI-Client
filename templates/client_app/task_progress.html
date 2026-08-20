@@ -177,7 +177,7 @@
                         // Show redirect link if session_id is in result (bulk DICOM workflow)
                         if (result.session_id) {
                             const redirectLink = document.getElementById('redirectLink');
-                            redirectLink.href = '/bulk-dicom-matching/' + result.session_id + '/';
+                            redirectLink.href = result.redirect_url || ('/bulk-dicom-matching/' + result.session_id + '/');
                             document.getElementById('redirectContainer').style.display = 'block';
                         }
                     }

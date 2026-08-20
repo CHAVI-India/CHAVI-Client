@@ -418,7 +418,15 @@ def _get_fuzzy_patient_suggestions(dicom_patient_id, patient_qs, top_n=3, score_
 class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
     """View for matching DICOM studies to patients"""
     template_name = "client_app/bulk_dicom_matching.html"
-    
+
+    def dispatch(self, request, *args, **kwargs):
+        session_id = kwargs.get('session_id')
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        if session.status in (BulkDICOMUploadSession.StatusChoices.COMPLETED,
+                              BulkDICOMUploadSession.StatusChoices.PROCESSING):
+            return redirect('client_app:bulk_dicom_complete', session_id=session.session_id)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         session_id = self.kwargs.get('session_id')
@@ -508,7 +516,15 @@ class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
 class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
     """View for confirming patient matches before processing"""
     template_name = "client_app/bulk_dicom_confirmation.html"
-    
+
+    def dispatch(self, request, *args, **kwargs):
+        session_id = kwargs.get('session_id')
+        session = get_object_or_404(BulkDICOMUploadSession, session_id=session_id)
+        if session.status in (BulkDICOMUploadSession.StatusChoices.COMPLETED,
+                              BulkDICOMUploadSession.StatusChoices.PROCESSING):
+            return redirect('client_app:bulk_dicom_complete', session_id=session.session_id)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         session_id = self.kwargs.get('session_id')
@@ -1098,6 +1114,26 @@ class TaskDownloadView(LoginRequiredMixin, View):
 # Task Run views — list, detail, resume, retry
 # ---------------------------------------------------------------------------
 
+TASK_TYPE_PERMISSIONS = {
+    TaskRun.TaskType.DICOM_IMPORT: 'client_app.view_dicomstudy',
+    TaskRun.TaskType.DICOM_EXPORT: 'client_app.view_dicomstudy',
+    TaskRun.TaskType.BULK_DICOM: 'client_app.view_bulkdicomuploadsession',
+    TaskRun.TaskType.PATIENT_EXPORT: 'client_app.view_patient',
+    TaskRun.TaskType.ASSOCIATE: 'client_app.view_patient',
+    TaskRun.TaskType.UNPROCESSED: 'client_app.view_dicomstudy',
+    TaskRun.TaskType.DEIDENTIFICATION: 'deidentification.view_deidpatient',
+}
+
+
+def _get_visible_task_types(user):
+    """Return a list of TaskType values the user has permission to view."""
+    visible = []
+    for task_type, perm in TASK_TYPE_PERMISSIONS.items():
+        if user.has_perm(perm):
+            visible.append(task_type)
+    return visible
+
+
 class TaskRunListView(LoginRequiredMixin, ListView):
     model = TaskRun
     template_name = 'client_app/taskrun_list.html'
@@ -1105,21 +1141,38 @@ class TaskRunListView(LoginRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = TaskRun.objects.all().select_related('user')
+        qs = TaskRun.objects.all().select_related('user').defer(
+            'result_summary', 'task_args', 'task_kwargs', 'error_log'
+        )
+        if not self.request.user.is_superuser:
+            visible_types = _get_visible_task_types(self.request.user)
+            qs = qs.filter(task_type__in=visible_types)
         status_filter = self.request.GET.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
         type_filter = self.request.GET.get('type')
         if type_filter:
             qs = qs.filter(task_type=type_filter)
+        date_from = self.request.GET.get('date_from')
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        date_to = self.request.GET.get('date_to')
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['status_choices'] = TaskRun.Status.choices
-        ctx['type_choices'] = TaskRun.TaskType.choices
+        if self.request.user.is_superuser:
+            ctx['type_choices'] = TaskRun.TaskType.choices
+        else:
+            visible_types = _get_visible_task_types(self.request.user)
+            ctx['type_choices'] = [(t.value, t.label) for t in visible_types]
         ctx['current_status'] = self.request.GET.get('status', '')
         ctx['current_type'] = self.request.GET.get('type', '')
+        ctx['current_date_from'] = self.request.GET.get('date_from', '')
+        ctx['current_date_to'] = self.request.GET.get('date_to', '')
         return ctx
 
 
@@ -1128,6 +1181,13 @@ class TaskRunDetailView(LoginRequiredMixin, DetailView):
     template_name = 'client_app/taskrun_detail.html'
     context_object_name = 'task_run'
     pk_url_kwarg = 'pk'
+
+    def get_queryset(self):
+        qs = TaskRun.objects.all()
+        if not self.request.user.is_superuser:
+            visible_types = _get_visible_task_types(self.request.user)
+            qs = qs.filter(task_type__in=visible_types)
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -1175,6 +1235,10 @@ def _redispatch_task_run(task_run):
 class TaskRunResumeView(LoginRequiredMixin, View):
     def post(self, request, pk):
         task_run = get_object_or_404(TaskRun, pk=pk)
+        if not request.user.is_superuser:
+            perm = TASK_TYPE_PERMISSIONS.get(task_run.task_type)
+            if perm and not request.user.has_perm(perm):
+                raise Http404
         if task_run.status not in (TaskRun.Status.FAILURE, TaskRun.Status.STALLED):
             messages.error(request, "Only failed or stalled tasks can be resumed.")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)
@@ -1205,6 +1269,10 @@ class TaskRunResumeView(LoginRequiredMixin, View):
 class TaskRunRetryView(LoginRequiredMixin, View):
     def post(self, request, pk):
         task_run = get_object_or_404(TaskRun, pk=pk)
+        if not request.user.is_superuser:
+            perm = TASK_TYPE_PERMISSIONS.get(task_run.task_type)
+            if perm and not request.user.has_perm(perm):
+                raise Http404
         if task_run.status not in (TaskRun.Status.FAILURE, TaskRun.Status.STALLED, TaskRun.Status.SUCCESS):
             messages.error(request, "Only failed, stalled, or completed tasks can be retried.")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)

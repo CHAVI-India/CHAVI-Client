@@ -13,8 +13,8 @@ worker_connections = 1000
 timeout = 7200  # 2 hours timeout for long-running requests
 keepalive = 7200  # Keep connections alive for 2 hours
 graceful_timeout = 300  # Time to gracefully shutdown workers
-max_requests = 0  # Disable worker recycling to avoid interrupting long tasks
-max_requests_jitter = 0  # No jitter since we disabled max_requests
+max_requests = 1000  # Recycle workers periodically to prevent memory leaks
+max_requests_jitter = 50  # Random jitter to avoid all workers recycling at once
 
 # Logging
 accesslog = '/app/logs/gunicorn-access.log'

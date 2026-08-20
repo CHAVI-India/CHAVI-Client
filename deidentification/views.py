@@ -98,6 +98,17 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         if updated_to:
             qs = qs.filter(updated_at__date__lte=updated_to)
 
+        # --- Deid updated date range (DeidPatient.updated_at) ---
+        deid_updated_from = self.request.GET.get('deid_updated_from', '').strip()
+        deid_updated_to = self.request.GET.get('deid_updated_to', '').strip()
+        if deid_updated_from or deid_updated_to:
+            deid_patient_ids = DeidPatient.objects.all()
+            if deid_updated_from:
+                deid_patient_ids = deid_patient_ids.filter(updated_at__date__gte=deid_updated_from)
+            if deid_updated_to:
+                deid_patient_ids = deid_patient_ids.filter(updated_at__date__lte=deid_updated_to)
+            qs = qs.filter(pk__in=deid_patient_ids.values_list('patient_id', flat=True))
+
         return qs
 
     def paginate_queryset(self, queryset, page_size):
@@ -134,6 +145,8 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         context['created_to'] = self.request.GET.get('created_to', '')
         context['updated_from'] = self.request.GET.get('updated_from', '')
         context['updated_to'] = self.request.GET.get('updated_to', '')
+        context['deid_updated_from'] = self.request.GET.get('deid_updated_from', '')
+        context['deid_updated_to'] = self.request.GET.get('deid_updated_to', '')
         # Build query string without page for pagination links
         get_params = self.request.GET.copy()
         get_params.pop('page', None)

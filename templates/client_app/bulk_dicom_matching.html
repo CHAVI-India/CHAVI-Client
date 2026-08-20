@@ -316,10 +316,14 @@
                    class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>Cancel
                 </a>
+                {% if manual_required or auto_matched or manually_matched %}
                 <button type="submit"
                         class="bg-chavi-gradient text-white font-bold py-2 px-6 rounded hover:shadow-lg transition-all">
                     <i class="fas fa-arrow-right mr-2"></i>Continue to Confirmation
                 </button>
+                {% else %}
+                <span class="text-gray-500 text-sm italic">No studies available for matching.</span>
+                {% endif %}
             </div>
         </form>
     </div>

@@ -2267,6 +2267,7 @@ class TaskRun(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['user']),
             models.Index(fields=['task_type']),
+            models.Index(fields=['-created_at']),
         ]
 
     def __str__(self):
