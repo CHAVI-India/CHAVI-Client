@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load deid_list %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
@@ -13,6 +14,9 @@
 
     <!-- Filter Bar -->
     <form method="get" class="mb-4 bg-white rounded-lg shadow p-4">
+        <input type="hidden" name="sort" value="{{ current_sort }}">
+        <input type="hidden" name="dir" value="{{ current_dir }}">
+        <input type="hidden" name="per_page" value="{{ per_page }}">
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Patient ID</label>
@@ -142,6 +146,18 @@
         </div>
     </div>
 
+    <!-- Cross-page selection banner -->
+    <div id="select-all-banner" class="hidden mb-4 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+        <span id="banner-page-msg">
+            All <b id="banner-page-count">0</b> patients on this page are selected.
+            <a href="#" id="select-all-filtered-link" class="font-medium underline">Select all <b>{{ total_count }}</b> patients matching the current filters</a>
+        </span>
+        <span id="banner-filtered-msg" class="hidden">
+            All <b>{{ total_count }}</b> patients matching the current filters are selected.
+            <a href="#" id="clear-selection-link" class="font-medium underline">Clear selection</a>
+        </span>
+    </div>
+
     <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -149,16 +165,46 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
                         <input type="checkbox" id="select-all" class="rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Studies</th>
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Series</th>
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Instances</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deidentified</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Status</th>
+                    {% sort_link 'patient_id' as sort_patient_id %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_patient_id.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Patient ID <i class="fas {{ sort_patient_id.icon }}{% if sort_patient_id.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'gender' as sort_gender %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_gender.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Gender <i class="fas {{ sort_gender.icon }}{% if sort_gender.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'dob' as sort_dob %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_dob.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">DOB <i class="fas {{ sort_dob.icon }}{% if sort_dob.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'created' as sort_created %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_created.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Created <i class="fas {{ sort_created.icon }}{% if sort_created.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'updated' as sort_updated %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_updated.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Updated <i class="fas {{ sort_updated.icon }}{% if sort_updated.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'studies' as sort_studies %}
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_studies.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Studies <i class="fas {{ sort_studies.icon }}{% if sort_studies.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'series' as sort_series %}
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_series.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Series <i class="fas {{ sort_series.icon }}{% if sort_series.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'instances' as sort_instances %}
+                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_instances.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Instances <i class="fas {{ sort_instances.icon }}{% if sort_instances.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'deidentified' as sort_deidentified %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_deidentified.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Deidentified <i class="fas {{ sort_deidentified.icon }}{% if sort_deidentified.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
+                    {% sort_link 'job_status' as sort_job_status %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ sort_job_status.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Job Status <i class="fas {{ sort_job_status.icon }}{% if sort_job_status.active %} text-chavi-primary{% endif %}"></i></a>
+                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -231,21 +277,7 @@
         </table>
     </div>
 
-    {% if is_paginated %}
-    <div class="mt-4 flex items-center justify-between">
-        <div class="text-sm text-gray-600">
-            Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
-        </div>
-        <div class="flex space-x-2">
-            {% if page_obj.has_previous %}
-            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-50">Previous</a>
-            {% endif %}
-            {% if page_obj.has_next %}
-            <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-50">Next</a>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+    {% include 'components/pagination.html' with page_obj=page_obj query_string=query_string elided_range=elided_page_range ellipsis=ellipsis per_page=per_page page_size_options=page_size_options show_per_page=True total_count=total_count %}
 </div>
 
 <script>
@@ -293,32 +325,159 @@ const downloadSelectedClinicalBtn = document.getElementById('download-selected-c
 const selectedCountSpan = document.getElementById('selected-count');
 const selectAllCheckbox = document.getElementById('select-all');
 const patientCheckboxes = document.querySelectorAll('.patient-checkbox');
+const totalCount = {{ total_count }};
+const pageRowCount = patientCheckboxes.length;
 
-function updateSelectedCount() {
-    const count = document.querySelectorAll('.patient-checkbox:checked').length;
+// --- Selection state, persisted per-tab so it survives page navigation ---
+const STORAGE_KEY = 'deid_patient_selection';
+const NAV_PARAMS = ['page', 'sort', 'dir', 'per_page'];
+
+function currentFilterKey() {
+    const p = new URLSearchParams(window.location.search);
+    NAV_PARAMS.forEach(k => p.delete(k));
+    p.sort();
+    return p.toString();
+}
+
+function currentFilters() {
+    const p = new URLSearchParams(window.location.search);
+    NAV_PARAMS.forEach(k => p.delete(k));
+    const obj = {};
+    p.forEach((v, k) => { obj[k] = v; });
+    return obj;
+}
+
+function emptySelection() {
+    return { mode: 'ids', ids: [], excluded: [], qs: currentFilterKey() };
+}
+
+function loadSelection() {
+    try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return emptySelection();
+        const sel = JSON.parse(raw);
+        if (sel.qs !== currentFilterKey()) return emptySelection();
+        sel.ids = sel.ids || [];
+        sel.excluded = sel.excluded || [];
+        return sel;
+    } catch (e) {
+        return emptySelection();
+    }
+}
+
+let selection = loadSelection();
+
+function saveSelection() {
+    selection.qs = currentFilterKey();
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(selection));
+}
+
+function clearStoredSelection() {
+    sessionStorage.removeItem(STORAGE_KEY);
+}
+
+function selectedCount() {
+    return selection.mode === 'filtered'
+        ? Math.max(0, totalCount - selection.excluded.length)
+        : selection.ids.length;
+}
+
+function updateUI() {
+    const count = selectedCount();
     selectedCountSpan.textContent = count;
     bulkBtn.disabled = count === 0;
     downloadSelectedBtn.disabled = count === 0;
     downloadSelectedClinicalBtn.disabled = count === 0;
+
+    const idSet = new Set(selection.ids);
+    const exclSet = new Set(selection.excluded);
+    patientCheckboxes.forEach(cb => {
+        cb.checked = selection.mode === 'filtered' ? !exclSet.has(cb.value) : idSet.has(cb.value);
+    });
+    const checkedOnPage = Array.from(patientCheckboxes).filter(cb => cb.checked).length;
+    selectAllCheckbox.checked = pageRowCount > 0 && checkedOnPage === pageRowCount;
+    selectAllCheckbox.indeterminate = checkedOnPage > 0 && checkedOnPage < pageRowCount;
+
+    const banner = document.getElementById('select-all-banner');
+    const pageMsg = document.getElementById('banner-page-msg');
+    const filteredMsg = document.getElementById('banner-filtered-msg');
+    if (selection.mode === 'filtered') {
+        banner.classList.remove('hidden');
+        pageMsg.classList.add('hidden');
+        filteredMsg.classList.remove('hidden');
+    } else if (pageRowCount > 0 && checkedOnPage === pageRowCount && totalCount > pageRowCount) {
+        banner.classList.remove('hidden');
+        pageMsg.classList.remove('hidden');
+        filteredMsg.classList.add('hidden');
+        document.getElementById('banner-page-count').textContent = checkedOnPage;
+    } else {
+        banner.classList.add('hidden');
+    }
 }
 
 selectAllCheckbox.addEventListener('change', function() {
-    patientCheckboxes.forEach(cb => cb.checked = this.checked);
-    updateSelectedCount();
+    const checked = this.checked;
+    if (selection.mode === 'filtered') {
+        patientCheckboxes.forEach(cb => {
+            const idx = selection.excluded.indexOf(cb.value);
+            if (!checked && idx === -1) selection.excluded.push(cb.value);
+            else if (checked && idx !== -1) selection.excluded.splice(idx, 1);
+        });
+    } else {
+        const idSet = new Set(selection.ids);
+        patientCheckboxes.forEach(cb => {
+            if (checked) idSet.add(cb.value);
+            else idSet.delete(cb.value);
+        });
+        selection.ids = Array.from(idSet);
+    }
+    saveSelection();
+    updateUI();
 });
 
-patientCheckboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+patientCheckboxes.forEach(cb => cb.addEventListener('change', function() {
+    if (selection.mode === 'filtered') {
+        const idx = selection.excluded.indexOf(this.value);
+        if (!this.checked && idx === -1) selection.excluded.push(this.value);
+        else if (this.checked && idx !== -1) selection.excluded.splice(idx, 1);
+    } else {
+        const idx = selection.ids.indexOf(this.value);
+        if (this.checked && idx === -1) selection.ids.push(this.value);
+        else if (!this.checked && idx !== -1) selection.ids.splice(idx, 1);
+    }
+    saveSelection();
+    updateUI();
+}));
 
-function triggerBulkDeidentify(patientIds) {
+const selectAllFilteredLink = document.getElementById('select-all-filtered-link');
+if (selectAllFilteredLink) {
+    selectAllFilteredLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        selection.mode = 'filtered';
+        selection.excluded = [];
+        saveSelection();
+        updateUI();
+    });
+}
+
+document.getElementById('clear-selection-link').addEventListener('click', function(e) {
+    e.preventDefault();
+    selection = emptySelection();
+    saveSelection();
+    updateUI();
+});
+
+function triggerBulkDeidentify(body) {
     fetch('{% url "deidentification:bulk_deidentify" %}', {
         method: 'POST',
         headers: {
             'X-CSRFToken': csrfToken,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ patient_ids: patientIds }),
+        body: JSON.stringify(body),
     }).then(r => r.json()).then(data => {
         if (data.redirect_url) {
+            clearStoredSelection();
             window.location.href = data.redirect_url;
         } else if (data.error) {
             alert('Error: ' + data.error);
@@ -327,27 +486,47 @@ function triggerBulkDeidentify(patientIds) {
 }
 
 bulkBtn.addEventListener('click', function() {
-    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
-    if (selected.length === 0) return;
-    if (!confirm(`Deidentify ${selected.length} patient(s)? This will process all their DICOM studies.`)) return;
-    triggerBulkDeidentify(selected);
+    const count = selectedCount();
+    if (count === 0) return;
+    if (selection.mode === 'filtered') {
+        if (!confirm(`Deidentify ${count} patient(s) matching the current filters? This will process all their DICOM studies.`)) return;
+        triggerBulkDeidentify({
+            select_all_filtered: true,
+            filters: currentFilters(),
+            exclude_ids: selection.excluded,
+        });
+    } else {
+        if (!confirm(`Deidentify ${count} patient(s)? This will process all their DICOM studies.`)) return;
+        triggerBulkDeidentify({ patient_ids: selection.ids });
+    }
 });
 
 document.getElementById('deidentify-all-btn').addEventListener('click', function() {
     if (!confirm('Deidentify ALL patients? This will process all DICOM studies for every patient in the system.')) return;
-    triggerBulkDeidentify([]);
+    triggerBulkDeidentify({ patient_ids: [] });
 });
 
+function selectedDownloadQuery() {
+    if (selection.mode === 'filtered') {
+        const p = new URLSearchParams(window.location.search);
+        NAV_PARAMS.forEach(k => p.delete(k));
+        p.set('select_all_filtered', '1');
+        if (selection.excluded.length) p.set('exclude_ids', selection.excluded.join(','));
+        return p.toString();
+    }
+    return 'patient_ids=' + encodeURIComponent(selection.ids.join(','));
+}
+
 downloadSelectedBtn.addEventListener('click', function() {
-    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
-    if (selected.length === 0) return;
-    const url = `{% url 'deidentification:bulk_download' %}?patient_ids=` + encodeURIComponent(selected.join(','));
+    if (selectedCount() === 0) return;
+    const url = `{% url 'deidentification:bulk_download' %}?` + selectedDownloadQuery();
     fetch(url).then(r => {
         const ct = r.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
             return r.json().then(data => {
                 if (data.redirect_url) {
                     alert(data.message || 'Building ZIP in background. You will be notified when ready.');
+                    clearStoredSelection();
                     window.location.href = data.redirect_url;
                 } else if (data.error) {
                     alert('Error: ' + data.error);
@@ -366,15 +545,15 @@ downloadSelectedBtn.addEventListener('click', function() {
 });
 
 downloadSelectedClinicalBtn.addEventListener('click', function() {
-    const selected = Array.from(document.querySelectorAll('.patient-checkbox:checked')).map(cb => cb.value);
-    if (selected.length === 0) return;
-    const url = `{% url 'deidentification:bulk_download_clinical' %}?patient_ids=` + encodeURIComponent(selected.join(','));
+    if (selectedCount() === 0) return;
+    const url = `{% url 'deidentification:bulk_download_clinical' %}?` + selectedDownloadQuery();
     fetch(url).then(r => {
         const ct = r.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
             return r.json().then(data => {
                 if (data.redirect_url) {
                     alert(data.message || 'Building ZIP in background. You will be notified when ready.');
+                    clearStoredSelection();
                     window.location.href = data.redirect_url;
                 } else if (data.error) {
                     alert('Error: ' + data.error);
@@ -390,5 +569,8 @@ downloadSelectedClinicalBtn.addEventListener('click', function() {
         });
     }).catch(err => alert('Error: ' + err));
 });
+
+// Restore persisted selection state on load
+updateUI();
 </script>
 {% endblock %}

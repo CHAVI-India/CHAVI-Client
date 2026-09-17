@@ -6,6 +6,7 @@ import urllib.parse
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.conf import settings
+from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
 from django.http import JsonResponse, Http404, FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -24,6 +25,104 @@ class StaffPermissionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Perm
         return self.request.user.is_staff
 
 
+def apply_patient_list_filters(qs, params):
+    """Apply the patient list filter params (QueryDict or plain dict) to a Patient queryset."""
+    # --- Text search by patient_id ---
+    search = params.get('search', '').strip()
+    if search:
+        qs = qs.filter(patient_id__icontains=search)
+
+    # --- Deid status filter ---
+    deid_status = params.get('deid_status', 'all')
+    if deid_status == 'deidentified':
+        qs = qs.filter(
+            pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
+        )
+    elif deid_status == 'not_deidentified':
+        qs = qs.exclude(
+            pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
+        )
+
+    # --- Gender filter ---
+    gender = params.get('gender', 'all')
+    if gender and gender != 'all':
+        qs = qs.filter(gender=gender)
+
+    # --- Job status filter ---
+    job_status = params.get('job_status', 'all')
+    if job_status and job_status != 'all':
+        patient_ids_with_status = DeidentificationJob.objects.filter(
+            status=job_status
+        ).values_list('study__patient_id', flat=True)
+        qs = qs.filter(pk__in=patient_ids_with_status)
+
+    # --- Study count filter ---
+    study_count_op = params.get('study_count_op', 'all')
+    study_count_val = params.get('study_count_val', '').strip()
+    if study_count_op == 'has_studies':
+        qs = qs.filter(study_count__gt=0)
+    elif study_count_op == 'no_studies':
+        qs = qs.filter(study_count=0)
+    elif study_count_op in ('eq', 'gte', 'gt') and study_count_val.isdigit():
+        val = int(study_count_val)
+        if study_count_op == 'eq':
+            qs = qs.filter(study_count=val)
+        elif study_count_op == 'gte':
+            qs = qs.filter(study_count__gte=val)
+        elif study_count_op == 'gt':
+            qs = qs.filter(study_count__gt=val)
+
+    # --- Created date range ---
+    created_from = params.get('created_from', '').strip()
+    created_to = params.get('created_to', '').strip()
+    if created_from:
+        qs = qs.filter(created_at__date__gte=created_from)
+    if created_to:
+        qs = qs.filter(created_at__date__lte=created_to)
+
+    # --- Updated date range ---
+    updated_from = params.get('updated_from', '').strip()
+    updated_to = params.get('updated_to', '').strip()
+    if updated_from:
+        qs = qs.filter(updated_at__date__gte=updated_from)
+    if updated_to:
+        qs = qs.filter(updated_at__date__lte=updated_to)
+
+    # --- Deid updated date range (DeidPatient.updated_at) ---
+    deid_updated_from = params.get('deid_updated_from', '').strip()
+    deid_updated_to = params.get('deid_updated_to', '').strip()
+    if deid_updated_from or deid_updated_to:
+        deid_patient_ids = DeidPatient.objects.all()
+        if deid_updated_from:
+            deid_patient_ids = deid_patient_ids.filter(updated_at__date__gte=deid_updated_from)
+        if deid_updated_to:
+            deid_patient_ids = deid_patient_ids.filter(updated_at__date__lte=deid_updated_to)
+        qs = qs.filter(pk__in=deid_patient_ids.values_list('patient_id', flat=True))
+
+    return qs
+
+
+def _bulk_patient_ids_from_request(request):
+    """Resolve the patient_id list for bulk download GET requests.
+
+    Supports three modes:
+    - select_all_filtered=1: all patients matching the list filters, minus exclude_ids
+    - patient_ids=a,b,c: explicit comma-separated ids
+    - (neither): all patients
+    """
+    if request.GET.get('select_all_filtered'):
+        qs = apply_patient_list_filters(Patient.objects.all(), request.GET)
+        exclude_ids = [e for e in request.GET.get('exclude_ids', '').split(',') if e]
+        if exclude_ids:
+            qs = qs.exclude(patient_id__in=exclude_ids)
+        return list(qs.values_list('patient_id', flat=True))
+
+    patient_ids = request.GET.get('patient_ids', '')
+    if patient_ids:
+        return patient_ids.split(',')
+    return list(Patient.objects.values_list('patient_id', flat=True))
+
+
 class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
     model = Patient
     template_name = 'deidentification/patient_list.html'
@@ -31,105 +130,84 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
     paginate_by = 25
     permission_required = 'deidentification.view_deidpatient'
 
+    PAGE_SIZE_OPTIONS = (10, 25, 50, 100, 200)
+    DEFAULT_SORT = 'patient_id'
+    SORT_MAP = {
+        'patient_id': 'patient_id',
+        'gender': 'gender',
+        'dob': 'date_of_birth',
+        'created': 'created_at',
+        'updated': 'updated_at',
+        'studies': 'study_count',
+        'series': 'series_count',
+        'instances': 'instance_count',
+        'deidentified': 'has_deid',
+        'job_status': 'job_status_rank',
+    }
+    NULLABLE_SORTS = ('dob', 'gender')
+
+    def get_paginate_by(self, queryset):
+        per_page = self.request.GET.get('per_page', str(self.paginate_by))
+        if per_page == 'all':
+            return None
+        try:
+            size = int(per_page)
+        except (TypeError, ValueError):
+            return self.paginate_by
+        return size if size in self.PAGE_SIZE_OPTIONS else self.paginate_by
+
     def get_queryset(self):
-        from django.db.models import Count
-        qs = Patient.objects.all().annotate(
-            study_count=Count('patient')
-        ).order_by('patient_id')
-
-        # --- Text search by patient_id ---
-        search = self.request.GET.get('search', '').strip()
-        if search:
-            qs = qs.filter(patient_id__icontains=search)
-
-        # --- Deid status filter ---
-        deid_status = self.request.GET.get('deid_status', 'all')
-        if deid_status == 'deidentified':
-            qs = qs.filter(
-                pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
+        qs = Patient.objects.annotate(
+            study_count=Count('patient', distinct=True),
+            series_count=Count('patient__series', distinct=True),
+            instance_count=Count('patient__series__instances', distinct=True),
+            has_deid=Exists(DeidPatient.objects.filter(patient=OuterRef('pk'))),
+            deid_jobs_total=Count('patient__deid_jobs', distinct=True),
+            deid_jobs_success=Count(
+                'patient__deid_jobs',
+                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.SUCCESS),
+                distinct=True,
+            ),
+            deid_jobs_failed=Count(
+                'patient__deid_jobs',
+                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.FAILURE),
+                distinct=True,
+            ),
+            deid_jobs_processing=Count(
+                'patient__deid_jobs',
+                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PROCESSING),
+                distinct=True,
+            ),
+            deid_jobs_pending=Count(
+                'patient__deid_jobs',
+                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PENDING),
+                distinct=True,
+            ),
+        ).annotate(
+            job_status_rank=Case(
+                When(deid_jobs_failed__gt=0, then=Value(4)),
+                When(deid_jobs_processing__gt=0, then=Value(3)),
+                When(deid_jobs_pending__gt=0, then=Value(2)),
+                When(deid_jobs_success__gt=0, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
             )
-        elif deid_status == 'not_deidentified':
-            qs = qs.exclude(
-                pk__in=DeidPatient.objects.values_list('patient_id', flat=True)
-            )
+        )
 
-        # --- Gender filter ---
-        gender = self.request.GET.get('gender', 'all')
-        if gender and gender != 'all':
-            qs = qs.filter(gender=gender)
+        qs = apply_patient_list_filters(qs, self.request.GET)
+        return self._apply_sorting(qs)
 
-        # --- Job status filter ---
-        job_status = self.request.GET.get('job_status', 'all')
-        if job_status and job_status != 'all':
-            patient_ids_with_status = DeidentificationJob.objects.filter(
-                status=job_status
-            ).values_list('study__patient_id', flat=True)
-            qs = qs.filter(pk__in=patient_ids_with_status)
-
-        # --- Study count filter ---
-        study_count_op = self.request.GET.get('study_count_op', 'all')
-        study_count_val = self.request.GET.get('study_count_val', '').strip()
-        if study_count_op == 'has_studies':
-            qs = qs.filter(study_count__gt=0)
-        elif study_count_op == 'no_studies':
-            qs = qs.filter(study_count=0)
-        elif study_count_op in ('eq', 'gte', 'gt') and study_count_val.isdigit():
-            val = int(study_count_val)
-            if study_count_op == 'eq':
-                qs = qs.filter(study_count=val)
-            elif study_count_op == 'gte':
-                qs = qs.filter(study_count__gte=val)
-            elif study_count_op == 'gt':
-                qs = qs.filter(study_count__gt=val)
-
-        # --- Created date range ---
-        created_from = self.request.GET.get('created_from', '').strip()
-        created_to = self.request.GET.get('created_to', '').strip()
-        if created_from:
-            qs = qs.filter(created_at__date__gte=created_from)
-        if created_to:
-            qs = qs.filter(created_at__date__lte=created_to)
-
-        # --- Updated date range ---
-        updated_from = self.request.GET.get('updated_from', '').strip()
-        updated_to = self.request.GET.get('updated_to', '').strip()
-        if updated_from:
-            qs = qs.filter(updated_at__date__gte=updated_from)
-        if updated_to:
-            qs = qs.filter(updated_at__date__lte=updated_to)
-
-        # --- Deid updated date range (DeidPatient.updated_at) ---
-        deid_updated_from = self.request.GET.get('deid_updated_from', '').strip()
-        deid_updated_to = self.request.GET.get('deid_updated_to', '').strip()
-        if deid_updated_from or deid_updated_to:
-            deid_patient_ids = DeidPatient.objects.all()
-            if deid_updated_from:
-                deid_patient_ids = deid_patient_ids.filter(updated_at__date__gte=deid_updated_from)
-            if deid_updated_to:
-                deid_patient_ids = deid_patient_ids.filter(updated_at__date__lte=deid_updated_to)
-            qs = qs.filter(pk__in=deid_patient_ids.values_list('patient_id', flat=True))
-
-        return qs
-
-    def paginate_queryset(self, queryset, page_size):
-        paginator, page, object_list, is_paginated = super().paginate_queryset(queryset, page_size)
-        # study_count is already annotated on the queryset; compute the rest per-page
-        for p in object_list:
-            studies = DICOMStudy.objects.filter(patient=p)
-            p.has_deid = DeidPatient.objects.filter(patient=p).exists()
-
-            series_ids = DICOMSeries.objects.filter(study__in=studies).values_list('pk', flat=True)
-            p.series_count = len(series_ids)
-            p.instance_count = DICOMInstance.objects.filter(series_id__in=series_ids).count()
-
-            jobs = DeidentificationJob.objects.filter(study__in=studies)
-            p.deid_jobs_total = jobs.count()
-            p.deid_jobs_success = jobs.filter(status=DeidentificationJob.Status.SUCCESS).count()
-            p.deid_jobs_failed = jobs.filter(status=DeidentificationJob.Status.FAILURE).count()
-            p.deid_jobs_processing = jobs.filter(status=DeidentificationJob.Status.PROCESSING).count()
-            p.deid_jobs_pending = jobs.filter(status=DeidentificationJob.Status.PENDING).count()
-
-        return paginator, page, object_list, is_paginated
+    def _apply_sorting(self, qs):
+        sort = self.request.GET.get('sort', self.DEFAULT_SORT)
+        if sort not in self.SORT_MAP:
+            sort = self.DEFAULT_SORT
+        descending = self.request.GET.get('dir', 'asc') == 'desc'
+        field = self.SORT_MAP[sort]
+        if sort in self.NULLABLE_SORTS:
+            order = F(field).desc(nulls_last=True) if descending else F(field).asc(nulls_last=True)
+        else:
+            order = '-' + field if descending else field
+        return qs.order_by(order, 'patient_id')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -147,10 +225,27 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         context['updated_to'] = self.request.GET.get('updated_to', '')
         context['deid_updated_from'] = self.request.GET.get('deid_updated_from', '')
         context['deid_updated_to'] = self.request.GET.get('deid_updated_to', '')
+        # Sort / page-size state
+        sort = self.request.GET.get('sort', self.DEFAULT_SORT)
+        context['current_sort'] = sort if sort in self.SORT_MAP else self.DEFAULT_SORT
+        context['current_dir'] = 'desc' if self.request.GET.get('dir') == 'desc' else 'asc'
+        per_page = self.request.GET.get('per_page', str(self.paginate_by))
+        if per_page != 'all' and per_page not in [str(s) for s in self.PAGE_SIZE_OPTIONS]:
+            per_page = str(self.paginate_by)
+        context['per_page'] = per_page
+        context['page_size_options'] = self.PAGE_SIZE_OPTIONS
+        context['total_count'] = context['paginator'].count if context.get('paginator') else len(context['object_list'])
         # Build query string without page for pagination links
         get_params = self.request.GET.copy()
         get_params.pop('page', None)
         context['query_string'] = get_params.urlencode()
+        # Elided numbered page range for pagination controls
+        page_obj = context.get('page_obj')
+        if page_obj is not None:
+            context['elided_page_range'] = list(
+                page_obj.paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+            )
+            context['ellipsis'] = page_obj.paginator.ELLIPSIS
         return context
 
 
@@ -736,7 +831,14 @@ class BulkDeidentifyView(StaffPermissionRequiredMixin, View):
         except (json.JSONDecodeError, AttributeError):
             return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
-        if not patient_ids:
+        if data.get('select_all_filtered'):
+            patients = apply_patient_list_filters(
+                Patient.objects.all(), data.get('filters') or {}
+            )
+            exclude_ids = data.get('exclude_ids') or []
+            if exclude_ids:
+                patients = patients.exclude(patient_id__in=exclude_ids)
+        elif not patient_ids:
             patients = Patient.objects.all()
         else:
             patients = Patient.objects.filter(patient_id__in=patient_ids)
@@ -782,12 +884,7 @@ class DeidDownloadView(StaffPermissionRequiredMixin, View):
             patient = get_object_or_404(Patient, patient_id=patient_id)
             pid_list = [patient.patient_id]
         else:
-            # Bulk download — get patient_ids from query param
-            patient_ids = request.GET.get('patient_ids', '')
-            if patient_ids:
-                pid_list = patient_ids.split(',')
-            else:
-                pid_list = list(Patient.objects.values_list('patient_id', flat=True))
+            pid_list = _bulk_patient_ids_from_request(request)
 
         if not pid_list:
             return JsonResponse({'error': 'No patients found'}, status=400)
@@ -902,12 +999,7 @@ class DeidClinicalDownloadView(StaffPermissionRequiredMixin, View):
             patient = get_object_or_404(Patient, patient_id=patient_id)
             pid_list = [patient.patient_id]
         else:
-            # Bulk download — get patient_ids from query param
-            patient_ids = request.GET.get('patient_ids', '')
-            if patient_ids:
-                pid_list = patient_ids.split(',')
-            else:
-                pid_list = list(Patient.objects.values_list('patient_id', flat=True))
+            pid_list = _bulk_patient_ids_from_request(request)
 
         if not pid_list:
             return JsonResponse({'error': 'No patients found'}, status=400)
