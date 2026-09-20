@@ -345,6 +345,18 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
             client_config = extraction_job.response_model.client
             processed_file = extraction_job.processed_file
 
+            # Expired key guard: fail fast with a clear reason rather than a
+            # provider-side auth error mid-extraction
+            if client_config.api_key_expired():
+                extraction_job.extraction_status = ExtractionStatusChoices.FAILED
+                extraction_job.extraction_error = (
+                    f"API key expired on "
+                    f"{client_config.model_api_key_validity:%Y-%m-%d}")
+                extraction_job.extraction_end_datetime = timezone.now()
+                extraction_job.save()
+                return {'success': False, 'data': None, 'tokens_used': None,
+                        'raw_response': None, 'error': 'api key expired'}
+
             # Empty-content guard: never spend an LLM call on a file that
             # produced no usable text (scanned PDF, empty CSV, etc.)
             if not processed_content or not processed_content.strip() \
@@ -415,7 +427,7 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                 model=client_config.llm_model_name,
                 response_model=PydanticModel,
                 messages=messages,
-                max_tokens=4096,
+                max_tokens=client_config.model_max_tokens,
                 timeout=client_config.request_timeout,
             )
 
