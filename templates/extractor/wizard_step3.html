@@ -99,7 +99,7 @@
             {% endfor %}
 
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <a href="{% url 'extractor:wizard_step2' %}" 
+                <a href="{% url 'extractor:wizard_step2' response_model.id %}" 
                    class="text-gray-600 hover:text-gray-800 transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Back

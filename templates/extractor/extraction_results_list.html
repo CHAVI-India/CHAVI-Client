@@ -60,7 +60,7 @@
                                 <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">
-                                        {{ job.processed_file.file_upload.file.name|truncatechars:30 }}
+                                        {{ job.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:30 }}
                                     </div>
                                     <div class="text-xs text-gray-500">
                                         ID: {{ job.id }}
@@ -122,6 +122,24 @@
                 </tbody>
             </table>
         </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="flex items-center justify-between mt-4 text-sm">
+            <span class="text-gray-600">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+            <div class="space-x-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}"
+                   class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}"
+                   class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
         {% else %}
         <div class="text-center py-12">
             <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>

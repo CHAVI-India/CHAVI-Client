@@ -338,82 +338,129 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
     ) -> Dict[str, Any]:
         """
         Perform the actual data extraction using Instructor.
-        
+
         Returns:
             Dict with 'success', 'data', 'tokens_used', 'raw_response', 'error'
         """
+        import hashlib
+        from django.db import transaction
+
         try:
+            client_config = extraction_job.response_model.client
+            processed_file = extraction_job.processed_file
+
+            # Empty-content guard: never spend an LLM call on a file that
+            # produced no usable text (scanned PDF, empty CSV, etc.)
+            if not processed_content or not processed_content.strip() \
+                    or processed_file.processing_warning == 'no_text' \
+                    or processed_file.content_length == 0:
+                extraction_job.extraction_status = ExtractionStatusChoices.SKIPPED
+                extraction_job.extraction_error = 'Processed file has no extractable text'
+                extraction_job.extraction_end_datetime = timezone.now()
+                extraction_job.save()
+                return {'success': False, 'data': None, 'tokens_used': None,
+                        'raw_response': None, 'error': 'skipped: no extractable text'}
+
+            # Freeze what this job ran on before any LLM call
+            extraction_job.input_content_hash = hashlib.sha256(
+                processed_content.encode('utf-8')).hexdigest()
+            extraction_job.config_snapshot = {
+                'provider': client_config.model_provider,
+                'model': client_config.llm_model_name,
+                'base_url': client_config.model_base_url,
+                'response_model_id': extraction_job.response_model_id,
+                'response_model_name': extraction_job.response_model.name,
+                'processed_file_id': processed_file.id,
+                'processed_file_version': processed_file.version,
+            }
+
             # Update job status
             extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
             extraction_job.extraction_start_datetime = timezone.now()
             extraction_job.save()
-            
+
             response_model = extraction_job.response_model
-            
+
             # Determine mode based on provider
             # Ollama models often don't support function calling, use JSON mode
-            provider = response_model.client.model_provider.lower()
+            provider = client_config.model_provider.lower()
             mode = None
             if 'ollama' in provider:
                 log.info("Using JSON mode for Ollama model (no tool support)")
                 mode = instructor.Mode.JSON
-            
+
             # Get Instructor client with appropriate mode
             client = InstructorExtractionService.get_instructor_client(response_model, mode=mode)
-            
+
             # Build the extraction model — same builder the wizard preview uses
             PydanticModel = PydanticModelBuilder.build_extraction_model(response_model)
-            
+
             # Get messages
             messages = InstructorExtractionService.get_messages(response_model, processed_content)
-            
-            log.info(f"Starting extraction with model: {response_model.client.llm_model_name}")
-            log.info(f"Messages: {messages}")
-            
-            # Call Instructor
-            result = client.chat.completions.create(
-                model=response_model.client.llm_model_name,
+
+            # Freeze the exact prompt on the job before sending
+            extraction_job.prompt_snapshot = json.dumps(messages)
+            extraction_job.save(update_fields=['prompt_snapshot'])
+
+            # Context budget: refuse rather than let the provider silently
+            # truncate the document tail (~4 chars/token estimate)
+            approx_tokens = sum(len(m.get('content', '')) for m in messages) // 4
+            if approx_tokens > client_config.context_size:
+                raise ValueError(
+                    f"Prompt is ~{approx_tokens} tokens, over the configured "
+                    f"context size of {client_config.context_size}. Split the "
+                    f"document or raise the client's context size."
+                )
+
+            log.info(f"Starting extraction job {extraction_job.id} with model: {client_config.llm_model_name}")
+
+            # Call Instructor; create_with_completion exposes usage stats
+            result, completion = client.chat.completions.create_with_completion(
+                model=client_config.llm_model_name,
                 response_model=PydanticModel,
                 messages=messages,
                 max_tokens=4096,
+                timeout=client_config.request_timeout,
             )
-            
-            # Extract data
+
             extracted_data = result.model_dump()
-            
-            log.info(f"Extraction completed. Data: {extracted_data}")
-            
-            # Update job
-            extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
-            extraction_job.extraction_end_datetime = timezone.now()
-            extraction_job.raw_llm_response = extracted_data
-            extraction_job.tokens_used = None  # Instructor doesn't always provide token count
-            extraction_job.save()
-            
-            # Save extraction results
-            InstructorExtractionService.save_extraction_results(
-                extraction_job,
-                extracted_data,
-                user
-            )
-            
+
+            usage = getattr(completion, 'usage', None)
+            tokens = getattr(usage, 'total_tokens', None) if usage else None
+
+            log.info(f"Extraction job {extraction_job.id} completed; tokens: {tokens}")
+
+            # Save results and mark complete atomically — a crash mid-save
+            # leaves the job non-complete rather than half-written
+            with transaction.atomic():
+                InstructorExtractionService.save_extraction_results(
+                    extraction_job,
+                    extracted_data,
+                    user
+                )
+                extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
+                extraction_job.extraction_end_datetime = timezone.now()
+                extraction_job.raw_llm_response = extracted_data
+                extraction_job.tokens_used = tokens
+                extraction_job.save()
+
             return {
                 'success': True,
                 'data': extracted_data,
-                'tokens_used': extraction_job.tokens_used,
+                'tokens_used': tokens,
                 'raw_response': extracted_data,
                 'error': None
             }
-            
+
         except Exception as e:
-            log.error(f"Extraction failed: {e}", exc_info=True)
-            
+            log.error(f"Extraction job {extraction_job.id} failed: {e}", exc_info=True)
+
             # Update job with error
             extraction_job.extraction_status = ExtractionStatusChoices.FAILED
             extraction_job.extraction_end_datetime = timezone.now()
             extraction_job.extraction_error = str(e)
             extraction_job.save()
-            
+
             return {
                 'success': False,
                 'data': None,
@@ -470,7 +517,17 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                     extracted_value = record_data.get(field_name)
 
                     if extracted_value is None:
+                        # Record the gap so review shows what was expected
+                        ExtractionResult.objects.create(
+                            extraction_job=extraction_job,
+                            database_field=field,
+                            record=extracted_record,
+                            extracted_data='',
+                            result_state='not_found',
+                        )
                         continue
+
+                    result_state = 'extracted'
 
                     # For lookup fields, map label to code
                     if field.lookup_field and field.lookup_content_type:
@@ -481,6 +538,9 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                             str(extracted_value),
                             db_field=field,
                         )
+
+                        if lookup_code is None:
+                            result_state = 'unresolved'
 
                         data_to_store = json.dumps({
                             'label': str(extracted_value),
@@ -500,12 +560,43 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                         database_field=field,
                         record=extracted_record,
                         extracted_data=data_to_store,
-                        verified_by=user,
-                        data_accuracy='accurate'  # Default, can be changed later
+                        result_state=result_state,
                     )
 
                     log.info(f"Saved extraction result for field: {field_name} (record {record_index})")
     
+    @staticmethod
+    def get_or_create_job(
+        processed_file: ProcessedText,
+        response_model: ResponseModel,
+        user
+    ):
+        """
+        Return an existing live job for the same file+model+version, or create
+        one. Prevents duplicate paid LLM calls on double-submits/retries.
+        An explicit re-extract after failure/completion always creates a new job.
+        """
+        live_statuses = [
+            ExtractionStatusChoices.PENDING,
+            ExtractionStatusChoices.PROCESSING,
+        ]
+        existing = ExtractionJob.objects.filter(
+            response_model=response_model,
+            processed_file=processed_file,
+            extraction_status__in=live_statuses,
+        ).order_by('-created_at').first()
+
+        if existing:
+            return existing, False
+
+        job = ExtractionJob.objects.create(
+            response_model=response_model,
+            processed_file=processed_file,
+            extracted_by=user,
+            extraction_status=ExtractionStatusChoices.PENDING,
+        )
+        return job, True
+
     @staticmethod
     def bulk_extract(
         processed_files: List[ProcessedText],
@@ -513,52 +604,53 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
         user
     ) -> Dict[str, Any]:
         """
-        Perform bulk extraction on multiple processed files.
-        
+        Perform bulk extraction on multiple processed files (synchronous path,
+        kept for management-command/test use). The web UI dispatches Celery
+        tasks via extractor.tasks.run_extraction_job instead.
+
         Returns:
             Dict with 'total', 'successful', 'failed', 'jobs'
         """
         from extractor.services.file_processor import FileProcessorService
-        
+
         results = {
             'total': len(processed_files),
             'successful': 0,
             'failed': 0,
             'jobs': []
         }
-        
+
         for processed_file in processed_files:
             try:
-                # Create extraction job
-                extraction_job = ExtractionJob.objects.create(
-                    response_model=response_model,
-                    processed_file=processed_file,
-                    extracted_by=user,
-                    extraction_status=ExtractionStatusChoices.PENDING
+                extraction_job, created = InstructorExtractionService.get_or_create_job(
+                    processed_file, response_model, user
                 )
-                
+                if not created:
+                    results['jobs'].append({'job': extraction_job, 'result': {'reused': True}})
+                    continue
+
                 # Get processed content
                 content = FileProcessorService.get_processed_content(processed_file)
-                
+
                 # Extract data
                 result = InstructorExtractionService.extract_data(
                     extraction_job,
                     content,
                     user
                 )
-                
+
                 if result['success']:
                     results['successful'] += 1
                 else:
                     results['failed'] += 1
-                
+
                 results['jobs'].append({
                     'job': extraction_job,
                     'result': result
                 })
-                
+
             except Exception as e:
                 log.error(f"Bulk extraction failed for file {processed_file.id}: {e}")
                 results['failed'] += 1
-        
+
         return results

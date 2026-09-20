@@ -7,19 +7,22 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count
+from django.core.paginator import Paginator
 from django.utils import timezone
 from logging import getLogger
 
 from extractor.models import (
     ResponseModel, ResponseModelTable, ResponseModelTableField,
     DatabaseTable, DatabaseField, ClientConfiguration,
-    ExtractionJob, ExtractionResult, ExtractionStatusChoices,
+    ExtractionJob, ExtractionResult, ExtractionStatusChoices, DataAccuracyChoices,
     InstructorMessage, InstructorRole, EmbeddingConfiguration, LookupEmbedding
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.file_processor import FileProcessorService
 from extractor.services.instructor_extractor import InstructorExtractionService
+from extractor.tasks import run_extraction_job
 from extractor.models import FileUpload, ProcessedText
 
 log = getLogger(__name__)
@@ -84,22 +87,16 @@ def wizard_step1(request):
             messages.error(request, "Please provide both name and client configuration.")
             return redirect('extractor:wizard_step1')
         
-        try:
-            client = ClientConfiguration.objects.get(id=client_id)
-            
-            response_model = ResponseModel.objects.create(
-                name=name,
-                client=client
-            )
-            
-            request.session['response_model_id'] = str(response_model.id)
-            
-            messages.success(request, f"Response model '{name}' created successfully.")
-            return redirect('extractor:wizard_step2')
-            
-        except ClientConfiguration.DoesNotExist:
-            messages.error(request, "Invalid client configuration selected.")
-            return redirect('extractor:wizard_step1')
+        client = get_object_or_404(ClientConfiguration, id=client_id)
+
+        response_model = ResponseModel.objects.create(
+            name=name,
+            client=client,
+            is_complete=False,
+        )
+
+        messages.success(request, f"Response model '{name}' created successfully.")
+        return redirect('extractor:wizard_step2', response_model_id=response_model.id)
     
     clients = ClientConfiguration.objects.all()
     
@@ -112,39 +109,32 @@ def wizard_step1(request):
 
 @login_required
 @permission_required(['extractor.add_responsemodeltable', 'extractor.view_databasetable'], raise_exception=True)
-def wizard_step2(request):
+def wizard_step2(request, response_model_id):
     """
     Step 2: Select database tables for extraction.
     Requires permissions to add ResponseModelTable and view DatabaseTable.
     """
-    response_model_id = request.session.get('response_model_id')
-    
-    if not response_model_id:
-        messages.error(request, "No active response model. Please start from step 1.")
-        return redirect('extractor:wizard_step1')
-    
     response_model = get_object_or_404(ResponseModel, id=response_model_id)
-    
+
     if request.method == 'POST':
         selected_table_ids = request.POST.getlist('tables')
-        
+
         if not selected_table_ids:
             messages.error(request, "Please select at least one table.")
-            return redirect('extractor:wizard_step2')
-        
+            return redirect('extractor:wizard_step2', response_model_id=response_model.id)
+
         with transaction.atomic():
             ResponseModelTable.objects.filter(response_model=response_model).delete()
-            
+
             for table_id in selected_table_ids:
-                database_table = DatabaseTable.objects.get(id=table_id)
+                database_table = get_object_or_404(DatabaseTable, id=table_id)
                 ResponseModelTable.objects.create(
                     response_model=response_model,
                     database_table=database_table
                 )
-        
-        request.session['selected_table_ids'] = selected_table_ids
+
         messages.success(request, f"{len(selected_table_ids)} table(s) selected.")
-        return redirect('extractor:wizard_step3')
+        return redirect('extractor:wizard_step3', response_model_id=response_model.id)
     
     tables_structure = SchemaDiscoveryService.get_hierarchical_table_structure()
     
@@ -163,27 +153,21 @@ def wizard_step2(request):
 
 @login_required
 @permission_required(['extractor.add_responsemodeltablefield', 'extractor.view_databasefield'], raise_exception=True)
-def wizard_step3(request):
+def wizard_step3(request, response_model_id):
     """
     Step 3: Select fields for each selected table.
     Requires permissions to add ResponseModelTableField and view DatabaseField.
     """
-    response_model_id = request.session.get('response_model_id')
-    
-    if not response_model_id:
-        messages.error(request, "No active response model. Please start from step 1.")
-        return redirect('extractor:wizard_step1')
-    
     response_model = get_object_or_404(ResponseModel, id=response_model_id)
-    
+
     model_tables = ResponseModelTable.objects.filter(
         response_model=response_model
     ).select_related('database_table__clientapp_content_type')
-    
+
     if not model_tables.exists():
         messages.error(request, "No tables selected. Please complete step 2.")
-        return redirect('extractor:wizard_step2')
-    
+        return redirect('extractor:wizard_step2', response_model_id=response_model.id)
+
     if request.method == 'POST':
         with transaction.atomic():
             ResponseModelTableField.objects.filter(
@@ -206,7 +190,7 @@ def wizard_step3(request):
                     )
         
         messages.success(request, "Fields configured successfully.")
-        return redirect('extractor:wizard_step4')
+        return redirect('extractor:wizard_step4', response_model_id=response_model.id)
     
     tables_with_fields = []
     for model_table in model_tables:
@@ -235,17 +219,11 @@ def wizard_step3(request):
 
 @login_required
 @permission_required(['extractor.view_responsemodel', 'extractor.change_responsemodel'], raise_exception=True)
-def wizard_step4(request):
+def wizard_step4(request, response_model_id):
     """
     Step 4: Review and generate Pydantic model.
     Requires permissions to view and change ResponseModel.
     """
-    response_model_id = request.session.get('response_model_id')
-    
-    if not response_model_id:
-        messages.error(request, "No active response model. Please start from step 1.")
-        return redirect('extractor:wizard_step1')
-    
     response_model = get_object_or_404(ResponseModel, id=response_model_id)
     
     validation_result = PydanticModelBuilder.validate_model_configuration(response_model)
@@ -277,10 +255,9 @@ def wizard_step4(request):
     
     if request.method == 'POST':
         if validation_result['valid']:
-            del request.session['response_model_id']
-            if 'selected_table_ids' in request.session:
-                del request.session['selected_table_ids']
-            
+            response_model.is_complete = True
+            response_model.save(update_fields=['is_complete'])
+
             messages.success(request, f"Response model '{response_model.name}' configured successfully!")
             return redirect('extractor:wizard_complete', response_model_id=response_model.id)
         else:
@@ -337,12 +314,12 @@ def response_model_list(request):
     """
     List all configured response models.
     """
-    response_models = ResponseModel.objects.all().select_related('client')
-    
+    response_models = ResponseModel.objects.filter(is_complete=True).select_related('client')
+
     context = {
         'response_models': response_models,
     }
-    
+
     return render(request, 'extractor/response_model_list.html', context)
 
 
@@ -468,13 +445,19 @@ def client_configuration_create(request):
         model_api_key_expires = request.POST.get('model_api_key_expires') == 'on'
         model_api_key_validity = request.POST.get('model_api_key_validity') or None
         model_api_refresh_key = request.POST.get('model_api_refresh_key') or None
-        
+        try:
+            request_timeout = int(request.POST.get('request_timeout') or 60)
+            context_size = int(request.POST.get('context_size') or 8192)
+        except ValueError:
+            messages.error(request, "Timeout and context size must be numbers.")
+            return redirect('extractor:client_configuration_create')
+
         if not all([llm_model_name, model_provider, model_api_key, model_base_url]):
             messages.error(request, "Please fill in all required fields.")
             return redirect('extractor:client_configuration_create')
         
         try:
-            configuration = ClientConfiguration.objects.create(
+            configuration = ClientConfiguration(
                 llm_model_name=llm_model_name,
                 model_provider=model_provider,
                 model_api_key=model_api_key,
@@ -482,11 +465,15 @@ def client_configuration_create(request):
                 model_api_key_expires=model_api_key_expires,
                 model_api_key_validity=model_api_key_validity,
                 model_api_refresh_key=model_api_refresh_key,
+                request_timeout=request_timeout,
+                context_size=context_size,
             )
-            
+            configuration.full_clean()
+            configuration.save()
+
             messages.success(request, f"Client configuration '{llm_model_name}' created successfully!")
             return redirect('extractor:client_configuration_detail', config_id=configuration.id)
-            
+
         except Exception as e:
             log.error(f"Error creating client configuration: {e}")
             messages.error(request, f"Error creating configuration: {str(e)}")
@@ -523,7 +510,13 @@ def client_configuration_edit(request, config_id):
         configuration.model_base_url = request.POST.get('model_base_url')
         configuration.model_api_key_expires = request.POST.get('model_api_key_expires') == 'on'
         configuration.model_api_key_validity = request.POST.get('model_api_key_validity') or None
-        
+        try:
+            configuration.request_timeout = int(request.POST.get('request_timeout') or 60)
+            configuration.context_size = int(request.POST.get('context_size') or 8192)
+        except ValueError:
+            messages.error(request, "Timeout and context size must be numbers.")
+            return redirect('extractor:client_configuration_edit', config_id=configuration.id)
+
         new_api_key = request.POST.get('model_api_key')
         if new_api_key:
             configuration.model_api_key = new_api_key
@@ -533,6 +526,7 @@ def client_configuration_edit(request, config_id):
             configuration.model_api_refresh_key = new_refresh_key
         
         try:
+            configuration.full_clean()
             configuration.save()
             messages.success(request, f"Client configuration '{configuration.llm_model_name}' updated successfully!")
             return redirect('extractor:client_configuration_detail', config_id=configuration.id)
@@ -995,29 +989,33 @@ def extraction_dashboard(request):
                     'extracted_files': 0,
                 }
             
-            # Check if already extracted
-            has_extraction = ExtractionJob.objects.filter(
+            # Latest job status for this file — a pending or failed job is
+            # NOT "extracted", and the badge must say so
+            latest_job = ExtractionJob.objects.filter(
                 processed_file=pf
-            ).exists()
-            
+            ).order_by('-created_at').values_list('extraction_status', flat=True).first()
+
             patients_data[patient.patient_id]['files'].append({
                 'processed_file': pf,
-                'has_extraction': has_extraction,
+                'has_extraction': latest_job is not None,
+                'job_status': latest_job,
             })
             patients_data[patient.patient_id]['total_files'] += 1
-            if has_extraction:
+            if latest_job == 'completed':
                 patients_data[patient.patient_id]['extracted_files'] += 1
         else:
-            has_extraction = ExtractionJob.objects.filter(
+            latest_job = ExtractionJob.objects.filter(
                 processed_file=pf
-            ).exists()
+            ).order_by('-created_at').values_list('extraction_status', flat=True).first()
             unlinked_files.append({
                 'processed_file': pf,
-                'has_extraction': has_extraction,
+                'has_extraction': latest_job is not None,
+                'job_status': latest_job,
             })
-    
-    # Get available response models
-    response_models = ResponseModel.objects.all().select_related('client')
+
+    # Get available response models (complete ones only — mid-wizard models
+    # have no tables/fields yet)
+    response_models = ResponseModel.objects.filter(is_complete=True).select_related('client')
     
     context = {
         'patients_data': patients_data,
@@ -1064,24 +1062,28 @@ def extraction_start(request):
             messages.error(request, f"Extraction model could not be built: {e}")
             return redirect('extractor:extraction_dashboard')
 
-        # Perform bulk extraction
-        results = InstructorExtractionService.bulk_extract(
-            list(processed_files),
-            response_model,
-            request.user
-        )
-        
+        # Dispatch one Celery task per file; existing live jobs are reused
+        # so double-submits don't double-charge.
+        queued = 0
+        reused = 0
+        for processed_file in processed_files:
+            job, created = InstructorExtractionService.get_or_create_job(
+                processed_file, response_model, request.user
+            )
+            if created:
+                run_extraction_job.delay(job.id)
+                queued += 1
+            else:
+                reused += 1
+
         messages.success(
             request,
-            f"Extraction completed: {results['successful']} successful, {results['failed']} failed out of {results['total']} files."
+            f"Extraction queued: {queued} job(s) dispatched"
+            + (f", {reused} already running" if reused else "")
+            + f" for {len(processed_files)} file(s)."
         )
-        
-        # Redirect to results page
-        if results['jobs']:
-            first_job = results['jobs'][0]['job']
-            return redirect('extractor:extraction_results_list')
-        
-        return redirect('extractor:extraction_dashboard')
+
+        return redirect('extractor:extraction_results_list')
         
     except Exception as e:
         log.error(f"Extraction start failed: {e}")
@@ -1099,21 +1101,23 @@ def extraction_results_list(request):
         'response_model',
         'processed_file__file_upload',
         'extracted_by'
+    ).annotate(
+        result_count=Count('extractionresult')
     ).order_by('-created_at')
-    
-    # Add result counts to each job
-    jobs_with_stats = []
-    for job in extraction_jobs:
-        result_count = ExtractionResult.objects.filter(extraction_job=job).count()
-        jobs_with_stats.append({
-            'job': job,
-            'result_count': result_count,
-        })
-    
+
+    paginator = Paginator(extraction_jobs, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    jobs_with_stats = [
+        {'job': job, 'result_count': job.result_count}
+        for job in page_obj.object_list
+    ]
+
     context = {
         'jobs_with_stats': jobs_with_stats,
+        'page_obj': page_obj,
     }
-    
+
     return render(request, 'extractor/extraction_results_list.html', context)
 
 
@@ -1137,16 +1141,32 @@ def extraction_job_detail(request, job_id):
         extraction_job=extraction_job
     ).select_related(
         'database_field__clientapp_database_table',
+        'record',
         'verified_by'
-    ).order_by('database_field__clientapp_database_table', 'database_field__clientapp_field_name')
-    
-    # Group results by table
+    ).order_by(
+        'database_field__clientapp_database_table',
+        'record__record_index',
+        'database_field__clientapp_field_name'
+    )
+
+    # Group results by table, then by extracted record, so multi-record
+    # extractions (e.g. several diagnoses) stay visually separated
     results_by_table = {}
     for result in extraction_results:
         table_name = str(result.database_field.clientapp_database_table)
-        if table_name not in results_by_table:
-            results_by_table[table_name] = []
-        results_by_table[table_name].append(result)
+        records = results_by_table.setdefault(table_name, {})
+        record_key = result.record_id or 0
+        bucket = records.setdefault(record_key, {
+            'record_index': result.record.record_index if result.record else 0,
+            'results': [],
+        })
+        bucket['results'].append(result)
+
+    # Flatten into ordered lists for the template
+    results_by_table = {
+        table: sorted(records.values(), key=lambda r: r['record_index'])
+        for table, records in results_by_table.items()
+    }
     
     # Get processed file content
     content = FileProcessorService.get_processed_content(extraction_job.processed_file)
@@ -1170,21 +1190,67 @@ def extraction_result_update(request, result_id):
     Update an extraction result (edit data, change accuracy).
     """
     extraction_result = get_object_or_404(ExtractionResult, id=result_id)
-    
-    edited_data = request.POST.get('edited_data')
+
+    action = request.POST.get('action', 'accept')
     data_accuracy = request.POST.get('data_accuracy')
-    
-    if edited_data and edited_data != extraction_result.extracted_data:
-        extraction_result.edited_data = edited_data
+
+    effective_value = extraction_result.edited_data if extraction_result.data_edited else extraction_result.extracted_data
+
+    history_entry = {
+        'action': action,
+        'old': effective_value,
+        'user': request.user.username,
+        'at': timezone.now().isoformat(),
+    }
+
+    if action == 'correct':
+        new_value = request.POST.get('edited_data')
+        if not new_value or not new_value.strip():
+            messages.error(request, "Correction requires a value.")
+            return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+        # Compare against the *effective* value so re-submitting the original
+        # clears the correction instead of silently keeping the old edit.
+        if new_value == extraction_result.extracted_data:
+            extraction_result.edited_data = None
+            extraction_result.data_edited = False
+        else:
+            extraction_result.edited_data = new_value
+            extraction_result.data_edited = True
+        history_entry['new'] = new_value
+
+    elif action == 'clear':
+        extraction_result.edited_data = ''
         extraction_result.data_edited = True
-    
+        history_entry['new'] = ''
+
+    elif action == 'revert':
+        extraction_result.edited_data = None
+        extraction_result.data_edited = False
+        history_entry['new'] = extraction_result.extracted_data
+
+    elif action in ('accept', 'reject'):
+        pass  # accuracy set below
+
+    else:
+        messages.error(request, f"Unknown action '{action}'.")
+        return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+
+    if action == 'accept' and not data_accuracy:
+        data_accuracy = 'accurate'
+    if action == 'reject':
+        data_accuracy = 'inaccurate'
+
     if data_accuracy:
+        if data_accuracy not in DataAccuracyChoices.values:
+            messages.error(request, f"Invalid accuracy value '{data_accuracy}'.")
+            return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
         extraction_result.data_accuracy = data_accuracy
-    
+
+    extraction_result.revision_history = (extraction_result.revision_history or []) + [history_entry]
     extraction_result.verified_by = request.user
     extraction_result.verification_date_time = timezone.now()
     extraction_result.save()
-    
+
     messages.success(request, "Extraction result updated successfully.")
     return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
 

@@ -39,6 +39,8 @@ class ClientConfiguration(models.Model):
     model_api_key_validity = models.DateTimeField(null=True,blank=True,help_text="Validity date of the API key")
     model_api_refresh_key = EncryptedCharField(max_length=512,null=True,blank=True,help_text="Refresh key for the API key")
     model_base_url = models.CharField(max_length=255, validators=[URLValidator()])
+    request_timeout = models.PositiveIntegerField(default=60, help_text="Seconds to wait for a provider response before failing")
+    context_size = models.PositiveIntegerField(default=8192, help_text="Model context window in tokens; prompts larger than this are refused rather than silently truncated")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -295,6 +297,7 @@ class ResponseModel(models.Model):
     '''
     client = models.ForeignKey(ClientConfiguration, on_delete=models.CASCADE,help_text="Client configuration used for data extraction")
     name = models.CharField(max_length=512, help_text="Name of the response model")
+    is_complete = models.BooleanField(default=True, help_text="False while the model is mid-wizard (tables/fields not yet chosen); incomplete models are hidden from extraction lists")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -378,6 +381,8 @@ class ExtractionStatusChoices(models.TextChoices):
     PROCESSING = "processing", "Processing"
     COMPLETED = "completed", "Completed"
     FAILED = "failed", "Failed"
+    SKIPPED = "skipped", "Skipped"
+    PARTIAL = "partial", "Partial"
 
 class ExtractionJob(models.Model):
     '''
@@ -392,6 +397,10 @@ class ExtractionJob(models.Model):
     extraction_error = models.TextField(blank=True, null=True, help_text="Error message if extraction failed")
     tokens_used = models.PositiveIntegerField(help_text="Number of tokens used for extraction",null=True,blank=True)
     raw_llm_response = models.JSONField(help_text="Raw LLM response as JSON. To be stored in database only for debugging",null=True,blank=True)
+    input_content_hash = models.CharField(max_length=64, blank=True, help_text="SHA-256 of the processed text this job ran on")
+    prompt_snapshot = models.TextField(blank=True, help_text="The exact messages sent to the model (frozen at dispatch)")
+    config_snapshot = models.JSONField(null=True, blank=True, help_text="Provider/model/schema version frozen at dispatch")
+    retry_count = models.PositiveIntegerField(default=0, help_text="How many instructor retries the provider call used")
     extracted_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who performed the extraction")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -407,9 +416,19 @@ class DataAccuracyChoices(models.TextChoices):
     '''
     This will store the accuracy of the extracted data
     '''
+    UNREVIEWED = "unreviewed", "Unreviewed"
     ACCURATE = "accurate", "Accurate"
     PARTIAL = "partial", "Partial"
     INACCURATE = "inaccurate", "Inaccurate"
+
+
+class ResultStateChoices(models.TextChoices):
+    '''
+    Whether an extraction result row carries a found value.
+    '''
+    EXTRACTED = "extracted", "Extracted"
+    NOT_FOUND = "not_found", "Not found"
+    UNRESOLVED = "unresolved", "Unresolved lookup"
 
 class ExtractedRecord(models.Model):
     '''
@@ -437,10 +456,12 @@ class ExtractionResult(models.Model):
     database_field = models.ForeignKey(DatabaseField, on_delete=models.CASCADE,help_text="Database table field for which the data has been extracted")
     record = models.ForeignKey(ExtractedRecord, on_delete=models.CASCADE, null=True, blank=True, related_name='results', help_text="The extracted record this value belongs to")
     extracted_data = EncryptedTextField(help_text="Extracted data after Instructor parses the text. This will be stored as an encrypted text.")
-    data_accuracy = models.CharField(max_length=50, choices=DataAccuracyChoices.choices, default=DataAccuracyChoices.ACCURATE)
+    result_state = models.CharField(max_length=20, choices=ResultStateChoices.choices, default=ResultStateChoices.EXTRACTED, help_text="extracted / not_found / unresolved-lookup")
+    data_accuracy = models.CharField(max_length=50, choices=DataAccuracyChoices.choices, default=DataAccuracyChoices.UNREVIEWED)
     data_edited = models.BooleanField(default=False, help_text="Whether the data was edited by the user")
     edited_data = EncryptedTextField(help_text="Edited data after user edits the extracted data. This will be stored as an encrypted text.",null=True,blank=True)
-    verified_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who verified the data")
+    revision_history = models.JSONField(default=list, blank=True, help_text="Audit trail of review actions: [{action, old, new, user, at}]")
+    verified_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, help_text="User who verified the data")
     verification_date_time = models.DateTimeField(help_text="Date and time when the data was verified",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

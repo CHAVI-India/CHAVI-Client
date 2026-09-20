@@ -54,3 +54,31 @@ def compute_lookup_embeddings_task(self, task_id, config_id, refresh=False):
         return
 
     task.mark_complete({'success': True, **result})
+
+
+@shared_task(bind=True, max_retries=0)
+def run_extraction_job(self, job_id):
+    """
+    Celery task: run one extraction job (one processed file x one model).
+    Retries are disabled — a failed job stays failed and can be re-dispatched
+    explicitly, so transient provider errors never double-charge silently.
+    """
+    from extractor.models import ExtractionJob
+    from extractor.services.file_processor import FileProcessorService
+    from extractor.services.instructor_extractor import InstructorExtractionService
+
+    try:
+        job = ExtractionJob.objects.select_related(
+            'response_model__client', 'processed_file', 'extracted_by'
+        ).get(id=job_id)
+    except ExtractionJob.DoesNotExist:
+        log.error(f"ExtractionJob {job_id} not found")
+        return {'success': False, 'error': 'job not found'}
+
+    if job.extraction_status not in ('pending', 'failed'):
+        log.info(f"Job {job_id} already {job.extraction_status}; skipping")
+        return {'success': True, 'reused': True, 'status': job.extraction_status}
+
+    content = FileProcessorService.get_processed_content(job.processed_file)
+    result = InstructorExtractionService.extract_data(job, content, job.extracted_by)
+    return result

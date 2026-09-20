@@ -7,9 +7,9 @@ urlpatterns = [
     path('wizard/start/', views.wizard_start, name='wizard_start'),
     path('wizard/start/refresh-schema/', views.wizard_start_refresh_schema, name='wizard_start_refresh_schema'),
     path('wizard/step1/', views.wizard_step1, name='wizard_step1'),
-    path('wizard/step2/', views.wizard_step2, name='wizard_step2'),
-    path('wizard/step3/', views.wizard_step3, name='wizard_step3'),
-    path('wizard/step4/', views.wizard_step4, name='wizard_step4'),
+    path('wizard/step2/<int:response_model_id>/', views.wizard_step2, name='wizard_step2'),
+    path('wizard/step3/<int:response_model_id>/', views.wizard_step3, name='wizard_step3'),
+    path('wizard/step4/<int:response_model_id>/', views.wizard_step4, name='wizard_step4'),
     path('wizard/complete/<int:response_model_id>/', views.wizard_complete, name='wizard_complete'),
     
     path('response-models/', views.response_model_list, name='response_model_list'),

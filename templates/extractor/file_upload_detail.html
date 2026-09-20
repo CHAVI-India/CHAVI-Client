@@ -12,7 +12,7 @@
                     <i class="fas fa-file-alt text-chavi-primary mr-2"></i>
                     File Details
                 </h1>
-                <p class="text-gray-600 mt-2">{{ file_upload.file.name }}</p>
+                <p class="text-gray-600 mt-2">{{ file_upload.original_filename|default:file_upload.file.name }}</p>
             </div>
             <div class="flex gap-3">
                 <a href="{% url 'extractor:file_upload_list' %}" 
@@ -78,7 +78,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <p class="text-sm text-gray-600">File Name</p>
-                    <p class="text-gray-900 font-medium">{{ file_upload.file.name }}</p>
+                    <p class="text-gray-900 font-medium">{{ file_upload.original_filename|default:file_upload.file.name }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Uploaded</p>

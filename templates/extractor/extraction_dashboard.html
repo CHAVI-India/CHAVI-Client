@@ -136,7 +136,7 @@
                                         <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
                                         <div class="flex-1">
                                             <p class="font-medium text-gray-800">
-                                                {{ file_data.processed_file.file_upload.file.name|truncatechars:50 }}
+                                                {{ file_data.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:50 }}
                                             </p>
                                             <p class="text-sm text-gray-500">
                                                 Processed: {{ file_data.processed_file.created_at|date:"M d, Y H:i" }}
@@ -144,9 +144,21 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-3">
-                                        {% if file_data.has_extraction %}
+                                        {% if file_data.job_status == 'completed' %}
                                         <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
                                             <i class="fas fa-check mr-1"></i>Extracted
+                                        </span>
+                                        {% elif file_data.job_status == 'failed' %}
+                                        <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+                                            <i class="fas fa-times mr-1"></i>Failed
+                                        </span>
+                                        {% elif file_data.job_status == 'pending' or file_data.job_status == 'processing' %}
+                                        <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                            <i class="fas fa-clock mr-1"></i>{{ file_data.job_status|capfirst }}
+                                        </span>
+                                        {% elif file_data.job_status == 'skipped' %}
+                                        <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">
+                                            <i class="fas fa-forward mr-1"></i>Skipped
                                         </span>
                                         {% endif %}
                                         <label class="flex items-center cursor-pointer">
@@ -179,7 +191,7 @@
                             <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
                             <div class="flex-1">
                                 <p class="font-medium text-gray-800">
-                                    {{ file_data.processed_file.file_upload.file.name|truncatechars:50 }}
+                                    {{ file_data.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:50 }}
                                 </p>
                                 <p class="text-sm text-gray-500">
                                     Processed: {{ file_data.processed_file.created_at|date:"M d, Y H:i" }}
@@ -187,9 +199,21 @@
                             </div>
                         </div>
                         <div class="flex items-center space-x-3">
-                            {% if file_data.has_extraction %}
+                            {% if file_data.job_status == 'completed' %}
                             <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
                                 <i class="fas fa-check mr-1"></i>Extracted
+                            </span>
+                            {% elif file_data.job_status == 'failed' %}
+                            <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+                                <i class="fas fa-times mr-1"></i>Failed
+                            </span>
+                            {% elif file_data.job_status == 'pending' or file_data.job_status == 'processing' %}
+                            <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                <i class="fas fa-clock mr-1"></i>{{ file_data.job_status|capfirst }}
+                            </span>
+                            {% elif file_data.job_status == 'skipped' %}
+                            <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">
+                                <i class="fas fa-forward mr-1"></i>Skipped
                             </span>
                             {% endif %}
                             <label class="flex items-center cursor-pointer">

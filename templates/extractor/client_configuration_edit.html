@@ -60,6 +60,33 @@
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
             </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="request_timeout" class="block text-sm font-medium text-gray-700 mb-2">
+                        Request Timeout (seconds)
+                    </label>
+                    <input type="number"
+                           id="request_timeout"
+                           name="request_timeout"
+                           min="1" max="600"
+                           value="{{ configuration.request_timeout|default:60 }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                    <p class="mt-1 text-sm text-gray-500">How long to wait for a provider response before failing</p>
+                </div>
+                <div>
+                    <label for="context_size" class="block text-sm font-medium text-gray-700 mb-2">
+                        Context Size (tokens)
+                    </label>
+                    <input type="number"
+                           id="context_size"
+                           name="context_size"
+                           min="512"
+                           value="{{ configuration.context_size|default:8192 }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                    <p class="mt-1 text-sm text-gray-500">Prompts larger than this are refused rather than silently truncated</p>
+                </div>
+            </div>
+
             <div>
                 <label for="model_api_key" class="block text-sm font-medium text-gray-700 mb-2">
                     API Key
