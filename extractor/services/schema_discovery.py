@@ -2,6 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models as django_models, transaction
 from django.db.utils import OperationalError
+from extractor.services.record_writer import DEFAULT_MATCH_FIELDS
 from extractor.models import DatabaseTable, DatabaseField, EntityTypeChoices
 from logging import getLogger
 import time
@@ -139,7 +140,16 @@ class SchemaDiscoveryService:
                 'date_validation_pairs': date_pairs or None
             }
         )
-        
+
+        # Seed duplicate-detection key-sets from the curated defaults, but never
+        # overwrite an admin-edited match_fields (not in defaults — update_or_create
+        # would clobber it on every discovery run).
+        if not db_table.match_fields:
+            default = DEFAULT_MATCH_FIELDS.get(model_class._meta.model_name)
+            if default:
+                db_table.match_fields = default
+                db_table.save(update_fields=['match_fields', 'updated_at'])
+
         return db_table, created
     
     @classmethod
@@ -253,9 +263,16 @@ class SchemaDiscoveryService:
 
             validation_rules = cls._extract_validation_rules(field) or {}
             # Internal relationship (FK to a non-lookup table): record the flag
-            # so the wizard can hide it from the extractable field list.
+            # so the wizard can hide it from the extractable field list, and
+            # persist the FK target so write-back/hierarchy code can chain.
+            relation_ct = None
+            relation_pk = None
             if isinstance(field, django_models.ForeignKey) and not is_lookup:
                 validation_rules['is_relationship'] = True
+                related = getattr(field, 'related_model', None)
+                if related is not None:
+                    relation_ct = ContentType.objects.get_for_model(related)
+                    relation_pk = related._meta.pk.name if related._meta.pk else 'id'
 
             db_field, created = DatabaseField.objects.get_or_create(
                 clientapp_database_table=db_table,
@@ -268,6 +285,8 @@ class SchemaDiscoveryService:
                     'lookup_table_value_field_name': lookup_value_field,
                     'lookup_table_pk_field_name': lookup_pk_field,
                     'lookup_config_source': 'auto',
+                    'relation_content_type': relation_ct,
+                    'relation_pk_field': relation_pk,
                     'help_text': str(field.help_text) if getattr(field, 'help_text', None) else '',
                     'is_active': True,
                 }
@@ -277,12 +296,16 @@ class SchemaDiscoveryService:
                 # Always refresh non-lookup metadata. Lookup configuration is
                 # only refreshed when it was auto-discovered — a 'manual' source
                 # means a human chose the display/code fields and must not be
-                # overwritten by the next discovery run.
+                # overwritten by the next discovery run. Relation metadata is
+                # structural, not user preference, so always refreshed.
                 db_field.field_type = field_type
                 db_field.field_validation = validation_rules or None
                 db_field.help_text = str(field.help_text) if getattr(field, 'help_text', None) else ''
                 db_field.is_active = True
-                update_fields = ['field_type', 'field_validation', 'help_text', 'is_active']
+                db_field.relation_content_type = relation_ct
+                db_field.relation_pk_field = relation_pk
+                update_fields = ['field_type', 'field_validation', 'help_text', 'is_active',
+                                 'relation_content_type', 'relation_pk_field']
                 if db_field.lookup_config_source == 'auto':
                     db_field.lookup_field = is_lookup
                     db_field.lookup_content_type = lookup_ct

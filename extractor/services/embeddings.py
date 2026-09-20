@@ -15,6 +15,10 @@ from openai import OpenAI
 
 log = getLogger(__name__)
 
+# Canonical vector-index dimension. LookupEmbedding.embedding is vector(1536);
+# every config and provider must produce exactly this.
+INDEX_DIM = 1536
+
 
 class EmbeddingUnavailableError(Exception):
     """Raised when embeddings cannot be computed for the active configuration."""
@@ -45,6 +49,12 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
         # CPU keeps this off GPU memory and avoids CUDA version issues
         self._model = SentenceTransformer(model_name, device='cpu')
         self._dimensions = int(self._model.get_sentence_embedding_dimension())
+        if self._dimensions != INDEX_DIM:
+            raise EmbeddingUnavailableError(
+                f"Model '{model_name}' produces {self._dimensions}-dim embeddings; "
+                f"the vector index requires {INDEX_DIM}. Use a {INDEX_DIM}-dim model "
+                f"or the OpenAI-compatible provider."
+            )
 
     @property
     def dimensions(self):
@@ -73,8 +83,19 @@ class OpenAICompatibleProvider(BaseEmbeddingProvider):
         out: List[List[float]] = []
         for i in range(0, len(texts), self.BATCH_SIZE):
             batch = texts[i:i + self.BATCH_SIZE]
-            response = self._client.embeddings.create(model=self._model_name, input=batch)
-            out.extend(item.embedding for item in response.data)
+            kwargs = {'model': self._model_name, 'input': batch}
+            # dimensions= is an OpenAI v3-embedding parameter; other endpoints
+            # may reject it, so only send it where it's supported
+            if 'text-embedding-3' in self._model_name:
+                kwargs['dimensions'] = INDEX_DIM
+            response = self._client.embeddings.create(**kwargs)
+            vectors = [item.embedding for item in response.data]
+            for v in vectors:
+                if len(v) != INDEX_DIM:
+                    raise EmbeddingUnavailableError(
+                        f"Provider returned {len(v)}-dim embedding; index requires {INDEX_DIM}"
+                    )
+            out.extend(vectors)
         return out
 
 

@@ -127,13 +127,36 @@
                             <div class="text-xs text-gray-400 mt-1">
                                 <i class="fas fa-folder mr-1"></i>
                                 {{ processed.processed_file_path }}
+                                <span class="ml-2 text-gray-500">v{{ processed.version }}</span>
+                                {% if processed.ocr_applied %}
+                                    <span class="ml-2 bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">OCR</span>
+                                {% endif %}
+                                {% if processed.processing_warning %}
+                                    <span class="ml-2 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs font-semibold">
+                                        ⚠ {{ processed.processing_warning|cut:"_"|title }}
+                                    </span>
+                                {% endif %}
                             </div>
                         </div>
-                        <a href="{% url 'extractor:processed_text_view' processed.id %}" 
-                           class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-chavi-secondary transition-colors">
-                            <i class="fas fa-eye mr-2"></i>
-                            View
-                        </a>
+                        <div class="flex items-center gap-2">
+                            {% if processed.processing_warning == 'no_text' or processed.processing_warning == 'low_text' or processed.processing_warning == 'ocr_empty' %}
+                            <form method="post" action="{% url 'extractor:processed_text_ocr' processed.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.path }}">
+                                <button type="submit"
+                                        class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                                        title="OCR requires tesseract-ocr + poppler-utils on the server">
+                                    <i class="fas fa-scanner-gun mr-2"></i>
+                                    Run OCR
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'extractor:processed_text_view' processed.id %}" 
+                               class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-chavi-secondary transition-colors">
+                                <i class="fas fa-eye mr-2"></i>
+                                View
+                            </a>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}

@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Patient {{ patient.patient_id }} - Extraction Data{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <a href="{% url 'extractor:extraction_dashboard' %}" class="text-chavi-primary text-sm hover:underline">
+                <i class="fas fa-arrow-left mr-1"></i> Back to dashboard
+            </a>
+            <h1 class="text-3xl font-bold text-gray-800 mt-1">
+                <i class="fas fa-user-injured text-chavi-primary mr-2"></i>
+                {{ patient.patient_id }}
+            </h1>
+        </div>
+    </div>
+
+    <!-- Files + extraction start -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-file-medical text-chavi-primary mr-2"></i>Processed files
+        </h2>
+        {% if file_rows %}
+        <form id="extract-form" method="post" action="{% url 'extractor:extraction_start' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+        </form>
+        <div class="space-y-2 mb-4">
+            {% for fr in file_rows %}
+            <div class="flex items-center gap-3 border border-gray-200 rounded-lg px-4 py-2.5">
+                <input type="checkbox" name="processed_files" value="{{ fr.processed_file.id }}" form="extract-form"
+                       class="rounded border-gray-300 text-chavi-primary">
+                <div class="flex-1 min-w-0">
+                    <span class="font-medium text-gray-900">{{ fr.processed_file.file_upload.original_filename }}</span>
+                    <span class="text-xs text-gray-400 ml-2">v{{ fr.processed_file.version }}</span>
+                    {% if fr.processed_file.ocr_applied %}
+                    <span class="ml-1 bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">OCR</span>
+                    {% endif %}
+                    {% if fr.processed_file.processing_warning %}
+                    <span class="ml-1 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs font-semibold">⚠ {{ fr.processed_file.processing_warning }}</span>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-gray-500">
+                    {% if fr.latest_job %}
+                    <span class="px-2 py-0.5 rounded-full font-semibold
+                        {% if fr.latest_job.extraction_status == 'completed' %}bg-green-100 text-green-800
+                        {% elif fr.latest_job.extraction_status == 'failed' %}bg-red-100 text-red-800
+                        {% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {{ fr.latest_job.extraction_status }}
+                    </span>
+                    {% else %}
+                    <span class="text-gray-400">no job</span>
+                    {% endif %}
+                </div>
+                {% if fr.processed_file.processing_warning == 'no_text' or fr.processed_file.processing_warning == 'low_text' or fr.processed_file.processing_warning == 'ocr_empty' %}
+                <form method="post" action="{% url 'extractor:processed_text_ocr' fr.processed_file.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-purple-700"
+                            title="Requires tesseract-ocr + poppler-utils on the server">
+                        Run OCR
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'extractor:processed_text_view' fr.processed_file.id %}"
+                   class="text-chavi-primary text-xs font-semibold hover:underline">View</a>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="flex items-center gap-3">
+            <select name="response_model" required form="extract-form"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="">Select extraction model…</option>
+                {% for rm in response_models %}
+                <option value="{{ rm.id }}">{{ rm.name }} ({{ rm.client.name }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" form="extract-form"
+                    class="bg-chavi-gradient text-white px-5 py-2 rounded-lg font-semibold text-sm hover:opacity-90">
+                <i class="fas fa-play mr-1"></i> Start extraction
+            </button>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-sm">No processed files for this patient yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Extracted data by hierarchy -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-table-cells text-chavi-primary mr-2"></i>Data — stored vs extracted
+        </h2>
+        {% if data_tree %}
+            {% for node in data_tree %}
+                {% include 'extractor/patient_data_node.html' with node=node level=0 %}
+            {% endfor %}
+        {% else %}
+        <p class="text-gray-500 text-sm">No extracted data for this patient yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Job history -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">
+            <i class="fas fa-clock-rotate-left text-chavi-primary mr-2"></i>Job history
+        </h2>
+        {% if jobs %}
+        <div class="space-y-1">
+            {% for job in jobs %}
+            <div class="flex items-center gap-3 text-sm py-1.5 border-b border-gray-100">
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                    {% if job.extraction_status == 'completed' %}bg-green-100 text-green-800
+                    {% elif job.extraction_status == 'failed' %}bg-red-100 text-red-800
+                    {% elif job.extraction_status == 'skipped' %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ job.extraction_status }}
+                </span>
+                <span class="text-gray-700">{{ job.response_model.name }}</span>
+                <span class="text-gray-400 truncate max-w-xs">{{ job.processed_file.file_upload.original_filename }}</span>
+                {% if job.tokens_used %}<span class="text-gray-400">{{ job.tokens_used }} tok</span>{% endif %}
+                <span class="text-gray-400">{{ job.created_at|date:"M d H:i" }}</span>
+                <a href="{% url 'extractor:extraction_job_detail' job.id %}"
+                   class="ml-auto text-chavi-primary text-xs font-semibold hover:underline">detail</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-sm">No extraction jobs yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleDetail(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden');
+}
+function toggleEdit(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden');
+}
+</script>
+{% endblock %}

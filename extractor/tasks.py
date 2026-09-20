@@ -82,3 +82,38 @@ def run_extraction_job(self, job_id):
     content = FileProcessorService.get_processed_content(job.processed_file)
     result = InstructorExtractionService.extract_data(job, content, job.extracted_by)
     return result
+
+
+@shared_task(bind=True, max_retries=0)
+def ocr_processed_text_task(self, task_id, processed_text_id, user_id=None):
+    """
+    Celery task: OCR a scanned PDF into a new versioned ProcessedText row.
+    Progress is tracked on the BackgroundTask row created by the view.
+    """
+    from extractor.models import ProcessedText
+    from extractor.services.file_processor import FileProcessorService
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    try:
+        task = BackgroundTask.objects.get(task_id=task_id)
+    except BackgroundTask.DoesNotExist:
+        log.error(f"BackgroundTask {task_id} not found")
+        return
+
+    task.mark_running()
+    task.update_progress('Rendering pages and running OCR...')
+
+    try:
+        pt = ProcessedText.objects.select_related('file_upload').get(id=processed_text_id)
+        user = User.objects.filter(id=user_id).first() if user_id else None
+        new_version = FileProcessorService.ocr_pdf(pt, user=user)
+        task.mark_complete({
+            'success': True,
+            'processed_text_id': new_version.id,
+            'version': new_version.version,
+            'content_length': new_version.content_length,
+        })
+    except Exception as e:
+        log.error(f"OCR task failed for processed_text {processed_text_id}: {e}", exc_info=True)
+        task.mark_failed(str(e))

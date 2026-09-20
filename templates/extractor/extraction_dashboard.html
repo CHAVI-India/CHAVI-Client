@@ -11,7 +11,7 @@
                     <i class="fas fa-robot text-chavi-primary mr-2"></i>
                     Data Extraction Dashboard
                 </h1>
-                <p class="text-gray-600 mt-2">Extract structured data from processed files using AI</p>
+                <p class="text-gray-600 mt-2">One row per patient — open a patient to review and extract</p>
             </div>
             <a href="{% url 'extractor:extraction_results_list' %}" 
                class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
@@ -21,293 +21,131 @@
         </div>
 
         <!-- Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-blue-600 text-sm font-semibold uppercase">Total Patients</p>
-                        <p class="text-3xl font-bold text-blue-900 mt-2">{{ total_patients }}</p>
-                    </div>
-                    <i class="fas fa-users text-4xl text-blue-300"></i>
-                </div>
-            </div>
-            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-green-600 text-sm font-semibold uppercase">Processed Files</p>
-                        <p class="text-3xl font-bold text-green-900 mt-2">{{ total_processed_files }}</p>
-                    </div>
-                    <i class="fas fa-file-alt text-4xl text-green-300"></i>
-                </div>
+                <p class="text-blue-600 text-sm font-semibold uppercase">Patients with uploads</p>
+                <p class="text-3xl font-bold text-blue-900 mt-2">{{ total_patients }}</p>
             </div>
             <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-purple-600 text-sm font-semibold uppercase">Response Models</p>
-                        <p class="text-3xl font-bold text-purple-900 mt-2">{{ response_models.count }}</p>
-                    </div>
-                    <i class="fas fa-brain text-4xl text-purple-300"></i>
-                </div>
+                <p class="text-purple-600 text-sm font-semibold uppercase">Extraction Models</p>
+                <p class="text-3xl font-bold text-purple-900 mt-2">{{ response_models.count }}</p>
             </div>
         </div>
 
-        <!-- Extraction Form -->
-        <form method="POST" action="{% url 'extractor:extraction_start' %}" id="extractionForm">
-            {% csrf_token %}
-            
-            <!-- Response Model Selection -->
-            <div class="mb-6 bg-gray-50 rounded-lg p-6">
-                <label class="block text-sm font-semibold text-gray-700 mb-3">
-                    <i class="fas fa-brain mr-2"></i>Select Response Model
-                </label>
-                {% if response_models %}
-                    <select name="response_model" id="responseModelSelect" 
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent"
-                            required>
-                        <option value="">-- Choose a response model --</option>
-                        {% for model in response_models %}
-                        <option value="{{ model.id }}">
-                            {{ model.name }} ({{ model.client.llm_model_name }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                {% else %}
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p class="text-yellow-800">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            No response models configured. 
-                            <a href="{% url 'extractor:wizard_step1' %}" class="underline font-semibold">Create one now</a>
-                        </p>
-                    </div>
-                {% endif %}
+        <!-- Filters -->
+        <form method="get" class="flex flex-wrap items-end gap-3 mb-6 p-4 bg-gray-50 rounded-lg">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Patient ID</label>
+                <input type="text" name="q" value="{{ filters.q }}" placeholder="Search..."
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-44">
             </div>
-
-            <!-- Patients and Files -->
-            {% if patients_data %}
-            <div class="mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-800">
-                        <i class="fas fa-user-md mr-2"></i>Select Files by Patient
-                    </h2>
-                    <div class="space-x-2">
-                        <button type="button" onclick="selectAll()" 
-                                class="text-sm text-chavi-primary hover:text-chavi-secondary font-semibold">
-                            Select All
-                        </button>
-                        <button type="button" onclick="deselectAll()" 
-                                class="text-sm text-gray-600 hover:text-gray-800 font-semibold">
-                            Deselect All
-                        </button>
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    {% for patient_id, data in patients_data.items %}
-                    <div class="border border-gray-200 rounded-lg overflow-hidden">
-                        <div class="bg-gray-50 px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-100"
-                             onclick="togglePatient('patient-{{ patient_id }}')">
-                            <div class="flex items-center">
-                                <i class="fas fa-user-circle text-2xl text-chavi-primary mr-3"></i>
-                                <div>
-                                    <h3 class="font-semibold text-gray-800">Patient: {{ patient_id }}</h3>
-                                    <p class="text-sm text-gray-600">
-                                        {{ data.total_files }} file(s) | 
-                                        {{ data.extracted_files }} already extracted
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <label class="flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                                    <input type="checkbox" 
-                                           class="patient-checkbox mr-2 h-5 w-5 text-chavi-primary rounded focus:ring-chavi-primary"
-                                           data-patient="patient-{{ patient_id }}"
-                                           onchange="togglePatientFiles('patient-{{ patient_id }}', this.checked)">
-                                    <span class="text-sm font-semibold text-gray-700">Select All</span>
-                                </label>
-                                <i class="fas fa-chevron-down text-gray-400 patient-chevron" id="chevron-patient-{{ patient_id }}"></i>
-                            </div>
-                        </div>
-                        
-                        <div id="patient-{{ patient_id }}" class="hidden bg-white">
-                            <div class="divide-y divide-gray-100">
-                                {% for file_data in data.files %}
-                                <div class="px-6 py-4 hover:bg-gray-50 flex items-center justify-between">
-                                    <div class="flex items-center flex-1">
-                                        <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
-                                        <div class="flex-1">
-                                            <p class="font-medium text-gray-800">
-                                                {{ file_data.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:50 }}
-                                            </p>
-                                            <p class="text-sm text-gray-500">
-                                                Processed: {{ file_data.processed_file.created_at|date:"M d, Y H:i" }}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center space-x-3">
-                                        {% if file_data.job_status == 'completed' %}
-                                        <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                                            <i class="fas fa-check mr-1"></i>Extracted
-                                        </span>
-                                        {% elif file_data.job_status == 'failed' %}
-                                        <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
-                                            <i class="fas fa-times mr-1"></i>Failed
-                                        </span>
-                                        {% elif file_data.job_status == 'pending' or file_data.job_status == 'processing' %}
-                                        <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                                            <i class="fas fa-clock mr-1"></i>{{ file_data.job_status|capfirst }}
-                                        </span>
-                                        {% elif file_data.job_status == 'skipped' %}
-                                        <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">
-                                            <i class="fas fa-forward mr-1"></i>Skipped
-                                        </span>
-                                        {% endif %}
-                                        <label class="flex items-center cursor-pointer">
-                                            <input type="checkbox" 
-                                                   name="processed_files" 
-                                                   value="{{ file_data.processed_file.id }}"
-                                                   class="file-checkbox patient-{{ patient_id }}-file h-5 w-5 text-chavi-primary rounded focus:ring-chavi-primary">
-                                        </label>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Job status</label>
+                <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
-                </div>
+                    <option value="none" {% if filters.status == 'none' %}selected{% endif %}>No jobs</option>
+                </select>
             </div>
-            {% endif %}
-
-            <!-- Unlinked Files -->
-            {% if unlinked_files %}
-            <div class="mb-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">
-                    <i class="fas fa-unlink mr-2"></i>Files Without Patient Link
-                </h2>
-                <div class="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {% for file_data in unlinked_files %}
-                    <div class="px-6 py-4 hover:bg-gray-50 flex items-center justify-between">
-                        <div class="flex items-center flex-1">
-                            <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
-                            <div class="flex-1">
-                                <p class="font-medium text-gray-800">
-                                    {{ file_data.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:50 }}
-                                </p>
-                                <p class="text-sm text-gray-500">
-                                    Processed: {{ file_data.processed_file.created_at|date:"M d, Y H:i" }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            {% if file_data.job_status == 'completed' %}
-                            <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                                <i class="fas fa-check mr-1"></i>Extracted
-                            </span>
-                            {% elif file_data.job_status == 'failed' %}
-                            <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
-                                <i class="fas fa-times mr-1"></i>Failed
-                            </span>
-                            {% elif file_data.job_status == 'pending' or file_data.job_status == 'processing' %}
-                            <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                                <i class="fas fa-clock mr-1"></i>{{ file_data.job_status|capfirst }}
-                            </span>
-                            {% elif file_data.job_status == 'skipped' %}
-                            <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded-full">
-                                <i class="fas fa-forward mr-1"></i>Skipped
-                            </span>
-                            {% endif %}
-                            <label class="flex items-center cursor-pointer">
-                                <input type="checkbox" 
-                                       name="processed_files" 
-                                       value="{{ file_data.processed_file.id }}"
-                                       class="file-checkbox h-5 w-5 text-chavi-primary rounded focus:ring-chavi-primary">
-                            </label>
-                        </div>
-                    </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">File type</label>
+                <select name="file_type" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    {% for value, label in file_type_choices %}
+                    <option value="{{ value }}" {% if filters.file_type == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
-                </div>
+                </select>
             </div>
-            {% endif %}
-
-            {% if not patients_data and not unlinked_files %}
-            <div class="text-center py-12 bg-gray-50 rounded-lg">
-                <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                <h3 class="text-xl font-semibold text-gray-600 mb-2">No processed files available</h3>
-                <p class="text-gray-500 mb-6">Upload and process files first before extracting data</p>
-                <a href="{% url 'extractor:file_upload_create' %}" 
-                   class="inline-block bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                    <i class="fas fa-upload mr-2"></i>
-                    Upload Files
-                </a>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Uploaded from</label>
+                <input type="date" name="from" value="{{ filters.from }}"
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             </div>
-            {% endif %}
-
-            <!-- Submit Button -->
-            {% if patients_data or unlinked_files %}
-            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
-                <p class="text-sm text-gray-600">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Selected: <span id="selectedCount" class="font-semibold">0</span> file(s)
-                </p>
-                <button type="submit" 
-                        class="bg-chavi-gradient text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                        id="submitBtn"
-                        disabled>
-                    <i class="fas fa-magic mr-2"></i>
-                    Start Extraction
-                </button>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">to</label>
+                <input type="date" name="to" value="{{ filters.to }}"
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             </div>
-            {% endif %}
+            <button type="submit"
+                    class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-chavi-secondary transition-colors">
+                Apply
+            </button>
+            <a href="{% url 'extractor:extraction_dashboard' %}" class="text-sm text-gray-500 hover:text-gray-700 pb-2">Reset</a>
         </form>
+
+        <!-- Patient table -->
+        {% if page_obj %}
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100 text-left">
+                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Patient</th>
+                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Files</th>
+                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Processed</th>
+                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Extraction jobs</th>
+                        <th class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in page_obj %}
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 font-semibold text-gray-900">{{ patient.patient_id }}</td>
+                        <td class="px-4 py-3 text-gray-700">{{ patient.file_count }}</td>
+                        <td class="px-4 py-3 text-gray-700">{{ patient.processed_count }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold">
+                                {% if patient.jobs_completed %}
+                                <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">{{ patient.jobs_completed }} completed</span>
+                                {% endif %}
+                                {% if patient.jobs_active %}
+                                <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{{ patient.jobs_active }} active</span>
+                                {% endif %}
+                                {% if patient.jobs_failed %}
+                                <span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full">{{ patient.jobs_failed }} failed</span>
+                                {% endif %}
+                                {% if not patient.jobs_completed and not patient.jobs_active and not patient.jobs_failed %}
+                                <span class="text-gray-400">no jobs</span>
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="{% url 'extractor:patient_data' patient.pk %}"
+                               class="bg-chavi-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-chavi-secondary transition-colors">
+                                View data
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if paginator.num_pages > 1 %}
+        <div class="flex items-center justify-center gap-2 mt-6">
+            {% if page_obj.has_previous %}
+            <a href="?page=1&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
+               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">« First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
+               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">‹ Prev</a>
+            {% endif %}
+            <span class="text-sm text-gray-600">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
+               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">Next ›</a>
+            <a href="?page={{ paginator.num_pages }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
+               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">Last »</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-12 text-gray-500">
+            <i class="fas fa-inbox text-4xl mb-3"></i>
+            <p>No patients with uploaded files match these filters.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
-
-<script>
-function togglePatient(patientId) {
-    const element = document.getElementById(patientId);
-    const chevron = document.getElementById('chevron-' + patientId);
-    
-    if (element.classList.contains('hidden')) {
-        element.classList.remove('hidden');
-        chevron.classList.remove('fa-chevron-down');
-        chevron.classList.add('fa-chevron-up');
-    } else {
-        element.classList.add('hidden');
-        chevron.classList.remove('fa-chevron-up');
-        chevron.classList.add('fa-chevron-down');
-    }
-}
-
-function togglePatientFiles(patientId, checked) {
-    const checkboxes = document.querySelectorAll('.' + patientId + '-file');
-    checkboxes.forEach(cb => cb.checked = checked);
-    updateSelectedCount();
-}
-
-function selectAll() {
-    document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = true);
-    document.querySelectorAll('.patient-checkbox').forEach(cb => cb.checked = true);
-    updateSelectedCount();
-}
-
-function deselectAll() {
-    document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
-    document.querySelectorAll('.patient-checkbox').forEach(cb => cb.checked = false);
-    updateSelectedCount();
-}
-
-function updateSelectedCount() {
-    const count = document.querySelectorAll('.file-checkbox:checked').length;
-    document.getElementById('selectedCount').textContent = count;
-    document.getElementById('submitBtn').disabled = count === 0;
-}
-
-// Update count on checkbox change
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.file-checkbox').forEach(cb => {
-        cb.addEventListener('change', updateSelectedCount);
-    });
-    updateSelectedCount();
-});
-</script>
 {% endblock %}

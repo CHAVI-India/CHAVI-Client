@@ -315,7 +315,8 @@ function updateProgressUI(data) {
         if (data.total_items > 0) {
             message += `\n\nProcessing: ${data.processed_items} / ${data.total_items} tables`;
         }
-        messageEl.innerHTML = message.replace(/\n/g, '<br>');
+        messageEl.textContent = message;
+        messageEl.classList.add('whitespace-pre-line');
     } else if (data.status === 'complete') {
         statusEl.textContent = 'Complete!';
         percentEl.textContent = '100%';
@@ -331,7 +332,8 @@ function updateProgressUI(data) {
                 message += `• ${r.table}: ${r.count} embeddings\n`;
             });
         }
-        messageEl.innerHTML = message.replace(/\n/g, '<br>');
+        messageEl.textContent = message;
+        messageEl.classList.add('whitespace-pre-line');
     } else if (data.status === 'failed' || data.status === 'error') {
         statusEl.textContent = 'Failed';
         percentEl.textContent = '0%';

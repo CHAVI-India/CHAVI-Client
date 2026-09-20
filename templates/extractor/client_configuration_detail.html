@@ -233,77 +233,89 @@ async function testConnection() {
         });
         
         const data = await response.json();
-        
+
+        const el = (tag, cls, text) => {
+            const e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text !== undefined && text !== null) e.textContent = text;
+            return e;
+        };
+
+        const box = (ok) => {
+            const wrap = el('div', `border-l-4 p-4 mb-4 ${ok ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`);
+            const row = el('div', 'flex items-start');
+            const icon = el('i', `fas ${ok ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500'} text-2xl mr-3`);
+            const body = el('div', 'flex-1');
+            row.append(icon, body);
+            wrap.appendChild(row);
+            return { wrap, body };
+        };
+
         if (data.success) {
-            content.innerHTML = `
-                <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-                    <div class="flex items-start">
-                        <i class="fas fa-check-circle text-green-500 text-2xl mr-3"></i>
-                        <div class="flex-1">
-                            <h4 class="text-green-800 font-semibold mb-2">${data.message}</h4>
-                            <div class="text-sm text-green-700 space-y-1">
-                                <p><strong>Model:</strong> ${data.details.model}</p>
-                                <p><strong>Provider:</strong> ${data.details.provider}</p>
-                                <p><strong>Response Time:</strong> ${data.details.response_time}</p>
-                                <p><strong>Status:</strong> ${data.details.status_code}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            const { wrap, body } = box(true);
+            body.appendChild(el('h4', 'text-green-800 font-semibold mb-2', data.message));
+            const list = el('div', 'text-sm text-green-700 space-y-1');
+            for (const [k, v] of [['Model', data.details.model], ['Provider', data.details.provider],
+                                  ['Response Time', data.details.response_time], ['Status', data.details.status_code]]) {
+                const p = el('p');
+                p.appendChild(el('strong', null, `${k}: `));
+                p.appendChild(document.createTextNode(v));
+                list.appendChild(p);
+            }
+            body.appendChild(list);
+            content.replaceChildren(wrap);
         } else {
-            let troubleshootingHtml = '';
-            if (data.details && data.details.troubleshooting) {
-                troubleshootingHtml = `
-                    <div class="mt-3 text-sm text-red-700">
-                        <p class="font-semibold mb-1">💡 Troubleshooting:</p>
-                        <ul class="list-disc list-inside space-y-1">
-                            ${data.details.troubleshooting.map(hint => `<li>${hint}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
-            
-            let endpointHtml = '';
+            const { wrap, body } = box(false);
+            body.appendChild(el('h4', 'text-red-800 font-semibold mb-2', data.message));
+
             if (data.details && data.details.endpoint) {
-                endpointHtml = `
-                    <div class="mt-2 text-sm text-red-700">
-                        <p><strong>Endpoint:</strong> <code class="bg-red-100 px-1 rounded">${data.details.endpoint}</code></p>
-                    </div>
-                `;
+                const div = el('div', 'mt-2 text-sm text-red-700');
+                const p = el('p');
+                p.appendChild(el('strong', null, 'Endpoint: '));
+                p.appendChild(el('code', 'bg-red-100 px-1 rounded', data.details.endpoint));
+                div.appendChild(p);
+                body.appendChild(div);
             }
-            
-            content.innerHTML = `
-                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                    <div class="flex items-start">
-                        <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3"></i>
-                        <div class="flex-1">
-                            <h4 class="text-red-800 font-semibold mb-2">${data.message}</h4>
-                            ${endpointHtml}
-                            ${troubleshootingHtml}
-                            ${data.details && data.details.error ? `
-                                <details class="mt-3">
-                                    <summary class="text-sm text-red-700 cursor-pointer font-semibold">Technical Details</summary>
-                                    <pre class="bg-red-100 p-2 rounded mt-2 text-xs overflow-x-auto">${data.details.error}</pre>
-                                </details>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
+
+            if (data.details && data.details.troubleshooting) {
+                const div = el('div', 'mt-3 text-sm text-red-700');
+                div.appendChild(el('p', 'font-semibold mb-1', '💡 Troubleshooting:'));
+                const ul = el('ul', 'list-disc list-inside space-y-1');
+                for (const hint of data.details.troubleshooting) {
+                    ul.appendChild(el('li', null, hint));
+                }
+                div.appendChild(ul);
+                body.appendChild(div);
+            }
+
+            if (data.details && data.details.error) {
+                const det = el('details', 'mt-3');
+                det.appendChild(el('summary', 'text-sm text-red-700 cursor-pointer font-semibold', 'Technical Details'));
+                det.appendChild(el('pre', 'bg-red-100 p-2 rounded mt-2 text-xs overflow-x-auto', data.details.error));
+                body.appendChild(det);
+            }
+
+            content.replaceChildren(wrap);
         }
     } catch (error) {
-        content.innerHTML = `
-            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                <div class="flex items-start">
-                    <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3"></i>
-                    <div class="flex-1">
-                        <h4 class="text-red-800 font-semibold mb-2">Connection Test Failed</h4>
-                        <p class="text-sm text-red-700">${error.message}</p>
-                    </div>
-                </div>
-            </div>
-        `;
+        const wrap = document.createElement('div');
+        wrap.className = 'bg-red-50 border-l-4 border-red-500 p-4 mb-4';
+        const row = document.createElement('div');
+        row.className = 'flex items-start';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-exclamation-circle text-red-500 text-2xl mr-3';
+        const body = document.createElement('div');
+        body.className = 'flex-1';
+        const h = document.createElement('h4');
+        h.className = 'text-red-800 font-semibold mb-2';
+        h.textContent = 'Connection Test Failed';
+        const p = document.createElement('p');
+        p.className = 'text-sm text-red-700';
+        p.textContent = error.message;
+        body.append(h, p);
+        row.append(icon, body);
+        wrap.appendChild(row);
+        content.replaceChildren(wrap);
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Test Connection';

@@ -3,7 +3,7 @@ Views for semantic search configuration and embedding management.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -18,6 +18,7 @@ log = getLogger(__name__)
 
 
 @login_required
+@permission_required('extractor.view_embeddingconfiguration', raise_exception=True)
 def semantic_search_settings(request):
     """
     Main page for semantic search settings - shows configurations and embeddings status.
@@ -71,6 +72,7 @@ def semantic_search_settings(request):
 
 
 @login_required
+@permission_required('extractor.add_embeddingconfiguration', raise_exception=True)
 @require_http_methods(["GET", "POST"])
 def embedding_config_create(request):
     """
@@ -79,7 +81,7 @@ def embedding_config_create(request):
     if request.method == 'POST':
         try:
             # Create configuration
-            config = EmbeddingConfiguration.objects.create(
+            config = EmbeddingConfiguration(
                 model_name=request.POST.get('model_name'),
                 model_provider=request.POST.get('model_provider'),
                 embedding_dimension=int(request.POST.get('embedding_dimension')),
@@ -90,6 +92,8 @@ def embedding_config_create(request):
                 candidate_threshold=float(request.POST.get('candidate_threshold', 0.5)),
                 top_k_results=int(request.POST.get('top_k_results', 5))
             )
+            config.full_clean()
+            config.save()
             
             # If set as active, deactivate others
             if config.is_active:
@@ -103,30 +107,28 @@ def embedding_config_create(request):
             messages.error(request, f"Error creating configuration: {str(e)}")
     
     # Predefined model options
+    # Index dimension is fixed at 1536 — every preset must produce that.
+    # OpenAI v3 models emit it via the dimensions API parameter; local models
+    # must natively output 1536 (e.g. Qwen3-Embedding-8B served by an
+    # OpenAI-compatible endpoint like Ollama/vLLM).
     model_options = [
-        {
-            'name': 'all-MiniLM-L6-v2',
-            'provider': 'sentence-transformers',
-            'dimension': 384,
-            'description': 'Fast and efficient, good for general use'
-        },
-        {
-            'name': 'all-mpnet-base-v2',
-            'provider': 'sentence-transformers',
-            'dimension': 768,
-            'description': 'Higher quality, slower'
-        },
-        {
-            'name': 'pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb',
-            'provider': 'sentence-transformers',
-            'dimension': 768,
-            'description': 'Specialized for medical text'
-        },
         {
             'name': 'text-embedding-3-small',
             'provider': 'openai',
             'dimension': 1536,
             'description': 'OpenAI embedding (requires API key)'
+        },
+        {
+            'name': 'text-embedding-3-large',
+            'provider': 'openai',
+            'dimension': 1536,
+            'description': 'OpenAI embedding, higher quality (requires API key)'
+        },
+        {
+            'name': 'qwen3-embedding',
+            'provider': 'openai_compatible',
+            'dimension': 1536,
+            'description': 'Local model via OpenAI-compatible endpoint (set base URL)'
         },
     ]
     
@@ -138,6 +140,7 @@ def embedding_config_create(request):
 
 
 @login_required
+@permission_required('extractor.change_embeddingconfiguration', raise_exception=True)
 @require_http_methods(["GET", "POST"])
 def embedding_config_edit(request, config_id):
     """
@@ -159,6 +162,7 @@ def embedding_config_edit(request, config_id):
             config.similarity_threshold = float(request.POST.get('similarity_threshold', 0.7))
             config.candidate_threshold = float(request.POST.get('candidate_threshold', 0.5))
             config.top_k_results = int(request.POST.get('top_k_results', 5))
+            config.full_clean()
             config.save()
             
             # If set as active, deactivate others
@@ -181,6 +185,7 @@ def embedding_config_edit(request, config_id):
 
 
 @login_required
+@permission_required('extractor.delete_embeddingconfiguration', raise_exception=True)
 @require_http_methods(["POST"])
 def embedding_config_delete(request, config_id):
     """
@@ -199,6 +204,7 @@ def embedding_config_delete(request, config_id):
 
 
 @login_required
+@permission_required('extractor.change_embeddingconfiguration', raise_exception=True)
 @require_http_methods(["POST"])
 def embedding_config_activate(request, config_id):
     """
@@ -219,6 +225,7 @@ def embedding_config_activate(request, config_id):
 
 
 @login_required
+@permission_required('extractor.change_embeddingconfiguration', raise_exception=True)
 @require_http_methods(["POST"])
 def compute_embeddings(request):
     """
@@ -272,6 +279,7 @@ def compute_embeddings(request):
 
 
 @login_required
+@permission_required('extractor.view_backgroundtask', raise_exception=True)
 def get_embedding_progress(request, task_id):
     """
     Get current progress of embedding computation task.

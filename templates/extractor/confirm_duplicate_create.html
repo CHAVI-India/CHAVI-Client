@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Possible duplicate - {{ model_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
+            <h1 class="text-xl font-bold text-yellow-900">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Possible duplicate record
+            </h1>
+            <p class="text-yellow-800 mt-1">
+                {{ existing_rows|length }} existing {{ model_name }} record{{ existing_rows|pluralize }}
+                already match{{ existing_rows|length|pluralize:"es" }} this patient's data on
+                <strong>{{ existing_rows.0.matched_on|join:", " }}</strong>.
+                Compare below before creating.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto mb-6">
+            <table class="min-w-full border border-gray-200 text-sm">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Row</th>
+                        {% for col in columns %}
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">{{ col.clientapp_field_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ex in existing_rows %}
+                    <tr class="bg-gray-50 border-b border-gray-100">
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            <i class="fas fa-database mr-1 text-gray-400"></i>#{{ ex.pk }}
+                            <span class="text-xs text-gray-400 italic">existing</span>
+                        </td>
+                        {% for cell in ex.cells %}
+                        <td class="px-3 py-2 whitespace-nowrap">{{ cell.text }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-blue-50 border-b border-gray-100">
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            <i class="fas fa-file-lines mr-1 text-chavi-primary"></i>extracted
+                        </td>
+                        {% for cell in extracted_rows %}
+                        <td class="px-3 py-2 whitespace-nowrap font-medium
+                            {% if cell.kind == 'not_found' %}text-gray-300 italic font-normal{% endif %}">{{ cell.text }}</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <form method="post" action="{% url 'extractor:extraction_record_create' record.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="force" value="1">
+                <input type="hidden" name="next" value="{{ back_url }}">
+                <button type="submit"
+                        class="bg-yellow-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-yellow-700 transition-colors">
+                    Create anyway
+                </button>
+            </form>
+            <a href="{{ back_url|default:'/extractor/extraction/' }}"
+               class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
+                Cancel — don't create
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

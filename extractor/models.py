@@ -10,7 +10,9 @@ from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from pgvector.django import VectorField
+from pgvector.django import VectorField, HnswIndex
+from extractor.services.url_policy import normalize_base_url, validate_base_url
+from extractor.services.embeddings import INDEX_DIM
 from logging import getLogger
 
 log = getLogger(__name__)
@@ -42,6 +44,11 @@ class ClientConfiguration(models.Model):
     request_timeout = models.PositiveIntegerField(default=60, help_text="Seconds to wait for a provider response before failing")
     context_size = models.PositiveIntegerField(default=8192, help_text="Model context window in tokens; prompts larger than this are refused rather than silently truncated")
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        self.model_base_url = validate_base_url(self.model_base_url, 'model base URL')
     updated_at = models.DateTimeField(auto_now=True)
     
     def clean(self):
@@ -128,6 +135,7 @@ class ProcessedText(models.Model):
     processing_warning = models.CharField(max_length=255, blank=True, help_text="Non-fatal processing caveat, e.g. 'no_text' or 'encoding_fallback'.")
     version = models.IntegerField(default=1, help_text="Processing version; increments on reprocessing.")
     is_source_alias = models.BooleanField(default=False, help_text="True when this row points at the original upload rather than a derived file.")
+    ocr_applied = models.BooleanField(default=False, help_text="True when this version's text was produced by OCR rather than direct text extraction.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -194,6 +202,7 @@ class DatabaseTable(models.Model):
     clientapp_table_pk_field_name = models.CharField(max_length=512, help_text="This is the name of field which has the primary key for the table.")
     clientapp_table_fk_fields = models.JSONField(help_text="This a JSON representation of the FK field relationships for the table. It stores the FK relationship between the table and the patient table. Note that the FK relationship can traverse multiple intermediate tables. However the Patient table is the primary table.",null=True,blank=True)
     date_validation_pairs = models.JSONField(null=True, blank=True, help_text="Pairs of (start_date_field, end_date_field) captured from the source model's date_validation_pairs; enforced on extracted records.")
+    match_fields = models.JSONField(null=True, blank=True, help_text="Ordered key-sets for duplicate detection before write-back, e.g. [['diagnosis','diagnosis_date']]. Populated from defaults; admin-editable.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -235,6 +244,8 @@ class DatabaseField(models.Model):
     lookup_table_pk_field_name = models.CharField(max_length=512, blank=True, null=True, help_text="The field containing the primary key to which the data will be linked")
     lookup_label_fields = models.JSONField(null=True, blank=True, help_text="Ordered list of lookup fields joined into the display label (e.g. ['ctcae_grade','ctcae_description'] -> 'Grade 3 — Severe'). Empty means use lookup_table_value_field_name alone.")
     lookup_config_source = models.CharField(max_length=10, choices=[('auto', 'Auto-discovered'), ('manual', 'Manual')], default='auto', help_text="'auto' = schema discovery may update the lookup field choices; 'manual' = a human set them and discovery must not overwrite.")
+    relation_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True, related_name='extractor_field_relations', help_text="For non-lookup relationship fields: the model this FK points at (e.g. diagnosis for pathology.diagnosis)")
+    relation_pk_field = models.CharField(max_length=512, blank=True, null=True, help_text="Primary key field on the related model this FK links to")
     help_text = models.CharField(max_length=512, blank=True, help_text="Help text captured from the source model field; shown to the LLM at extraction time.")
     is_active = models.BooleanField(default=True, help_text="False when the field no longer exists on the source model after re-discovery.")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -396,7 +407,7 @@ class ExtractionJob(models.Model):
     extraction_status = models.CharField(max_length=50, choices=ExtractionStatusChoices.choices, default=ExtractionStatusChoices.PENDING)
     extraction_error = models.TextField(blank=True, null=True, help_text="Error message if extraction failed")
     tokens_used = models.PositiveIntegerField(help_text="Number of tokens used for extraction",null=True,blank=True)
-    raw_llm_response = models.JSONField(help_text="Raw LLM response as JSON. To be stored in database only for debugging",null=True,blank=True)
+    raw_llm_response = EncryptedTextField(help_text="Raw LLM response as a JSON string, encrypted like extracted_data. For debugging only.",null=True,blank=True)
     input_content_hash = models.CharField(max_length=64, blank=True, help_text="SHA-256 of the processed text this job ran on")
     prompt_snapshot = models.TextField(blank=True, help_text="The exact messages sent to the model (frozen at dispatch)")
     config_snapshot = models.JSONField(null=True, blank=True, help_text="Provider/model/schema version frozen at dispatch")
@@ -483,6 +494,7 @@ class RecordCreation(models.Model):
     '''
     extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE,help_text="Extraction job that produced this record")
     database_table = models.ForeignKey(DatabaseTable, on_delete=models.CASCADE,help_text="The table for which the record was created")
+    extracted_record = models.ForeignKey(ExtractedRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name='record_creations', help_text="The extracted record that was written back")
     created_record_pk = models.CharField(max_length=255, help_text="The actual primary key of the created/updated record in client_app")
     operation = models.CharField(max_length=20, choices=RecordOperationChoices.choices, default=RecordOperationChoices.CREATE, help_text="Whether this was a create or update operation")
     record_created = models.BooleanField(default=False, help_text="Whether the record operation was successful")
@@ -535,8 +547,8 @@ class EmbeddingConfiguration(models.Model):
     embedding_dimension = models.IntegerField(
         help_text="Dimension of the embedding vectors (e.g., 384, 768, 1536)"
     )
-    api_key = models.CharField(
-        max_length=255,
+    api_key = EncryptedCharField(
+        max_length=512,
         blank=True,
         null=True,
         help_text="API key if using a cloud provider like OpenAI"
@@ -569,7 +581,21 @@ class EmbeddingConfiguration(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    def clean(self):
+        super().clean()
+        # Optional endpoint for OpenAI-compatible providers; blank means api.openai.com
+        if self.base_url:
+            self.base_url = validate_base_url(self.base_url, 'embedding base URL')
+        # The vector index has a fixed dimension — every config must produce it
+        if self.embedding_dimension != INDEX_DIM:
+            raise ValidationError(
+                {'embedding_dimension':
+                 f"The embedding index is fixed at {INDEX_DIM} dimensions. "
+                 f"Set embedding_dimension to {INDEX_DIM} (OpenAI v3 models emit "
+                 f"it via the dimensions API parameter)."}
+            )
+
     def __str__(self):
         return f"{self.model_name} ({'Active' if self.is_active else 'Inactive'})"
     
@@ -602,7 +628,7 @@ class LookupEmbedding(models.Model):
         help_text="The original text that was embedded"
     )
     embedding = VectorField(
-        dimensions=None,  # Will be set based on EmbeddingConfiguration
+        dimensions=1536,  # Canonical index dimension — all configs must produce this
         help_text="Vector embedding of the text"
     )
     embedding_config = models.ForeignKey(
@@ -629,6 +655,13 @@ class LookupEmbedding(models.Model):
         indexes = [
             models.Index(fields=['content_type', 'field_name']),
             models.Index(fields=['object_id']),
+            HnswIndex(
+                name='lookupembedding_hnsw',
+                fields=['embedding'],
+                opclasses=['vector_cosine_ops'],
+                m=16,
+                ef_construction=64,
+            ),
         ]
         constraints = [
             models.UniqueConstraint(

@@ -154,12 +154,19 @@ function addProgressLog(message, type = 'info') {
     
     const logEntry = document.createElement('div');
     logEntry.className = 'mb-2 flex items-start';
-    logEntry.innerHTML = `
-        <span class="text-gray-400 mr-2">[${timestamp}]</span>
-        <i class="fas ${iconClass} mr-2 mt-0.5"></i>
-        <span class="flex-1">${message}</span>
-    `;
-    
+
+    const tsEl = document.createElement('span');
+    tsEl.className = 'text-gray-400 mr-2';
+    tsEl.textContent = `[${timestamp}]`;
+
+    const iconEl = document.createElement('i');
+    iconEl.className = `fas ${iconClass} mr-2 mt-0.5`;
+
+    const msgEl = document.createElement('span');
+    msgEl.className = 'flex-1';
+    msgEl.textContent = message;
+
+    logEntry.append(tsEl, iconEl, msgEl);
     logContainer.appendChild(logEntry);
     logContainer.scrollTop = logContainer.scrollHeight;
 }

@@ -1,0 +1,167 @@
+{# Recursive table node: existing rows + extracted staging records in one grid #}
+<div class="mb-4 {% if level > 0 %}ml-6 border-l-2 border-chavi-primary pl-4{% endif %}">
+    <h3 class="font-semibold text-gray-800 mb-2" style="text-transform: capitalize">
+        <i class="fas fa-table text-chavi-primary mr-1"></i>{{ node.display_name }}
+    </h3>
+
+    <div class="overflow-x-auto mb-3">
+        <table class="min-w-full border border-gray-200 text-sm">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="px-3 py-2 text-left font-semibold text-gray-700 sticky left-0 bg-gray-100">Source</th>
+                    {% for col in node.columns %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">{{ col.clientapp_field_name }}</th>
+                    {% endfor %}
+                    <th class="px-3 py-2 text-left font-semibold text-gray-700">State</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# Existing client_app rows — read-only, marked "existing" #}
+                {% for ex in node.existing %}
+                <tr class="bg-gray-50 text-gray-500 border-b border-gray-100">
+                    <td class="px-3 py-1.5 sticky left-0 bg-gray-50 whitespace-nowrap">
+                        <i class="fas fa-database mr-1"></i>#{{ ex.pk }} <span class="italic">existing</span>
+                    </td>
+                    {% for cell in ex.cells %}
+                    <td class="px-3 py-1.5 whitespace-nowrap">{{ cell.text }}</td>
+                    {% endfor %}
+                    <td class="px-3 py-1.5 text-xs italic">in database</td>
+                </tr>
+                {% endfor %}
+
+                {# Extracted staging records #}
+                {% for rec in node.records %}
+                <tr class="border-b border-gray-100 hover:bg-blue-50 cursor-pointer"
+                    onclick="toggleDetail('detail-{{ rec.record.id }}')">
+                    <td class="px-3 py-1.5 sticky left-0 bg-white whitespace-nowrap">
+                        <i class="fas fa-file-lines mr-1 text-chavi-primary"></i>rec{{ rec.record.record_index }}
+                        <span class="text-xs text-gray-400 ml-1">{{ rec.source|truncatechars:20 }}</span>
+                    </td>
+                    {% for cell in rec.cells %}
+                    <td class="px-3 py-1.5 whitespace-nowrap
+                        {% if cell.kind == 'not_found' %}text-gray-300 italic
+                        {% elif cell.kind == 'unresolved' %}bg-yellow-50 text-yellow-800
+                        {% endif %}">{{ cell.text }}</td>
+                    {% endfor %}
+                    <td class="px-3 py-1.5 whitespace-nowrap text-xs">
+                        {% if rec.created_pk %}
+                        <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold">created #{{ rec.created_pk }}</span>
+                        {% else %}
+                        {% if rec.dup_count %}<span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-semibold">⚠ {{ rec.dup_count }} possible dup{{ rec.dup_count|pluralize }}</span>{% endif %}
+                        {% if rec.state.unreviewed %}<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ rec.state.unreviewed }} unreviewed</span>{% endif %}
+                        {% if rec.state.unresolved %}<span class="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">{{ rec.state.unresolved }} unresolved</span>{% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+
+                {# Inline detail panel — no modal #}
+                <tr id="detail-{{ rec.record.id }}" class="hidden">
+                    <td colspan="{{ node.columns|length|add:2 }}" class="bg-blue-50 px-4 py-4">
+                        <div class="bg-white rounded-lg border border-blue-200 p-4">
+                            <div class="text-xs text-gray-500 mb-3">
+                                record {{ rec.record.record_index }} · job #{{ rec.record.extraction_job_id }} · {{ rec.source }}
+                            </div>
+                            <div class="space-y-2">
+                                {% for d in rec.detail %}
+                                <div class="flex items-start gap-3 border-b border-gray-100 pb-2">
+                                    <div class="w-48 text-xs font-semibold text-gray-600 pt-1">{{ d.field.clientapp_field_name }}</div>
+                                    <div class="flex-1">
+                                        <div class="text-sm text-gray-900">
+                                            {{ d.cell.text }}
+                                            {% if d.result %}
+                                            {% if d.result.data_accuracy == 'accurate' %}<span class="text-green-600 text-xs font-semibold ml-1">[accurate]</span>
+                                            {% elif d.result.data_accuracy == 'inaccurate' %}<span class="text-red-600 text-xs font-semibold ml-1">[inaccurate]</span>
+                                            {% elif d.result.data_accuracy == 'unreviewed' %}<span class="text-gray-400 text-xs ml-1">[unreviewed]</span>
+                                            {% endif %}
+                                            {% if d.result.result_state == 'unresolved' %}<span class="text-yellow-700 text-xs font-semibold ml-1">[unresolved]</span>{% endif %}
+                                            {% if d.result.data_edited %}<span class="text-blue-600 text-xs ml-1">[edited]</span>{% endif %}
+                                            {% endif %}
+                                        </div>
+                                        {% if d.lookup_detail %}
+                                        <details class="text-xs text-gray-500 mt-0.5">
+                                            <summary class="cursor-pointer text-chavi-primary">lookup details</summary>
+                                            <div class="mt-1 pl-3 border-l-2 border-gray-200">
+                                                {% for name, value in d.lookup_detail %}
+                                                <div><span class="font-semibold">{{ name }}</span>: {{ value }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                        {% endif %}
+                                    </div>
+                                    {% if d.result %}
+                                    <div class="flex items-center gap-1">
+                                        <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="accept">
+                                            <input type="hidden" name="next" value="{{ request.path }}">
+                                            <button class="text-green-600 hover:text-green-800 text-xs font-semibold px-1">Accept</button>
+                                        </form>
+                                        <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="reject">
+                                            <input type="hidden" name="next" value="{{ request.path }}">
+                                            <button class="text-red-600 hover:text-red-800 text-xs font-semibold px-1">Reject</button>
+                                        </form>
+                                        <button onclick="toggleEdit('edit-{{ d.result.id }}')"
+                                                class="text-chavi-primary hover:underline text-xs font-semibold px-1">Edit</button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% if d.result %}
+                                {# Inline edit row — dropdown for lookup fields, text for the rest #}
+                                <div id="edit-{{ d.result.id }}" class="hidden pl-48 pb-2">
+                                    <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}"
+                                          class="flex items-center gap-2">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="correct">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
+                                        {% if d.field.lookup_field %}
+                                        <select name="edited_code" required
+                                                class="border border-gray-300 rounded px-2 py-1 text-sm max-w-md">
+                                            <option value="">Select…</option>
+                                            {% for opt in d.field.options %}
+                                            <option value="{{ opt.code }}">{{ opt.label }} ({{ opt.code }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% else %}
+                                        <input type="text" name="edited_data" value="{{ d.cell.text }}"
+                                               class="border border-gray-300 rounded px-2 py-1 text-sm w-64">
+                                        {% endif %}
+                                        <button class="bg-chavi-primary text-white px-3 py-1 rounded text-xs font-semibold">Save</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            {# Record-level actions #}
+                            <div class="mt-4 pt-3 border-t border-gray-200 flex items-center gap-3">
+                                {% if rec.created_pk %}
+                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                                    <i class="fas fa-check mr-1"></i>Created as #{{ rec.created_pk }}
+                                </span>
+                                {% else %}
+                                <form method="post" action="{% url 'extractor:extraction_record_create' rec.record.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.path }}">
+                                    <button type="submit"
+                                            class="bg-chavi-gradient text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90">
+                                        <i class="fas fa-plus mr-1"></i>Create record → {{ node.table.clientapp_content_type.model }}
+                                    </button>
+                                </form>
+                                <span class="text-xs text-gray-400">writes to client_app; parent records must exist first</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Nested child tables #}
+    {% for child in node.children %}
+        {% include 'extractor/patient_data_node.html' with node=child level=level|add:1 %}
+    {% endfor %}
+</div>

@@ -362,3 +362,63 @@ Note: This diagram shows the primary relationships between models. Lookup tables
 
 
 
+
+## Extractor (LLM extraction) — Operations
+
+The `extractor` app converts uploaded clinical documents (PDF/CSV/XLSX) to text
+and extracts structured records via an OpenAI-compatible LLM using Instructor.
+
+### Environment
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `EXTRACTOR_MAX_UPLOAD_MB` | 50 | Uploads larger than this are rejected before storage |
+| `DJANGO_FIELD_ENCRYPTION_KEY` | required | Fernet key encrypting API keys and extracted data |
+
+LLM/embedding endpoint policy is fixed in code: `https://` is allowed
+anywhere; `http://` is allowed only for localhost/LAN endpoints.
+
+The embedding index is fixed at **1536 dimensions** (`LookupEmbedding` uses a
+pgvector HNSW index). OpenAI v3 embedding models emit 1536 via the
+`dimensions` API parameter; local providers must output 1536 natively.
+
+### OCR (scanned PDFs)
+
+Files whose PDF conversion yields little/no text are flagged `no_text`/`low_text`
+and get a **Run OCR** button on the file detail and patient pages. OCR requires
+system packages (already in the Dockerfile):
+
+```
+apt install tesseract-ocr poppler-utils
+```
+
+OCR runs under Celery and produces a new versioned `ProcessedText` row
+(`ocr_applied=True`) that can be extracted like any other version.
+| `LOOKUP_API_URL` / `LOOKUP_API_KEY` | — | Lookup service for label↔code resolution |
+
+### Background workers
+
+Extraction jobs and embedding index builds run under **Celery** (RabbitMQ
+broker already configured). A worker must be running:
+
+```
+celery -A chavi_client worker -l info
+```
+
+### Lookup embeddings
+
+Build or refresh the semantic-search index:
+
+```
+python manage.py compute_lookup_embeddings          # fill gaps in current index
+python manage.py compute_lookup_embeddings --refresh # build new index version, swap on success
+```
+
+A failed `--refresh` never destroys the working index. Embeddings from
+changed/deleted lookup rows are flagged stale automatically.
+
+### Data lifecycle
+
+Extraction jobs and results are **staging data** — deleting an uploaded file
+cascade-deletes its processed text, jobs, and results. The delete confirmation
+shows the dependent counts.

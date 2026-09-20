@@ -163,6 +163,71 @@ class FileProcessorService:
         return result
 
     @classmethod
+    def ocr_pdf(cls, processed_text: ProcessedText, user=None, dpi: int = 300, lang: str = 'eng', max_pages: int = 50) -> ProcessedText:
+        """
+        OCR a scanned/image-only PDF into a new versioned ProcessedText row.
+
+        Requires the system packages tesseract-ocr and poppler-utils, plus the
+        pytesseract and pdf2image Python packages. Raises RuntimeError with a
+        clear message when they are missing.
+        """
+        import shutil
+
+        if processed_text.file_upload.file_type != FileTypeChoices.PDF:
+            raise ValueError("OCR is only supported for PDF uploads")
+
+        for binary, package in (('tesseract', 'tesseract-ocr'), ('pdftoppm', 'poppler-utils')):
+            if not shutil.which(binary):
+                raise RuntimeError(f"OCR requires {binary} (install: apt install {package})")
+
+        try:
+            from pdf2image import convert_from_path
+            import pytesseract
+        except ImportError as e:
+            raise RuntimeError(f"OCR requires pdf2image and pytesseract: {e}") from e
+
+        file_upload = processed_text.file_upload
+        pdf_path = processed_text.resolve_path()
+        if not pdf_path or not pdf_path.exists():
+            # The flagged version usually points at the derived markdown, not the
+            # PDF — fall back to the original upload file.
+            pdf_path = Path(file_upload.file.path)
+
+        version = cls._next_version(file_upload)
+        output_dir = cls._versioned_output_dir('pdf', file_upload, version)
+        output_path = output_dir / f"{file_upload.id}.ocr.md"
+
+        page_texts = []
+        pages = convert_from_path(str(pdf_path), dpi=dpi, last_page=max_pages)
+        for page_image in pages:
+            page_texts.append(pytesseract.image_to_string(page_image, lang=lang))
+
+        text_content = "\n\n".join(t.strip() for t in page_texts if t.strip())
+
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(text_content)
+
+        warning = '' if text_content.strip() else 'ocr_empty'
+        relative_path = os.path.relpath(output_path, settings.MEDIA_ROOT)
+
+        new_version = ProcessedText.objects.create(
+            file_upload=file_upload,
+            processed_file_path=relative_path,
+            processed_by_user=user,
+            source_sheet=processed_text.source_sheet,
+            content_length=len(text_content.strip()),
+            processing_warning=warning,
+            version=version,
+            ocr_applied=True,
+        )
+
+        log.info(
+            f"OCR completed for upload {file_upload.id}: {len(pages)} page(s), "
+            f"{len(text_content.strip())} chars -> v{version}"
+        )
+        return new_version
+
+    @classmethod
     def _process_csv(cls, file_upload: FileUpload, user=None) -> Dict[str, Any]:
         """
         CSV files are used directly; verify readability/encoding and record the

@@ -31,12 +31,15 @@ urlpatterns = [
     path('files/<int:file_id>/process/', views.file_upload_process, name='file_upload_process'),
     path('files/<int:file_id>/delete/', views.file_upload_delete, name='file_upload_delete'),
     path('processed/<int:processed_id>/', views.processed_text_view, name='processed_text_view'),
+    path('processed/<int:processed_text_id>/ocr/', views.processed_text_ocr, name='processed_text_ocr'),
     
     path('extraction/', views.extraction_dashboard, name='extraction_dashboard'),
+    path('extraction/patient/<int:patient_pk>/', views.patient_data, name='patient_data'),
     path('extraction/start/', views.extraction_start, name='extraction_start'),
     path('extraction/results/', views.extraction_results_list, name='extraction_results_list'),
     path('extraction/results/<int:job_id>/', views.extraction_job_detail, name='extraction_job_detail'),
     path('extraction/results/<int:result_id>/update/', views.extraction_result_update, name='extraction_result_update'),
+    path('extraction/record/<int:extracted_record_id>/create/', views.extraction_record_create, name='extraction_record_create'),
     
     path('semantic-search/', views.semantic_search_settings, name='semantic_search_settings'),
     path('semantic-search/config/create/', views.embedding_config_create, name='embedding_config_create'),

@@ -24,9 +24,11 @@ RUN useradd -m -r appuser && \
    chown -R appuser /app
 
 # Install system packages required by pytesseract / Presidio / pydicom
+# tesseract-ocr: OCR engine; poppler-utils: pdftoppm (pdf2image PDF→image rendering)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         tesseract-ocr \
+        poppler-utils \
         libgl1 \
         libglib2.0-0 \
     && \

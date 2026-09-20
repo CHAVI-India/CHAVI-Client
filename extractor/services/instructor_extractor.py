@@ -12,6 +12,7 @@ from extractor.models import (
 )
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.semantic_search import SemanticSearchService, build_lookup_label
+from extractor.services.url_policy import validate_base_url
 
 log = getLogger(__name__)
 
@@ -34,25 +35,19 @@ class InstructorExtractionService:
         provider = client_config.model_provider.lower()
         
         if 'openai' in provider or 'azure' in provider or 'ollama' in provider or 'local' in provider:
-            base_url = client_config.model_base_url.rstrip('/')
-            if not base_url.startswith(('http://', 'https://')):
-                base_url = f'http://{base_url}'
-            
-            # For Ollama, adjust the endpoint
-            if 'ollama' in provider or 'local' in provider:
-                if not base_url.endswith('/v1'):
-                    base_url = f"{base_url}/v1"
-                
-                # Ollama doesn't need API key
-                openai_client = OpenAI(
-                    base_url=base_url,
-                    api_key="ollama"  # Dummy key for Ollama
-                )
-            else:
-                openai_client = OpenAI(
-                    base_url=base_url if 'v1' in base_url else f"{base_url}/v1/chat/completions",
-                    api_key=client_config.model_api_key
-                )
+            # Single source of truth for URL normalization + egress policy
+            base_url = validate_base_url(client_config.model_base_url, 'model base URL')
+
+            # OpenAI SDK expects the base URL to end at the API root (/v1)
+            if not base_url.endswith('/v1'):
+                base_url = f"{base_url}/v1"
+
+            is_local_provider = 'ollama' in provider or 'local' in provider
+            openai_client = OpenAI(
+                base_url=base_url,
+                api_key="ollama" if is_local_provider else client_config.model_api_key,
+                timeout=client_config.request_timeout,
+            )
             
             # Apply mode if specified
             if mode:
@@ -72,13 +67,14 @@ class InstructorExtractionService:
         
         else:
             # Default to OpenAI-compatible
-            base_url = client_config.model_base_url.rstrip('/')
-            if not base_url.startswith(('http://', 'https://')):
-                base_url = f'http://{base_url}'
-            
+            base_url = validate_base_url(client_config.model_base_url, 'model base URL')
+            if not base_url.endswith('/v1'):
+                base_url = f"{base_url}/v1"
+
             openai_client = OpenAI(
                 base_url=base_url,
-                api_key=client_config.model_api_key
+                api_key=client_config.model_api_key,
+                timeout=client_config.request_timeout,
             )
             return instructor.from_openai(openai_client)
     
@@ -440,7 +436,7 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                 )
                 extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
                 extraction_job.extraction_end_datetime = timezone.now()
-                extraction_job.raw_llm_response = extracted_data
+                extraction_job.raw_llm_response = json.dumps(extracted_data)
                 extraction_job.tokens_used = tokens
                 extraction_job.save()
 

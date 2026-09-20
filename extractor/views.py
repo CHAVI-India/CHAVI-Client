@@ -1,5 +1,7 @@
 import os
+import json
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -16,7 +18,8 @@ from extractor.models import (
     ResponseModel, ResponseModelTable, ResponseModelTableField,
     DatabaseTable, DatabaseField, ClientConfiguration,
     ExtractionJob, ExtractionResult, ExtractionStatusChoices, DataAccuracyChoices,
-    InstructorMessage, InstructorRole, EmbeddingConfiguration, LookupEmbedding
+    InstructorMessage, InstructorRole, EmbeddingConfiguration, LookupEmbedding,
+    BackgroundTask, FileTypeChoices
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.pydantic_builder import PydanticModelBuilder
@@ -585,161 +588,87 @@ def client_configuration_delete(request, config_id):
 @require_http_methods(["POST"])
 def client_configuration_test_connection(request, config_id):
     """
-    Test the API connection for a client configuration.
-    Requires permission to view ClientConfiguration.
+    Test the API connection using the same OpenAI-compatible client path the
+    extractor actually uses. Never logs headers, keys, or payloads.
     """
     configuration = get_object_or_404(ClientConfiguration, id=config_id)
-    
+
     try:
-        import requests
+        from openai import OpenAI, APIConnectionError, APITimeoutError, AuthenticationError
         from datetime import datetime
-        
-        # Prepare headers
-        headers = {
-            'Authorization': f'Bearer {configuration.model_api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        # Test payload - simple completion request
-        test_payload = {
-            'model': configuration.llm_model_name,
-            'messages': [
-                {'role': 'user', 'content': 'Say "Connection successful" if you can read this.'}
-            ],
-            'max_tokens': 10
-        }
-        
-        # Determine the endpoint based on provider
-        provider = configuration.model_provider.lower()
-        base_url = configuration.model_base_url.rstrip('/')
-        
-        # Add http:// if no scheme is provided
-        if not base_url.startswith(('http://', 'https://')):
-            base_url = f'http://{base_url}'
-        
-        if 'openai' in provider or 'azure' in provider:
-            endpoint = f"{base_url}/v1/chat/completions"
-        elif 'anthropic' in provider:
-            endpoint = f"{base_url}/v1/messages"
-            headers['anthropic-version'] = '2023-06-01'
-            headers['x-api-key'] = configuration.model_api_key
-            del headers['Authorization']
-        elif 'google' in provider:
-            endpoint = f"{base_url}/v1/models/{configuration.llm_model_name}:generateContent"
-            headers['x-goog-api-key'] = configuration.model_api_key
-            del headers['Authorization']
-        elif 'ollama' in provider or 'local' in provider:
-            # Ollama uses /api/chat endpoint and doesn't need auth
-            endpoint = f"{base_url}/api/chat"
-            test_payload = {
-                'model': configuration.llm_model_name,
-                'messages': [
-                    {'role': 'user', 'content': 'Say "Connection successful" if you can read this.'}
-                ],
-                'stream': False
-            }
-            # Ollama doesn't use API keys
-            headers = {'Content-Type': 'application/json'}
-        else:
-            # Generic OpenAI-compatible endpoint
-            endpoint = f"{base_url}/v1/chat/completions"
-        
-        # Set timeout based on whether it's a local or remote API
-        # Local models (especially large ones like medgemma) can take 60+ seconds for first inference
-        timeout = 120 if 'localhost' in base_url or '127.0.0.1' in base_url else 30
-        
-        # Log the request details for debugging
-        log.info(f"Testing connection to {endpoint}")
-        log.info(f"Headers: {headers}")
-        log.info(f"Payload: {test_payload}")
-        
-        # Make the request with timeout
-        start_time = datetime.now()
-        response = requests.post(
-            endpoint,
-            headers=headers,
-            json=test_payload,
-            timeout=timeout
+        from extractor.services.url_policy import normalize_base_url
+
+        base_url = normalize_base_url(configuration.model_base_url)
+        is_local = any(h in base_url for h in ('localhost', '127.0.0.1', '::1'))
+
+        client = OpenAI(
+            base_url=base_url,
+            api_key=configuration.model_api_key or 'not-needed',
+            timeout=configuration.request_timeout,
+            max_retries=0,
         )
-        end_time = datetime.now()
-        response_time = (end_time - start_time).total_seconds()
-        
-        log.info(f"Response status: {response.status_code}")
-        log.info(f"Response body: {response.text[:500]}")
-        
-        if response.status_code == 200:
-            return JsonResponse({
-                'success': True,
-                'message': 'API connection successful!',
-                'details': {
-                    'status_code': response.status_code,
-                    'response_time': f'{response_time:.2f}s',
-                    'model': configuration.llm_model_name,
-                    'provider': configuration.model_provider
-                }
-            })
-        else:
-            return JsonResponse({
-                'success': False,
-                'message': f'API returned error: {response.status_code}',
-                'details': {
-                    'status_code': response.status_code,
-                    'error': response.text[:500]
-                }
-            }, status=400)
-            
-    except requests.exceptions.Timeout:
-        is_local = 'localhost' in configuration.model_base_url or '127.0.0.1' in configuration.model_base_url
-        timeout_msg = f'Connection timeout - API did not respond within {timeout} seconds'
-        
+
+        start_time = datetime.now()
+        response = client.chat.completions.create(
+            model=configuration.llm_model_name,
+            messages=[{'role': 'user', 'content': 'Reply with the word "ok".'}],
+            max_tokens=5,
+        )
+        response_time = (datetime.now() - start_time).total_seconds()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'API connection successful!',
+            'details': {
+                'status_code': 200,
+                'response_time': f'{response_time:.2f}s',
+                'model': configuration.llm_model_name,
+                'provider': configuration.model_provider,
+            }
+        })
+
+    except AuthenticationError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Authentication failed - check the API key',
+            'details': {'endpoint': base_url},
+        }, status=401)
+
+    except APITimeoutError:
         hints = []
         if is_local:
-            hints.append('Is Ollama/local server running? Check with: ollama list')
-            hints.append(f'Try accessing {endpoint} in your browser')
+            hints.append('Is the local server running? Check with: ollama list')
             hints.append('Verify the port number is correct')
         else:
             hints.append('Check your internet connection')
             hints.append('Verify the API endpoint URL is correct')
-        
         return JsonResponse({
             'success': False,
-            'message': timeout_msg,
-            'details': {
-                'error': 'Request timeout',
-                'endpoint': endpoint,
-                'troubleshooting': hints
-            }
+            'message': f'Connection timeout - no response within {configuration.request_timeout}s',
+            'details': {'error': 'Request timeout', 'endpoint': base_url, 'troubleshooting': hints},
         }, status=408)
-        
-    except requests.exceptions.ConnectionError as e:
-        is_local = 'localhost' in configuration.model_base_url or '127.0.0.1' in configuration.model_base_url
-        
+
+    except APIConnectionError as e:
         hints = []
         if is_local:
-            hints.append('Ollama may not be running. Start it with: ollama serve')
-            hints.append('Check if the port is correct (default: 11434)')
-            hints.append(f'Test manually: curl {endpoint}')
+            hints.append('The local server may not be running (e.g. ollama serve)')
+            hints.append('Check the port is correct (Ollama default: 11434)')
         else:
             hints.append('Check your internet connection')
             hints.append('Verify the base URL is correct')
             hints.append('Check if a firewall is blocking the connection')
-        
         return JsonResponse({
             'success': False,
-            'message': 'Connection failed - Could not reach API endpoint',
-            'details': {
-                'error': str(e)[:500],
-                'endpoint': endpoint,
-                'troubleshooting': hints
-            }
+            'message': 'Connection failed - could not reach API endpoint',
+            'details': {'error': str(e.__cause__ or e)[:300], 'endpoint': base_url, 'troubleshooting': hints},
         }, status=503)
-        
+
     except Exception as e:
-        log.error(f"API connection test failed: {e}")
+        log.error(f"API connection test failed for config {config_id}: {type(e).__name__}: {e}")
         return JsonResponse({
             'success': False,
-            'message': f'Test failed: {str(e)}',
-            'details': {'error': str(e)[:500]}
+            'message': f'Test failed: {type(e).__name__}: {str(e)[:200]}',
+            'details': {'error': str(e)[:300]},
         }, status=500)
 
 
@@ -958,74 +887,151 @@ def processed_text_view(request, processed_id):
 # Extraction Views
 
 @login_required
+@permission_required('extractor.change_processedtext', raise_exception=True)
+@require_http_methods(["POST"])
+def processed_text_ocr(request, processed_text_id):
+    """
+    Dispatch OCR for a scanned/image-only PDF (manual action). Creates a
+    BackgroundTask and returns to the referring page.
+    """
+    processed_text = get_object_or_404(ProcessedText, id=processed_text_id)
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'extractor:extraction_dashboard'
+
+    if processed_text.file_upload.file_type != FileTypeChoices.PDF:
+        messages.error(request, "OCR is only supported for PDF uploads.")
+        return redirect(next_url)
+
+    if processed_text.ocr_applied:
+        messages.info(request, "This version was already produced by OCR.")
+        return redirect(next_url)
+
+    running = BackgroundTask.objects.filter(
+        task_name__startswith=f"OCR for processed file {processed_text_id}",
+        status__in=['pending', 'running']
+    ).exists()
+    if running:
+        messages.warning(request, "OCR is already in progress for this file.")
+        return redirect(next_url)
+
+    task = BackgroundTask.objects.create(
+        task_id=f"ocr-{processed_text_id}-{int(timezone.now().timestamp())}",
+        task_name=f"OCR for processed file {processed_text_id}",
+        status='pending',
+        user=request.user
+    )
+    from extractor.tasks import ocr_processed_text_task
+    ocr_processed_text_task.delay(task.task_id, processed_text_id, request.user.id)
+
+    messages.success(request, f"OCR started for '{processed_text.file_upload.original_filename}'.")
+    return redirect(next_url)
+
+
+@login_required
 @permission_required('extractor.view_processedtext', raise_exception=True)
 def extraction_dashboard(request):
     """
-    Dashboard showing all processed files grouped by patient, ready for extraction.
+    Patient-centric dashboard: one row per patient with processed files,
+    job-status summary, search/filters, and pagination.
     """
     from client_app.models import Patient
-    
-    # Get all processed files with their patients
-    processed_files = ProcessedText.objects.select_related(
-        'file_upload__patient_id',
-        'processed_by_user'
-    ).filter(
-        file_upload__processing_status='completed'
-    ).order_by('-created_at')
-    
-    # Group by patient
-    patients_data = {}
-    unlinked_files = []
-    
-    for pf in processed_files:
-        patient = pf.file_upload.patient_id
-        
-        if patient:
-            if patient.patient_id not in patients_data:
-                patients_data[patient.patient_id] = {
-                    'patient': patient,
-                    'files': [],
-                    'total_files': 0,
-                    'extracted_files': 0,
-                }
-            
-            # Latest job status for this file — a pending or failed job is
-            # NOT "extracted", and the badge must say so
-            latest_job = ExtractionJob.objects.filter(
-                processed_file=pf
-            ).order_by('-created_at').values_list('extraction_status', flat=True).first()
+    from django.db.models import Q
 
-            patients_data[patient.patient_id]['files'].append({
-                'processed_file': pf,
-                'has_extraction': latest_job is not None,
-                'job_status': latest_job,
-            })
-            patients_data[patient.patient_id]['total_files'] += 1
-            if latest_job == 'completed':
-                patients_data[patient.patient_id]['extracted_files'] += 1
-        else:
-            latest_job = ExtractionJob.objects.filter(
-                processed_file=pf
-            ).order_by('-created_at').values_list('extraction_status', flat=True).first()
-            unlinked_files.append({
-                'processed_file': pf,
-                'has_extraction': latest_job is not None,
-                'job_status': latest_job,
-            })
+    patients = (Patient.objects
+                .filter(fileupload__isnull=False)
+                .annotate(
+                    file_count=Count('fileupload', distinct=True),
+                    processed_count=Count('fileupload__processedtext', distinct=True),
+                    jobs_completed=Count(
+                        'fileupload__processedtext__extractionjob', distinct=True,
+                        filter=Q(fileupload__processedtext__extractionjob__extraction_status='completed')),
+                    jobs_failed=Count(
+                        'fileupload__processedtext__extractionjob', distinct=True,
+                        filter=Q(fileupload__processedtext__extractionjob__extraction_status='failed')),
+                    jobs_active=Count(
+                        'fileupload__processedtext__extractionjob', distinct=True,
+                        filter=Q(fileupload__processedtext__extractionjob__extraction_status__in=['pending', 'processing'])),
+                )
+                .order_by('patient_id')
+                .distinct())
 
-    # Get available response models (complete ones only — mid-wizard models
-    # have no tables/fields yet)
-    response_models = ResponseModel.objects.filter(is_complete=True).select_related('client')
-    
+    # Filters
+    q = request.GET.get('q', '').strip()
+    status = request.GET.get('status', '').strip()
+    file_type = request.GET.get('file_type', '').strip()
+    date_from = request.GET.get('from', '').strip()
+    date_to = request.GET.get('to', '').strip()
+
+    if q:
+        patients = patients.filter(patient_id__icontains=q)
+    if status == 'none':
+        patients = patients.filter(fileupload__processedtext__extractionjob__isnull=True)
+    elif status:
+        patients = patients.filter(
+            fileupload__processedtext__extractionjob__extraction_status=status)
+    if file_type:
+        patients = patients.filter(fileupload__file_type=file_type)
+    if date_from:
+        patients = patients.filter(fileupload__created_at__date__gte=date_from)
+    if date_to:
+        patients = patients.filter(fileupload__created_at__date__lte=date_to)
+
+    paginator = Paginator(patients, 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     context = {
-        'patients_data': patients_data,
-        'unlinked_files': unlinked_files,
-        'response_models': response_models,
-        'total_patients': len(patients_data),
-        'total_processed_files': processed_files.count(),
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'response_models': ResponseModel.objects.filter(is_complete=True).select_related('client'),
+        'filters': {'q': q, 'status': status, 'file_type': file_type,
+                    'from': date_from, 'to': date_to},
+        'status_choices': ExtractionStatusChoices.choices,
+        'file_type_choices': FileTypeChoices.choices,
+        'total_patients': paginator.count,
     }
-    
     return render(request, 'extractor/extraction_dashboard.html', context)
+
+
+@login_required
+@permission_required('extractor.view_extractionresult', raise_exception=True)
+def patient_data(request, patient_pk):
+    """
+    Dedicated per-patient page: files, extracted data organized by the
+    client_app hierarchy (existing rows vs extracted staging rows),
+    job history, and write-back actions.
+    """
+    from client_app.models import Patient
+    from extractor.services.patient_data import build_patient_data_tree
+
+    patient = get_object_or_404(Patient, pk=patient_pk)
+
+    processed_files = (ProcessedText.objects
+                       .select_related('file_upload')
+                       .filter(file_upload__patient_id=patient,
+                               file_upload__processing_status='completed')
+                       .order_by('file_upload_id', '-version'))
+
+    file_rows = []
+    for pf in processed_files:
+        latest_job = (ExtractionJob.objects
+                      .filter(processed_file=pf)
+                      .order_by('-created_at').first())
+        file_rows.append({'processed_file': pf, 'latest_job': latest_job})
+
+    jobs = (ExtractionJob.objects
+            .filter(processed_file__file_upload__patient_id=patient)
+            .select_related('response_model__client', 'processed_file__file_upload')
+            .order_by('-created_at')[:50])
+
+    data_tree = build_patient_data_tree(patient)
+
+    context = {
+        'patient': patient,
+        'file_rows': file_rows,
+        'jobs': jobs,
+        'data_tree': data_tree,
+        'response_models': ResponseModel.objects.filter(is_complete=True).select_related('client'),
+    }
+    return render(request, 'extractor/patient_data.html', context)
 
 
 @login_required
@@ -1038,29 +1044,30 @@ def extraction_start(request):
     try:
         processed_file_ids = request.POST.getlist('processed_files')
         response_model_id = request.POST.get('response_model')
+        back = request.POST.get('next') or 'extractor:extraction_dashboard'
         
         if not processed_file_ids or not response_model_id:
             messages.error(request, "Please select files and a response model.")
-            return redirect('extractor:extraction_dashboard')
+            return redirect(back)
         
         response_model = get_object_or_404(ResponseModel, id=response_model_id)
         processed_files = ProcessedText.objects.filter(id__in=processed_file_ids)
 
         if not processed_files.exists():
             messages.error(request, "No valid files selected.")
-            return redirect('extractor:extraction_dashboard')
+            return redirect(back)
 
         # Readiness check: refuse to run an unbuildable extraction model
         readiness = PydanticModelBuilder.validate_model_configuration(response_model)
         if not readiness['valid']:
             for error in readiness['errors']:
                 messages.error(request, error)
-            return redirect('extractor:extraction_dashboard')
+            return redirect(back)
         try:
             PydanticModelBuilder.build_extraction_model(response_model)
         except Exception as e:
             messages.error(request, f"Extraction model could not be built: {e}")
-            return redirect('extractor:extraction_dashboard')
+            return redirect(back)
 
         # Dispatch one Celery task per file; existing live jobs are reused
         # so double-submits don't double-charge.
@@ -1083,12 +1090,12 @@ def extraction_start(request):
             + f" for {len(processed_files)} file(s)."
         )
 
-        return redirect('extractor:extraction_results_list')
+        return redirect(back)
         
     except Exception as e:
         log.error(f"Extraction start failed: {e}")
         messages.error(request, f"Extraction failed: {str(e)}")
-        return redirect('extractor:extraction_dashboard')
+        return redirect(back)
 
 
 @login_required
@@ -1203,11 +1210,40 @@ def extraction_result_update(request, result_id):
         'at': timezone.now().isoformat(),
     }
 
+    # Where to send the user back — job detail by default, patient page when posted from there
+    back_url = request.POST.get('next') or None
+
+    def _back():
+        if back_url:
+            return redirect(back_url)
+        return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+
     if action == 'correct':
-        new_value = request.POST.get('edited_data')
-        if not new_value or not new_value.strip():
-            messages.error(request, "Correction requires a value.")
-            return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+        db_field = extraction_result.database_field
+        if db_field.lookup_field:
+            # Lookup fields are corrected via a dropdown of real options —
+            # never free text. The posted code is resolved server-side.
+            code = request.POST.get('edited_code')
+            if not code:
+                messages.error(request, "Correction requires selecting a lookup option.")
+                return _back()
+            from extractor.services.semantic_search import build_lookup_label
+            model_class = db_field.lookup_content_type.model_class() if db_field.lookup_content_type else None
+            obj = None
+            if model_class:
+                try:
+                    obj = model_class.objects.get(**{db_field.lookup_table_pk_field_name or 'pk': code})
+                except model_class.DoesNotExist:
+                    obj = None
+            if obj is None:
+                messages.error(request, f"'{code}' is not a valid option for this field.")
+                return _back()
+            new_value = json.dumps({'label': build_lookup_label(obj, db_field), 'code': code})
+        else:
+            new_value = request.POST.get('edited_data')
+            if not new_value or not new_value.strip():
+                messages.error(request, "Correction requires a value.")
+                return _back()
         # Compare against the *effective* value so re-submitting the original
         # clears the correction instead of silently keeping the old edit.
         if new_value == extraction_result.extracted_data:
@@ -1233,7 +1269,7 @@ def extraction_result_update(request, result_id):
 
     else:
         messages.error(request, f"Unknown action '{action}'.")
-        return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+        return _back()
 
     if action == 'accept' and not data_accuracy:
         data_accuracy = 'accurate'
@@ -1243,7 +1279,7 @@ def extraction_result_update(request, result_id):
     if data_accuracy:
         if data_accuracy not in DataAccuracyChoices.values:
             messages.error(request, f"Invalid accuracy value '{data_accuracy}'.")
-            return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+            return _back()
         extraction_result.data_accuracy = data_accuracy
 
     extraction_result.revision_history = (extraction_result.revision_history or []) + [history_entry]
@@ -1252,7 +1288,78 @@ def extraction_result_update(request, result_id):
     extraction_result.save()
 
     messages.success(request, "Extraction result updated successfully.")
-    return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
+    return _back()
+
+
+@login_required
+@permission_required('extractor.add_recordcreation', raise_exception=True)
+@require_http_methods(["POST"])
+def extraction_record_create(request, extracted_record_id):
+    """
+    Write one extracted staging record into its client_app table
+    (manual, create-only). Parent records must already exist.
+    """
+    from extractor.models import ExtractedRecord
+    from extractor.services.record_writer import (
+        create_record_for_extracted_record, RecordWriteError,
+        find_duplicate_candidates, _effective_map)
+    from extractor.services.patient_data import _grid_columns, _format_existing_cell, _cell_value
+
+    record = get_object_or_404(
+        ExtractedRecord.objects.select_related(
+            'database_table__clientapp_content_type',
+            'extraction_job__processed_file__file_upload'),
+        id=extracted_record_id)
+    patient = record.extraction_job.processed_file.file_upload.patient_id
+
+    back_url = request.POST.get('next')
+    if not back_url and patient:
+        back_url = reverse('extractor:patient_data', kwargs={'patient_pk': patient.pk})
+
+    try:
+        # Duplicate check first — a match renders a confirm page instead of creating
+        if request.POST.get('force') != '1':
+            candidates = find_duplicate_candidates(record.database_table, record)
+            if candidates:
+                columns = _grid_columns(record.database_table)
+                _, results = _effective_map(record)
+                extracted_rows = [_cell_value(results.get(col.id)) if results.get(col.id)
+                                  else {'text': '—', 'kind': 'not_found'}
+                                  for col in columns]
+                existing_rows = [
+                    {'pk': c['pk'], 'matched_on': c['matched_on'],
+                     'cells': [_format_existing_cell(c['row'], col) for col in columns]}
+                    for c in candidates
+                ]
+                return render(request, 'extractor/confirm_duplicate_create.html', {
+                    'record': record,
+                    'table': record.database_table,
+                    'model_name': record.database_table.clientapp_content_type.model,
+                    'columns': columns,
+                    'extracted_rows': extracted_rows,
+                    'existing_rows': existing_rows,
+                    'back_url': back_url,
+                    'patient': patient,
+                })
+
+        creation, created = create_record_for_extracted_record(record, request.user)
+        if created:
+            messages.success(
+                request,
+                f"Created {record.database_table.clientapp_content_type.model} "
+                f"record #{creation.created_record_pk}.")
+        else:
+            messages.info(
+                request,
+                f"Record already created as #{creation.created_record_pk}.")
+    except RecordWriteError as e:
+        messages.error(request, f"Cannot create record: {e}")
+    except Exception as e:
+        log.error(f"Record write-back failed for extracted record {extracted_record_id}: {e}",
+                  exc_info=True)
+        messages.error(request, "Record creation failed unexpectedly; check the logs.")
+
+    return redirect(back_url or 'extractor:extraction_dashboard')
 
 
 # Instructor Message Views
