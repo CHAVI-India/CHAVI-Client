@@ -11,7 +11,7 @@ from extractor.models import (
     InstructorMessage
 )
 from extractor.services.pydantic_builder import PydanticModelBuilder
-from extractor.services.semantic_search import SemanticSearchService
+from extractor.services.semantic_search import SemanticSearchService, build_lookup_label
 
 log = getLogger(__name__)
 
@@ -204,14 +204,16 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                                 lookup_model,
                                 field.lookup_table_pk_field_name,
                                 field.lookup_table_value_field_name,
-                                document_content
+                                document_content,
+                                db_field=field,
                             )
                         else:
                             # Fallback to all options if no document context
                             filtered_options = InstructorExtractionService.get_lookup_options(
                                 lookup_model,
                                 field.lookup_table_pk_field_name,
-                                field.lookup_table_value_field_name
+                                field.lookup_table_value_field_name,
+                                db_field=field,
                             )[:10]  # Limit to 10
 
                         if filtered_options:
@@ -227,96 +229,103 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
         return "\n".join(schema_parts) if schema_parts else "No fields configured"
     
     @staticmethod
-    def map_label_to_code(lookup_model, pk_field_name: str, value_field_name: str, extracted_label: str) -> Optional[str]:
+    def map_label_to_code(lookup_model, pk_field_name: str, value_field_name: str,
+                          extracted_label: str, db_field=None) -> Optional[str]:
         """
-        Map an extracted label back to its lookup code using semantic search.
-        
-        Args:
-            lookup_model: The Django model class for the lookup table
-            pk_field_name: The field name containing the primary key/code
-            value_field_name: The field name containing the display label
-            extracted_label: The label extracted by the LLM
-        
-        Returns:
-            The corresponding code, or None if not found
+        Map an extracted label back to its lookup code.
+
+        Matching order: exact label match -> semantic search -> partial match.
+        Ambiguous matches (several rows with the same label) return None rather
+        than silently picking the first row — an unresolved code is safer than a
+        wrong one.
         """
         try:
-            if not lookup_model or not pk_field_name or not value_field_name or not extracted_label:
+            if not lookup_model or not extracted_label:
                 return None
-            
-            # Try exact match first (case-insensitive)
-            result = lookup_model.objects.filter(
-                **{f"{value_field_name}__iexact": extracted_label}
-            ).values_list(pk_field_name, flat=True).first()
-            
-            if result:
-                log.info(f"Exact match for '{extracted_label}': {result}")
-                return str(result)
-            
-            # Try semantic search if embeddings are available
-            from extractor.services.semantic_search import SemanticSearchService
-            
+
+            # Exact match against the real display label (composite-aware)
+            label_fields = (db_field.lookup_label_fields if db_field is not None else None) or (
+                [value_field_name] if value_field_name else []
+            )
+            if label_fields:
+                matches = [
+                    obj for obj in lookup_model.objects.all()
+                    if build_lookup_label(obj, db_field=db_field, label_fields=label_fields).lower()
+                       == str(extracted_label).strip().lower()
+                ]
+                if len(matches) == 1:
+                    code = getattr(matches[0], pk_field_name)
+                    log.info(f"Exact match for '{extracted_label}': {code}")
+                    return str(code)
+                if len(matches) > 1:
+                    log.warning(
+                        f"Ambiguous label '{extracted_label}' matches {len(matches)} "
+                        f"rows in {lookup_model.__name__}; left unresolved for review"
+                    )
+                    return None
+
+            # Semantic search (match threshold — stricter than candidate threshold)
             semantic_results = SemanticSearchService.find_similar_lookup_entries(
                 lookup_model_class=lookup_model,
                 pk_field_name=pk_field_name,
                 value_field_name=value_field_name,
                 query_text=extracted_label,
-                top_k=1
+                top_k=1,
+                db_field=db_field,
             )
-            
+
             if semantic_results:
                 best_match = semantic_results[0]
                 log.info(f"Semantic match for '{extracted_label}': {best_match['label']} (similarity: {best_match['similarity']:.3f})")
                 return str(best_match['code'])
-            
-            # Fallback to partial match if semantic search doesn't work
-            result = lookup_model.objects.filter(
-                **{f"{value_field_name}__icontains": extracted_label}
-            ).values_list(pk_field_name, flat=True).first()
-            
-            if result:
-                log.warning(f"Partial match for '{extracted_label}': {result}")
-                return str(result)
-            
+
+            # Partial match fallback — ambiguous partials are left unresolved
+            if value_field_name:
+                matches = list(lookup_model.objects.filter(
+                    **{f"{value_field_name}__icontains": extracted_label}
+                ).values_list(pk_field_name, flat=True)[:2])
+                if len(matches) == 1:
+                    log.warning(f"Partial match for '{extracted_label}': {matches[0]}")
+                    return str(matches[0])
+                if len(matches) > 1:
+                    log.warning(f"Ambiguous partial match for '{extracted_label}'; left unresolved")
+
             log.warning(f"No lookup code found for label: '{extracted_label}'")
             return None
-            
+
         except Exception as e:
             log.error(f"Error mapping label to code: {e}", exc_info=True)
             return None
     
     @staticmethod
-    def get_lookup_options(lookup_model, pk_field_name: str, value_field_name: str) -> List[Dict[str, str]]:
+    def get_lookup_options(lookup_model, pk_field_name: str, value_field_name: str,
+                           db_field=None) -> List[Dict[str, str]]:
         """
         Fetch all possible options from a lookup table with both code and label.
-        
-        Args:
-            lookup_model: The Django model class for the lookup table
-            pk_field_name: The field name containing the primary key/code
-            value_field_name: The field name containing the display label/value to show to LLM
-        
+        Labels are composite-aware (e.g. CTCAE grade + description).
+
         Returns:
             List of dicts with 'code' and 'label' keys
         """
         try:
-            if not lookup_model or not pk_field_name or not value_field_name:
+            if not lookup_model or not pk_field_name:
                 return []
-            
-            # Get all label-code pairs from the lookup table
-            # Note: value_field_name is the LABEL (what we show), pk_field_name is the CODE (what we store)
-            options = lookup_model.objects.values_list(value_field_name, pk_field_name)
-            
-            # Convert to list of dicts, filtering out None/empty values
+
             result = []
-            for label, code in options:
-                if label and code:
+            for obj in lookup_model.objects.all():
+                code = getattr(obj, pk_field_name, None)
+                label = build_lookup_label(
+                    obj, db_field=db_field,
+                    label_fields=[value_field_name] if value_field_name else None,
+                )
+                if code is not None and label:
                     result.append({
-                        'label': str(label),  # Human-readable label for LLM to match
-                        'code': str(code)     # Code to store in database
+                        'label': label,
+                        'code': str(code)
                     })
-            
+
             return result
-            
+
         except Exception as e:
             log.warning(f"Could not fetch lookup options from {lookup_model}: {e}")
             return []
@@ -469,7 +478,8 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                             field.lookup_content_type.model_class(),
                             field.lookup_table_pk_field_name,
                             field.lookup_table_value_field_name,
-                            str(extracted_value)
+                            str(extracted_value),
+                            db_field=field,
                         )
 
                         data_to_store = json.dumps({

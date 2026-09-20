@@ -2,100 +2,75 @@
 Semantic search service for finding similar lookup entries using pre-computed embeddings.
 """
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import F
 from extractor.models import EmbeddingConfiguration, LookupEmbedding
+from extractor.services.embeddings import get_provider, EmbeddingUnavailableError
 from logging import getLogger
-import numpy as np
 
 log = getLogger(__name__)
+
+
+def build_lookup_label(obj, db_field=None, label_fields=None) -> str:
+    """
+    Build the display label for a lookup record. When the field config declares
+    composite label fields (e.g. CTCAE grade + description), join them so
+    'Grade 3' and 'Severe' are never confused. Falls back to __str__.
+    """
+    fields = label_fields
+    if fields is None and db_field is not None:
+        fields = db_field.lookup_label_fields or (
+            [db_field.lookup_table_value_field_name] if db_field.lookup_table_value_field_name else None
+        )
+    if fields:
+        parts = [str(getattr(obj, f, '') or '').strip() for f in fields]
+        parts = [p for p in parts if p]
+        if parts:
+            return ' — '.join(parts)
+    return str(obj)
 
 
 class SemanticSearchService:
     """
     Service for performing semantic search on lookup tables using pgvector.
     """
-    
-    _embedding_model = None
-    _current_config = None
-    
+
+    @classmethod
+    def get_active_config(cls) -> Optional[EmbeddingConfiguration]:
+        return EmbeddingConfiguration.objects.filter(is_active=True).first()
+
     @classmethod
     def get_embedding_model(cls):
         """
-        Get or load the active embedding model (cached).
+        Compatibility shim: returns (provider, config) for the active config.
         """
-        config = EmbeddingConfiguration.objects.filter(is_active=True).first()
-        
+        config = cls.get_active_config()
         if not config:
             log.error("No active embedding configuration found")
             return None, None
-        
-        # Return cached model if config hasn't changed
-        if cls._embedding_model and cls._current_config == config:
-            return cls._embedding_model, config
-        
-        # Load new model
         try:
-            if config.model_provider == 'sentence-transformers':
-                from sentence_transformers import SentenceTransformer
-                # Force CPU usage to avoid CUDA compatibility issues
-                cls._embedding_model = SentenceTransformer(config.model_name, device='cpu')
-                cls._current_config = config
-                log.info(f"Loaded embedding model: {config.model_name} (using CPU)")
-                return cls._embedding_model, config
-            
-            elif config.model_provider == 'openai':
-                import openai
-                if config.api_key:
-                    openai.api_key = config.api_key
-                cls._embedding_model = 'openai'
-                cls._current_config = config
-                return cls._embedding_model, config
-            
-            else:
-                log.error(f"Unsupported embedding provider: {config.model_provider}")
-                return None, None
-                
-        except Exception as e:
-            log.error(f"Error loading embedding model: {e}")
+            return get_provider(config), config
+        except EmbeddingUnavailableError as e:
+            log.error(f"Embedding provider unavailable: {e}")
             return None, None
-    
+        except Exception as e:
+            log.error(f"Error loading embedding provider: {e}")
+            return None, None
+
     @classmethod
     def compute_query_embedding(cls, query_text: str) -> Optional[List[float]]:
         """
-        Compute embedding for a query text.
-        
-        Args:
-            query_text: The text to embed
-            
-        Returns:
-            List of floats representing the embedding, or None on error
+        Compute embedding for a query text using the active provider.
         """
-        model, config = cls.get_embedding_model()
-        
-        if not model or not config:
+        provider, config = cls.get_embedding_model()
+        if not provider or not config:
             return None
-        
         try:
-            if config.model_provider == 'sentence-transformers':
-                embedding = model.encode(query_text)
-                return embedding.tolist()
-            
-            elif config.model_provider == 'openai':
-                import openai
-                response = openai.Embedding.create(
-                    input=query_text,
-                    model=config.model_name
-                )
-                return response['data'][0]['embedding']
-            
-            return None
-            
+            return provider.embed_texts([query_text])[0]
         except Exception as e:
             log.error(f"Error computing query embedding: {e}")
             return None
-    
+
     @classmethod
     def find_similar_lookup_entries(
         cls,
@@ -103,115 +78,137 @@ class SemanticSearchService:
         pk_field_name: str,
         value_field_name: str,
         query_text: str,
-        top_k: Optional[int] = None
+        top_k: Optional[int] = None,
+        threshold: Optional[float] = None,
+        db_field=None,
     ) -> List[Dict[str, any]]:
         """
-        Find the most similar lookup entries to the query text using semantic search.
-        Searches across ALL embedded fields for the lookup table.
-        
-        Args:
-            lookup_model_class: The Django model class for the lookup table
-            pk_field_name: Name of the primary key field
-            value_field_name: Name of the value field (used for display, not filtering)
-            query_text: The text to search for
-            top_k: Number of results to return (uses config default if None)
-            
-        Returns:
-            List of dicts with 'code', 'label', and 'similarity' keys
+        Find the most similar lookup entries to the query text using semantic
+        search over the *current* index version only.
+
+        Returns list of dicts with 'code', 'label', 'similarity' keys — label is
+        the record's real display label (composite-aware), not the embedded text.
         """
-        # Get embedding config
-        _, config = cls.get_embedding_model()
+        provider, config = cls.get_embedding_model()
         if not config:
-            log.warning("No embedding config available, falling back to exact match")
+            log.warning("No embedding config available")
             return []
-        
+
         if top_k is None:
             top_k = config.top_k_results
-        
-        # Compute query embedding
+        if threshold is None:
+            threshold = config.similarity_threshold
+
         query_embedding = cls.compute_query_embedding(query_text)
         if not query_embedding:
-            log.warning("Could not compute query embedding")
             return []
-        
-        # Get content type for the lookup model
+
         content_type = ContentType.objects.get_for_model(lookup_model_class)
-        
-        # Perform similarity search using pgvector
+
         try:
             from pgvector.django import CosineDistance
-            
-            # Search across ALL fields for this lookup table (not just one field)
-            # This allows matching against code, label, description, etc.
+
             similar_embeddings = LookupEmbedding.objects.filter(
                 content_type=content_type,
-                embedding_config=config
+                embedding_config=config,
+                index_version=config.version,
+                is_current=True,
             ).annotate(
                 distance=CosineDistance('embedding', query_embedding)
-            ).order_by('distance')[:top_k * 3]  # Get more results since we're searching multiple fields
-            
-            # Group by object_id and keep the best match per record
+            ).order_by('distance')[:top_k * 3]
+
             best_matches = {}
             for emb in similar_embeddings:
-                object_id = emb.object_id
                 similarity = 1 - emb.distance
-                
-                # Filter by threshold
-                if similarity >= config.similarity_threshold:
-                    # Keep the best match for each object_id
-                    if object_id not in best_matches or similarity > best_matches[object_id]['similarity']:
-                        best_matches[object_id] = {
-                            'code': object_id,
-                            'label': emb.text_value,
-                            'field_name': emb.field_name,
-                            'similarity': float(similarity)
-                        }
-            
-            # Sort by similarity and return top_k
-            results = sorted(best_matches.values(), key=lambda x: x['similarity'], reverse=True)[:top_k]
-            
-            log.info(f"Found {len(results)} similar entries for query: '{query_text[:50]}...'")
-            return results
-            
+                if similarity < threshold:
+                    continue
+                if emb.object_id not in best_matches or similarity > best_matches[emb.object_id]['similarity']:
+                    best_matches[emb.object_id] = {
+                        'code': emb.object_id,
+                        'field_name': emb.field_name,
+                        'similarity': float(similarity),
+                    }
+
+            # Resolve real labels from the lookup objects (composite-aware)
+            results = []
+            if best_matches:
+                objects = {
+                    str(getattr(o, pk_field_name)): o
+                    for o in lookup_model_class.objects.filter(
+                        **{f"{pk_field_name}__in": list(best_matches.keys())}
+                    )
+                }
+                for object_id, match in best_matches.items():
+                    obj = objects.get(str(object_id))
+                    if obj is None:
+                        continue  # stale row — marked by cleanup
+                    results.append({
+                        'code': object_id,
+                        'label': build_lookup_label(obj, db_field=db_field),
+                        'similarity': match['similarity'],
+                    })
+
+            results.sort(key=lambda x: x['similarity'], reverse=True)
+            return results[:top_k]
+
         except Exception as e:
             log.error(f"Error performing semantic search: {e}")
             return []
-    
+
     @classmethod
     def get_filtered_lookup_options(
         cls,
         lookup_model_class,
         pk_field_name: str,
         value_field_name: str,
-        document_context: str
+        document_context: str,
+        db_field=None,
     ) -> List[Dict[str, str]]:
         """
-        Get filtered lookup options based on document context using semantic search.
-        
-        This is used during extraction to show only relevant options to the LLM.
-        
-        Args:
-            lookup_model_class: The Django model class for the lookup table
-            pk_field_name: Name of the primary key field
-            value_field_name: Name of the value field
-            document_context: The document text to use as context
-            
-        Returns:
-            List of dicts with 'code' and 'label' keys
+        Get filtered lookup options based on document context.
+
+        Uses the head AND tail of the document — clinical conclusions often sit
+        at the end, so only the first 500 characters was biased. Uses the looser
+        candidate_threshold: these are options shown to the LLM, not final matches.
         """
-        # Extract key phrases from document (simple approach - first 500 chars)
-        context_snippet = document_context[:500] if len(document_context) > 500 else document_context
-        
-        # Find similar entries
+        config = cls.get_active_config()
+        if not config:
+            return []
+
+        if len(document_context) > 500:
+            context_snippet = document_context[:350] + "\n...\n" + document_context[-150:]
+        else:
+            context_snippet = document_context
+
         similar_entries = cls.find_similar_lookup_entries(
             lookup_model_class,
             pk_field_name,
             value_field_name,
-            context_snippet
+            context_snippet,
+            threshold=config.candidate_threshold,
+            db_field=db_field,
         )
-        
-        # Convert to standard format
+
         return [
             {'code': entry['code'], 'label': entry['label']}
             for entry in similar_entries
         ]
+
+    @classmethod
+    def mark_stale_embeddings(cls, content_type, model_class) -> int:
+        """
+        Flag embeddings whose lookup record no longer exists or whose text
+        changed since they were computed. Returns the number marked.
+        """
+        stale = 0
+        qs = LookupEmbedding.objects.filter(content_type=content_type, is_current=True)
+        live = {str(getattr(o, model_class._meta.pk.name)): o for o in model_class.objects.all()}
+
+        for emb in qs.iterator():
+            obj = live.get(emb.object_id)
+            current_text = str(getattr(obj, emb.field_name, '') or '') if obj else ''
+            if obj is None or current_text != emb.text_value:
+                emb.is_current = False
+                emb.save(update_fields=['is_current'])
+                stale += 1
+        return stale

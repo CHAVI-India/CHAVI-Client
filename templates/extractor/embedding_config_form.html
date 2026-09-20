@@ -94,13 +94,27 @@
                 <label for="api_key" class="block text-sm font-medium text-gray-700 mb-2">
                     API Key (Optional)
                 </label>
-                <input type="password" 
-                       id="api_key" 
-                       name="api_key" 
-                       value="{% if is_edit %}{{ config.api_key }}{% endif %}"
+                <input type="password"
+                       id="api_key"
+                       name="api_key"
+                       value=""
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                        placeholder="Required for OpenAI models">
-                <p class="text-xs text-gray-500 mt-1">Only needed for cloud providers like OpenAI</p>
+                <p class="text-xs text-gray-500 mt-1">{% if is_edit %}Leave blank to keep the existing key{% else %}Only needed for cloud providers like OpenAI{% endif %}</p>
+            </div>
+
+            <!-- Base URL (optional) -->
+            <div class="mb-4">
+                <label for="base_url" class="block text-sm font-medium text-gray-700 mb-2">
+                    Base URL (Optional)
+                </label>
+                <input type="text"
+                       id="base_url"
+                       name="base_url"
+                       value="{% if is_edit and config.base_url %}{{ config.base_url }}{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="e.g. http://ollama-host:11434/v1 — blank uses api.openai.com">
+                <p class="text-xs text-gray-500 mt-1">For OpenAI-compatible endpoints (Ollama, Azure, self-hosted)</p>
             </div>
 
             <div class="border-t border-gray-200 my-6"></div>
@@ -121,7 +135,23 @@
                        max="1"
                        value="{% if is_edit %}{{ config.similarity_threshold }}{% else %}0.7{% endif %}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Minimum similarity score (0-1) to consider a match valid</p>
+                <p class="text-xs text-gray-500 mt-1">Minimum similarity score (0-1) to consider a label match valid</p>
+            </div>
+
+            <!-- Candidate Threshold -->
+            <div class="mb-4">
+                <label for="candidate_threshold" class="block text-sm font-medium text-gray-700 mb-2">
+                    Candidate Threshold
+                </label>
+                <input type="number"
+                       id="candidate_threshold"
+                       name="candidate_threshold"
+                       step="0.1"
+                       min="0"
+                       max="1"
+                       value="{% if is_edit %}{{ config.candidate_threshold }}{% else %}0.5{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Looser threshold used when picking candidate options to show the LLM (lower = more options)</p>
             </div>
 
             <!-- Top K Results -->

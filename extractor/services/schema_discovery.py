@@ -257,7 +257,7 @@ class SchemaDiscoveryService:
             if isinstance(field, django_models.ForeignKey) and not is_lookup:
                 validation_rules['is_relationship'] = True
 
-            _, created = DatabaseField.objects.update_or_create(
+            db_field, created = DatabaseField.objects.get_or_create(
                 clientapp_database_table=db_table,
                 clientapp_field_name=field.name,
                 defaults={
@@ -267,12 +267,31 @@ class SchemaDiscoveryService:
                     'lookup_content_type': lookup_ct,
                     'lookup_table_value_field_name': lookup_value_field,
                     'lookup_table_pk_field_name': lookup_pk_field,
+                    'lookup_config_source': 'auto',
                     'help_text': str(field.help_text) if getattr(field, 'help_text', None) else '',
                     'is_active': True,
                 }
             )
 
-            if created:
+            if not created:
+                # Always refresh non-lookup metadata. Lookup configuration is
+                # only refreshed when it was auto-discovered — a 'manual' source
+                # means a human chose the display/code fields and must not be
+                # overwritten by the next discovery run.
+                db_field.field_type = field_type
+                db_field.field_validation = validation_rules or None
+                db_field.help_text = str(field.help_text) if getattr(field, 'help_text', None) else ''
+                db_field.is_active = True
+                update_fields = ['field_type', 'field_validation', 'help_text', 'is_active']
+                if db_field.lookup_config_source == 'auto':
+                    db_field.lookup_field = is_lookup
+                    db_field.lookup_content_type = lookup_ct
+                    db_field.lookup_table_value_field_name = lookup_value_field
+                    db_field.lookup_table_pk_field_name = lookup_pk_field
+                    update_fields += ['lookup_field', 'lookup_content_type',
+                                      'lookup_table_value_field_name', 'lookup_table_pk_field_name']
+                db_field.save(update_fields=update_fields)
+            else:
                 fields_created += 1
 
         # Fields that disappeared from the source model are marked inactive,

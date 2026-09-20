@@ -231,6 +231,8 @@ class DatabaseField(models.Model):
     lookup_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'app_label': 'lookup'}, help_text="The lookup table to which this field is linked")
     lookup_table_value_field_name = models.CharField(max_length=512, blank=True, null=True, help_text="The field containing the value which is to be matched / extracted using Instructor")
     lookup_table_pk_field_name = models.CharField(max_length=512, blank=True, null=True, help_text="The field containing the primary key to which the data will be linked")
+    lookup_label_fields = models.JSONField(null=True, blank=True, help_text="Ordered list of lookup fields joined into the display label (e.g. ['ctcae_grade','ctcae_description'] -> 'Grade 3 — Severe'). Empty means use lookup_table_value_field_name alone.")
+    lookup_config_source = models.CharField(max_length=10, choices=[('auto', 'Auto-discovered'), ('manual', 'Manual')], default='auto', help_text="'auto' = schema discovery may update the lookup field choices; 'manual' = a human set them and discovery must not overwrite.")
     help_text = models.CharField(max_length=512, blank=True, help_text="Help text captured from the source model field; shown to the LLM at extraction time.")
     is_active = models.BooleanField(default=True, help_text="False when the field no longer exists on the source model after re-discovery.")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -518,6 +520,20 @@ class EmbeddingConfiguration(models.Model):
         null=True,
         help_text="API key if using a cloud provider like OpenAI"
     )
+    base_url = models.CharField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text="Base URL for OpenAI-compatible embedding endpoints (leave blank for api.openai.com)"
+    )
+    version = models.PositiveIntegerField(
+        default=1,
+        help_text="Index generation. New builds write under version+1 and only become live when the build succeeds."
+    )
+    candidate_threshold = models.FloatField(
+        default=0.5,
+        help_text="Minimum similarity (0-1) when picking candidate options to show the LLM — looser than match threshold"
+    )
     is_active = models.BooleanField(
         default=True,
         help_text="Whether this configuration is currently active"
@@ -572,6 +588,14 @@ class LookupEmbedding(models.Model):
         EmbeddingConfiguration,
         on_delete=models.CASCADE,
         help_text="Configuration used to generate this embedding"
+    )
+    index_version = models.PositiveIntegerField(
+        default=1,
+        help_text="Index generation this embedding belongs to; queries only use rows matching the config's live version"
+    )
+    is_current = models.BooleanField(
+        default=True,
+        help_text="False when the lookup record was deleted or its text changed since the embedding was computed"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

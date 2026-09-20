@@ -9,7 +9,6 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db.models import Count
 from logging import getLogger
-import threading
 import uuid
 
 from extractor.models import EmbeddingConfiguration, LookupEmbedding, DatabaseField, BackgroundTask
@@ -85,8 +84,10 @@ def embedding_config_create(request):
                 model_provider=request.POST.get('model_provider'),
                 embedding_dimension=int(request.POST.get('embedding_dimension')),
                 api_key=request.POST.get('api_key', ''),
+                base_url=request.POST.get('base_url', '') or None,
                 is_active=request.POST.get('is_active') == 'on',
                 similarity_threshold=float(request.POST.get('similarity_threshold', 0.7)),
+                candidate_threshold=float(request.POST.get('candidate_threshold', 0.5)),
                 top_k_results=int(request.POST.get('top_k_results', 5))
             )
             
@@ -149,9 +150,14 @@ def embedding_config_edit(request, config_id):
             config.model_name = request.POST.get('model_name')
             config.model_provider = request.POST.get('model_provider')
             config.embedding_dimension = int(request.POST.get('embedding_dimension'))
-            config.api_key = request.POST.get('api_key', '')
+            # Blank keeps the existing key — the form never echoes it back
+            posted_key = request.POST.get('api_key', '')
+            if posted_key:
+                config.api_key = posted_key
+            config.base_url = request.POST.get('base_url', '') or None
             config.is_active = request.POST.get('is_active') == 'on'
             config.similarity_threshold = float(request.POST.get('similarity_threshold', 0.7))
+            config.candidate_threshold = float(request.POST.get('candidate_threshold', 0.5))
             config.top_k_results = int(request.POST.get('top_k_results', 5))
             config.save()
             
@@ -221,7 +227,7 @@ def compute_embeddings(request):
     from extractor.tasks import compute_lookup_embeddings_task
     
     refresh = request.POST.get('refresh') == 'true'
-    
+
     # Check if active config exists
     active_config = EmbeddingConfiguration.objects.filter(is_active=True).first()
     if not active_config:
@@ -229,24 +235,28 @@ def compute_embeddings(request):
             'success': False,
             'error': 'No active embedding configuration found. Please create and activate a configuration first.'
         })
-    
+
+    # Refuse a second run while one is in flight
+    if BackgroundTask.objects.filter(
+        task_name='Compute Lookup Embeddings', status__in=['pending', 'running']
+    ).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'An embedding computation is already running.'
+        })
+
     try:
-        # Create task tracker
+        # Create task tracker (progress UI polls this row)
         task_id = str(uuid.uuid4())
-        task = BackgroundTask.objects.create(
+        BackgroundTask.objects.create(
             task_id=task_id,
             task_name='Compute Lookup Embeddings',
             status='pending'
         )
-        
-        # Start background thread
-        thread = threading.Thread(
-            target=compute_lookup_embeddings_task,
-            args=(task_id, active_config.id, refresh),
-            daemon=True
-        )
-        thread.start()
-        
+
+        # Dispatch to Celery
+        compute_lookup_embeddings_task.delay(task_id, active_config.id, refresh)
+
         return JsonResponse({
             'success': True,
             'task_id': task_id,

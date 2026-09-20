@@ -83,7 +83,9 @@ class Command(BaseCommand):
                 
                 if not dry_run:
                     field.lookup_table_value_field_name = correct_field
-                    field.save(update_fields=['lookup_table_value_field_name'])
+                    # Mark as manual so schema discovery does not overwrite this
+                    field.lookup_config_source = 'manual'
+                    field.save(update_fields=['lookup_table_value_field_name', 'lookup_config_source'])
                     updated_count += 1
             else:
                 self.stdout.write(

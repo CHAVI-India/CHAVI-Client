@@ -183,12 +183,26 @@ class DatabaseFieldAdmin(ModelAdmin):
             'fields': ['clientapp_database_table', 'clientapp_field_name', 'field_type', 'field_validation']
         }),
         ('Lookup Configuration', {
-            'fields': ['lookup_field', 'lookup_content_type', 'lookup_table_value_field_name', 'lookup_table_pk_field_name']
+            'fields': ['lookup_field', 'lookup_content_type', 'lookup_table_value_field_name', 'lookup_table_pk_field_name', 'lookup_label_fields', 'lookup_config_source'],
+            'description': "Set 'Auto-discovered' to let schema discovery manage these fields; 'Manual' protects your choices from being overwritten."
         }),
         ('Timestamps', {
             'fields': [('created_at', 'updated_at')]
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        """
+        Mark lookup config as manual when a human edits the lookup fields in
+        admin, so the next schema discovery does not overwrite the choice.
+        """
+        if change:
+            lookup_fields = {'lookup_field', 'lookup_content_type',
+                             'lookup_table_value_field_name', 'lookup_table_pk_field_name',
+                             'lookup_label_fields'}
+            if lookup_fields & set(form.changed_data) and 'lookup_config_source' not in form.changed_data:
+                obj.lookup_config_source = 'manual'
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(ResponseModel)
