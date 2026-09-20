@@ -593,6 +593,12 @@ def client_configuration_test_connection(request, config_id):
     """
     configuration = get_object_or_404(ClientConfiguration, id=config_id)
 
+    if configuration.api_key_expired():
+        return JsonResponse({
+            'success': False,
+            'message': f"API key expired on {configuration.model_api_key_validity:%Y-%m-%d}. Update the key or validity date first.",
+        }, status=400)
+
     try:
         from openai import OpenAI, APIConnectionError, APITimeoutError, AuthenticationError
         from datetime import datetime

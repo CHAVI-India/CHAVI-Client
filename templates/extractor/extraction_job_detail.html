@@ -169,6 +169,20 @@
                     </div>
                     {% endif %}
 
+                    <!-- Source evidence -->
+                    {% if result.evidence %}
+                    <div class="mb-3">
+                        <details>
+                            <summary class="cursor-pointer text-xs text-chavi-primary hover:underline">
+                                <i class="fas fa-quote-left mr-1"></i>Source evidence
+                            </summary>
+                            <div class="mt-1 bg-yellow-50 border-l-2 border-yellow-400 p-2 text-xs text-gray-700 italic">
+                                {{ result.evidence }}
+                            </div>
+                        </details>
+                    </div>
+                    {% endif %}
+
                     <!-- Edit Form -->
                     <details class="mt-3">
                         <summary class="cursor-pointer text-sm text-chavi-primary hover:text-chavi-secondary font-semibold">

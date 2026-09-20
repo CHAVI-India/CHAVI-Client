@@ -43,15 +43,13 @@ class ClientConfiguration(models.Model):
     model_base_url = models.CharField(max_length=255, validators=[URLValidator()])
     request_timeout = models.PositiveIntegerField(default=60, help_text="Seconds to wait for a provider response before failing")
     context_size = models.PositiveIntegerField(default=8192, help_text="Model context window in tokens; prompts larger than this are refused rather than silently truncated")
+    model_max_tokens = models.PositiveIntegerField(default=4096, help_text="Maximum tokens in a single provider response")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
         super().clean()
         self.model_base_url = validate_base_url(self.model_base_url, 'model base URL')
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    def clean(self):
         if self.model_api_key_expires:
             errors = {}
             if not self.model_api_key_validity:
@@ -60,6 +58,11 @@ class ClientConfiguration(models.Model):
                 errors['model_api_refresh_key'] = 'Refresh key is required when API key can expire.'
             if errors:
                 raise ValidationError(errors)
+
+    def api_key_expired(self):
+        """True when the key is marked as expiring and its validity date has passed."""
+        return bool(self.model_api_key_expires and self.model_api_key_validity
+                    and self.model_api_key_validity < timezone.now())
 
     def __str__(self):
         return self.llm_model_name
@@ -472,6 +475,7 @@ class ExtractionResult(models.Model):
     data_edited = models.BooleanField(default=False, help_text="Whether the data was edited by the user")
     edited_data = EncryptedTextField(help_text="Edited data after user edits the extracted data. This will be stored as an encrypted text.",null=True,blank=True)
     revision_history = models.JSONField(default=list, blank=True, help_text="Audit trail of review actions: [{action, old, new, user, at}]")
+    evidence = EncryptedTextField(null=True, blank=True, help_text="Source-text snippet where this value was found in the processed document; encrypted like extracted_data. Empty when the value couldn't be located verbatim.")
     verified_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, help_text="User who verified the data")
     verification_date_time = models.DateTimeField(help_text="Date and time when the data was verified",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

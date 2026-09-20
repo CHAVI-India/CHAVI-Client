@@ -432,7 +432,8 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                 InstructorExtractionService.save_extraction_results(
                     extraction_job,
                     extracted_data,
-                    user
+                    user,
+                    content=processed_content
                 )
                 extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
                 extraction_job.extraction_end_datetime = timezone.now()
@@ -469,7 +470,8 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
     def save_extraction_results(
         extraction_job: ExtractionJob,
         extracted_data: Dict[str, Any],
-        user
+        user,
+        content: str = ''
     ):
         """
         Save the extracted data as ExtractedRecord + ExtractionResult rows.
@@ -551,16 +553,40 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                         else:
                             data_to_store = str(extracted_value)
 
+                    evidence = InstructorExtractionService._find_evidence(
+                        content, extracted_value)
+
                     ExtractionResult.objects.create(
                         extraction_job=extraction_job,
                         database_field=field,
                         record=extracted_record,
                         extracted_data=data_to_store,
                         result_state=result_state,
+                        evidence=evidence,
                     )
 
                     log.info(f"Saved extraction result for field: {field_name} (record {record_index})")
     
+    @staticmethod
+    def _find_evidence(content: str, extracted_value, max_len: int = 200) -> str:
+        """
+        Locate the extracted value's source text and return a snippet with
+        context for the audit trail. Empty string when the value can't be
+        found verbatim (normalized/paraphrased values).
+        """
+        if not content or extracted_value is None:
+            return ''
+        needle = str(extracted_value).strip()
+        if not needle:
+            return ''
+        idx = content.lower().find(needle.lower())
+        if idx == -1:
+            return ''
+        start = max(0, idx - max_len // 2)
+        end = min(len(content), idx + len(needle) + max_len // 2)
+        snippet = content[start:end].strip()
+        return f"…{snippet}…" if start > 0 or end < len(content) else snippet
+
     @staticmethod
     def get_or_create_job(
         processed_file: ProcessedText,

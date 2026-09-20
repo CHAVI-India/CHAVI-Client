@@ -25,6 +25,56 @@ log = getLogger(__name__)
 # Model fields never shown as grid columns
 _SKIP_FIELD_NAMES = {'id', 'created_at', 'updated_at'}
 
+# Lookup models that hold measurement units — their fields pair with numerics
+_UNIT_LOOKUP_MODELS = {
+    'lookupsizeunits', 'lookupvolumeunits', 'lookupdoseunits',
+    'lookupmassunits', 'lookuplabresultsunits', 'lookupexpressionunits',
+}
+# Tokens used to pair a unit field with a numeric field sharing its meaning
+_UNIT_TOKENS = ('dose', 'size', 'volume', 'dimension', 'distance',
+                'expression', 'result', 'medication')
+_NUMERIC_TYPES = {'int', 'float'}
+
+
+def _is_unit_field(db_field):
+    return (db_field.lookup_field and db_field.lookup_content_type and
+            db_field.lookup_content_type.model in _UNIT_LOOKUP_MODELS)
+
+
+def _unit_pairing(db_table):
+    """
+    {numeric_db_field_id: unit_db_field} — pairs each numeric field with the
+    unit field that measures it, within one table. For each numeric field the
+    best unit wins: a semantic token match (dose→dose_units) outranks a short
+    name-prefix match (volume_dose_prescribed → radiation_dose_units), while a
+    long prefix still wins (lesion_size_* → lesion_size_unit).
+    """
+    fields = list(db_table.databasefield_set.filter(is_active=True)
+                      .select_related('lookup_content_type'))
+    numerics = [f for f in fields if f.field_type in _NUMERIC_TYPES]
+    units = [f for f in fields if _is_unit_field(f)]
+    pairs = {}
+    for num in numerics:
+        name = num.clientapp_field_name
+        best, best_score = None, 0
+        for unit in units:
+            stem = unit.clientapp_field_name
+            for suffix in ('_units', '_unit'):
+                if stem.endswith(suffix):
+                    stem = stem[:-len(suffix)]
+            score = 0
+            if name.startswith(stem):
+                score = len(stem)
+            # Semantic match (dose→radiation_dose_units) outranks a mere
+            # prefix (volume_dose_prescribed vs volume_units)
+            if any(t in name and t in stem for t in _UNIT_TOKENS):
+                score = max(score, 100 + len(stem))
+            if score > best_score:
+                best, best_score = unit, score
+        if best:
+            pairs[num.id] = best
+    return pairs
+
 
 def _is_lookup_json(value):
     return isinstance(value, dict) and 'code' in value
@@ -186,6 +236,7 @@ def build_patient_data_tree(patient):
     for table in sorted(tables, key=lambda t: (depth_of.get(t.id, 99),
                                                t.clientapp_content_type.model)):
         columns = _grid_columns(table)
+        unit_pairs = _unit_pairing(table)
         grid_records = []
         for rec in records_by_table.get(table.id, []):
             results = {
@@ -219,14 +270,25 @@ def build_patient_data_tree(patient):
                     pairs = resolve_lookup_row(col, parsed['code'])
                     if pairs:
                         lookup_details[col.id] = pairs
-            # Detail rows for the expandable panel: (column, result, cell, lookup pairs)
+            # Detail rows for the expandable panel: (column, result, cell, lookup pairs, unit pair)
             detail = []
             for col, cell in zip(columns, cells):
+                unit_field = unit_pairs.get(col.id)
+                unit_result = results.get(unit_field.id) if unit_field else None
+                needs_unit = (
+                    unit_field is not None
+                    and cell['kind'] in ('value', 'lookup')
+                    and (unit_result is None or unit_result.result_state in ('not_found', 'unresolved'))
+                )
                 detail.append({
                     'field': col,
                     'result': results.get(col.id),
                     'cell': cell,
                     'lookup_detail': lookup_details.get(col.id),
+                    'unit_field': unit_field,
+                    'unit_result': unit_result,
+                    'unit_cell': _cell_value(unit_result) if unit_result else None,
+                    'needs_unit': needs_unit,
                 })
             grid_records.append({
                 'record': rec,

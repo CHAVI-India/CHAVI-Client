@@ -68,6 +68,13 @@
                                     <div class="flex-1">
                                         <div class="text-sm text-gray-900">
                                             {{ d.cell.text }}
+                                            {% if d.unit_field %}
+                                                <span class="text-gray-500 ml-1">{{ d.unit_cell.text }}</span>
+                                            {% endif %}
+                                            {% if d.needs_unit %}
+                                            <span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-xs font-semibold ml-1"
+                                                  title="A numeric value was extracted without its unit — set {{ d.unit_field.clientapp_field_name }} below">⚠ no unit</span>
+                                            {% endif %}
                                             {% if d.result %}
                                             {% if d.result.data_accuracy == 'accurate' %}<span class="text-green-600 text-xs font-semibold ml-1">[accurate]</span>
                                             {% elif d.result.data_accuracy == 'inaccurate' %}<span class="text-red-600 text-xs font-semibold ml-1">[inaccurate]</span>
@@ -77,6 +84,12 @@
                                             {% if d.result.data_edited %}<span class="text-blue-600 text-xs ml-1">[edited]</span>{% endif %}
                                             {% endif %}
                                         </div>
+                                        {% if d.result and d.result.evidence %}
+                                        <details class="text-xs text-gray-500 mt-0.5">
+                                            <summary class="cursor-pointer text-chavi-primary">source evidence</summary>
+                                            <div class="mt-1 pl-3 border-l-2 border-gray-200 italic">{{ d.result.evidence }}</div>
+                                        </details>
+                                        {% endif %}
                                         {% if d.lookup_detail %}
                                         <details class="text-xs text-gray-500 mt-0.5">
                                             <summary class="cursor-pointer text-chavi-primary">lookup details</summary>
