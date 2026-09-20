@@ -273,6 +273,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
+# Extractor: maximum accepted upload size in megabytes
+EXTRACTOR_MAX_UPLOAD_MB = int(os.environ.get('EXTRACTOR_MAX_UPLOAD_MB', 50))
+
 # AllAuth UI Theme
 ALLAUTH_UI_THEME = "sunset"
 

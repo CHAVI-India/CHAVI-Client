@@ -64,6 +64,19 @@
                 </p>
             </div>
 
+            <!-- Message Order -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-sort-numeric-down mr-2"></i>Order
+                </label>
+                <input type="number" name="order" min="0" step="1"
+                       value="{% if instructor_message %}{{ instructor_message.order }}{% else %}0{% endif %}"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">
+                    Messages are sent to the model in this order (lowest first)
+                </p>
+            </div>
+
             <!-- Prompt Text -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">

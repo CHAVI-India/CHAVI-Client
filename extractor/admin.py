@@ -138,10 +138,10 @@ class ProcessedTextAdmin(ModelAdmin):
     list_filter = [('created_at', RangeDateTimeFilter)]
     search_fields = ['file_upload__file', 'processed_by_user__username']
     autocomplete_fields = ['file_upload', 'processed_by_user']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['processed_file_path', 'created_at', 'updated_at']
     fieldsets = (
         ('Processed File', {
-            'fields': ['file_upload', 'processed_file_path', 'processed_by_user']
+            'fields': ['file_upload', 'processed_file_path', 'source_sheet', 'processing_warning', 'version', 'is_source_alias', 'processed_by_user']
         }),
         ('Timestamps', {
             'fields': [('created_at', 'updated_at')]

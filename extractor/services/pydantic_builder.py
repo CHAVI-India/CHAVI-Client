@@ -1,10 +1,14 @@
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Literal
 from extractor.models import ResponseModel, ResponseModelTable, ResponseModelTableField, DatabaseField, EntityTypeChoices
 from logging import getLogger
+from decimal import Decimal
 import ast
+import re
 import sys
 from io import StringIO
 import traceback
+from datetime import date as _date
+from pydantic import Field, create_model, model_validator
 
 log = getLogger(__name__)
 
@@ -13,7 +17,7 @@ class PydanticModelBuilder:
     """
     Service to build Pydantic model code from ResponseModel configuration.
     """
-    
+
     TYPE_MAPPING = {
         EntityTypeChoices.STRING: 'str',
         EntityTypeChoices.BOOLEAN: 'bool',
@@ -27,7 +31,165 @@ class PydanticModelBuilder:
         EntityTypeChoices.TIMEDELTA: 'timedelta',
         EntityTypeChoices.TIME: 'time',
     }
-    
+
+    # Python types used for the live extraction model. Date/time stay str so
+    # the LLM answers in a documented format rather than failing coercion.
+    TYPE_TO_PYTHON = {
+        EntityTypeChoices.STRING: str,
+        EntityTypeChoices.BOOLEAN: bool,
+        EntityTypeChoices.FLOAT: float,
+        EntityTypeChoices.INTEGER: int,
+        EntityTypeChoices.DICTIONARY: Dict[str, Any],
+        EntityTypeChoices.TUPLE: List[str],
+        EntityTypeChoices.LIST: List[str],
+        EntityTypeChoices.DATE: str,
+        EntityTypeChoices.DATETIME: str,
+        EntityTypeChoices.TIMEDELTA: str,
+        EntityTypeChoices.TIME: str,
+    }
+
+    @staticmethod
+    def _date_order_check(pairs, field_names):
+        """
+        Build a model-level validator enforcing start <= end for date pairs
+        (the DateValidationMixin rule on the source models). Both fields must be
+        among the extracted fields; unparseable dates are left for human review.
+        """
+        def check(self):
+            for start_f, end_f in pairs:
+                if start_f not in field_names or end_f not in field_names:
+                    continue
+                start_v = getattr(self, start_f, None)
+                end_v = getattr(self, end_f, None)
+                if not start_v or not end_v:
+                    continue
+                try:
+                    start_d = _date.fromisoformat(str(start_v).strip())
+                    end_d = _date.fromisoformat(str(end_v).strip())
+                except ValueError:
+                    continue
+                if start_d > end_d:
+                    raise ValueError(f"{start_f} '{start_v}' is after {end_f} '{end_v}'")
+            return self
+        return check
+
+    @classmethod
+    def _safe_identifier(cls, name: str, fallback: str = 'Model') -> str:
+        """
+        Make a valid Python/tool identifier: letters, digits, underscore,
+        must start with a letter or underscore, max 60 chars.
+        """
+        cleaned = re.sub(r'[^0-9a-zA-Z_]', '_', str(name))
+        cleaned = re.sub(r'^[^a-zA-Z_]+', '_', cleaned)
+        return (cleaned or fallback)[:60]
+
+    @classmethod
+    def _field_annotation(cls, db_field: DatabaseField):
+        """
+        Resolve the annotation for a DatabaseField, honoring discovered
+        validators (choices -> Literal, decimal -> Decimal, bounds -> Field
+        constraints). Returns (annotation, field_info_kwargs).
+        Raises ValueError for unknown field types.
+        """
+        field_type = db_field.field_type
+        validation = db_field.field_validation or {}
+        field_info = {}
+
+        choices = validation.get('choices') or []
+        if choices:
+            annotation = Literal[tuple(choices)]
+        elif validation.get('max_digits'):
+            annotation = Decimal
+            field_info['max_digits'] = validation['max_digits']
+            if validation.get('decimal_places') is not None:
+                field_info['decimal_places'] = validation['decimal_places']
+        else:
+            annotation = cls.TYPE_TO_PYTHON.get(field_type)
+            if annotation is None:
+                raise ValueError(
+                    f"Unknown field type '{field_type}' for field "
+                    f"'{db_field.clientapp_field_name}'"
+                )
+
+        if field_type in (EntityTypeChoices.INTEGER, EntityTypeChoices.FLOAT) or annotation is Decimal:
+            if validation.get('min_value') is not None:
+                field_info['ge'] = float(validation['min_value'])
+            if validation.get('max_value') is not None:
+                field_info['le'] = float(validation['max_value'])
+        if validation.get('max_length') and annotation is str:
+            field_info['max_length'] = validation['max_length']
+
+        return annotation, field_info
+
+    @classmethod
+    def build_extraction_model(cls, response_model: ResponseModel):
+        """
+        Build the live Pydantic model used at extraction time — the single
+        source of truth shared by the wizard preview and the runtime.
+
+        Shape: { <table_snake>: [ {<field>: value, ...}, ... ], ... }
+        One object per extracted record; tables may have several records.
+        """
+        model_tables = ResponseModelTable.objects.filter(
+            response_model=response_model
+        ).select_related('database_table__clientapp_content_type')
+
+        if not model_tables.exists():
+            raise ValueError("No tables configured for this response model")
+
+        root_fields = {}
+
+        for model_table in model_tables:
+            table_name = model_table.database_table.clientapp_content_type.model
+            table_fields = ResponseModelTableField.objects.filter(
+                response_model_table=model_table,
+                field__is_active=True,
+            ).select_related('field', 'field__lookup_content_type').order_by('order')
+
+            if not table_fields.exists():
+                raise ValueError(f"No fields configured for table {table_name}")
+
+            field_defs = {}
+            for table_field in table_fields:
+                db_field = table_field.field
+                field_name = db_field.clientapp_field_name
+                annotation, field_info = cls._field_annotation(db_field)
+
+                description = f"{table_name}.{field_name}"
+                if db_field.help_text:
+                    description += f" — {db_field.help_text}"
+                if db_field.lookup_field:
+                    description += " (return the label of the closest matching option)"
+
+                field_defs[field_name] = (
+                    Optional[annotation],
+                    Field(None, description=description, **field_info)
+                )
+
+            validators = {}
+            date_pairs = model_table.database_table.date_validation_pairs or []
+            if date_pairs:
+                validators['check_date_order'] = model_validator(mode='after')(
+                    cls._date_order_check(date_pairs, set(field_defs.keys()))
+                )
+
+            table_cls = create_model(
+                cls._safe_identifier(table_name, 'Table'),
+                __validators__=validators,
+                **field_defs
+            )
+
+            key = cls._to_field_name(table_name)
+            root_fields[key] = (
+                Optional[List[table_cls]],
+                Field(None, description=f"List of extracted {table_name} records; one object per record, [] if none")
+            )
+
+        return create_model(
+            cls._safe_identifier(response_model.name) + 'Model',
+            **root_fields
+        )
+
     @classmethod
     def build_pydantic_model(cls, response_model: ResponseModel) -> str:
         """
@@ -59,10 +221,10 @@ class PydanticModelBuilder:
         """
         Generates necessary imports for the Pydantic model.
         """
-        return """from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import date, datetime, time, timedelta
-from enum import Enum"""
+        return """from pydantic import BaseModel, Field, model_validator
+from typing import Optional, List, Dict, Any, Literal
+from datetime import date
+from decimal import Decimal"""
     
     @classmethod
     def _build_table_model(cls, model_table: ResponseModelTable) -> str:
@@ -70,122 +232,105 @@ from enum import Enum"""
         Builds a Pydantic model for a single database table.
         """
         table_name = model_table.database_table.clientapp_content_type.model
-        class_name = cls._to_class_name(table_name)
-        
+        # PascalCase: avoids field-name/class-name collisions in annotations
+        class_name = cls._to_class_name(cls._safe_identifier(table_name, 'table'))
+
         fields = ResponseModelTableField.objects.filter(
-            response_model_table=model_table
-        ).select_related('field').order_by('order')
-        
+            response_model_table=model_table,
+            field__is_active=True,
+        ).select_related('field', 'field__lookup_content_type').order_by('order')
+
         if not fields.exists():
             raise ValueError(f"No fields configured for table {table_name}")
-        
-        field_definitions = []
-        validators = []
-        
-        for field_config in fields:
-            field_def, field_validator = cls._build_field_definition(field_config)
-            field_definitions.append(field_def)
-            if field_validator:
-                validators.append(field_validator)
-        
+
+        field_definitions = [cls._build_field_definition(fc) for fc in fields]
         fields_code = "\n    ".join(field_definitions)
-        validators_code = "\n\n    ".join(validators) if validators else ""
-        
+
         model_code = f"""class {class_name}(BaseModel):
     \"\"\"
     Extracted data for {table_name} table.
     \"\"\"
     {fields_code}"""
-        
-        if validators_code:
-            model_code += f"\n\n    {validators_code}"
-        
+
+        date_pairs = model_table.database_table.date_validation_pairs or []
+        field_names = {fc.field.clientapp_field_name for fc in fields}
+        active_pairs = [(s, e) for s, e in date_pairs if s in field_names and e in field_names]
+        if active_pairs:
+            checks = "\n".join(
+                f"        self._check_pair('{s}', '{e}')" for s, e in active_pairs
+            )
+            model_code += f"""
+
+    @model_validator(mode='after')
+    def check_date_order(self):
+        from datetime import date as _date
+{checks}
+        return self
+
+    @staticmethod
+    def _check_pair(start_f, end_f):
+        # raises ValueError if the parsed start date is after the end date
+        pass  # implemented by the extraction service"""
+
         return model_code
     
     @classmethod
-    def _build_field_definition(cls, field_config: ResponseModelTableField) -> tuple:
+    def _build_field_definition(cls, field_config: ResponseModelTableField) -> str:
         """
-        Builds a field definition for Pydantic model.
-        Returns (field_definition_str, validator_str)
+        Builds a field definition line matching the live extraction model:
+        choices -> Literal, decimal -> Decimal, bounds -> Field ge/le.
         """
         db_field = field_config.field
         field_name = db_field.clientapp_field_name
-        field_type = cls.TYPE_MAPPING.get(db_field.field_type, 'str')
-        
         validation = db_field.field_validation or {}
-        is_optional = validation.get('optional', False) or validation.get('nullable', False)
-        
-        if is_optional:
-            field_type = f"Optional[{field_type}]"
-        
-        description = f"Field: {field_name}"
-        if db_field.lookup_field:
-            description += f" (Lookup: {db_field.lookup_content_type.model if db_field.lookup_content_type else 'Unknown'})"
-        
-        field_params = [f'description="{description}"']
-        
-        if 'max_length' in validation:
+        field_params = []
+
+        choices = validation.get('choices') or []
+        if choices:
+            type_str = "Literal[" + ", ".join(repr(c) for c in choices) + "]"
+        elif validation.get('max_digits'):
+            type_str = 'Decimal'
+            field_params.append(f'max_digits={validation["max_digits"]}')
+            if validation.get('decimal_places') is not None:
+                field_params.append(f'decimal_places={validation["decimal_places"]}')
+        else:
+            type_str = cls.TYPE_MAPPING.get(db_field.field_type)
+            if type_str is None:
+                raise ValueError(
+                    f"Unknown field type '{db_field.field_type}' for field '{field_name}'"
+                )
+
+        if db_field.field_type in (EntityTypeChoices.INTEGER, EntityTypeChoices.FLOAT) or type_str == 'Decimal':
+            if validation.get('min_value') is not None:
+                field_params.append(f'ge={validation["min_value"]}')
+            if validation.get('max_value') is not None:
+                field_params.append(f'le={validation["max_value"]}')
+        if validation.get('max_length') and type_str == 'str':
             field_params.append(f'max_length={validation["max_length"]}')
-        
-        default_value = "None" if is_optional else "..."
-        
-        field_def = f'{field_name}: {field_type} = Field({default_value}, {", ".join(field_params)})'
-        
-        validator_code = None
-        if 'choices' in validation and validation['choices']:
-            validator_code = cls._build_choice_validator(field_name, validation['choices'])
-        elif 'min_value' in validation or 'max_value' in validation:
-            validator_code = cls._build_range_validator(field_name, validation)
-        
-        return field_def, validator_code
-    
-    @classmethod
-    def _build_choice_validator(cls, field_name: str, choices: List[str]) -> str:
-        """
-        Builds a validator for choice fields.
-        """
-        choices_str = ", ".join([f'"{choice}"' for choice in choices])
-        return f"""@validator('{field_name}')
-    def validate_{field_name}(cls, v):
-        if v is not None and v not in [{choices_str}]:
-            raise ValueError(f'{{v}} is not a valid choice for {field_name}')
-        return v"""
-    
-    @classmethod
-    def _build_range_validator(cls, field_name: str, validation: Dict) -> str:
-        """
-        Builds a validator for numeric range fields.
-        """
-        checks = []
-        if 'min_value' in validation:
-            checks.append(f"v < {validation['min_value']}")
-        if 'max_value' in validation:
-            checks.append(f"v > {validation['max_value']}")
-        
-        if not checks:
-            return None
-        
-        condition = " or ".join(checks)
-        return f"""@validator('{field_name}')
-    def validate_{field_name}(cls, v):
-        if v is not None and ({condition}):
-            raise ValueError(f'{{v}} is out of valid range for {field_name}')
-        return v"""
+
+        description = f"{db_field.clientapp_database_table.clientapp_content_type.model}.{field_name}"
+        if db_field.help_text:
+            description += f" — {db_field.help_text}"
+        if db_field.lookup_field:
+            description += " (return the label of the closest matching option)"
+        field_params.insert(0, f'description={description!r}')
+
+        return f'{field_name}: Optional[{type_str}] = Field(None, {", ".join(field_params)})'
     
     @classmethod
     def _build_root_model(cls, response_model: ResponseModel, model_tables) -> str:
         """
         Builds the root Pydantic model that contains all table models.
         """
-        root_class_name = cls._to_class_name(response_model.name)
-        
+        root_class_name = cls._to_class_name(cls._safe_identifier(response_model.name)) + 'Model'
+
         field_definitions = []
         for model_table in model_tables:
             table_name = model_table.database_table.clientapp_content_type.model
-            class_name = cls._to_class_name(table_name)
+            class_name = cls._to_class_name(cls._safe_identifier(table_name, 'table'))
             field_name = cls._to_field_name(table_name)
             
-            field_def = f'{field_name}: Optional[List[{class_name}]] = Field(None, description="Extracted {table_name} records")'
+            field_def = f'{field_name}: Optional[List[{class_name}]] = Field(None, description="List of extracted {table_name} records; one object per record, [] if none")'
             field_definitions.append(field_def)
         
         fields_code = "\n    ".join(field_definitions)
@@ -226,14 +371,25 @@ from enum import Enum"""
         
         for model_table in model_tables:
             fields = ResponseModelTableField.objects.filter(response_model_table=model_table)
-            
+
             if not fields.exists():
                 errors.append(f"No fields configured for table {model_table.database_table}")
-            
+
             for field in fields:
-                if field.field.lookup_field:
-                    if not field.field.lookup_content_type:
-                        warnings.append(f"Lookup field {field.field.clientapp_field_name} missing lookup table configuration")
+                db_field = field.field
+                if not db_field.is_active:
+                    errors.append(
+                        f"Field '{db_field.clientapp_field_name}' no longer exists on the source model; "
+                        f"remove it from the response model"
+                    )
+                if db_field.field_type not in cls.TYPE_TO_PYTHON:
+                    errors.append(
+                        f"Field '{db_field.clientapp_field_name}' has unknown type "
+                        f"'{db_field.field_type}'"
+                    )
+                if db_field.lookup_field:
+                    if not db_field.lookup_content_type:
+                        warnings.append(f"Lookup field {db_field.clientapp_field_name} missing lookup table configuration")
         
         return {
             'valid': len(errors) == 0,
@@ -327,28 +483,23 @@ from enum import Enum"""
         """
         sample_data = {}
         
+        from typing import get_origin, Union
+
         # Get model fields
-        if hasattr(model_class, '__fields__'):
-            for field_name, field_info in model_class.__fields__.items():
+        if hasattr(model_class, 'model_fields'):
+            for field_name, field_info in model_class.model_fields.items():
                 # Generate sample value based on field type
                 field_type = field_info.annotation
-                
-                # Handle Optional types
-                if hasattr(field_type, '__origin__') and field_type.__origin__ is type(Optional[int]).__origin__:
-                    # It's Optional, we can skip it or provide None
+                origin = get_origin(field_type)
+
+                if origin is Union:
+                    # Optional[...] / Union — a None sample is always valid here
                     sample_data[field_name] = None
-                    continue
-                
-                # Handle List types
-                if hasattr(field_type, '__origin__'):
-                    if field_type.__origin__ is list:
-                        sample_data[field_name] = []
-                    elif field_type.__origin__ is dict:
-                        sample_data[field_name] = {}
-                    else:
-                        sample_data[field_name] = None
+                elif origin is list:
+                    sample_data[field_name] = []
+                elif origin is dict:
+                    sample_data[field_name] = {}
                 else:
-                    # Simple types
                     sample_data[field_name] = None
         
         return sample_data

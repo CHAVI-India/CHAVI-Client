@@ -1,5 +1,9 @@
 import os
+import uuid
+from pathlib import Path
+from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
 from django.core.validators import FileExtensionValidator,URLValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -55,17 +59,27 @@ class ClientConfiguration(models.Model):
         ordering = ['-created_at']
 
 
+def file_upload_path(instance, filename):
+    '''
+    Store uploads under an opaque generated name so the original filename
+    (which may contain patient identifiers) never reaches disk or logs.
+    '''
+    ext = os.path.splitext(filename)[1].lower()
+    return f'uploads/{uuid.uuid4().hex}{ext}'
+
+
 class FileUpload(models.Model):
     '''
     This model stores information about uploaded files from which data will be extracted. This file text will be provided to the instructor as a structured data input after processing. Note that for some formats the file itself will be provided.
     '''
-    file = models.FileField(upload_to='uploads/', validators=[FileExtensionValidator(['pdf', 'csv', 'xlsx'])])
+    file = models.FileField(upload_to=file_upload_path, validators=[FileExtensionValidator(['pdf', 'csv', 'xlsx'])])
+    original_filename = models.CharField(max_length=512, blank=True, help_text="Filename as uploaded; stored for display only.")
     file_type = models.CharField(max_length=100, choices=FileTypeChoices.choices, blank=True)
     patient_id = models.ForeignKey('client_app.Patient', on_delete=models.CASCADE, null=True, blank=True, help_text="Please select the patient for whose data is being extracted.")
     processing_status = models.CharField(max_length=100, choices=ProcessingStatusChoices.choices, default=ProcessingStatusChoices.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     EXTENSION_TO_FILE_TYPE = {
         '.pdf': FileTypeChoices.PDF,
         '.csv': FileTypeChoices.CSV,
@@ -73,14 +87,15 @@ class FileUpload(models.Model):
     }
 
     def save(self, *args, **kwargs):
-        log.info("Saving file upload...")
         '''
-        This is a function that will automatically extract the extension from the file name and save it. 
+        This is a function that will automatically extract the extension from the file name and save it.
         '''
         if self.file:
             ext = os.path.splitext(self.file.name)[1].lower()
             file_type = self.EXTENSION_TO_FILE_TYPE.get(ext)
             self.file_type = file_type
+            if not self.original_filename:
+                self.original_filename = os.path.basename(self.file.name)
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -90,11 +105,11 @@ class FileUpload(models.Model):
         if self.file:
             if os.path.isfile(self.file.path):
                 os.remove(self.file.path)
-                log.info(f"Deleted file from disk: {self.file.path}")
+                log.info(f"Deleted file from disk for upload {self.id}")
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return self.file.name
+        return self.original_filename or self.file.name
 
     class Meta:
         ordering = ['-created_at']
@@ -105,27 +120,55 @@ class ProcessedText(models.Model):
     '''
     file_upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     processed_file_path = models.CharField(max_length = 512, null=True, blank=True)
-    processed_by_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, null=True, blank=True, help_text="The user who processed this file.")    
+    processed_by_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, null=True, blank=True, help_text="The user who processed this file.")
+    source_sheet = models.CharField(max_length=255, blank=True, help_text="Worksheet name when derived from an Excel workbook.")
+    content_length = models.IntegerField(default=0, help_text="Length of the extracted text content in characters.")
+    processing_warning = models.CharField(max_length=255, blank=True, help_text="Non-fatal processing caveat, e.g. 'no_text' or 'encoding_fallback'.")
+    version = models.IntegerField(default=1, help_text="Processing version; increments on reprocessing.")
+    is_source_alias = models.BooleanField(default=False, help_text="True when this row points at the original upload rather than a derived file.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    def delete(self, *args, **kwargs):
+
+    def resolve_path(self):
         '''
-        Override delete to remove the processed file from disk when the model instance is deleted.
+        Resolve processed_file_path against MEDIA_ROOT, rejecting absolute
+        paths and traversal outside the media directory.
         '''
-        if self.processed_file_path:
-            if os.path.isfile(self.processed_file_path):
-                os.remove(self.processed_file_path)
-                log.info(f"Deleted processed file from disk: {self.processed_file_path}")
-        super().delete(*args, **kwargs)
+        if not self.processed_file_path:
+            return None
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        candidate = (media_root / self.processed_file_path).resolve()
+        if media_root != candidate and media_root not in candidate.parents:
+            raise ValidationError(f"Processed file path escapes MEDIA_ROOT: {self.processed_file_path}")
+        return candidate
 
     def __str__(self):
-        if self.file_upload and self.file_upload.file:
-            return self.file_upload.file.name
+        if self.file_upload_id and self.file_upload.original_filename:
+            return self.file_upload.original_filename
         return f"ProcessedText {self.pk}"
 
     class Meta:
         ordering = ['-created_at']
+
+
+def _delete_processed_file(sender, instance, **kwargs):
+    '''
+    Remove the derived file from disk on every deletion path (model delete,
+    queryset delete, cascade). Source aliases are skipped: the file belongs to
+    the FileUpload and is removed with it.
+    '''
+    if instance.is_source_alias:
+        return
+    try:
+        file_path = instance.resolve_path()
+        if file_path and file_path.is_file():
+            file_path.unlink()
+            log.info(f"Deleted processed file for ProcessedText {instance.id}")
+    except Exception as e:
+        log.error(f"Error deleting processed file for ProcessedText {instance.id}: {e}")
+
+
+post_delete.connect(_delete_processed_file, sender=ProcessedText)
 
 class EntityTypeChoices(models.TextChoices):
     STRING = 'str', 'string'
@@ -148,6 +191,7 @@ class DatabaseTable(models.Model):
     clientapp_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to={'app_label': 'client_app'}, help_text="The client_app model to which this table refers")
     clientapp_table_pk_field_name = models.CharField(max_length=512, help_text="This is the name of field which has the primary key for the table.")
     clientapp_table_fk_fields = models.JSONField(help_text="This a JSON representation of the FK field relationships for the table. It stores the FK relationship between the table and the patient table. Note that the FK relationship can traverse multiple intermediate tables. However the Patient table is the primary table.",null=True,blank=True)
+    date_validation_pairs = models.JSONField(null=True, blank=True, help_text="Pairs of (start_date_field, end_date_field) captured from the source model's date_validation_pairs; enforced on extracted records.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -187,9 +231,11 @@ class DatabaseField(models.Model):
     lookup_content_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'app_label': 'lookup'}, help_text="The lookup table to which this field is linked")
     lookup_table_value_field_name = models.CharField(max_length=512, blank=True, null=True, help_text="The field containing the value which is to be matched / extracted using Instructor")
     lookup_table_pk_field_name = models.CharField(max_length=512, blank=True, null=True, help_text="The field containing the primary key to which the data will be linked")
+    help_text = models.CharField(max_length=512, blank=True, help_text="Help text captured from the source model field; shown to the LLM at extraction time.")
+    is_active = models.BooleanField(default=True, help_text="False when the field no longer exists on the source model after re-discovery.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     def __str__(self):
         return f"{self.clientapp_database_table}.{self.clientapp_field_name}"
 
@@ -315,14 +361,15 @@ class InstructorMessage(models.Model):
     response_model = models.ForeignKey(ResponseModel, on_delete=models.CASCADE,help_text="Response model for which the message is defined")
     role = models.CharField(max_length=10, choices=InstructorRole.choices, help_text="Role of the message sender. The default value is system.", default=InstructorRole.SYSTEM)
     prompt = models.JSONField(help_text="The prompt to be used for data extraction to be passed onto Instructor. Stored as JSON in database.")
+    order = models.PositiveIntegerField(default=0, help_text="Explicit ordering of messages; lower numbers are sent first.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     def __str__(self):
         return f"{self.response_model} - {self.role}"
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order', 'created_at']
 
 class ExtractionStatusChoices(models.TextChoices):
     PENDING = "pending", "Pending"
@@ -362,12 +409,31 @@ class DataAccuracyChoices(models.TextChoices):
     PARTIAL = "partial", "Partial"
     INACCURATE = "inaccurate", "Inaccurate"
 
+class ExtractedRecord(models.Model):
+    '''
+    One extracted record (one row of a clinical table) produced by an extraction
+    job. A document may yield several records per table — e.g. two diagnoses.
+    '''
+    extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE, related_name='extracted_records', help_text="Extraction job that produced this record")
+    database_table = models.ForeignKey(DatabaseTable, on_delete=models.CASCADE, help_text="The table this record belongs to")
+    record_index = models.PositiveIntegerField(default=0, help_text="Position of this record within the table's extracted list")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.database_table} record {self.record_index} (job {self.extraction_job_id})"
+
+    class Meta:
+        ordering = ['database_table', 'record_index']
+
+
 class ExtractionResult(models.Model):
     '''
     This will store the extracted data for a specific field. We will also store the details of who verified the data and if the extracted data was correct or not. If the extracted data was edited then it will also be corrected.
     '''
     extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE,help_text="Extraction job for which the data has been extracted")
     database_field = models.ForeignKey(DatabaseField, on_delete=models.CASCADE,help_text="Database table field for which the data has been extracted")
+    record = models.ForeignKey(ExtractedRecord, on_delete=models.CASCADE, null=True, blank=True, related_name='results', help_text="The extracted record this value belongs to")
     extracted_data = EncryptedTextField(help_text="Extracted data after Instructor parses the text. This will be stored as an encrypted text.")
     data_accuracy = models.CharField(max_length=50, choices=DataAccuracyChoices.choices, default=DataAccuracyChoices.ACCURATE)
     data_edited = models.BooleanField(default=False, help_text="Whether the data was edited by the user")

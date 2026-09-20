@@ -1,8 +1,11 @@
+import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from logging import getLogger
@@ -189,9 +192,13 @@ def wizard_step3(request):
             
             for model_table in model_tables:
                 field_ids = request.POST.getlist(f'fields_{model_table.id}')
-                
+
                 for order, field_id in enumerate(field_ids):
-                    database_field = DatabaseField.objects.get(id=field_id)
+                    database_field = get_object_or_404(
+                        DatabaseField,
+                        id=field_id,
+                        clientapp_database_table=model_table.database_table,
+                    )
                     ResponseModelTableField.objects.create(
                         response_model_table=model_table,
                         field=database_field,
@@ -204,7 +211,8 @@ def wizard_step3(request):
     tables_with_fields = []
     for model_table in model_tables:
         fields = DatabaseField.objects.filter(
-            clientapp_database_table=model_table.database_table
+            clientapp_database_table=model_table.database_table,
+            is_active=True,
         )
         
         selected_fields = ResponseModelTableField.objects.filter(
@@ -248,19 +256,23 @@ def wizard_step4(request):
     if validation_result['valid']:
         try:
             pydantic_code = PydanticModelBuilder.build_pydantic_model(response_model)
-            
+
             # Validate the generated code
             code_validation_result = PydanticModelBuilder.validate_generated_code(pydantic_code)
-            
+
             if not code_validation_result['valid']:
                 messages.warning(request, "Generated code has validation issues. Please review.")
                 for error in code_validation_result['errors']:
                     log.error(f"Code validation error: {error}")
             else:
+                # Also build the live model — the same class the extractor will use
+                PydanticModelBuilder.build_extraction_model(response_model)
                 messages.success(request, "✓ Generated Pydantic model is valid and ready to use!")
-                
+
         except Exception as e:
             log.error(f"Error building Pydantic model: {e}")
+            validation_result['valid'] = False
+            validation_result.setdefault('errors', []).append(str(e))
             messages.error(request, f"Error generating Pydantic model: {str(e)}")
     
     if request.method == 'POST':
@@ -754,6 +766,22 @@ def file_upload_list(request):
     return render(request, 'extractor/file_upload_list.html', context)
 
 
+def _validate_upload_content(uploaded_file, ext):
+    """
+    Magic-byte sanity check on the uploaded content. Returns an error string
+    or None. Defence in depth on top of the extension validator.
+    """
+    head = uploaded_file.read(512)
+    uploaded_file.seek(0)
+    if ext == '.pdf' and not head.startswith(b'%PDF'):
+        return "File content is not a valid PDF."
+    if ext == '.xlsx' and not head.startswith(b'PK\x03\x04'):
+        return "File content is not a valid Excel workbook."
+    if ext == '.csv' and b'\x00' in head:
+        return "File content does not look like a CSV (binary data found)."
+    return None
+
+
 @login_required
 @permission_required('extractor.add_fileupload', raise_exception=True)
 def file_upload_create(request):
@@ -761,17 +789,39 @@ def file_upload_create(request):
     Upload a new file.
     """
     if request.method == 'POST':
+        file_upload = None
         try:
             uploaded_file = request.FILES.get('file')
             patient_id = request.POST.get('patient_id')
-            
+
             if not uploaded_file:
                 messages.error(request, "No file selected.")
                 return redirect('extractor:file_upload_create')
-            
-            # Create FileUpload instance
-            file_upload = FileUpload(file=uploaded_file)
-            
+
+            # Validate before anything touches storage
+            ext = os.path.splitext(uploaded_file.name)[1].lower()
+            file_type = FileUpload.EXTENSION_TO_FILE_TYPE.get(ext)
+            if not file_type:
+                messages.error(request, f"Unsupported file type '{ext}'. Allowed: PDF, CSV, XLSX.")
+                return redirect('extractor:file_upload_create')
+
+            max_bytes = getattr(settings, 'EXTRACTOR_MAX_UPLOAD_MB', 50) * 1024 * 1024
+            if uploaded_file.size > max_bytes:
+                messages.error(request, f"File exceeds maximum size of {max_bytes // (1024*1024)} MB.")
+                return redirect('extractor:file_upload_create')
+
+            content_error = _validate_upload_content(uploaded_file, ext)
+            if content_error:
+                messages.error(request, content_error)
+                return redirect('extractor:file_upload_create')
+
+            # Create FileUpload instance and run model validation before saving
+            file_upload = FileUpload(
+                file=uploaded_file,
+                original_filename=uploaded_file.name,
+                file_type=file_type,
+            )
+
             if patient_id:
                 from client_app.models import Patient
                 try:
@@ -779,17 +829,24 @@ def file_upload_create(request):
                     file_upload.patient_id = patient
                 except Patient.DoesNotExist:
                     messages.warning(request, f"Patient {patient_id} not found. File uploaded without patient link.")
-            
+
+            file_upload.full_clean()
             file_upload.save()
-            
-            messages.success(request, f"File '{uploaded_file.name}' uploaded successfully!")
+
+            messages.success(request, "File uploaded successfully!")
             return redirect('extractor:file_upload_detail', file_id=file_upload.id)
-            
+
+        except ValidationError as e:
+            messages.error(request, f"Upload failed validation: {e}")
+            return redirect('extractor:file_upload_create')
         except Exception as e:
             log.error(f"File upload error: {e}")
+            # If a row/file was persisted before the failure, remove it
+            if file_upload and file_upload.pk:
+                file_upload.delete()
             messages.error(request, f"Upload failed: {str(e)}")
             return redirect('extractor:file_upload_create')
-    
+
     # Get list of patients for dropdown
     from client_app.models import Patient
     patients = Patient.objects.all().order_by('patient_id')
@@ -809,12 +866,18 @@ def file_upload_detail(request, file_id):
     """
     file_upload = get_object_or_404(FileUpload, id=file_id)
     processed_files = ProcessedText.objects.filter(file_upload=file_upload).order_by('-created_at')
-    
+
+    # Dependent records that deletion will cascade through — shown in the modal
+    dependent_jobs = ExtractionJob.objects.filter(processed_file__file_upload=file_upload)
+    dependent_results = ExtractionResult.objects.filter(extraction_job__in=dependent_jobs)
+
     context = {
         'file_upload': file_upload,
         'processed_files': processed_files,
+        'dependent_jobs_count': dependent_jobs.count(),
+        'dependent_results_count': dependent_results.count(),
     }
-    
+
     return render(request, 'extractor/file_upload_detail.html', context)
 
 
@@ -829,16 +892,24 @@ def file_upload_process(request, file_id):
     
     try:
         result = FileProcessorService.process_file(file_upload, user=request.user)
-        
+
         if result['success']:
             messages.success(request, result['message'])
             if result['processed_files']:
                 count = len(result['processed_files'])
                 messages.info(request, f"{count} file(s) generated and ready for extraction.")
-        else:
-            messages.error(request, "Processing failed.")
+        elif result.get('processed_files'):
+            # Partial conversion: some output exists but not everything succeeded
+            messages.warning(request, result['message'] or "Processing completed with failures.")
             for error in result['errors']:
                 messages.error(request, error)
+        else:
+            messages.error(request, result['message'] or "Processing failed.")
+            for error in result['errors']:
+                messages.error(request, error)
+
+        for warning in result.get('warnings', []):
+            messages.warning(request, warning)
         
     except Exception as e:
         log.error(f"File processing error: {e}")
@@ -856,17 +927,19 @@ def file_upload_delete(request, file_id):
     file_upload = get_object_or_404(FileUpload, id=file_id)
     
     if request.method == 'POST':
-        filename = file_upload.file.name
-        
-        # Delete processed files
-        FileProcessorService.delete_processed_files(file_upload)
-        
+        filename = file_upload.original_filename or os.path.basename(file_upload.file.name)
+
+        # Delete processed files; abort rather than orphan DB rows or files
+        if not FileProcessorService.delete_processed_files(file_upload):
+            messages.error(request, "Could not delete processed files; upload was not deleted.")
+            return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
         # Delete the upload
         file_upload.delete()
-        
+
         messages.success(request, f"File '{filename}' and all processed versions deleted successfully!")
         return redirect('extractor:file_upload_list')
-    
+
     return redirect('extractor:file_upload_detail', file_id=file_upload.id)
 
 
@@ -974,11 +1047,23 @@ def extraction_start(request):
         
         response_model = get_object_or_404(ResponseModel, id=response_model_id)
         processed_files = ProcessedText.objects.filter(id__in=processed_file_ids)
-        
+
         if not processed_files.exists():
             messages.error(request, "No valid files selected.")
             return redirect('extractor:extraction_dashboard')
-        
+
+        # Readiness check: refuse to run an unbuildable extraction model
+        readiness = PydanticModelBuilder.validate_model_configuration(response_model)
+        if not readiness['valid']:
+            for error in readiness['errors']:
+                messages.error(request, error)
+            return redirect('extractor:extraction_dashboard')
+        try:
+            PydanticModelBuilder.build_extraction_model(response_model)
+        except Exception as e:
+            messages.error(request, f"Extraction model could not be built: {e}")
+            return redirect('extractor:extraction_dashboard')
+
         # Perform bulk extraction
         results = InstructorExtractionService.bulk_extract(
             list(processed_files),
@@ -1117,17 +1202,23 @@ def instructor_message_create(request, response_model_id):
     if request.method == 'POST':
         role = request.POST.get('role', InstructorRole.SYSTEM)
         prompt_text = request.POST.get('prompt')
-        
+        order = request.POST.get('order') or 0
+
+        if role not in InstructorRole.values:
+            messages.error(request, f"Invalid role '{role}'.")
+            return redirect('extractor:instructor_message_create', response_model_id=response_model_id)
+
         if not prompt_text:
             messages.error(request, "Prompt text is required.")
             return redirect('extractor:instructor_message_create', response_model_id=response_model_id)
-        
+
         try:
             # Store prompt as JSON
             InstructorMessage.objects.create(
                 response_model=response_model,
                 role=role,
-                prompt={'content': prompt_text}
+                order=int(order),
+                prompt={'content': str(prompt_text)}
             )
             
             messages.success(request, "Instructor message created successfully!")
@@ -1156,14 +1247,20 @@ def instructor_message_edit(request, message_id):
     if request.method == 'POST':
         role = request.POST.get('role', InstructorRole.SYSTEM)
         prompt_text = request.POST.get('prompt')
-        
+        order = request.POST.get('order') or instructor_message.order
+
+        if role not in InstructorRole.values:
+            messages.error(request, f"Invalid role '{role}'.")
+            return redirect('extractor:instructor_message_edit', message_id=message_id)
+
         if not prompt_text:
             messages.error(request, "Prompt text is required.")
             return redirect('extractor:instructor_message_edit', message_id=message_id)
-        
+
         try:
             instructor_message.role = role
-            instructor_message.prompt = {'content': prompt_text}
+            instructor_message.order = int(order)
+            instructor_message.prompt = {'content': str(prompt_text)}
             instructor_message.save()
             
             messages.success(request, "Instructor message updated successfully!")

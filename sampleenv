@@ -1,4 +1,4 @@
-SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&8%l4^-lp!$(s#ysd9w8)fe! # Add secret key of the project. Ensure this is changed before deployment.
+DJANGO_SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&8%l4^-lp!$(s#ysd9w8)fe! # Add secret key of the project. Ensure this is changed before deployment.
 DEBUG=True # Set to True for development, False for production
 DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost' # Add other hosts if needed seperated by commas
 
@@ -16,5 +16,10 @@ LOOKUP_API_TIMEOUT =  120
 #HTTP_PROXY = 
 #HTTPS_PROXY =
 
-# Encryption key
-DJANGO_FIELD_ENCRYPTION_KEY=your-32-byte-secret-key-here
+# Encryption key — generate one with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+DJANGO_FIELD_ENCRYPTION_KEY= # Required: paste a generated Fernet key here
+
+# Extractor: maximum upload size in megabytes (files larger than this are rejected before storage)
+EXTRACTOR_MAX_UPLOAD_MB=50 # Default: 50
+

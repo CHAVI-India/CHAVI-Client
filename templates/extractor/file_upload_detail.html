@@ -168,9 +168,16 @@
             <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
             Confirm Deletion
         </h3>
-        <p class="text-gray-600 mb-6">
+        <p class="text-gray-600 mb-2">
             Are you sure you want to delete this file and all its processed versions? This action cannot be undone.
         </p>
+        {% if dependent_jobs_count or dependent_results_count %}
+        <p class="text-red-600 text-sm mb-6">
+            This will also delete <strong>{{ dependent_jobs_count }}</strong> extraction job(s)
+            and <strong>{{ dependent_results_count }}</strong> extracted result(s), including any
+            that have been reviewed.
+        </p>
+        {% endif %}
         <div class="flex justify-end gap-3">
             <button onclick="closeDeleteModal()" 
                     class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors">

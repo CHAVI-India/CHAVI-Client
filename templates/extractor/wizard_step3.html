@@ -24,7 +24,7 @@
         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
             <p class="text-sm text-blue-700">
                 <i class="fas fa-info-circle mr-2"></i>
-                Select the specific fields you want to extract from each table. Fields marked with a lookup icon are linked to lookup tables.
+                Select the specific fields you want to extract from each table. Fields marked with a blue link icon are lookup fields. Fields marked with an orange sitemap icon are internal record links and are usually not extractable from text.
             </p>
         </div>
 
@@ -68,6 +68,9 @@
                                     </span>
                                     {% if field.lookup_field %}
                                     <i class="fas fa-link text-blue-500 text-xs" title="Lookup field"></i>
+                                    {% endif %}
+                                    {% if field.field_validation.is_relationship %}
+                                    <i class="fas fa-sitemap text-orange-500 text-xs" title="Internal record link (foreign key) — usually not extractable from text"></i>
                                     {% endif %}
                                 </div>
                                 <p class="text-xs text-gray-500 mt-1">

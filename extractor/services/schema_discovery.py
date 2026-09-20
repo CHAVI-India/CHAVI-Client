@@ -1,4 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models as django_models, transaction
 from django.db.utils import OperationalError
 from extractor.models import DatabaseTable, DatabaseField, EntityTypeChoices
@@ -125,12 +126,17 @@ class SchemaDiscoveryService:
         pk_field_name = pk_field.name if pk_field else 'id'
         
         fk_fields = cls._extract_fk_relationships(model_class)
-        
+
+        # Date-ordering rules declared on the source model (DateValidationMixin)
+        date_pairs = getattr(model_class, 'date_validation_pairs', None) or []
+        date_pairs = [list(pair) for pair in date_pairs]
+
         db_table, created = DatabaseTable.objects.update_or_create(
             clientapp_content_type=content_type,
             defaults={
                 'clientapp_table_pk_field_name': pk_field_name,
-                'clientapp_table_fk_fields': fk_fields
+                'clientapp_table_fk_fields': fk_fields,
+                'date_validation_pairs': date_pairs or None
             }
         )
         
@@ -220,46 +226,63 @@ class SchemaDiscoveryService:
         fields_created = 0
         all_fields = [f for f in model_class._meta.get_fields() if not cls._should_skip_field(f)]
         total_fields = len(all_fields)
-        
+        seen_names = set()
+
         for idx, field in enumerate(all_fields):
             field_type = cls._determine_field_type(field)
-            
+
             if not field_type:
                 log.warning(f"Could not determine type for field {field.name} in {model_class.__name__}")
                 continue
-            
+
+            seen_names.add(field.name)
+
             if progress_callback:
                 progress_callback('processing_field', f'  → Field: {field.name} ({field_type})', 0)
-            
+
             is_lookup = cls._is_lookup_field(field)
             lookup_ct = None
             lookup_value_field = None
             lookup_pk_field = None
-            
+
             if is_lookup:
                 lookup_info = cls._extract_lookup_info(field)
                 lookup_ct = lookup_info.get('content_type')
                 lookup_value_field = lookup_info.get('value_field')
                 lookup_pk_field = lookup_info.get('pk_field')
-            
-            validation_rules = cls._extract_validation_rules(field)
-            
+
+            validation_rules = cls._extract_validation_rules(field) or {}
+            # Internal relationship (FK to a non-lookup table): record the flag
+            # so the wizard can hide it from the extractable field list.
+            if isinstance(field, django_models.ForeignKey) and not is_lookup:
+                validation_rules['is_relationship'] = True
+
             _, created = DatabaseField.objects.update_or_create(
                 clientapp_database_table=db_table,
                 clientapp_field_name=field.name,
                 defaults={
                     'field_type': field_type,
-                    'field_validation': validation_rules,
+                    'field_validation': validation_rules or None,
                     'lookup_field': is_lookup,
                     'lookup_content_type': lookup_ct,
                     'lookup_table_value_field_name': lookup_value_field,
                     'lookup_table_pk_field_name': lookup_pk_field,
+                    'help_text': str(field.help_text) if getattr(field, 'help_text', None) else '',
+                    'is_active': True,
                 }
             )
-            
+
             if created:
                 fields_created += 1
-        
+
+        # Fields that disappeared from the source model are marked inactive,
+        # not deleted — existing response models keep their selection history.
+        DatabaseField.objects.filter(
+            clientapp_database_table=db_table
+        ).exclude(
+            clientapp_field_name__in=seen_names
+        ).update(is_active=False)
+
         return fields_created
     
     @classmethod
@@ -381,30 +404,45 @@ class SchemaDiscoveryService:
     def _extract_validation_rules(cls, field):
         """
         Extracts validation rules from Django field for Pydantic conversion.
+        Reads the field's validator objects so Min/MaxValueValidator bounds
+        and Decimal precision are actually captured.
         """
         validation = {}
-        
+
         if hasattr(field, 'max_length') and field.max_length:
             validation['max_length'] = field.max_length
-        
-        if hasattr(field, 'min_value') and field.min_value is not None:
-            validation['min_value'] = str(field.min_value)
-        
-        if hasattr(field, 'max_value') and field.max_value is not None:
-            validation['max_value'] = str(field.max_value)
-        
+
         if hasattr(field, 'null'):
             validation['nullable'] = field.null
-        
+
         if hasattr(field, 'blank'):
             validation['optional'] = field.blank
-        
+
         if hasattr(field, 'choices') and field.choices:
             validation['choices'] = [choice[0] for choice in field.choices]
-        
-        if hasattr(field, 'validators') and field.validators:
-            validation['has_validators'] = True
-        
+
+        # Decimal precision
+        if getattr(field, 'max_digits', None):
+            validation['max_digits'] = field.max_digits
+        if getattr(field, 'decimal_places', None) is not None and getattr(field, 'decimal_places', None):
+            validation['decimal_places'] = field.decimal_places
+
+        # Bounds live on the validators, not the field — read them
+        for validator in getattr(field, 'validators', []) or []:
+            try:
+                limit = float(validator.limit_value)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if isinstance(validator, MinValueValidator):
+                validation['min_value'] = limit
+            elif isinstance(validator, MaxValueValidator):
+                validation['max_value'] = limit
+        # FloatField/DecimalField also carry min_value/max_value attrs directly
+        if getattr(field, 'min_value', None) is not None and 'min_value' not in validation:
+            validation['min_value'] = float(field.min_value)
+        if getattr(field, 'max_value', None) is not None and 'max_value' not in validation:
+            validation['max_value'] = float(field.max_value)
+
         return validation if validation else None
     
     @classmethod
