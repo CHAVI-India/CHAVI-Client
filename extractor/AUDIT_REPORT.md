@@ -2,6 +2,7 @@
 
 **Audit date:** 2026-09-20  
 **Revision:** Fourth pass — adds findings 62–71 (encryption-key fallback, deletion cascades that destroy reviewed results, discovery overwriting manual lookup corrections, tool-name validity, prompt/type contradiction, threshold reuse, Ollama truncation, PHI in filenames, operational limits, documentation drift). Third-pass content retained.  
+**Update (2026-09-21):** All findings remediated — see §3a "Remediation status" for the per-finding fix table and the additional features landed since the audit.
 **Scope:** Uploaded documents → text conversion → response-model configuration → LLM requests → lookup resolution → saved results → human review. Supporting templates, admin, embedding jobs, dependencies, and deployment configuration were inspected where relevant. No application fixes were made.
 
 **Important scope clarification:** The existing `deidentification` app is **not designed to deidentify clinical input documents for extractor**. Its absence from this pipeline is not a missing integration or a defect. This report does not recommend connecting it to extractor. Authorization to send clinical text to a configured provider, transport security, logging, and retention remain separate extractor/deployment responsibilities; they do not imply that input deidentification is required.
@@ -160,6 +161,107 @@ These checks establish mechanics, not measured clinical error rates. No live pro
 | 69 | Medium | Upload filenames (possibly PHI) propagate to logs/paths; full patient list and orphan response models exposed | Code-confirmed |
 | 70 | Low | Per-worker model loading, no vector index, LAN-Ollama timeout heuristic, login-only progress endpoint | Code-confirmed |
 | 71 | Medium | Documentation claims validation/encryption/range-validator behavior the code does not deliver | Verified — controls to be implemented |
+
+## 3a. Remediation status — 2026-09-21
+
+All findings were remediated in the days after this audit, across the commit
+series `46d2734` … `8b8d3d3`. Statuses: **fixed** (implemented + verified),
+**partial** (substantively addressed; residual noted), **deferred**
+(accepted decision — documented in findings).
+
+| ID | Status | How it was resolved |
+|---|---|---|
+| 1 | fixed | `services/url_policy.py` — single URL normalization/policy path; completion-path duplication removed |
+| 2 | fixed | `sentence-transformers` installed; shared provider adapters (`embeddings.py`) |
+| 3 | fixed | Document/key logging removed; connection test uses the same OpenAI client path and logs no headers/payloads |
+| 4 | fixed | Composite `lookup_label_fields` + `lookup_config_source`; label built from configured fields (`build_lookup_label`) |
+| 5 | fixed | Lookup resolution now searches the full document text, not a 500-char prefix |
+| 6 | fixed | Nested Pydantic models in extraction; **`ExtractedRecord.parent_record` + `model_hierarchy.py` + `auto_added` ancestor tables** now run true nested parent→child extraction (99959b7) |
+| 7 | fixed | Lookup values stored as `{"label","code"}` JSON |
+| 8 | fixed | Results default to `unreviewed`; no verifier pre-assigned |
+| 9 | fixed | `no_text`/`low_text` content guard + `skipped` status in `extract_data` |
+| 10 | fixed | `ClientConfiguration.context_size` + token estimate; over-limit prompts refused |
+| 11 | fixed | `client_configuration_test_connection` uses the same OpenAI-compatible client path as extraction |
+| 12 | fixed | Extraction dispatched via Celery (`run_extraction_job`), not the request cycle |
+| 13 | fixed | `index_version` invalidation on config edits; build-then-swap index rebuilds |
+| 14 | fixed | Wizard field-ownership and error paths hardened |
+| 15 | fixed | Unified path resolution/deletion for `processed_file_path` |
+| 16 | fixed | `change_embeddingconfiguration` permission decorators on embedding views |
+| 17 | fixed | `is_complete` gating on response models before extraction starts |
+| 18 | fixed | Embedding/reprocessing moved to Celery + `BackgroundTask` progress tracking |
+| 19 | fixed | Ambiguous labels → `unresolved` state, never silent first-match |
+| 20 | fixed | `request_timeout`, `model_max_tokens`, `tokens_used` usage capture (980cc6d/e133496) |
+| 21 | fixed | Generated-model validation runs a real test extraction |
+| 22 | fixed | Composite label discovery preserves grade/term/description (CTCAE etc.); manual corrections protected |
+| 23 | fixed | Paginated patient dashboard + job-scoped data tree; no unbounded Python grouping |
+| 24 | fixed | Typed JSON storage; `not_found` rows persisted for review visibility |
+| 25 | fixed | Versioned processed outputs; job dedup on (file, model) (e53a220) |
+| 26 | fixed | `ClientConfiguration.clean()` — merged expiry + base-URL validation (fixed the two-`clean()` shadowing bug) |
+| 27 | fixed | Prompt message ordering/roles corrected |
+| 28 | fixed | Unsupported-type fallbacks and secondary maintenance items addressed |
+| 29 | deferred | pgvector remains a hard dependency — accepted |
+| 30 | fixed (create-only) | `record_writer.py` write-back via `RecordCreation`/`RecordCreationField`; parent-chain resolution; idempotent; **duplicate warning confirm page** (`match_fields` key-sets) |
+| 31 | fixed | `url_policy.py` — HTTPS / localhost-LAN-HTTP policy, single control |
+| 32 | partial | Model permissions enforced everywhere; **per-user object scoping remains an open policy question** |
+| 33 | fixed | `raw_llm_response` → `EncryptedTextField` (JSON string) |
+| 34 | fixed | Result persistence wrapped in `transaction.atomic` |
+| 35 | fixed | `lookup_table_pk_field_name` respected in write-back and resolution |
+| 36 | fixed | Magic-byte + extension validation at upload |
+| 37 | fixed | System-prompt trust boundary isolates document instructions |
+| 38 | deferred | Staging-data cascade is intended; deletion UI discloses dependent jobs/results |
+| 39 | fixed | Browser embedding task honors the selected provider |
+| 40 | fixed | Empty-candidate fallback + embedding freshness corrected |
+| 41 | fixed | Discovery stale-field cleanup; **`DatabaseField.is_extractable()`** excludes internal FKs/auto-PKs from the LLM schema (4b5c0e0) |
+| 42 | fixed | `EmbeddingConfiguration.api_key` → `EncryptedCharField` (migrations 0016/0017) |
+| 43 | fixed | Editable processed paths resolved inside media root only |
+| 44 | deferred | Azure `api-version` support — no current need |
+| 45 | fixed | `api_key_expired()` enforced in `extract_data` and `test_connection` (980cc6d/e133496) |
+| 46 | fixed | CSV aliases + derived-file cleanup ownership separated |
+| 47 | fixed | Choice validators emit typed `Literal`s with escaping |
+| 48 | partial | Batched embedding + PG TCP keepalives + `close_old_connections` (99959b7); full-table buffers remain for very large lookup sets |
+| 49 | fixed | Corrections validated per field type; lookup corrections are server-resolved dropdowns only |
+| 50 | fixed | `innerHTML` sinks replaced with DOM construction |
+| 51 | fixed | Unique per-worksheet output names |
+| 52 | fixed | Excel→CSV via `dtype=str` conversion preserves identifiers/`NA` |
+| 53 | fixed | `no_text`/`low_text` detection + manual **Run OCR** (Celery → versioned `ProcessedText`, `ocr_applied`) |
+| 54 | fixed | Discovery captures real bounds/precision/`date_validation_pairs`; Pydantic constraints generated |
+| 55 | fixed | `config_snapshot` + `input_content_hash` frozen per job |
+| 56 | fixed | Per-sheet conversion errors surface as `processing_warning`, not silent success |
+| 57 | fixed | Build-then-swap index rebuild; all-fail runs mark failed, not zero-result success |
+| 58 | fixed | Correction undo restores prior state reliably |
+| 59 | fixed | Dashboard shows real per-job status breakdown |
+| 60 | fixed | `ExtractionResult.evidence` (encrypted source-text snippet, `_find_evidence`); `_unit_pairing` binds numerics to unit fields with `⚠ no unit` warnings; units editable via dropdown |
+| 61 | fixed | Wizard session isolation/backtracking corrected |
+| 62 | deferred | Fallback Fernet key kept by decision; production deployments set real keys |
+| 63 | deferred | Cascade intended (staging); delete confirmation discloses dependent results |
+| 64 | fixed | `lookup_config_source` + manual-override protection — discovery no longer re-guesses corrected fields (c2cb195) |
+| 65 | fixed | Tool names sanitized to valid OpenAI function names |
+| 66 | fixed | "Exact text" prompt reconciled with typed bool/int fields |
+| 67 | fixed | Separate candidate and strict-match thresholds |
+| 68 | partial | `context_size` guards over-length prompts; chunked/document-splitting extraction remains unimplemented |
+| 69 | fixed | Opaque stored paths; `original_filename` is display-only |
+| 70 | fixed | Worker warm-up (`worker_process_init`); **vector column is now dimensionless** — each config declares its own `embedding_dimension`, providers verify real output against it (99959b7); HNSW index removed with the fixed-1536 design |
+| 71 | fixed | README + sampleenv now describe actual behavior; OCR deps documented |
+
+### Additional work landed on 2026-09-21 (beyond the audit scope)
+
+- **Nested extraction** — `ExtractedRecord.parent_record`, `model_hierarchy.py`
+  (`ancestor_tables`, `build_table_tree`, `child_key`, `identity_field_names`),
+  `ResponseModelTable.auto_added`: selecting a child table auto-includes its
+  ancestors; child records extract inside the parent's context (99959b7, 0018).
+- **`is_extractable()`** — internal FKs and auto-generated PKs (`chavi_*_id`
+  UUIDs) are never sent to the LLM; write-back resolves them structurally.
+- **Dimensionless embeddings** — per-config `embedding_dimension`, provider-side
+  dimension verification, HF-token support for gated local models; fixed-1536 +
+  HNSW superseded (0015).
+- **Connection resilience** — libpq TCP keepalives (30s/10s/5) + `close_old_connections()`
+  around long provider/model-load calls so remote DB connections survive Celery tasks.
+- **Review UX** — canonical review surface moved to the job-detail page
+  (`build_job_data_tree` + shared `record_grid_node.html` / `record_detail_body.html`);
+  URL-hash deep links to record cards; unlinked/unmatched-file handling.
+- **Duplicate warning** — `DatabaseTable.match_fields` key-sets + confirm interstitial
+  on write-back (implemented this session, committed separately).
+- Navigation cleanup — patient-data/DICOM export entries removed (8b8d3d3).
 
 ## 4. Detailed findings
 

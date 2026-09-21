@@ -1,5 +1,6 @@
 import instructor
 import json
+from instructor.core import InstructorRetryException
 from openai import OpenAI
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Tuple
@@ -458,6 +459,43 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             return resolved, 0
 
     @staticmethod
+    def build_lookup_rules(
+        response_model: ResponseModel,
+        resolved_options: Dict[int, List[Dict[str, Any]]],
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Per-job constraints for the extraction model's lookup validators,
+        passed via instructor's validation context. '<table>.<field>' ->
+        {'allowed': {lowercased labels}, 'candidates': [mined labels]}.
+        Never raises — a field whose rules can't be built stays unconstrained.
+        """
+        rules: Dict[str, Dict[str, Any]] = {}
+        for model_table, field in InstructorExtractionService._iter_lookup_fields(response_model):
+            try:
+                lookup_model = field.lookup_content_type.model_class()
+                options = InstructorExtractionService.get_lookup_options(
+                    lookup_model,
+                    field.lookup_table_pk_field_name,
+                    field.lookup_table_value_field_name,
+                    db_field=field,
+                )
+                allowed = {o['label'].strip().lower() for o in options if o.get('label')}
+                if not allowed:
+                    continue
+                key = (f"{model_table.database_table.clientapp_content_type.model}"
+                       f".{field.clientapp_field_name}").lower()
+                rules[key] = {
+                    'allowed': allowed,
+                    'candidates': [
+                        o['label'] for o in resolved_options.get(field.id, [])],
+                }
+            except Exception as e:
+                log.warning(
+                    f"Lookup rule build failed for "
+                    f"{field.clientapp_field_name}: {e}")
+        return rules
+
+    @staticmethod
     def map_label_to_code(lookup_model, pk_field_name: str, value_field_name: str,
                           extracted_label: str, db_field=None) -> Optional[str]:
         """
@@ -660,6 +698,12 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 if f.id in resolved_options
             }
 
+            # Ground-truth label sets for the model's lookup validators —
+            # out-of-lookup values fail pydantic validation and instructor
+            # re-asks with the error before the job saves anything
+            lookup_rules = InstructorExtractionService.build_lookup_rules(
+                response_model, resolved_options)
+
             # Get messages
             messages = InstructorExtractionService.get_messages(
                 response_model, processed_content, resolved_options=resolved_options)
@@ -681,13 +725,31 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             log.info(f"Starting extraction job {extraction_job.id} with model: {client_config.llm_model_name}")
 
             # Call Instructor; create_with_completion exposes usage stats
-            result, completion = client.chat.completions.create_with_completion(
+            create_kwargs = dict(
                 model=client_config.llm_model_name,
                 response_model=PydanticModel,
                 messages=messages,
                 max_tokens=client_config.model_max_tokens,
                 timeout=client_config.request_timeout,
             )
+            try:
+                result, completion = client.chat.completions.create_with_completion(
+                    context={PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules},
+                    **create_kwargs,
+                )
+            except InstructorRetryException as e:
+                # Only parse/validation failures leave failed_attempts — for a
+                # stubborn out-of-lookup value, re-ask once unconstrained so
+                # the record still lands in 'unresolved' review instead of
+                # failing the whole job. Transport errors re-raise.
+                if not e.failed_attempts:
+                    raise
+                log.warning(
+                    f"Extraction job {extraction_job.id}: validation retries "
+                    f"exhausted after {e.n_attempts} attempts; re-asking "
+                    f"without lookup constraints")
+                result, completion = client.chat.completions.create_with_completion(
+                    **create_kwargs)
 
             # mode='json' keeps Decimals/dates JSON-serializable for
             # raw_llm_response, nested dict/list fields, and the Celery result

@@ -471,3 +471,43 @@ class LookupMiningTests(TestCase):
         self.assertEqual(tokens, 7)
         self.assertEqual(list(resolved), [self.hist_field.id])
         self.assertEqual(resolved[self.hist_field.id][0]['code'], 'X')
+
+    def test_lookup_validator_enforces_labels_via_context(self):
+        from lookup.models import LookupLaterality
+        from pydantic import ValidationError
+
+        LookupLaterality.objects.create(code='L', label='Left')
+        LookupLaterality.objects.create(code='R', label='Right')
+        # diagnosis needs one field for the extraction model to build
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_diag,
+            field=make_field(self.diagnosis, 'diagnosis_date'))
+
+        rules = InstructorExtractionService.build_lookup_rules(self.rm, {})
+        self.assertIn('left', rules['pathology.histological_type']['allowed'])
+        self.assertIn('right', rules['pathology.histological_type']['allowed'])
+
+        model = PydanticModelBuilder.build_extraction_model(self.rm)
+        ctx = {PydanticModelBuilder.LOOKUP_CONTEXT_KEY: rules}
+        bad = {'diagnosis': [{'pathology': [{'histological_type': 'Bogus'}]}]}
+
+        with self.assertRaises(ValidationError):
+            model.model_validate(bad, context=ctx)
+
+        ok = model.model_validate(
+            {'diagnosis': [{'pathology': [{'histological_type': 'left'}]}]},
+            context=ctx)
+        self.assertEqual(ok.diagnosis[0].pathology[0].histological_type, 'left')
+
+        # no context -> unconstrained (wizard preview path)
+        model.model_validate(bad)
+
+    def test_lookup_rules_carry_mined_candidates(self):
+        from lookup.models import LookupLaterality
+
+        LookupLaterality.objects.create(code='L', label='Left')
+        resolved = {self.hist_field.id: [
+            {'code': 'L', 'label': 'Left', 'similarity': 0.9}]}
+        rules = InstructorExtractionService.build_lookup_rules(self.rm, resolved)
+        self.assertEqual(
+            rules['pathology.histological_type']['candidates'], ['Left'])

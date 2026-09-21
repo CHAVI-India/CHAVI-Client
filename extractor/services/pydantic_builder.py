@@ -10,7 +10,7 @@ import sys
 from io import StringIO
 import traceback
 from datetime import date as _date
-from pydantic import Field, create_model, model_validator
+from pydantic import Field, ValidationInfo, create_model, field_validator, model_validator
 
 log = getLogger(__name__)
 
@@ -49,6 +49,36 @@ class PydanticModelBuilder:
         EntityTypeChoices.TIMEDELTA: str,
         EntityTypeChoices.TIME: str,
     }
+
+    # Key under which per-job lookup constraints are passed via instructor's
+    # validation context (see InstructorExtractionService.build_lookup_rules).
+    LOOKUP_CONTEXT_KEY = 'lookup_rules'
+
+    @classmethod
+    def _lookup_membership_validator(cls, rule_key: str):
+        """
+        Field-validator factory: reject extracted labels that are not known
+        lookup options so instructor re-asks with the error. Allowed labels
+        arrive per-job via validation context; without a matching rule the
+        check is a no-op, keeping the wizard preview unconstrained.
+        """
+        def check(v, info: ValidationInfo):
+            if v is None:
+                return v
+            rules = (info.context or {}).get(cls.LOOKUP_CONTEXT_KEY) or {}
+            rule = rules.get(rule_key)
+            if not rule:
+                return v
+            text = str(v).strip()
+            if not text or text.lower() in rule['allowed']:
+                return v
+            hint = ''
+            if rule.get('candidates'):
+                hint = ' Closest valid options: ' + ', '.join(rule['candidates']) + '.'
+            raise ValueError(
+                f"'{text}' is not a known {rule_key} lookup option.{hint} "
+                'Return one of the valid labels exactly, or null.')
+        return check
 
     @staticmethod
     def _date_order_check(pairs, field_names):
@@ -152,6 +182,7 @@ class PydanticModelBuilder:
                 raise ValueError(f"No fields configured for table {table_name}")
 
             field_defs = {}
+            validators = {}
             for table_field in table_fields:
                 db_field = table_field.field
                 if not db_field.is_extractable():
@@ -170,6 +201,11 @@ class PydanticModelBuilder:
                     Field(None, description=description, **field_info)
                 )
 
+                if db_field.lookup_field and db_field.lookup_content_type:
+                    validators[f'check_lookup_{field_name}'] = field_validator(field_name)(
+                        cls._lookup_membership_validator(
+                            f'{table_name}.{field_name}'.lower()))
+
             for child_mt in children.get(model_table.id, []):
                 child_cls = build_node(child_mt)
                 child_name = child_mt.database_table.clientapp_content_type.model
@@ -180,7 +216,6 @@ class PydanticModelBuilder:
                         f"{table_name} record; [] if none"))
                 )
 
-            validators = {}
             date_pairs = model_table.database_table.date_validation_pairs or []
             if date_pairs:
                 validators['check_date_order'] = model_validator(mode='after')(
