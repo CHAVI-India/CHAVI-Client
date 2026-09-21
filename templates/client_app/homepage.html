@@ -177,56 +177,6 @@
         </div>
     </div>
     
-    <!-- Data Export Section -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
-            <i class="fas fa-file-export mr-3 text-chavi-primary"></i>Data Export
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Patient Data Export Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">Patient Data Export</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Export de-identified patient clinical data for research purposes.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'client_app:patient_data_export' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-user-injured"></i>
-                        Export Patient Data
-                    </a>
-                    {% else %}
-                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- DICOM Export Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">DICOM Export</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Export de-identified DICOM imaging studies for research and analysis.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'client_app:dicom_data_export' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-file-medical"></i>
-                        Export DICOM
-                    </a>
-                    {% else %}
-                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <!-- Patient Management Section -->
     <div class="mb-8">
         <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">

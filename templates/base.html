@@ -113,13 +113,6 @@
                             </button>
                             <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                                 <div class="py-1">
-                                    <a href="{% url 'client_app:patient_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-user-injured mr-2"></i>Patient Data Export
-                                    </a>
-                                    <a href="{% url 'client_app:dicom_data_export' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-medical mr-2"></i>DICOM Export
-                                    </a>
-                                    <div class="border-t border-gray-100"></div>
                                     <a href="{% url 'deidentification:patient_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i class="fas fa-users mr-2"></i>Deidentification Patient List
                                     </a>
@@ -240,12 +233,6 @@
                 </a>
                 <!-- Data Export Section -->
                 <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">DATA EXPORT</div>
-                <a href="{% url 'client_app:patient_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-user-injured mr-2"></i>Patient Data Export
-                </a>
-                <a href="{% url 'client_app:dicom_data_export' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-medical mr-2"></i>DICOM Export
-                </a>
                 <a href="{% url 'deidentification:patient_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-users mr-2"></i>Deidentification Patient List
                 </a>
