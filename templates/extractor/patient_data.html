@@ -87,20 +87,6 @@
         {% endif %}
     </div>
 
-    <!-- Extracted data by hierarchy -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">
-            <i class="fas fa-table-cells text-chavi-primary mr-2"></i>Data — stored vs extracted
-        </h2>
-        {% if data_tree %}
-            {% for node in data_tree %}
-                {% include 'extractor/patient_data_node.html' with node=node level=0 %}
-            {% endfor %}
-        {% else %}
-        <p class="text-gray-500 text-sm">No extracted data for this patient yet.</p>
-        {% endif %}
-    </div>
-
     <!-- Job history -->
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-bold text-gray-800 mb-4">
@@ -131,15 +117,4 @@
         {% endif %}
     </div>
 </div>
-
-<script>
-function toggleDetail(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('hidden');
-}
-function toggleEdit(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('hidden');
-}
-</script>
 {% endblock %}

@@ -151,7 +151,7 @@ def get_existing_rows(db_table, patient, columns):
     Uses the table's recorded patient_path FK chain to filter.
     """
     model_class = db_table.clientapp_content_type.model_class()
-    if not model_class:
+    if not model_class or patient is None:
         return []
     path = (db_table.clientapp_table_fk_fields or {}).get('patient_path')
     if not path:
@@ -160,9 +160,12 @@ def get_existing_rows(db_table, patient, columns):
     rows = model_class.objects.filter(**{lookup: patient})
     out = []
     for row in rows:
+        cells = [_format_existing_cell(row, c) for c in columns]
         out.append({
             'pk': row.pk,
-            'cells': [_format_existing_cell(row, c) for c in columns],
+            'cells': cells,
+            'pairs': [{'name': c.clientapp_field_name, 'cell': cell}
+                      for c, cell in zip(columns, cells)],
         })
     return out
 
@@ -205,8 +208,16 @@ def _existing_rows_for_parent(child_table, parent_rec, columns):
         return []
     # patient_path[0] is the child's FK to its immediate parent
     rows = model_class.objects.filter(**{path[0]['field']: pk})
-    return [{'pk': row.pk, 'cells': [_format_existing_cell(row, c) for c in columns]}
-            for row in rows]
+    out = []
+    for row in rows:
+        cells = [_format_existing_cell(row, c) for c in columns]
+        out.append({
+            'pk': row.pk,
+            'cells': cells,
+            'pairs': [{'name': c.clientapp_field_name, 'cell': cell}
+                      for c, cell in zip(columns, cells)],
+        })
+    return out
 
 
 def _patient_jobs(patient):
@@ -218,18 +229,41 @@ def _patient_jobs(patient):
 
 def build_patient_data_tree(patient):
     """
-    Per-table grid data for the patient page. Extracted records nest under
-    their real parent record (parent_record) — child table grids appear
-    inside the parent's detail panel, scoped to that parent. Records without
-    a parent stay at table level, nested by hierarchy depth as before.
+    Per-table grid data for the patient page — all staging records across
+    every job for this patient. Thin wrapper over build_records_data_tree.
     """
-    jobs = _patient_jobs(patient)
-    records = list(ExtractedRecord.objects.filter(
-        extraction_job__in=jobs
-    ).select_related(
+    records = _record_qs().filter(extraction_job__in=_patient_jobs(patient))
+    return build_records_data_tree(records, patient)
+
+
+def build_job_data_tree(extraction_job):
+    """
+    Same record grid scoped to one extraction job — the canonical review
+    view on the job detail page. Existing-row comparison and write-back
+    use the job file's patient (may be None).
+    """
+    records = _record_qs().filter(extraction_job=extraction_job)
+    upload = getattr(extraction_job.processed_file, 'file_upload', None)
+    patient = getattr(upload, 'patient_id', None)
+    return build_records_data_tree(records, patient)
+
+
+def _record_qs():
+    return ExtractedRecord.objects.select_related(
         'database_table__clientapp_content_type',
         'extraction_job__processed_file__file_upload',
-    ).order_by('extraction_job_id', 'record_index'))
+    ).order_by('extraction_job_id', 'record_index')
+
+
+def build_records_data_tree(records, patient):
+    """
+    Per-table grid data for a set of extracted staging records. Extracted
+    records nest under their real parent record (parent_record) — child
+    table grids appear inside the parent's detail panel, scoped to that
+    parent. `patient` scopes the existing client_app rows shown for
+    comparison; None yields no existing rows and no duplicate counts.
+    """
+    records = list(records)
 
     records_by_id = {rec.id: rec for rec in records}
     children_by_parent = {}

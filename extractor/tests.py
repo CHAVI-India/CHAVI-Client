@@ -312,6 +312,41 @@ class PatientDataTreeTests(TestCase):
         self.assertEqual(
             [r['record'].id for r in path_nodes[0]['records']], [orphan.id])
 
+    @staticmethod
+    def _record_ids(nodes):
+        ids = set()
+        for n in nodes:
+            for r in n['records']:
+                ids.add(r['record'].id)
+                ids |= PatientDataTreeTests._record_ids(r['child_nodes'])
+            ids |= PatientDataTreeTests._record_ids(n['children'])
+        return ids
+
+    def test_build_job_data_tree_scopes_to_job(self):
+        from extractor.services.patient_data import build_job_data_tree
+        other_job = ExtractionJob.objects.create(
+            response_model=self.job.response_model,
+            processed_file=self.job.processed_file,
+            extracted_by=self.user)
+        other_rec = ExtractedRecord.objects.create(
+            extraction_job=other_job, database_table=self.pathology,
+            record_index=0)
+
+        ids = self._record_ids(build_job_data_tree(self.job))
+        self.assertIn(self.parent_rec.id, ids)
+        self.assertIn(self.child_rec.id, ids)
+        self.assertNotIn(other_rec.id, ids)
+
+    def test_build_records_data_tree_no_patient(self):
+        from extractor.services.patient_data import build_records_data_tree
+        records = ExtractedRecord.objects.filter(extraction_job=self.job)
+        roots = build_records_data_tree(records, None)
+        diag_node = roots[0]
+        # no patient -> no existing-row comparison and no dup counts
+        self.assertEqual(diag_node['existing'], [])
+        self.assertEqual(
+            [r['dup_count'] for r in diag_node['records']], [0])
+
 
 class LookupMiningTests(TestCase):
     """Snippet-mining pre-pass: batched LLM call -> embedding match -> options."""

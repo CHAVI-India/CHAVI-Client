@@ -1044,12 +1044,11 @@ def extraction_dashboard(request):
 @permission_required('extractor.view_extractionresult', raise_exception=True)
 def patient_data(request, patient_pk):
     """
-    Dedicated per-patient page: files, extracted data organized by the
-    client_app hierarchy (existing rows vs extracted staging rows),
-    job history, and write-back actions.
+    Dedicated per-patient page: files and job history. Review, edit, and
+    write-back of extraction results live on the job detail page — each
+    job links there.
     """
     from client_app.models import Patient
-    from extractor.services.patient_data import build_patient_data_tree
 
     patient = get_object_or_404(Patient, pk=patient_pk)
 
@@ -1071,13 +1070,10 @@ def patient_data(request, patient_pk):
             .select_related('response_model__client', 'processed_file__file_upload')
             .order_by('-created_at')[:50])
 
-    data_tree = build_patient_data_tree(patient)
-
     context = {
         'patient': patient,
         'file_rows': file_rows,
         'jobs': jobs,
-        'data_tree': data_tree,
         'response_models': ResponseModel.objects.filter(is_complete=True).select_related('client'),
     }
     return render(request, 'extractor/patient_data.html', context)
@@ -1205,36 +1201,22 @@ def extraction_job_detail(request, job_id):
         'database_field__clientapp_field_name'
     )
 
-    # Group results by table, then by extracted record, so multi-record
-    # extractions (e.g. several diagnoses) stay visually separated
-    results_by_table = {}
-    for result in extraction_results:
-        table_name = str(result.database_field.clientapp_database_table)
-        records = results_by_table.setdefault(table_name, {})
-        record_key = result.record_id or 0
-        bucket = records.setdefault(record_key, {
-            'record_index': result.record.record_index if result.record else 0,
-            'results': [],
-        })
-        bucket['results'].append(result)
+    # Record grid — the canonical review/edit/write-back surface, shared
+    # with the patient page's staging view builder
+    from extractor.services.patient_data import build_job_data_tree
+    data_tree = build_job_data_tree(extraction_job)
 
-    # Flatten into ordered lists for the template
-    results_by_table = {
-        table: sorted(records.values(), key=lambda r: r['record_index'])
-        for table, records in results_by_table.items()
-    }
-    
     # Get processed file content
     content = FileProcessorService.get_processed_content(extraction_job.processed_file)
-    
+
     context = {
         'extraction_job': extraction_job,
         'extraction_results': extraction_results,
-        'results_by_table': results_by_table,
+        'data_tree': data_tree,
         'processed_content': content,
         'total_results': extraction_results.count(),
     }
-    
+
     return render(request, 'extractor/extraction_job_detail.html', context)
 
 
