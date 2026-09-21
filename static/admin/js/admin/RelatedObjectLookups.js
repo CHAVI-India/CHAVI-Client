@@ -79,9 +79,7 @@
     //   ".view-related, .change-related, .delete-related"
     // );
 
-    const siblings = $this
-      .closest(".related-widget-wrapper")
-      .find(".view-related, .change-related, .delete-related");
+    const siblings = $("body").find('#' + $this.closest(".related-widget-wrapper").data("id")).find(".view-related, .change-related, .delete-related");
 
     if (!siblings.length) {
       return;
@@ -265,7 +263,8 @@
     setPopupIndex();
     $("a[data-popup-opener]").on("click", function (event) {
       event.preventDefault();
-      opener.dismissRelatedLookupPopup(window, $(this).data("popup-opener"));
+      // !CHANGED not needed when displayed in a popup
+      // opener.dismissRelatedLookupPopup(window, $(this).data("popup-opener"));
     });
     $("body").on(
       "click",

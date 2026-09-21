@@ -4,7 +4,7 @@ Semantic search service for finding similar lookup entries using pre-computed em
 
 from typing import List, Dict, Optional
 from django.contrib.contenttypes.models import ContentType
-from extractor.models import EmbeddingConfiguration, LookupEmbedding
+from extractor.models import EmbeddingConfiguration, LookupEmbedding, DatabaseField
 from extractor.services.embeddings import get_provider, EmbeddingUnavailableError
 from logging import getLogger
 
@@ -28,6 +28,25 @@ def build_lookup_label(obj, db_field=None, label_fields=None) -> str:
         if parts:
             return ' — '.join(parts)
     return str(obj)
+
+
+# Synthetic field_name for the per-record composite-label embedding.
+COMBINED_LABEL_FIELD = '__label__'
+
+
+def composite_label_spec(content_type) -> Optional[List[str]]:
+    """
+    First multi-field lookup_label_fields spec declared by a DatabaseField
+    pointing at this lookup table — drives the '__label__' composite vector
+    embedded alongside per-field vectors. Single-field specs are skipped:
+    they duplicate a field that is already embedded on its own.
+    """
+    for spec in DatabaseField.objects.filter(
+        lookup_content_type=content_type
+    ).values_list('lookup_label_fields', flat=True):
+        if spec and len(spec) > 1:
+            return list(spec)
+    return None
 
 
 class SemanticSearchService:
@@ -203,10 +222,16 @@ class SemanticSearchService:
         stale = 0
         qs = LookupEmbedding.objects.filter(content_type=content_type, is_current=True)
         live = {str(getattr(o, model_class._meta.pk.name)): o for o in model_class.objects.all()}
+        label_spec = composite_label_spec(content_type)
 
         for emb in qs.iterator():
             obj = live.get(emb.object_id)
-            current_text = str(getattr(obj, emb.field_name, '') or '') if obj else ''
+            if emb.field_name == COMBINED_LABEL_FIELD:
+                # No such attribute on the record — recompute the joined label;
+                # missing spec/record collapses to '' so the row goes stale.
+                current_text = build_lookup_label(obj, label_fields=label_spec) if obj and label_spec else ''
+            else:
+                current_text = str(getattr(obj, emb.field_name, '') or '') if obj else ''
             if obj is None or current_text != emb.text_value:
                 emb.is_current = False
                 emb.save(update_fields=['is_current'])

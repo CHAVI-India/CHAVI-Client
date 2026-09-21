@@ -25,6 +25,7 @@
             <p class="text-sm text-blue-700">
                 <i class="fas fa-info-circle mr-2"></i>
                 Select the database tables from which you want to extract data. Tables with direct patient relationships are shown first.
+                Required parent tables (e.g. <em>diagnosis</em> for <em>pathology</em>) are automatically included so extracted records can be written back.
             </p>
         </div>
 
@@ -60,6 +61,11 @@
                                 <span class="font-semibold text-gray-800">{{ table.display_name }}</span>
                                 
                                 <div class="flex gap-1 ml-auto">
+                                    {% if table.id in auto_added_ids %}
+                                        <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                            <i class="fas fa-magic mr-1"></i>Auto-included parent
+                                        </span>
+                                    {% endif %}
                                     {% if table.depth == 0 %}
                                         <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                             <i class="fas fa-star mr-1"></i>Root

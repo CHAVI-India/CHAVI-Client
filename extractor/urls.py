@@ -34,7 +34,7 @@ urlpatterns = [
     path('processed/<int:processed_text_id>/ocr/', views.processed_text_ocr, name='processed_text_ocr'),
     
     path('extraction/', views.extraction_dashboard, name='extraction_dashboard'),
-    path('extraction/patient/<int:patient_pk>/', views.patient_data, name='patient_data'),
+    path('extraction/patient/<path:patient_pk>/', views.patient_data, name='patient_data'),
     path('extraction/start/', views.extraction_start, name='extraction_start'),
     path('extraction/results/', views.extraction_results_list, name='extraction_results_list'),
     path('extraction/results/<int:job_id>/', views.extraction_job_detail, name='extraction_job_detail'),

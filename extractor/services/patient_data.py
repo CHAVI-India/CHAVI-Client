@@ -18,7 +18,7 @@ from extractor.models import (
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.semantic_search import build_lookup_label
-from extractor.services.record_writer import find_duplicate_candidates
+from extractor.services.record_writer import find_duplicate_candidates, resolve_record_pk
 
 log = getLogger(__name__)
 
@@ -192,6 +192,23 @@ def resolve_lookup_row(db_field, code):
     return pairs
 
 
+def _existing_rows_for_parent(child_table, parent_rec, columns):
+    """
+    Existing client_app rows under the concrete parent of an extracted
+    record — children of its created row or unique dedup match. Empty when
+    the parent doesn't resolve to a specific row yet.
+    """
+    pk = resolve_record_pk(parent_rec)
+    model_class = child_table.clientapp_content_type.model_class()
+    path = (child_table.clientapp_table_fk_fields or {}).get('patient_path') or []
+    if pk in (None, '') or model_class is None or not path:
+        return []
+    # patient_path[0] is the child's FK to its immediate parent
+    rows = model_class.objects.filter(**{path[0]['field']: pk})
+    return [{'pk': row.pk, 'cells': [_format_existing_cell(row, c) for c in columns]}
+            for row in rows]
+
+
 def _patient_jobs(patient):
     """All extraction jobs whose source file belongs to this patient."""
     return ExtractionJob.objects.filter(
@@ -201,25 +218,31 @@ def _patient_jobs(patient):
 
 def build_patient_data_tree(patient):
     """
-    Per-table grid data for the patient page, nested by the client_app
-    hierarchy (depth ordering from discovery; deeper tables nest under the
-    nearest shallower table that has data).
+    Per-table grid data for the patient page. Extracted records nest under
+    their real parent record (parent_record) — child table grids appear
+    inside the parent's detail panel, scoped to that parent. Records without
+    a parent stay at table level, nested by hierarchy depth as before.
     """
     jobs = _patient_jobs(patient)
-    records = ExtractedRecord.objects.filter(
+    records = list(ExtractedRecord.objects.filter(
         extraction_job__in=jobs
     ).select_related(
         'database_table__clientapp_content_type',
         'extraction_job__processed_file__file_upload',
-    ).order_by('extraction_job_id', 'record_index')
+    ).order_by('extraction_job_id', 'record_index'))
 
-    records_by_table = {}
+    records_by_id = {rec.id: rec for rec in records}
+    children_by_parent = {}
+    root_records_by_table = {}
     for rec in records:
-        records_by_table.setdefault(rec.database_table_id, []).append(rec)
+        if rec.parent_record_id and rec.parent_record_id in records_by_id:
+            children_by_parent.setdefault(rec.parent_record_id, []).append(rec)
+        else:
+            root_records_by_table.setdefault(rec.database_table_id, []).append(rec)
 
     # Only tables that actually produced extracted records
     tables = (DatabaseTable.objects
-              .filter(id__in=records_by_table.keys())
+              .filter(id__in={rec.database_table_id for rec in records})
               .select_related('clientapp_content_type'))
 
     # Reuse discovery's depth ordering (patient=0, direct children=1, ...)
@@ -232,91 +255,130 @@ def build_patient_data_tree(patient):
             extracted_record__in=records, operation='create', record_created=True)
     }
 
-    nodes = []
-    for table in sorted(tables, key=lambda t: (depth_of.get(t.id, 99),
-                                               t.clientapp_content_type.model)):
+    # Presentation pieces shared by root and child nodes
+    table_meta = {}
+    for table in tables:
         columns = _grid_columns(table)
-        unit_pairs = _unit_pairing(table)
-        grid_records = []
-        for rec in records_by_table.get(table.id, []):
-            results = {
-                r.database_field_id: r
-                for r in ExtractionResult.objects.filter(record=rec)
-                        .select_related('database_field')
-            }
-            cells = []
-            for col in columns:
-                res = results.get(col.id)
-                cells.append(_cell_value(res) if res else {'text': '—', 'kind': 'not_found'})
-            state = {
-                'unreviewed': sum(1 for r in results.values() if r.data_accuracy == 'unreviewed'),
-                'unresolved': sum(1 for r in results.values() if r.result_state == 'unresolved'),
-                'not_found': sum(1 for r in results.values() if r.result_state == 'not_found'),
-            }
-            upload = rec.extraction_job.processed_file.file_upload
-            fname = upload.original_filename or os.path.basename(upload.file.name)
-            # Resolved lookup details per lookup result (expandable panel data)
-            lookup_details = {}
-            for col in columns:
-                res = results.get(col.id)
-                if not res or not col.lookup_field:
-                    continue
-                raw = res.edited_data if res.data_edited and res.edited_data else res.extracted_data
-                try:
-                    parsed = json.loads(raw) if raw else None
-                except (TypeError, json.JSONDecodeError):
-                    parsed = None
-                if isinstance(parsed, dict) and parsed.get('code') not in (None, ''):
-                    pairs = resolve_lookup_row(col, parsed['code'])
-                    if pairs:
-                        lookup_details[col.id] = pairs
-            # Detail rows for the expandable panel: (column, result, cell, lookup pairs, unit pair)
-            detail = []
-            for col, cell in zip(columns, cells):
-                unit_field = unit_pairs.get(col.id)
-                unit_result = results.get(unit_field.id) if unit_field else None
-                needs_unit = (
-                    unit_field is not None
-                    and cell['kind'] in ('value', 'lookup')
-                    and (unit_result is None or unit_result.result_state in ('not_found', 'unresolved'))
-                )
-                detail.append({
-                    'field': col,
-                    'result': results.get(col.id),
-                    'cell': cell,
-                    'lookup_detail': lookup_details.get(col.id),
-                    'unit_field': unit_field,
-                    'unit_result': unit_result,
-                    'unit_cell': _cell_value(unit_result) if unit_result else None,
-                    'needs_unit': needs_unit,
-                })
-            grid_records.append({
-                'record': rec,
-                'cells': cells,
-                'detail': detail,
-                'state': state,
-                'source': fname,
-                'created_pk': created_map.get(rec.id),
-                'lookup_details': lookup_details,
-                'dup_count': len(find_duplicate_candidates(table, rec)),
-            })
-
-        nodes.append({
-            'table': table,
-            'depth': depth_of.get(table.id, 99),
-            'display_name': table.clientapp_content_type.model_class()._meta.verbose_name.title()
-                            if table.clientapp_content_type.model_class() else str(table),
-            'columns': columns,
-            'existing': get_existing_rows(table, patient, columns),
-            'records': grid_records,
-            'lookup_options': _lookup_options_map(table),
-        })
+        options = _lookup_options_map(table)
         # Attach dropdown options to column objects for template access
-        options = nodes[-1]['lookup_options']
         for col in columns:
             col.options = options.get(col.id)
+        model_class = table.clientapp_content_type.model_class()
+        table_meta[table.id] = {
+            'table': table,
+            'depth': depth_of.get(table.id, 99),
+            'display_name': model_class._meta.verbose_name.title()
+                            if model_class else str(table),
+            'columns': columns,
+            'unit_pairs': _unit_pairing(table),
+            'options': options,
+        }
 
-    # Nest deeper nodes under the nearest shallower node (list order is by depth)
+    def make_grid_record(rec):
+        meta = table_meta[rec.database_table_id]
+        columns = meta['columns']
+        unit_pairs = meta['unit_pairs']
+        results = {
+            r.database_field_id: r
+            for r in ExtractionResult.objects.filter(record=rec)
+                    .select_related('database_field')
+        }
+        cells = []
+        for col in columns:
+            res = results.get(col.id)
+            cells.append(_cell_value(res) if res else {'text': '—', 'kind': 'not_found'})
+        state = {
+            'unreviewed': sum(1 for r in results.values() if r.data_accuracy == 'unreviewed'),
+            'unresolved': sum(1 for r in results.values() if r.result_state == 'unresolved'),
+            'not_found': sum(1 for r in results.values() if r.result_state == 'not_found'),
+        }
+        upload = rec.extraction_job.processed_file.file_upload
+        fname = upload.original_filename or os.path.basename(upload.file.name)
+        # Resolved lookup details per lookup result (expandable panel data)
+        lookup_details = {}
+        for col in columns:
+            res = results.get(col.id)
+            if not res or not col.lookup_field:
+                continue
+            raw = res.edited_data if res.data_edited and res.edited_data else res.extracted_data
+            try:
+                parsed = json.loads(raw) if raw else None
+            except (TypeError, json.JSONDecodeError):
+                parsed = None
+            if isinstance(parsed, dict) and parsed.get('code') not in (None, ''):
+                pairs = resolve_lookup_row(col, parsed['code'])
+                if pairs:
+                    lookup_details[col.id] = pairs
+        # Detail rows for the expandable panel: (column, result, cell, lookup pairs, unit pair)
+        detail = []
+        for col, cell in zip(columns, cells):
+            unit_field = unit_pairs.get(col.id)
+            unit_result = results.get(unit_field.id) if unit_field else None
+            needs_unit = (
+                unit_field is not None
+                and cell['kind'] in ('value', 'lookup')
+                and (unit_result is None or unit_result.result_state in ('not_found', 'unresolved'))
+            )
+            detail.append({
+                'field': col,
+                'result': results.get(col.id),
+                'cell': cell,
+                'lookup_detail': lookup_details.get(col.id),
+                'unit_field': unit_field,
+                'unit_result': unit_result,
+                'unit_cell': _cell_value(unit_result) if unit_result else None,
+                'needs_unit': needs_unit,
+            })
+
+        # Child table grids holding only this record's children, with
+        # existing rows scoped to the resolved parent instance.
+        by_table = {}
+        for cr in children_by_parent.get(rec.id, []):
+            by_table.setdefault(cr.database_table_id, []).append(cr)
+        child_nodes = []
+        for ct_id in sorted(by_table, key=lambda i: depth_of.get(i, 99)):
+            cmeta = table_meta[ct_id]
+            child_nodes.append({
+                'table': cmeta['table'],
+                'depth': cmeta['depth'],
+                'display_name': cmeta['display_name'],
+                'columns': cmeta['columns'],
+                'existing': _existing_rows_for_parent(
+                    cmeta['table'], rec, cmeta['columns']),
+                'records': [make_grid_record(cr) for cr in by_table[ct_id]],
+                'lookup_options': cmeta['options'],
+                'children': [],
+            })
+
+        return {
+            'record': rec,
+            'cells': cells,
+            'detail': detail,
+            'state': state,
+            'source': fname,
+            'created_pk': created_map.get(rec.id),
+            'lookup_details': lookup_details,
+            'dup_count': len(find_duplicate_candidates(meta['table'], rec)),
+            'child_nodes': child_nodes,
+        }
+
+    nodes = []
+    for table_id in sorted(root_records_by_table,
+                           key=lambda i: (depth_of.get(i, 99),
+                                          table_meta[i]['table'].clientapp_content_type.model)):
+        meta = table_meta[table_id]
+        nodes.append({
+            'table': meta['table'],
+            'depth': meta['depth'],
+            'display_name': meta['display_name'],
+            'columns': meta['columns'],
+            'existing': get_existing_rows(meta['table'], patient, meta['columns']),
+            'records': [make_grid_record(rec) for rec in root_records_by_table[table_id]],
+            'lookup_options': meta['options'],
+            'children': [],
+        })
+
+    # Nest deeper table nodes under the nearest shallower one (depth order)
     roots = []
     for node in nodes:
         parent = None
@@ -324,7 +386,6 @@ def build_patient_data_tree(patient):
             if candidate['depth'] < node['depth']:
                 parent = candidate
                 break
-        node['children'] = []
         if parent:
             parent['children'].append(node)
         else:

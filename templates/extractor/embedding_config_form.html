@@ -52,8 +52,13 @@
                        value="{% if is_edit %}{{ config.model_name }}{% endif %}"
                        required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="e.g., all-MiniLM-L6-v2">
-                <p class="text-xs text-gray-500 mt-1">Name of the embedding model from HuggingFace or OpenAI</p>
+                       placeholder="e.g., NeuML/pubmedbert-base-embeddings">
+                <p class="text-xs text-gray-500 mt-1">
+                    Local models: the Hugging Face repo id (browse
+                    <a href="https://huggingface.co/models?library=sentence-transformers" target="_blank" class="text-purple-600 underline">sentence-transformers models</a>,
+                    e.g. <code>NeuML/pubmedbert-base-embeddings</code>).
+                    OpenAI: the API model name, e.g. <code>text-embedding-3-small</code>.
+                </p>
             </div>
 
             <!-- Model Provider -->
@@ -72,6 +77,10 @@
                         OpenAI (Cloud)
                     </option>
                 </select>
+                <p class="text-xs text-gray-500 mt-1">
+                    <strong>sentence-transformers</strong> — model is downloaded from Hugging Face and runs on this server (clinical text never leaves the machine).
+                    <strong>OpenAI</strong> — calls an OpenAI-compatible <code>/embeddings</code> API: api.openai.com by default, or your own endpoint via Base URL below.
+                </p>
             </div>
 
             <!-- Embedding Dimension -->
@@ -85,8 +94,12 @@
                        value="{% if is_edit %}{{ config.embedding_dimension }}{% else %}384{% endif %}"
                        required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="384">
-                <p class="text-xs text-gray-500 mt-1">Vector size (384, 768, 1536, etc.)</p>
+                       placeholder="768">
+                <p class="text-xs text-gray-500 mt-1">
+                    Must equal the model's real output size — check the model card on Hugging Face
+                    (e.g. 768 for pubmedbert-base-embeddings, 1536 for text-embedding-3-small).
+                    Any dimension is accepted, but a mismatch fails when embeddings are computed.
+                </p>
             </div>
 
             <!-- API Key (optional) -->
@@ -99,8 +112,14 @@
                        name="api_key"
                        value=""
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Required for OpenAI models">
-                <p class="text-xs text-gray-500 mt-1">{% if is_edit %}Leave blank to keep the existing key{% else %}Only needed for cloud providers like OpenAI{% endif %}</p>
+                       placeholder="OpenAI API key or Hugging Face token (hf_...)">
+                <p class="text-xs text-gray-500 mt-1">
+                    {% if is_edit %}Leave blank to keep the existing key. {% endif %}
+                    <strong>OpenAI provider:</strong> your API key from platform.openai.com.
+                    <strong>Local models:</strong> optional Hugging Face read token — create one at
+                    <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-purple-600 underline">huggingface.co/settings/tokens</a>
+                    (required for gated models; also avoids Hub rate-limit warnings). Stored encrypted.
+                </p>
             </div>
 
             <!-- Base URL (optional) -->
@@ -113,8 +132,11 @@
                        name="base_url"
                        value="{% if is_edit and config.base_url %}{{ config.base_url }}{% endif %}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="e.g. http://ollama-host:11434/v1 — blank uses api.openai.com">
-                <p class="text-xs text-gray-500 mt-1">For OpenAI-compatible endpoints (Ollama, Azure, self-hosted)</p>
+                       placeholder="e.g. http://localhost:11434/v1">
+                <p class="text-xs text-gray-500 mt-1">
+                    OpenAI provider only: point at an OpenAI-compatible endpoint — Ollama (<code>:11434/v1</code>), vLLM, or Azure.
+                    Leave blank to use api.openai.com. Ignored for local sentence-transformers models.
+                </p>
             </div>
 
             <div class="border-t border-gray-200 my-6"></div>
@@ -135,7 +157,10 @@
                        max="1"
                        value="{% if is_edit %}{{ config.similarity_threshold }}{% else %}0.7{% endif %}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Minimum similarity score (0-1) to consider a label match valid</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    Minimum cosine similarity (0–1) for a semantic match to be accepted as the final label.
+                    Higher = stricter matching; 0.7 is a typical starting point.
+                </p>
             </div>
 
             <!-- Candidate Threshold -->
@@ -151,7 +176,10 @@
                        max="1"
                        value="{% if is_edit %}{{ config.candidate_threshold }}{% else %}0.5{% endif %}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Looser threshold used when picking candidate options to show the LLM (lower = more options)</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    Looser cutoff used when collecting candidate options to show the LLM — should be
+                    below the similarity threshold (lower = more candidates, more LLM tokens).
+                </p>
             </div>
 
             <!-- Top K Results -->
@@ -166,7 +194,9 @@
                        max="20"
                        value="{% if is_edit %}{{ config.top_k_results }}{% else %}5{% endif %}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Number of most similar options to show to the LLM</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    How many of the closest lookup entries are offered to the LLM as candidate matches.
+                </p>
             </div>
 
             <!-- Is Active -->
@@ -178,7 +208,11 @@
                            class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                     <span class="ml-2 text-sm font-medium text-gray-700">Set as active configuration</span>
                 </label>
-                <p class="text-xs text-gray-500 mt-1 ml-6">Only one configuration can be active at a time</p>
+                <p class="text-xs text-gray-500 mt-1 ml-6">
+                    Only one configuration can be active at a time — activating this deactivates the others.
+                    After switching the active config, run <em>Compute Embeddings</em> on the Semantic Search
+                    settings page so the index is rebuilt with this model.
+                </p>
             </div>
 
             <!-- Buttons -->

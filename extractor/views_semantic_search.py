@@ -17,6 +17,28 @@ from extractor.services.semantic_search import SemanticSearchService
 log = getLogger(__name__)
 
 
+def _inflight_embedding_tasks_alive(task_ids):
+    """
+    Ask live Celery workers whether any of these tracked BackgroundTasks is
+    actually executing or queued. Returns False when no worker reports it —
+    meaning the DB row is stale (e.g. worker restarted mid-task). Our
+    BackgroundTask task_id travels in the celery task's args, so a substring
+    match on the args repr is enough to correlate.
+    """
+    try:
+        from chavi_client.celery import app as celery_app
+        inspector = celery_app.control.inspect(timeout=2.0)
+        for query in (inspector.active, inspector.reserved, inspector.scheduled):
+            for tasks in (query() or {}).values():
+                for t in tasks:
+                    if any(tid in (t.get('args') or '') for tid in task_ids):
+                        return True
+    except Exception as e:
+        # Broker/worker unreachable — nothing can be running against it.
+        log.warning(f"Celery inspect failed; treating in-flight embedding tasks as stale: {e}")
+    return False
+
+
 @login_required
 @permission_required('extractor.view_embeddingconfiguration', raise_exception=True)
 def semantic_search_settings(request):
@@ -106,12 +128,34 @@ def embedding_config_create(request):
             log.error(f"Error creating embedding configuration: {e}")
             messages.error(request, f"Error creating configuration: {str(e)}")
     
-    # Predefined model options
-    # Index dimension is fixed at 1536 — every preset must produce that.
-    # OpenAI v3 models emit it via the dimensions API parameter; local models
-    # must natively output 1536 (e.g. Qwen3-Embedding-8B served by an
-    # OpenAI-compatible endpoint like Ollama/vLLM).
+    # Predefined model options — any dimension works; the vector column is
+    # dimensionless and providers verify the model's real output against the
+    # declared embedding_dimension.
     model_options = [
+        {
+            'name': 'NeuML/pubmedbert-base-embeddings',
+            'provider': 'sentence-transformers',
+            'dimension': 768,
+            'description': 'PubMed biomedical embeddings, local'
+        },
+        {
+            'name': 'FremyCompany/BioLORD-2023',
+            'provider': 'sentence-transformers',
+            'dimension': 768,
+            'description': 'UMLS/SNOMED clinical terminology embeddings, local'
+        },
+        {
+            'name': 'abhinand/MedEmbed-large-v0.1',
+            'provider': 'sentence-transformers',
+            'dimension': 1024,
+            'description': 'Medical retrieval embeddings, local'
+        },
+        {
+            'name': 'Alibaba-NLP/gte-Qwen2-1.5B-instruct',
+            'provider': 'sentence-transformers',
+            'dimension': 1536,
+            'description': 'General-purpose, strong on medical terms, local (~3GB)'
+        },
         {
             'name': 'text-embedding-3-small',
             'provider': 'openai',
@@ -123,12 +167,6 @@ def embedding_config_create(request):
             'provider': 'openai',
             'dimension': 1536,
             'description': 'OpenAI embedding, higher quality (requires API key)'
-        },
-        {
-            'name': 'qwen3-embedding',
-            'provider': 'openai_compatible',
-            'dimension': 1536,
-            'description': 'Local model via OpenAI-compatible endpoint (set base URL)'
         },
     ]
     
@@ -243,14 +281,20 @@ def compute_embeddings(request):
             'error': 'No active embedding configuration found. Please create and activate a configuration first.'
         })
 
-    # Refuse a second run while one is in flight
-    if BackgroundTask.objects.filter(
+    # Refuse a second run while one is in flight — but first sweep rows left
+    # pending/running by a dead worker (e.g. after a Celery restart), which
+    # would otherwise block every future run forever.
+    inflight = BackgroundTask.objects.filter(
         task_name='Compute Lookup Embeddings', status__in=['pending', 'running']
-    ).exists():
-        return JsonResponse({
-            'success': False,
-            'error': 'An embedding computation is already running.'
-        })
+    )
+    if inflight.exists():
+        if _inflight_embedding_tasks_alive(list(inflight.values_list('task_id', flat=True))):
+            return JsonResponse({
+                'success': False,
+                'error': 'An embedding computation is already running.'
+            })
+        for stale in inflight:
+            stale.mark_failed('Superseded: worker restarted or task lost before completing')
 
     try:
         # Create task tracker (progress UI polls this row)

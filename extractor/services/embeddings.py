@@ -6,6 +6,10 @@ Two providers are supported:
 - 'sentence-transformers' (local model, CPU)
 - 'openai' / 'openai-compatible' (any OpenAI-compatible /embeddings endpoint,
   including remote OpenAI, Azure-style endpoints, or a local Ollama server)
+
+Each EmbeddingConfiguration declares its own embedding_dimension; providers
+verify the model's real output against that declaration. The storage column
+is dimensionless — different configs may use different dimensions.
 """
 
 from typing import List, Optional
@@ -14,10 +18,6 @@ from logging import getLogger
 from openai import OpenAI
 
 log = getLogger(__name__)
-
-# Canonical vector-index dimension. LookupEmbedding.embedding is vector(1536);
-# every config and provider must produce exactly this.
-INDEX_DIM = 1536
 
 
 class EmbeddingUnavailableError(Exception):
@@ -38,7 +38,8 @@ class BaseEmbeddingProvider:
 class SentenceTransformerProvider(BaseEmbeddingProvider):
     name = 'sentence-transformers'
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, expected_dim: Optional[int] = None,
+                 token: Optional[str] = None):
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
@@ -46,14 +47,16 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
                 "sentence-transformers is not installed. "
                 "Install it with: pip install sentence-transformers"
             ) from e
-        # CPU keeps this off GPU memory and avoids CUDA version issues
-        self._model = SentenceTransformer(model_name, device='cpu')
+        # CPU keeps this off GPU memory and avoids CUDA version issues.
+        # token authenticates HF Hub requests (required for gated models;
+        # also silences the unauthenticated-request warnings).
+        self._model = SentenceTransformer(model_name, device='cpu', token=token or None)
         self._dimensions = int(self._model.get_sentence_embedding_dimension())
-        if self._dimensions != INDEX_DIM:
+        if expected_dim and self._dimensions != expected_dim:
             raise EmbeddingUnavailableError(
                 f"Model '{model_name}' produces {self._dimensions}-dim embeddings; "
-                f"the vector index requires {INDEX_DIM}. Use a {INDEX_DIM}-dim model "
-                f"or the OpenAI-compatible provider."
+                f"the configuration declares {expected_dim}. Fix embedding_dimension "
+                f"on the configuration to match the model's actual output."
             )
 
     @property
@@ -69,7 +72,8 @@ class OpenAICompatibleProvider(BaseEmbeddingProvider):
     name = 'openai'
     BATCH_SIZE = 100
 
-    def __init__(self, model_name: str, api_key: str, base_url: Optional[str] = None):
+    def __init__(self, model_name: str, api_key: str, base_url: Optional[str] = None,
+                 expected_dim: Optional[int] = None):
         kwargs = {'api_key': api_key or 'not-needed'}
         if base_url:
             url = base_url.rstrip('/')
@@ -78,6 +82,7 @@ class OpenAICompatibleProvider(BaseEmbeddingProvider):
             kwargs['base_url'] = url
         self._client = OpenAI(**kwargs)
         self._model_name = model_name
+        self._expected_dim = expected_dim
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         out: List[List[float]] = []
@@ -86,14 +91,16 @@ class OpenAICompatibleProvider(BaseEmbeddingProvider):
             kwargs = {'model': self._model_name, 'input': batch}
             # dimensions= is an OpenAI v3-embedding parameter; other endpoints
             # may reject it, so only send it where it's supported
-            if 'text-embedding-3' in self._model_name:
-                kwargs['dimensions'] = INDEX_DIM
+            if 'text-embedding-3' in self._model_name and self._expected_dim:
+                kwargs['dimensions'] = self._expected_dim
             response = self._client.embeddings.create(**kwargs)
             vectors = [item.embedding for item in response.data]
             for v in vectors:
-                if len(v) != INDEX_DIM:
+                if self._expected_dim and len(v) != self._expected_dim:
                     raise EmbeddingUnavailableError(
-                        f"Provider returned {len(v)}-dim embedding; index requires {INDEX_DIM}"
+                        f"Provider returned {len(v)}-dim embedding; "
+                        f"the configuration declares {self._expected_dim}. "
+                        f"Fix embedding_dimension or the endpoint's model."
                     )
             out.extend(vectors)
         return out
@@ -105,12 +112,14 @@ def build_provider(config) -> BaseEmbeddingProvider:
     """
     provider = (config.model_provider or '').lower()
     if provider in ('sentence-transformers', 'local', 'huggingface'):
-        return SentenceTransformerProvider(config.model_name)
+        return SentenceTransformerProvider(
+            config.model_name, config.embedding_dimension, token=config.api_key)
     if provider in ('openai', 'openai-compatible', 'ollama', 'azure'):
         return OpenAICompatibleProvider(
             model_name=config.model_name,
             api_key=config.api_key or '',
             base_url=config.base_url,
+            expected_dim=config.embedding_dimension,
         )
     raise EmbeddingUnavailableError(f"Unsupported embedding provider: {config.model_provider}")
 

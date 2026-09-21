@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.css": "/main.css",
+    "main.js": "/main.js",
+    "index.html": "/index.html"
+  },
+  "entrypoints": [
+    "main.css",
+    "main.js"
+  ]
+}

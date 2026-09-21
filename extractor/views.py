@@ -22,6 +22,7 @@ from extractor.models import (
     BackgroundTask, FileTypeChoices
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
+from extractor.services.model_hierarchy import ancestor_tables, identity_field_names
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.file_processor import FileProcessorService
 from extractor.services.instructor_extractor import InstructorExtractionService
@@ -120,37 +121,78 @@ def wizard_step2(request, response_model_id):
     response_model = get_object_or_404(ResponseModel, id=response_model_id)
 
     if request.method == 'POST':
-        selected_table_ids = request.POST.getlist('tables')
+        selected_table_ids = {int(i) for i in request.POST.getlist('tables')}
 
         if not selected_table_ids:
             messages.error(request, "Please select at least one table.")
             return redirect('extractor:wizard_step2', response_model_id=response_model.id)
 
+        selected_tables = list(DatabaseTable.objects.filter(id__in=selected_table_ids))
+
+        # Required ancestors (the patient_path chain) must be extracted too —
+        # write-back needs a parent record before a child can be created.
+        ancestors = []
+        seen = set(selected_table_ids)
+        for table in selected_tables:
+            for anc in ancestor_tables(table):
+                if anc.id not in seen:
+                    seen.add(anc.id)
+                    ancestors.append(anc)
+
         with transaction.atomic():
             ResponseModelTable.objects.filter(response_model=response_model).delete()
 
-            for table_id in selected_table_ids:
-                database_table = get_object_or_404(DatabaseTable, id=table_id)
+            for table in selected_tables:
                 ResponseModelTable.objects.create(
                     response_model=response_model,
-                    database_table=database_table
+                    database_table=table
                 )
 
-        messages.success(request, f"{len(selected_table_ids)} table(s) selected.")
+            for table in ancestors:
+                model_table = ResponseModelTable.objects.create(
+                    response_model=response_model,
+                    database_table=table,
+                    auto_added=True
+                )
+                # Pre-select the parent's identity fields (its match_fields
+                # key-sets) so existing parents can be detected and new ones
+                # created; the user can adjust in step 3.
+                identity = set(identity_field_names(table))
+                order = 0
+                for db_field in table.databasefield_set.filter(is_active=True):
+                    if db_field.clientapp_field_name in identity:
+                        ResponseModelTableField.objects.create(
+                            response_model_table=model_table,
+                            field=db_field,
+                            order=order
+                        )
+                        order += 1
+
+        if ancestors:
+            messages.info(
+                request,
+                "Auto-included required parent table(s): "
+                + ", ".join(t.clientapp_content_type.model for t in ancestors))
+        messages.success(request, f"{len(selected_tables)} table(s) selected.")
         return redirect('extractor:wizard_step3', response_model_id=response_model.id)
-    
+
     tables_structure = SchemaDiscoveryService.get_hierarchical_table_structure()
-    
+
     selected_tables = ResponseModelTable.objects.filter(
         response_model=response_model
     ).values_list('database_table_id', flat=True)
-    
+
+    auto_added_ids = set(ResponseModelTable.objects.filter(
+        response_model=response_model, auto_added=True
+    ).values_list('database_table_id', flat=True))
+
     context = {
         'response_model': response_model,
         'tables': tables_structure,
         'selected_tables': list(selected_tables),
+        'auto_added_ids': auto_added_ids,
     }
-    
+
     return render(request, 'extractor/wizard_step2.html', context)
 
 
@@ -208,6 +250,7 @@ def wizard_step3(request, response_model_id):
         
         tables_with_fields.append({
             'model_table': model_table,
+            'auto_added': model_table.auto_added,
             'fields': fields,
             'selected_fields': list(selected_fields),
         })

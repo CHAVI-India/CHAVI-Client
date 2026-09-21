@@ -202,12 +202,54 @@ def _effective_map(extracted_record):
     return _raw_value_map(extracted_record), results
 
 
+def _resolve_parent_instance(extracted_record):
+    """
+    pk of the client_app row an extracted record maps to — its successful
+    RecordCreation when created, else a unique dedup match against existing
+    patient-scoped rows. Raises RecordWriteError when neither resolves.
+    """
+    creation = RecordCreation.objects.filter(
+        extracted_record=extracted_record,
+        operation='create',
+        record_created=True,
+    ).first()
+    if creation:
+        return creation.created_record_pk
+
+    candidates = find_duplicate_candidates(
+        extracted_record.database_table, extracted_record)
+    model_name = extracted_record.database_table.clientapp_content_type.model
+    if len(candidates) == 1:
+        return str(candidates[0]['pk'])
+    if len(candidates) > 1:
+        raise RecordWriteError(
+            f"Several existing '{model_name}' rows match extracted record "
+            f"#{extracted_record.id} — resolve the duplicate first.")
+    raise RecordWriteError(
+        f"Create the parent '{model_name}' record first "
+        f"(extracted record #{extracted_record.id}).")
+
+
+def resolve_record_pk(extracted_record):
+    """
+    pk of the client_app row an extracted record maps to (created row or a
+    unique dedup match), else None. Display-facing variant of
+    _resolve_parent_instance.
+    """
+    try:
+        return _resolve_parent_instance(extracted_record)
+    except RecordWriteError:
+        return None
+
+
 def _resolve_parent_fks(extracted_record):
     """
     Map internal FK field names to concrete pk values.
 
     - patient FKs resolve to the job's patient.
-    - FKs to other configured tables resolve to the RecordCreation created for
+    - FKs matching this record's parent_record (nested extraction) resolve to
+      that parent's created row, else to a unique existing match.
+    - FKs without a parent_record fall back to the RecordCreation created for
       the same job+table. Exactly one must exist, else a user-facing error
       explains what to create first.
     """
@@ -233,6 +275,12 @@ def _resolve_parent_fks(extracted_record):
                     f"Cannot create {extracted_record.database_table.clientapp_content_type.model}: "
                     f"the source file is not linked to a patient.")
             fks[f'{name}_id'] = patient.pk
+            continue
+
+        parent_rec = extracted_record.parent_record
+        if (parent_rec is not None and
+                parent_rec.database_table.clientapp_content_type_id == f.relation_content_type_id):
+            fks[f'{name}_id'] = _resolve_parent_instance(parent_rec)
             continue
 
         creations = RecordCreation.objects.filter(

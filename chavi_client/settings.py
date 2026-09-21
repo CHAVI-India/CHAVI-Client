@@ -135,9 +135,10 @@ SITE_ID = 1
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+_db_engine = os.getenv('DJANGO_DB_ENGINE', 'django.db.backends.sqlite3')
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('DJANGO_DB_ENGINE', 'django.db.backends.sqlite3'),
+        'ENGINE': _db_engine,
         'NAME': os.getenv('DJANGO_DB_NAME', BASE_DIR / 'db.sqlite3'),
         'USER': os.getenv('DJANGO_DB_USER', ''),
         'PASSWORD': os.getenv('DJANGO_DB_PASSWORD', ''),
@@ -145,6 +146,16 @@ DATABASES = {
         'PORT': os.getenv('DJANGO_DB_PORT', ''),
     }
 }
+if 'postgresql' in _db_engine:
+    # libpq TCP keepalives — long Celery tasks (model load, batch embedding)
+    # idle the connection for minutes; without keepalives remote servers/LBs
+    # drop the session and the next query dies on a closed SSL socket.
+    DATABASES['default']['OPTIONS'] = {
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5,
+    }
 
 
 # Password validation

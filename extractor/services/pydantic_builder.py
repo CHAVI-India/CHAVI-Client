@@ -1,5 +1,7 @@
 from typing import Dict, List, Any, Optional, Literal
 from extractor.models import ResponseModel, ResponseModelTable, ResponseModelTableField, DatabaseField, EntityTypeChoices
+from extractor.services.model_hierarchy import (
+    build_table_tree, child_key, ancestor_tables, identity_field_names)
 from logging import getLogger
 from decimal import Decimal
 import ast
@@ -127,19 +129,19 @@ class PydanticModelBuilder:
         Build the live Pydantic model used at extraction time — the single
         source of truth shared by the wizard preview and the runtime.
 
-        Shape: { <table_snake>: [ {<field>: value, ...}, ... ], ... }
-        One object per extracted record; tables may have several records.
+        Shape: { <table_snake>: [ {<field>: value, <child_table>: [ {...} ]}, ... ] }
+        Child tables nest inside their parent record so the LLM reports which
+        child records belong to which parent (e.g. pathology under its diagnosis).
         """
-        model_tables = ResponseModelTable.objects.filter(
-            response_model=response_model
-        ).select_related('database_table__clientapp_content_type')
-
-        if not model_tables.exists():
+        if not ResponseModelTable.objects.filter(response_model=response_model).exists():
             raise ValueError("No tables configured for this response model")
 
-        root_fields = {}
+        roots, children = build_table_tree(response_model)
+        built = {}
 
-        for model_table in model_tables:
+        def build_node(model_table):
+            if model_table.id in built:
+                return built[model_table.id]
             table_name = model_table.database_table.clientapp_content_type.model
             table_fields = ResponseModelTableField.objects.filter(
                 response_model_table=model_table,
@@ -166,6 +168,16 @@ class PydanticModelBuilder:
                     Field(None, description=description, **field_info)
                 )
 
+            for child_mt in children.get(model_table.id, []):
+                child_cls = build_node(child_mt)
+                child_name = child_mt.database_table.clientapp_content_type.model
+                field_defs[child_key(child_mt.database_table)] = (
+                    Optional[List[child_cls]],
+                    Field(None, description=(
+                        f"List of extracted {child_name} records belonging to this "
+                        f"{table_name} record; [] if none"))
+                )
+
             validators = {}
             date_pairs = model_table.database_table.date_validation_pairs or []
             if date_pairs:
@@ -178,7 +190,13 @@ class PydanticModelBuilder:
                 __validators__=validators,
                 **field_defs
             )
+            built[model_table.id] = table_cls
+            return table_cls
 
+        root_fields = {}
+        for model_table in roots:
+            table_cls = build_node(model_table)
+            table_name = model_table.database_table.clientapp_content_type.model
             key = cls._to_field_name(table_name)
             root_fields[key] = (
                 Optional[List[table_cls]],
@@ -195,25 +213,34 @@ class PydanticModelBuilder:
         """
         Generates Pydantic model code from a ResponseModel configuration.
         """
-        model_tables = ResponseModelTable.objects.filter(
-            response_model=response_model
-        ).select_related('database_table__clientapp_content_type')
-        
-        if not model_tables.exists():
+        if not ResponseModelTable.objects.filter(response_model=response_model).exists():
             raise ValueError("No tables configured for this response model")
-        
+
+        roots, children = build_table_tree(response_model)
+
         imports = cls._generate_imports()
         models_code = []
-        
-        for model_table in model_tables:
-            model_code = cls._build_table_model(model_table)
-            models_code.append(model_code)
-        
-        root_model = cls._build_root_model(response_model, model_tables)
+        emitted = set()
+
+        # Children are emitted before parents — parent classes reference the
+        # child classes in their nested List[...] annotations.
+        def emit(model_table):
+            if model_table.id in emitted:
+                return
+            for child_mt in children.get(model_table.id, []):
+                emit(child_mt)
+            models_code.append(
+                cls._build_table_model(model_table, children.get(model_table.id, [])))
+            emitted.add(model_table.id)
+
+        for model_table in roots:
+            emit(model_table)
+
+        root_model = cls._build_root_model(response_model, roots)
         models_code.append(root_model)
-        
+
         full_code = imports + "\n\n" + "\n\n".join(models_code)
-        
+
         return full_code
     
     @classmethod
@@ -227,9 +254,10 @@ from datetime import date
 from decimal import Decimal"""
     
     @classmethod
-    def _build_table_model(cls, model_table: ResponseModelTable) -> str:
+    def _build_table_model(cls, model_table: ResponseModelTable, child_tables=None) -> str:
         """
         Builds a Pydantic model for a single database table.
+        child_tables: ResponseModelTables nested inside each record.
         """
         table_name = model_table.database_table.clientapp_content_type.model
         # PascalCase: avoids field-name/class-name collisions in annotations
@@ -244,6 +272,14 @@ from decimal import Decimal"""
             raise ValueError(f"No fields configured for table {table_name}")
 
         field_definitions = [cls._build_field_definition(fc) for fc in fields]
+        for child_mt in child_tables or []:
+            child_name = child_mt.database_table.clientapp_content_type.model
+            child_cls_name = cls._to_class_name(cls._safe_identifier(child_name, 'table'))
+            field_definitions.append(
+                f'{child_key(child_mt.database_table)}: Optional[List[{child_cls_name}]] = '
+                f'Field(None, description="List of extracted {child_name} records '
+                f'belonging to this {table_name} record; [] if none")'
+            )
         fields_code = "\n    ".join(field_definitions)
 
         model_code = f"""class {class_name}(BaseModel):
@@ -318,14 +354,15 @@ from decimal import Decimal"""
         return f'{field_name}: Optional[{type_str}] = Field(None, {", ".join(field_params)})'
     
     @classmethod
-    def _build_root_model(cls, response_model: ResponseModel, model_tables) -> str:
+    def _build_root_model(cls, response_model: ResponseModel, root_tables) -> str:
         """
-        Builds the root Pydantic model that contains all table models.
+        Builds the root Pydantic model that contains all root table models.
+        Nested tables appear inside their parent's records, not here.
         """
         root_class_name = cls._to_class_name(cls._safe_identifier(response_model.name)) + 'Model'
 
         field_definitions = []
-        for model_table in model_tables:
+        for model_table in root_tables:
             table_name = model_table.database_table.clientapp_content_type.model
             class_name = cls._to_class_name(cls._safe_identifier(table_name, 'table'))
             field_name = cls._to_field_name(table_name)
@@ -363,13 +400,40 @@ from decimal import Decimal"""
         errors = []
         warnings = []
         
-        model_tables = ResponseModelTable.objects.filter(response_model=response_model)
-        
-        if not model_tables.exists():
+        model_tables = list(
+            ResponseModelTable.objects.filter(response_model=response_model)
+            .select_related('database_table__clientapp_content_type'))
+
+        if not model_tables:
             errors.append("No tables configured for this response model")
             return {'valid': False, 'errors': errors, 'warnings': warnings}
-        
+
+        present_table_ids = {mt.database_table_id for mt in model_tables}
+
         for model_table in model_tables:
+            table_label = model_table.database_table.clientapp_content_type.model
+
+            # Every required ancestor must itself be in the response model —
+            # write-back needs a record for each non-Patient parent.
+            for anc in ancestor_tables(model_table.database_table):
+                if anc.id not in present_table_ids:
+                    errors.append(
+                        f"Table '{table_label}' requires its parent "
+                        f"'{anc.clientapp_content_type.model}' — select it in "
+                        f"step 2 (required parents are auto-included).")
+
+            if model_table.auto_added:
+                selected_names = {
+                    f.field.clientapp_field_name
+                    for f in ResponseModelTableField.objects.filter(
+                        response_model_table=model_table).select_related('field')
+                }
+                if not set(identity_field_names(model_table.database_table)) & selected_names:
+                    warnings.append(
+                        f"Auto-included parent '{table_label}' has none of its "
+                        f"identity fields selected — existing parent records "
+                        f"cannot be detected without them.")
+
             fields = ResponseModelTableField.objects.filter(response_model_table=model_table)
 
             if not fields.exists():

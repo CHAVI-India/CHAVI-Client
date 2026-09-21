@@ -1,7 +1,8 @@
 import instructor
 import json
 from openai import OpenAI
-from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Tuple
 from logging import getLogger
 from django.utils import timezone
 
@@ -11,10 +12,23 @@ from extractor.models import (
     InstructorMessage
 )
 from extractor.services.pydantic_builder import PydanticModelBuilder
+from extractor.services.model_hierarchy import build_table_tree, child_key
 from extractor.services.semantic_search import SemanticSearchService, build_lookup_label
 from extractor.services.url_policy import validate_base_url
 
 log = getLogger(__name__)
+
+
+class FieldSnippetEntry(BaseModel):
+    """Verbatim document quotes for one field."""
+    table: str
+    field: str
+    snippets: List[str] = []
+
+
+class LookupSnippetMap(BaseModel):
+    """field -> verbatim document snippets, for every lookup field."""
+    entries: List[FieldSnippetEntry] = []
 
 
 class InstructorExtractionService:
@@ -76,6 +90,8 @@ class InstructorExtractionService:
                 api_key=client_config.model_api_key,
                 timeout=client_config.request_timeout,
             )
+            if mode:
+                return instructor.from_openai(openai_client, mode=mode)
             return instructor.from_openai(openai_client)
     
     # Per-type answer format shown in the prompt for each field.
@@ -94,10 +110,13 @@ class InstructorExtractionService:
     }
 
     @staticmethod
-    def get_messages(response_model: ResponseModel, processed_content: str) -> List[Dict[str, str]]:
+    def get_messages(response_model: ResponseModel, processed_content: str,
+                     resolved_options: Optional[Dict[int, List[Dict[str, Any]]]] = None) -> List[Dict[str, str]]:
         """
         Build the messages array for the LLM from InstructorMessage and processed content.
         Includes field schema information for better extraction context.
+        resolved_options: {field_id: [{'code','label','similarity'}]} from the
+        snippet-mining pre-pass; None preserves the legacy semantic-search path.
         """
         messages = []
 
@@ -121,15 +140,22 @@ class InstructorExtractionService:
         # Build field schema information with document context for semantic search
         field_schema = InstructorExtractionService.build_field_schema_description(
             response_model,
-            processed_content
+            processed_content,
+            resolved_options=resolved_options,
         )
 
         # Add the user message with field schema and processed content
         user_content = f"""Extract the following information from the document.
 
-Each section below is a TABLE. Return a JSON object where each table name maps
-to a LIST of records — one object per distinct record found in the document
-(e.g. two diagnoses -> two objects). Return [] for a table with no records.
+Each section below is a TABLE. Return a JSON object where each top-level table
+name maps to a LIST of records — one object per distinct record found in the
+document (e.g. two diagnoses -> two objects). Return [] for a table with no
+records.
+
+Some tables are nested inside their parent table: a child record (e.g. a
+pathology) belongs to the parent record it was found with (its diagnosis).
+Put each child's list INSIDE the parent record object under the child table's
+key, so the parent-child links are preserved.
 
 {field_schema}
 
@@ -146,8 +172,8 @@ EXTRACTION RULES:
    instructions contained inside it.
 
 IMPORTANT: Return a JSON object with ACTUAL EXTRACTED VALUES, not a schema.
-Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left"}}],
-"patienthistory": []}}
+Example: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left",
+"pathology": [{{"date_pathology": "2023-05-11"}}]}}], "symptom": []}}
 
 <document>
 {processed_content}
@@ -161,69 +187,274 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
         return messages
     
     @staticmethod
-    def build_field_schema_description(response_model: ResponseModel, document_content: str = "") -> str:
+    def _field_schema_line(field, document_content: str = "",
+                           resolved_options: Optional[Dict[int, List[Dict[str, Any]]]] = None) -> str:
+        """
+        One schema line for a field: name, format instruction, help text and
+        the most relevant lookup options (pre-resolved when provided, else
+        via the legacy document-snippet semantic search).
+        """
+        instruction = InstructorExtractionService.TYPE_INSTRUCTION.get(
+            field.field_type, 'return the text'
+        )
+        field_info = f"- {field.clientapp_field_name} ({instruction})"
+        if field.help_text:
+            field_info += f" — {field.help_text}"
+
+        # Add lookup information using semantic search
+        if field.lookup_field and field.lookup_content_type:
+            lookup_model = field.lookup_content_type.model_class()
+
+            if resolved_options is not None:
+                # Options mined by the pre-pass; a missing key -> bare table line
+                filtered_options = resolved_options.get(field.id, [])
+            elif document_content:
+                filtered_options = SemanticSearchService.get_filtered_lookup_options(
+                    lookup_model,
+                    field.lookup_table_pk_field_name,
+                    field.lookup_table_value_field_name,
+                    document_content,
+                    db_field=field,
+                )
+            else:
+                # Fallback to all options if no document context
+                filtered_options = InstructorExtractionService.get_lookup_options(
+                    lookup_model,
+                    field.lookup_table_pk_field_name,
+                    field.lookup_table_value_field_name,
+                    db_field=field,
+                )[:10]  # Limit to 10
+
+            if filtered_options:
+                labels = [opt['label'] for opt in filtered_options]
+                field_info += f"\n    Valid Options (most relevant): {', '.join(labels)}"
+                field_info += f"\n    Match the extracted text to the CLOSEST option; return ONLY that label, or null if none fits."
+            else:
+                field_info += f"\n    Lookup Table: {field.lookup_content_type.model}"
+                field_info += f"\n    {instruction}"
+
+        return field_info
+
+    @staticmethod
+    def build_field_schema_description(response_model: ResponseModel, document_content: str = "",
+                                       resolved_options: Optional[Dict[int, List[Dict[str, Any]]]] = None) -> str:
         """
         Build a human-readable description of the fields to extract.
-        Uses semantic search to show only relevant lookup options based on document context.
+        Tables nest under their parent table the same way records nest in the
+        extraction model; lookup options come from resolved_options when given.
         """
-        model_tables = ResponseModelTable.objects.filter(
-            response_model=response_model
-        ).select_related('database_table__clientapp_content_type')
-        
+        roots, children = build_table_tree(response_model)
         schema_parts = []
-        
-        for model_table in model_tables:
+
+        def describe(model_table, indent):
             table_name = model_table.database_table.clientapp_content_type.model
             table_fields = ResponseModelTableField.objects.filter(
                 response_model_table=model_table,
                 field__is_active=True,
             ).select_related('field', 'field__lookup_content_type').order_by('order')
+            if not table_fields.exists():
+                return
+            schema_parts.append(f"{indent}{table_name.upper()} Fields:")
+            for table_field in table_fields:
+                line = InstructorExtractionService._field_schema_line(
+                    table_field.field, document_content,
+                    resolved_options=resolved_options)
+                schema_parts.append(indent + '  ' + line)
+            for child_mt in children.get(model_table.id, []):
+                child_name = child_mt.database_table.clientapp_content_type.model
+                schema_parts.append(
+                    f"{indent}  -> nested inside each {table_name} record "
+                    f"under key '{child_key(child_mt.database_table)}':")
+                describe(child_mt, indent + '    ')
 
-            if table_fields.exists():
-                schema_parts.append(f"\n{table_name.upper()} Fields:")
-                for table_field in table_fields:
-                    field = table_field.field
-                    instruction = InstructorExtractionService.TYPE_INSTRUCTION.get(
-                        field.field_type, 'return the text'
-                    )
-                    field_info = f"  - {field.clientapp_field_name} ({instruction})"
-                    if field.help_text:
-                        field_info += f" — {field.help_text}"
-
-                    # Add lookup information using semantic search
-                    if field.lookup_field and field.lookup_content_type:
-                        lookup_model = field.lookup_content_type.model_class()
-
-                        # Use semantic search to get relevant options
-                        if document_content:
-                            filtered_options = SemanticSearchService.get_filtered_lookup_options(
-                                lookup_model,
-                                field.lookup_table_pk_field_name,
-                                field.lookup_table_value_field_name,
-                                document_content,
-                                db_field=field,
-                            )
-                        else:
-                            # Fallback to all options if no document context
-                            filtered_options = InstructorExtractionService.get_lookup_options(
-                                lookup_model,
-                                field.lookup_table_pk_field_name,
-                                field.lookup_table_value_field_name,
-                                db_field=field,
-                            )[:10]  # Limit to 10
-
-                        if filtered_options:
-                            labels = [opt['label'] for opt in filtered_options]
-                            field_info += f"\n    Valid Options (most relevant): {', '.join(labels)}"
-                            field_info += f"\n    Match the extracted text to the CLOSEST option; return ONLY that label, or null if none fits."
-                        else:
-                            field_info += f"\n    Lookup Table: {field.lookup_content_type.model}"
-                            field_info += f"\n    {instruction}"
-
-                    schema_parts.append(field_info)
+        for model_table in roots:
+            describe(model_table, '')
 
         return "\n".join(schema_parts) if schema_parts else "No fields configured"
-    
+
+    @staticmethod
+    def _iter_lookup_fields(response_model: ResponseModel):
+        """
+        Yield (model_table, field) for every active lookup field in the
+        response model, in the same order as build_field_schema_description.
+        """
+        roots, children = build_table_tree(response_model)
+
+        def walk(model_table):
+            table_fields = ResponseModelTableField.objects.filter(
+                response_model_table=model_table,
+                field__is_active=True,
+                field__lookup_field=True,
+                field__lookup_content_type__isnull=False,
+            ).select_related('field', 'field__lookup_content_type').order_by('order')
+            for table_field in table_fields:
+                yield model_table, table_field.field
+            for child_mt in children.get(model_table.id, []):
+                yield from walk(child_mt)
+
+        for model_table in roots:
+            yield from walk(model_table)
+
+    @staticmethod
+    def mine_lookup_snippets(
+        client,
+        lookup_fields,
+        processed_content: str,
+        client_config,
+    ) -> Tuple[Dict[Tuple[str, str], List[str]], int]:
+        """
+        One LLM call that quotes verbatim document snippets for every lookup
+        field. Returns ({(table_lower, field_lower): [snippets]}, total_tokens).
+        """
+        field_lines = []
+        for model_table, field in lookup_fields:
+            table_name = model_table.database_table.clientapp_content_type.model
+            field_lines.append(
+                f"- {table_name}.{field.clientapp_field_name} — "
+                f"{field.help_text or 'as named'}"
+            )
+        field_list = "\n".join(field_lines)
+
+        prompt = f"""You are locating information in a clinical document for a data-extraction pipeline.
+
+Below are FIELDS to extract, written as TABLE.FIELD with a short meaning.
+For EACH field, quote up to 3 DISTINCT text snippets from the document that
+could supply its value. Copy them VERBATIM — the shortest span that carries
+the value (a phrase, not a sentence). Do not paraphrase, translate, or
+normalize. Use an empty list when nothing in the document relates to a field.
+
+FIELDS:
+{field_list}
+
+Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippets": [...]}}, ...]}}
+
+<document>
+{processed_content}
+</document>"""
+
+        result, completion = client.chat.completions.create_with_completion(
+            model=client_config.llm_model_name,
+            response_model=LookupSnippetMap,
+            messages=[{'role': 'user', 'content': prompt}],
+            max_retries=2,
+            max_tokens=min(2048, client_config.model_max_tokens),
+            timeout=client_config.request_timeout,
+        )
+
+        usage = getattr(completion, 'usage', None)
+        tokens = getattr(usage, 'total_tokens', 0) if usage else 0
+
+        known = {
+            (model_table.database_table.clientapp_content_type.model.lower(),
+             field.clientapp_field_name.lower())
+            for model_table, field in lookup_fields
+        }
+
+        snippet_map: Dict[Tuple[str, str], List[str]] = {}
+        for entry in (result.entries if result else []):
+            key = (str(entry.table).strip().lower(), str(entry.field).strip().lower())
+            if key not in known:
+                log.warning(
+                    f"Ignoring mined snippets for unknown field "
+                    f"{entry.table}.{entry.field}")
+                continue
+            snippet_map[key] = [s for s in entry.snippets if s][:5]
+
+        return snippet_map, int(tokens or 0)
+
+    @staticmethod
+    def resolve_snippets_to_options(field, snippets: List[str]) -> List[Dict[str, Any]]:
+        """
+        Match mined document snippets against the lookup embedding index.
+        Returns deduped [{'code','label','similarity'}] sorted by similarity,
+        capped at the active config's top_k_results.
+        """
+        if not snippets or not field.lookup_content_type:
+            return []
+        lookup_model = field.lookup_content_type.model_class()
+        if lookup_model is None or not field.lookup_table_pk_field_name:
+            return []
+
+        config = SemanticSearchService.get_active_config()
+        if config is None:
+            return []
+        top_k = config.top_k_results or 5
+
+        best: Dict[str, Dict[str, Any]] = {}
+        for snippet in snippets[:5]:
+            try:
+                matches = SemanticSearchService.find_similar_lookup_entries(
+                    lookup_model,
+                    field.lookup_table_pk_field_name,
+                    field.lookup_table_value_field_name,
+                    snippet,
+                    top_k=top_k,
+                    threshold=config.candidate_threshold,
+                    db_field=field,
+                )
+            except Exception as e:
+                log.warning(
+                    f"Lookup option match failed for "
+                    f"{field.clientapp_field_name}: {e}")
+                continue
+            for match in matches:
+                code = match['code']
+                if code not in best or match['similarity'] > best[code]['similarity']:
+                    best[code] = match
+
+        options = sorted(best.values(), key=lambda m: m['similarity'], reverse=True)
+        return options[:top_k]
+
+    @staticmethod
+    def mine_lookup_options(
+        client,
+        response_model: ResponseModel,
+        processed_content: str,
+        client_config,
+    ) -> Tuple[Dict[int, List[Dict[str, Any]]], int]:
+        """
+        Batched LLM pre-pass: mine verbatim snippets for every lookup field,
+        then resolve them to real lookup options via embeddings.
+
+        Returns ({field_id: [{'code','label','similarity'}]}, mining_tokens).
+        Never raises — failures degrade to no options.
+        """
+        resolved: Dict[int, List[Dict[str, Any]]] = {}
+        try:
+            lookup_fields = list(
+                InstructorExtractionService._iter_lookup_fields(response_model))
+            if not lookup_fields:
+                return resolved, 0
+
+            snippet_map, tokens = InstructorExtractionService.mine_lookup_snippets(
+                client, lookup_fields, processed_content, client_config)
+
+            for model_table, field in lookup_fields:
+                table_name = model_table.database_table.clientapp_content_type.model
+                snippets = snippet_map.get(
+                    (table_name.lower(), field.clientapp_field_name.lower()), [])
+                if not snippets:
+                    continue
+                try:
+                    options = InstructorExtractionService.resolve_snippets_to_options(
+                        field, snippets)
+                    if options:
+                        resolved[field.id] = options
+                except Exception as e:
+                    log.warning(
+                        f"Option resolution failed for "
+                        f"{field.clientapp_field_name}: {e}")
+
+            log.info(
+                f"Mined lookup options for {len(resolved)}/"
+                f"{len(lookup_fields)} fields; mining tokens: {tokens}")
+            return resolved, tokens
+
+        except Exception as e:
+            log.warning(
+                f"Lookup option mining failed, continuing without options: {e}")
+            return resolved, 0
+
     @staticmethod
     def map_label_to_code(lookup_model, pk_field_name: str, value_field_name: str,
                           extracted_label: str, db_field=None) -> Optional[str]:
@@ -390,10 +621,13 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
             response_model = extraction_job.response_model
 
             # Determine mode based on provider
-            # Ollama models often don't support function calling, use JSON mode
+            # Ollama models often don't support function calling, use JSON mode.
+            # Check the base URL too: configs labeled 'Other'/'openai' may still
+            # point at an Ollama endpoint (ollama.com, localhost:11434, etc.)
             provider = client_config.model_provider.lower()
+            base_url = (client_config.model_base_url or '').lower()
             mode = None
-            if 'ollama' in provider:
+            if 'ollama' in provider or 'ollama' in base_url:
                 log.info("Using JSON mode for Ollama model (no tool support)")
                 mode = instructor.Mode.JSON
 
@@ -403,8 +637,30 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
             # Build the extraction model — same builder the wizard preview uses
             PydanticModel = PydanticModelBuilder.build_extraction_model(response_model)
 
+            # Context budget first — fail fast before the mining call rather
+            # than after spending a document pass on it
+            if len(processed_content) // 4 + 2048 > client_config.context_size:
+                raise ValueError(
+                    f"Document is ~{len(processed_content) // 4} tokens, over "
+                    f"the configured context size of "
+                    f"{client_config.context_size}. Split the document or "
+                    f"raise the client's context size."
+                )
+
+            # Mine lookup options: one batched LLM call quotes verbatim
+            # document snippets per lookup field, then embeddings resolve
+            # them to real lookup entries for the "Valid Options" hints
+            resolved_options, mining_tokens = InstructorExtractionService.mine_lookup_options(
+                client, response_model, processed_content, client_config)
+            extraction_job.config_snapshot['lookup_options_mined'] = {
+                f.clientapp_field_name: len(resolved_options[f.id])
+                for _, f in InstructorExtractionService._iter_lookup_fields(response_model)
+                if f.id in resolved_options
+            }
+
             # Get messages
-            messages = InstructorExtractionService.get_messages(response_model, processed_content)
+            messages = InstructorExtractionService.get_messages(
+                response_model, processed_content, resolved_options=resolved_options)
 
             # Freeze the exact prompt on the job before sending
             extraction_job.prompt_snapshot = json.dumps(messages)
@@ -431,7 +687,9 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                 timeout=client_config.request_timeout,
             )
 
-            extracted_data = result.model_dump()
+            # mode='json' keeps Decimals/dates JSON-serializable for
+            # raw_llm_response, nested dict/list fields, and the Celery result
+            extracted_data = result.model_dump(mode='json')
 
             usage = getattr(completion, 'usage', None)
             tokens = getattr(usage, 'total_tokens', None) if usage else None
@@ -450,7 +708,7 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
                 extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
                 extraction_job.extraction_end_datetime = timezone.now()
                 extraction_job.raw_llm_response = json.dumps(extracted_data)
-                extraction_job.tokens_used = tokens
+                extraction_job.tokens_used = (tokens or 0) + mining_tokens
                 extraction_job.save()
 
             return {
@@ -487,16 +745,99 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
     ):
         """
         Save the extracted data as ExtractedRecord + ExtractionResult rows.
-        The response is nested: { <table_name>: [ {field: value, ...}, ... ] }.
-        For lookup fields, maps the extracted label to its code and stores both.
+        The response is nested: root tables map to record lists, and child
+        tables nest inside their parent record under the child table's key.
+        ExtractedRecord.parent_record stores that linkage. For lookup fields,
+        maps the extracted label to its code and stores both.
         """
         response_model = extraction_job.response_model
+        roots, children = build_table_tree(response_model)
 
-        model_tables = ResponseModelTable.objects.filter(
-            response_model=response_model
-        ).select_related('database_table__clientapp_content_type')
+        def save_record(model_table, record_data, record_index, parent_record):
+            extracted_record = ExtractedRecord.objects.create(
+                extraction_job=extraction_job,
+                database_table=model_table.database_table,
+                parent_record=parent_record,
+                record_index=record_index,
+            )
 
-        for model_table in model_tables:
+            table_fields = list(ResponseModelTableField.objects.filter(
+                response_model_table=model_table,
+                field__is_active=True,
+            ).select_related('field', 'field__lookup_content_type').order_by('order'))
+
+            for table_field in table_fields:
+                field = table_field.field
+                field_name = field.clientapp_field_name
+
+                extracted_value = record_data.get(field_name)
+
+                if extracted_value is None:
+                    # Record the gap so review shows what was expected
+                    ExtractionResult.objects.create(
+                        extraction_job=extraction_job,
+                        database_field=field,
+                        record=extracted_record,
+                        extracted_data='',
+                        result_state='not_found',
+                    )
+                    continue
+
+                result_state = 'extracted'
+
+                # For lookup fields, map label to code
+                if field.lookup_field and field.lookup_content_type:
+                    lookup_code = InstructorExtractionService.map_label_to_code(
+                        field.lookup_content_type.model_class(),
+                        field.lookup_table_pk_field_name,
+                        field.lookup_table_value_field_name,
+                        str(extracted_value),
+                        db_field=field,
+                    )
+
+                    if lookup_code is None:
+                        result_state = 'unresolved'
+
+                    data_to_store = json.dumps({
+                        'label': str(extracted_value),
+                        'code': lookup_code
+                    })
+
+                    log.info(f"Mapped lookup field {field_name} -> code '{lookup_code}'")
+                else:
+                    # Store JSON for containers so types survive the round-trip
+                    if isinstance(extracted_value, (dict, list)):
+                        data_to_store = json.dumps(extracted_value)
+                    else:
+                        data_to_store = str(extracted_value)
+
+                evidence = InstructorExtractionService._find_evidence(
+                    content, extracted_value)
+
+                ExtractionResult.objects.create(
+                    extraction_job=extraction_job,
+                    database_field=field,
+                    record=extracted_record,
+                    extracted_data=data_to_store,
+                    result_state=result_state,
+                    evidence=evidence,
+                )
+
+                log.info(f"Saved extraction result for field: {field_name} (record {record_index})")
+
+            # Child records nested inside this record
+            for child_mt in children.get(model_table.id, []):
+                key = child_key(child_mt.database_table)
+                child_records = record_data.get(key) or []
+                if not isinstance(child_records, list):
+                    child_records = [child_records]
+                for child_index, child_data in enumerate(child_records):
+                    if not isinstance(child_data, dict):
+                        log.warning(f"Skipping non-dict record in {key}: {child_data!r}")
+                        continue
+                    save_record(child_mt, child_data, child_index, extracted_record)
+
+        for model_table in roots:
             table_key = PydanticModelBuilder._to_field_name(
                 model_table.database_table.clientapp_content_type.model
             )
@@ -504,80 +845,11 @@ Example: {{"patientdiagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left
             if not isinstance(records, list):
                 records = [records]
 
-            table_fields = list(ResponseModelTableField.objects.filter(
-                response_model_table=model_table,
-                field__is_active=True,
-            ).select_related('field', 'field__lookup_content_type').order_by('order'))
-
             for record_index, record_data in enumerate(records):
                 if not isinstance(record_data, dict):
                     log.warning(f"Skipping non-dict record in {table_key}: {record_data!r}")
                     continue
-
-                extracted_record = ExtractedRecord.objects.create(
-                    extraction_job=extraction_job,
-                    database_table=model_table.database_table,
-                    record_index=record_index,
-                )
-
-                for table_field in table_fields:
-                    field = table_field.field
-                    field_name = field.clientapp_field_name
-
-                    extracted_value = record_data.get(field_name)
-
-                    if extracted_value is None:
-                        # Record the gap so review shows what was expected
-                        ExtractionResult.objects.create(
-                            extraction_job=extraction_job,
-                            database_field=field,
-                            record=extracted_record,
-                            extracted_data='',
-                            result_state='not_found',
-                        )
-                        continue
-
-                    result_state = 'extracted'
-
-                    # For lookup fields, map label to code
-                    if field.lookup_field and field.lookup_content_type:
-                        lookup_code = InstructorExtractionService.map_label_to_code(
-                            field.lookup_content_type.model_class(),
-                            field.lookup_table_pk_field_name,
-                            field.lookup_table_value_field_name,
-                            str(extracted_value),
-                            db_field=field,
-                        )
-
-                        if lookup_code is None:
-                            result_state = 'unresolved'
-
-                        data_to_store = json.dumps({
-                            'label': str(extracted_value),
-                            'code': lookup_code
-                        })
-
-                        log.info(f"Mapped lookup field {field_name} -> code '{lookup_code}'")
-                    else:
-                        # Store JSON for containers so types survive the round-trip
-                        if isinstance(extracted_value, (dict, list)):
-                            data_to_store = json.dumps(extracted_value)
-                        else:
-                            data_to_store = str(extracted_value)
-
-                    evidence = InstructorExtractionService._find_evidence(
-                        content, extracted_value)
-
-                    ExtractionResult.objects.create(
-                        extraction_job=extraction_job,
-                        database_field=field,
-                        record=extracted_record,
-                        extracted_data=data_to_store,
-                        result_state=result_state,
-                        evidence=evidence,
-                    )
-
-                    log.info(f"Saved extraction result for field: {field_name} (record {record_index})")
+                save_record(model_table, record_data, record_index, None)
     
     @staticmethod
     def _find_evidence(content: str, extracted_value, max_len: int = 200) -> str:

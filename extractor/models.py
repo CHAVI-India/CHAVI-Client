@@ -10,9 +10,8 @@ from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from pgvector.django import VectorField, HnswIndex
+from pgvector.django import VectorField
 from extractor.services.url_policy import normalize_base_url, validate_base_url
-from extractor.services.embeddings import INDEX_DIM
 from logging import getLogger
 
 log = getLogger(__name__)
@@ -336,6 +335,7 @@ class ResponseModelTable(models.Model):
     '''
     response_model = models.ForeignKey(ResponseModel, on_delete=models.CASCADE,help_text="Response model for which the fields are defined")
     database_table = models.ForeignKey(DatabaseTable, on_delete=models.CASCADE,help_text="Database table for which the response model is defined")
+    auto_added = models.BooleanField(default=False, help_text="True when this table was auto-included as a required ancestor of a selected table")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -451,6 +451,7 @@ class ExtractedRecord(models.Model):
     '''
     extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE, related_name='extracted_records', help_text="Extraction job that produced this record")
     database_table = models.ForeignKey(DatabaseTable, on_delete=models.CASCADE, help_text="The table this record belongs to")
+    parent_record = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='child_records', help_text="The extracted parent record this record belongs to (nested extraction)")
     record_index = models.PositiveIntegerField(default=0, help_text="Position of this record within the table's extracted list")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -555,7 +556,7 @@ class EmbeddingConfiguration(models.Model):
         max_length=512,
         blank=True,
         null=True,
-        help_text="API key if using a cloud provider like OpenAI"
+        help_text="Provider credential: API key for OpenAI endpoints, or a Hugging Face access token (hf_..., created at hf.co/settings/tokens) for local sentence-transformers models"
     )
     base_url = models.CharField(
         max_length=512,
@@ -591,13 +592,11 @@ class EmbeddingConfiguration(models.Model):
         # Optional endpoint for OpenAI-compatible providers; blank means api.openai.com
         if self.base_url:
             self.base_url = validate_base_url(self.base_url, 'embedding base URL')
-        # The vector index has a fixed dimension — every config must produce it
-        if self.embedding_dimension != INDEX_DIM:
+        # The vector column is dimensionless — each config declares its own
+        # dimension and providers verify the model's real output against it.
+        if self.embedding_dimension is not None and self.embedding_dimension <= 0:
             raise ValidationError(
-                {'embedding_dimension':
-                 f"The embedding index is fixed at {INDEX_DIM} dimensions. "
-                 f"Set embedding_dimension to {INDEX_DIM} (OpenAI v3 models emit "
-                 f"it via the dimensions API parameter)."}
+                {'embedding_dimension': 'Embedding dimension must be a positive integer.'}
             )
 
     def __str__(self):
@@ -632,7 +631,8 @@ class LookupEmbedding(models.Model):
         help_text="The original text that was embedded"
     )
     embedding = VectorField(
-        dimensions=1536,  # Canonical index dimension — all configs must produce this
+        # Dimensionless column: rows for different configs may use different
+        # dimensions; queries filter by config + index_version before distance.
         help_text="Vector embedding of the text"
     )
     embedding_config = models.ForeignKey(
@@ -659,13 +659,6 @@ class LookupEmbedding(models.Model):
         indexes = [
             models.Index(fields=['content_type', 'field_name']),
             models.Index(fields=['object_id']),
-            HnswIndex(
-                name='lookupembedding_hnsw',
-                fields=['embedding'],
-                opclasses=['vector_cosine_ops'],
-                m=16,
-                ef_construction=64,
-            ),
         ]
         constraints = [
             models.UniqueConstraint(
