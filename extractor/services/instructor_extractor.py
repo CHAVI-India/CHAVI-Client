@@ -256,6 +256,8 @@ Example: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left",
                 return
             schema_parts.append(f"{indent}{table_name.upper()} Fields:")
             for table_field in table_fields:
+                if not table_field.field.is_extractable():
+                    continue
                 line = InstructorExtractionService._field_schema_line(
                     table_field.field, document_content,
                     resolved_options=resolved_options)
@@ -768,6 +770,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
             for table_field in table_fields:
                 field = table_field.field
+                if not field.is_extractable():
+                    continue
                 field_name = field.clientapp_field_name
 
                 extracted_value = record_data.get(field_name)

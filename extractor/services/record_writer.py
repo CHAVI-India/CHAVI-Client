@@ -324,9 +324,10 @@ def create_record_for_extracted_record(extracted_record, user):
     errors = []
     for db_field in db_table.databasefield_set.filter(is_active=True).select_related('lookup_content_type'):
         name = db_field.clientapp_field_name
-        validation = db_field.field_validation or {}
-        if (validation or {}).get('is_relationship'):
-            continue  # handled by _resolve_parent_fks
+        if not db_field.is_extractable():
+            # relationship FKs resolve via _resolve_parent_fks; auto PKs use
+            # the model's default (uuid4) — neither comes from extracted text
+            continue
         if name in ('id', 'created_at', 'updated_at'):
             continue
 

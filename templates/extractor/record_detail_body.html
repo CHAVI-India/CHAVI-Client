@@ -130,8 +130,8 @@ Used inside the record cards. Expects: rec, node, level, request.
 {# Record-level actions #}
 <div class="mt-4 pt-3 border-t border-gray-200 flex items-center gap-3">
     {% if rec.created_pk %}
-    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
-        <i class="fas fa-check mr-1"></i>Created as #{{ rec.created_pk }}
+    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold" title="{{ rec.created_pk }}">
+        <i class="fas fa-check mr-1"></i>Created as #{{ rec.created_pk|slice:":8" }}
     </span>
     {% else %}
     <form method="post" action="{% url 'extractor:extraction_record_create' rec.record.id %}">

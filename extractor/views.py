@@ -239,10 +239,12 @@ def wizard_step3(request, response_model_id):
     
     tables_with_fields = []
     for model_table in model_tables:
-        fields = DatabaseField.objects.filter(
+        # Only extractable fields are offered — internal FKs resolve from the
+        # parent record and auto-generated PKs (uuid4 defaults) aren't text
+        fields = [f for f in DatabaseField.objects.filter(
             clientapp_database_table=model_table.database_table,
             is_active=True,
-        )
+        ) if f.is_extractable()]
         
         selected_fields = ResponseModelTableField.objects.filter(
             response_model_table=model_table
@@ -420,7 +422,8 @@ def api_get_table_fields(request, table_id):
     """
     try:
         database_table = DatabaseTable.objects.get(id=table_id)
-        fields = DatabaseField.objects.filter(clientapp_database_table=database_table)
+        fields = [f for f in DatabaseField.objects.filter(
+            clientapp_database_table=database_table) if f.is_extractable()]
         
         fields_data = [{
             'id': field.id,

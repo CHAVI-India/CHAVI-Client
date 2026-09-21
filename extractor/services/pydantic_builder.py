@@ -154,6 +154,8 @@ class PydanticModelBuilder:
             field_defs = {}
             for table_field in table_fields:
                 db_field = table_field.field
+                if not db_field.is_extractable():
+                    continue
                 field_name = db_field.clientapp_field_name
                 annotation, field_info = cls._field_annotation(db_field)
 
@@ -271,7 +273,8 @@ from decimal import Decimal"""
         if not fields.exists():
             raise ValueError(f"No fields configured for table {table_name}")
 
-        field_definitions = [cls._build_field_definition(fc) for fc in fields]
+        extractable = [fc for fc in fields if fc.field.is_extractable()]
+        field_definitions = [cls._build_field_definition(fc) for fc in extractable]
         for child_mt in child_tables or []:
             child_name = child_mt.database_table.clientapp_content_type.model
             child_cls_name = cls._to_class_name(cls._safe_identifier(child_name, 'table'))
@@ -289,7 +292,7 @@ from decimal import Decimal"""
     {fields_code}"""
 
         date_pairs = model_table.database_table.date_validation_pairs or []
-        field_names = {fc.field.clientapp_field_name for fc in fields}
+        field_names = {fc.field.clientapp_field_name for fc in extractable}
         active_pairs = [(s, e) for s, e in date_pairs if s in field_names and e in field_names]
         if active_pairs:
             checks = "\n".join(

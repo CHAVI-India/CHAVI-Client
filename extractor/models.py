@@ -256,6 +256,33 @@ class DatabaseField(models.Model):
     def __str__(self):
         return f"{self.clientapp_database_table}.{self.clientapp_field_name}"
 
+    def is_extractable(self):
+        """
+        Whether this field should be sent to the LLM for extraction.
+
+        Excluded:
+        - internal relationship fields (non-lookup FKs like pathology.diagnosis)
+          — write-back resolves them from parent_record, never from text
+        - auto-generated primary keys (uuid default / non-editable, e.g.
+          chavi_*_id UUIDs and auto 'id') — generated on save, not document
+          content. Natural-key PKs without a default (e.g. study_instance_uid)
+          stay extractable.
+        """
+        if (self.field_validation or {}).get('is_relationship'):
+            return False
+
+        table = self.clientapp_database_table
+        if table and self.clientapp_field_name == (table.clientapp_table_pk_field_name or ''):
+            model_class = table.clientapp_content_type.model_class()
+            if model_class:
+                try:
+                    mf = model_class._meta.get_field(self.clientapp_field_name)
+                    if mf.has_default() or not mf.editable:
+                        return False
+                except Exception:
+                    pass
+        return True
+
     def clean(self):
         errors = {}
         

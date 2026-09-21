@@ -60,7 +60,7 @@
                                 <i class="fas fa-file-alt text-xl text-gray-400 mr-3"></i>
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">
-                                        {{ job.processed_file.file_upload.original_filename|default:file_upload.file.name|truncatechars:30 }}
+                                        {{ job.processed_file.file_upload.original_filename|default:job.processed_file.file_upload.file.name|truncatechars:30 }}
                                     </div>
                                     <div class="text-xs text-gray-500">
                                         ID: {{ job.id }}

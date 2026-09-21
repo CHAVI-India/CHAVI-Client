@@ -105,8 +105,7 @@ def _grid_columns(db_table):
     """Extractable columns for a table's grid, ordered by field name."""
     cols = []
     for f in db_table.databasefield_set.filter(is_active=True).order_by('clientapp_field_name'):
-        validation = f.field_validation or {}
-        if validation.get('is_relationship'):
+        if not f.is_extractable():
             continue
         if f.clientapp_field_name in _SKIP_FIELD_NAMES:
             continue
