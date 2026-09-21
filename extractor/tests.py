@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from extractor.models import (
     ClientConfiguration, DatabaseField, DatabaseTable, EntityTypeChoices,
-    ExtractedRecord, ExtractionJob, FileUpload, ProcessedText,
+    ExtractedRecord, ExtractionJob, ExtractionResult, FileUpload, ProcessedText,
     RecordCreation, ResponseModel, ResponseModelTable, ResponseModelTableField,
 )
 from extractor.services.model_hierarchy import (
@@ -511,3 +511,197 @@ class LookupMiningTests(TestCase):
         rules = InstructorExtractionService.build_lookup_rules(self.rm, resolved)
         self.assertEqual(
             rules['pathology.histological_type']['candidates'], ['Left'])
+
+
+class StagedPipelineTests(TestCase):
+    """Approval-gated pipeline: stage_prepare -> stage_mine -> stage_extract,
+    driven by the job status and the advance_extraction_job dispatcher."""
+
+    def setUp(self):
+        from lookup.models import LookupLaterality
+
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_diag = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_path = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology, auto_added=True)
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_diag,
+            field=make_field(self.diagnosis, 'diagnosis_date'))
+        lookup_ct = ContentType.objects.get_for_model(LookupLaterality)
+        self.hist_field = make_field(
+            self.pathology, 'histological_type',
+            lookup_field=True, lookup_content_type=lookup_ct,
+            lookup_table_pk_field_name='code',
+            lookup_table_value_field_name='label')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_path, field=self.hist_field)
+
+        self.user = User.objects.create(username='tester')
+        upload = FileUpload.objects.create(file='scan.pdf')
+        self.processed = ProcessedText.objects.create(
+            file_upload=upload, content_length=5)
+        self.job = ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user)
+        self.content = 'pathology report: squamous cell carcinoma, left side'
+
+    @staticmethod
+    def _fake_client(create_fn=None, mining_result=None):
+        completion = type('C', (), {'usage': type('U', (), {'total_tokens': 11})()})()
+        fake = type('FakeClient', (), {})()
+        fake.chat = type('Chat', (), {})()
+        fake.chat.completions = type('Comp', (), {})()
+        fake.chat.completions.create_with_completion = (
+            create_fn or (lambda **kw: (mining_result, completion)))
+        return fake
+
+    def test_stage_prepare_writes_prompt_and_awaits(self):
+        result = InstructorExtractionService.stage_prepare(self.job, self.content)
+        self.assertIsNone(result)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'awaiting_mining')
+        self.assertEqual(len(self.job.stage_trace), 1)
+        entry = self.job.stage_trace[0]
+        self.assertEqual((entry['stage'], entry['kind']), ('mining', 'prompt'))
+        self.assertIn('histological_type', entry['messages'][0]['content'])
+        self.assertIn(self.content, entry['messages'][0]['content'])
+
+    def test_stage_mine_builds_extraction_prompt_and_awaits(self):
+        from extractor.services.instructor_extractor import (
+            FieldSnippetEntry, LookupSnippetMap)
+        InstructorExtractionService.stage_prepare(self.job, self.content)
+
+        mined = LookupSnippetMap(entries=[
+            FieldSnippetEntry(table='Pathology', field='histological_type',
+                              snippets=['squamous cell carcinoma'])])
+        fake = self._fake_client(mining_result=mined)
+        with patch.object(InstructorExtractionService, '_get_llm_client',
+                          return_value=fake):
+            result = InstructorExtractionService.stage_mine(self.job, self.content)
+
+        self.assertIsNone(result)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'awaiting_extraction')
+        kinds = [(e['stage'], e['kind']) for e in self.job.stage_trace]
+        self.assertEqual(kinds, [
+            ('mining', 'prompt'), ('mining', 'result'), ('extraction', 'prompt')])
+        self.assertTrue(self.job.prompt_snapshot)
+        self.assertIn(
+            'squamous cell carcinoma',
+            self.job.stage_trace[1]['snippets']['pathology.histological_type'])
+
+    def test_stage_extract_sends_approved_messages_and_completes(self):
+        InstructorExtractionService.stage_prepare(self.job, self.content)
+        # Park at awaiting_extraction with a stored prompt + mining result
+        self.job.extraction_status = 'awaiting_extraction'
+        self.job.stage_trace.append({
+            'stage': 'mining', 'kind': 'result', 'resolved_options': {},
+            'snippets': {}, 'tokens': 3, 'at': '2026-01-01T00:00:00'})
+        self.job.stage_trace.append({
+            'stage': 'extraction', 'kind': 'prompt',
+            'messages': [{'role': 'user', 'content': 'APPROVED-PROMPT'}],
+            'at': '2026-01-01T00:00:00'})
+        self.job.save()
+
+        captured = {}
+        completion = type('C', (), {'usage': type('U', (), {'total_tokens': 42})()})()
+        def create(**kw):
+            captured.update(kw)
+            return (kw['response_model'].model_validate(
+                {'diagnosis': [{'diagnosis_date': '2024-01-01'}]}), completion)
+        fake = self._fake_client(create_fn=create)
+
+        with patch.object(InstructorExtractionService, '_get_llm_client',
+                          return_value=fake):
+            result = InstructorExtractionService.stage_extract(self.job, self.content)
+
+        self.assertTrue(result['success'])
+        # The approved prompt went out verbatim — not a rebuild
+        self.assertEqual(captured['messages'],
+                         [{'role': 'user', 'content': 'APPROVED-PROMPT'}])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'completed')
+        self.assertEqual(self.job.tokens_used, 45)
+        self.assertTrue(ExtractionResult.objects.filter(
+            extraction_job=self.job).exists())
+
+    def test_stage_mine_fails_on_changed_content(self):
+        InstructorExtractionService.stage_prepare(self.job, self.content)
+        result = InstructorExtractionService.stage_mine(
+            self.job, 'different document text')
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'failed')
+
+    def test_advance_dispatches_stage_by_status(self):
+        from extractor.tasks import advance_extraction_job
+
+        for status, method in [
+                ('pending', 'stage_prepare'),
+                ('awaiting_mining', 'stage_mine'),
+                ('awaiting_extraction', 'stage_extract')]:
+            self.job.extraction_status = status
+            self.job.save()
+            with patch.object(InstructorExtractionService, method,
+                              return_value=None) as m:
+                advance_extraction_job(self.job.id)
+            m.assert_called_once()
+
+        self.job.extraction_status = 'completed'
+        self.job.save()
+        with patch.object(InstructorExtractionService, 'stage_extract') as m:
+            advance_extraction_job(self.job.id)
+        m.assert_not_called()
+
+    def test_get_or_create_job_reuses_awaiting_job(self):
+        self.job.extraction_status = 'awaiting_mining'
+        self.job.save()
+        job2, created = InstructorExtractionService.get_or_create_job(
+            self.processed, self.rm, self.user)
+        self.assertFalse(created)
+        self.assertEqual(job2, self.job)
+
+    def test_continue_dispatches_only_when_awaiting(self):
+        from django.contrib.auth.models import Permission
+        perm = Permission.objects.get(
+            codename='add_extractionjob', content_type__app_label='extractor')
+        self.user.user_permissions.add(perm)
+        self.client.force_login(self.user)
+
+        self.job.extraction_status = 'awaiting_mining'
+        self.job.save()
+        with patch('extractor.views.advance_extraction_job') as adv:
+            resp = self.client.post(
+                f'/extractor/extraction/jobs/{self.job.id}/continue/')
+        adv.delay.assert_called_once_with(self.job.id)
+        self.assertEqual(resp.status_code, 302)
+
+        self.job.extraction_status = 'completed'
+        self.job.save()
+        with patch('extractor.views.advance_extraction_job') as adv:
+            resp = self.client.post(
+                f'/extractor/extraction/jobs/{self.job.id}/continue/')
+        adv.delay.assert_not_called()
+        self.assertEqual(resp.status_code, 302)
+
+    def test_continue_cancel_marks_skipped(self):
+        from django.contrib.auth.models import Permission
+        perm = Permission.objects.get(
+            codename='add_extractionjob', content_type__app_label='extractor')
+        self.user.user_permissions.add(perm)
+        self.client.force_login(self.user)
+
+        self.job.extraction_status = 'awaiting_extraction'
+        self.job.save()
+        with patch('extractor.views.advance_extraction_job') as adv:
+            self.client.post(
+                f'/extractor/extraction/jobs/{self.job.id}/continue/',
+                {'action': 'cancel'})
+        adv.delay.assert_not_called()
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'skipped')

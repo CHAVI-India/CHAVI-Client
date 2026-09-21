@@ -2,6 +2,10 @@
 
 {% block title %}Extraction Job #{{ extraction_job.id }} - CHAVI Client{% endblock %}
 
+{% block extra_head %}
+{% if stage_running %}<meta http-equiv="refresh" content="3">{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
     <!-- Header -->
@@ -28,6 +32,7 @@
                 <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full
                     {% if extraction_job.extraction_status == 'pending' %}bg-yellow-100 text-yellow-800
                     {% elif extraction_job.extraction_status == 'processing' %}bg-blue-100 text-blue-800
+                    {% elif extraction_job.extraction_status == 'awaiting_mining' or extraction_job.extraction_status == 'awaiting_extraction' %}bg-amber-100 text-amber-800
                     {% elif extraction_job.extraction_status == 'completed' %}bg-green-100 text-green-800
                     {% elif extraction_job.extraction_status == 'failed' %}bg-red-100 text-red-800
                     {% endif %}">
@@ -89,6 +94,74 @@
             </p>
             <p class="text-red-700 text-sm">{{ extraction_job.extraction_error }}</p>
         </div>
+        {% endif %}
+    </div>
+
+    <!-- Pipeline — stage prompts & results, gated on approval -->
+    <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <i class="fas fa-stream mr-2"></i>Pipeline
+        </h2>
+
+        {% if stage_running %}
+        <p class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4">
+            <i class="fas fa-spinner fa-spin mr-1"></i>
+            A stage is running — this page refreshes automatically.
+        </p>
+        {% endif %}
+
+        {% if stage_entries %}
+        <div class="space-y-3">
+            {% for entry in stage_entries %}
+            <details class="border rounded-lg {% if entry.pending %}border-amber-300 bg-amber-50{% else %}border-gray-200{% endif %}"
+                     {% if entry.pending %}open{% endif %}>
+                <summary class="cursor-pointer select-none px-4 py-2.5 text-sm font-semibold {% if entry.pending %}text-amber-900{% else %}text-gray-800{% endif %}">
+                    Stage {{ entry.number }} — {{ entry.label }} — {{ entry.kind }}{% if entry.kind == 'prompt' %} (sent to the LLM){% endif %}
+                    {% if entry.pending %}
+                    <span class="ml-2 bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full text-xs font-semibold">awaiting approval</span>
+                    {% endif %}
+                </summary>
+                <div class="px-4 pb-4">
+                    {% if entry.note %}
+                    <p class="text-sm text-gray-500">{{ entry.note }}</p>
+                    {% endif %}
+
+                    {% for msg in entry.messages %}
+                    <div class="mt-2">
+                        <span class="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-gray-200 text-gray-700">{{ msg.role }}</span>
+                        <pre class="mt-1 bg-gray-50 border border-gray-200 rounded p-3 text-xs whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">{{ msg.content }}</pre>
+                    </div>
+                    {% endfor %}
+
+                    {% if entry.kind == 'result' %}
+                    <pre class="mt-2 bg-gray-50 border border-gray-200 rounded p-3 text-xs whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">{{ entry.result_json }}</pre>
+                    {% endif %}
+
+                    {% if entry.pending %}
+                    <div class="mt-4 flex items-center gap-4">
+                        <form method="post" action="{% url 'extractor:extraction_job_continue' extraction_job.id %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="bg-chavi-gradient text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">
+                                <i class="fas fa-paper-plane mr-1"></i>Approve &amp; send to LLM
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'extractor:extraction_job_continue' extraction_job.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="cancel">
+                            <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-semibold">
+                                Cancel job
+                            </button>
+                        </form>
+                        <span class="text-xs text-amber-800">Nothing has been sent to the LLM for this stage yet.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% elif not stage_running %}
+        <p class="text-sm text-gray-500">No stages recorded for this job.</p>
         {% endif %}
     </div>
 

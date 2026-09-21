@@ -90,7 +90,37 @@
         <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
             <i class="fas fa-magic mr-3 text-chavi-primary"></i>LLM-Powered Data Extraction
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Run Extraction Card -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
+                        <i class="fas fa-robot text-purple-600 mr-2"></i>
+                        Run Extraction
+                    </h3>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-gray-600 leading-relaxed mb-4">Run extraction jobs on processed files per patient and review extracted results.</p>
+                    {% if user.is_authenticated %}
+                    <div class="space-y-2">
+                        <a href="{% url 'extractor:extraction_dashboard' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
+                            <i class="fas fa-play mr-2"></i>
+                            Extraction Dashboard
+                        </a>
+                        <a href="{% url 'extractor:extraction_results_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-chavi-primary hover:bg-gray-50 border-chavi-primary">
+                            <i class="fas fa-clipboard-list mr-2"></i>
+                            Extraction Results
+                        </a>
+                    </div>
+                    {% else %}
+                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
+                        <i class="fas fa-lock mr-1"></i>
+                        Login Required
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- File Upload Card -->
             <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -140,6 +170,10 @@
                         <a href="{% url 'extractor:response_model_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-purple-600 hover:bg-gray-50 border-purple-600">
                             <i class="fas fa-project-diagram mr-2"></i>
                             Response Models
+                        </a>
+                        <a href="{% url 'extractor:instructor_message_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-purple-600 hover:bg-gray-50 border-purple-600">
+                            <i class="fas fa-comment-dots mr-2"></i>
+                            Instructor Prompts
                         </a>
                     </div>
                     {% else %}

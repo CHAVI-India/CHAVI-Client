@@ -420,6 +420,8 @@ class InstructorMessage(models.Model):
 class ExtractionStatusChoices(models.TextChoices):
     PENDING = "pending", "Pending"
     PROCESSING = "processing", "Processing"
+    AWAITING_MINING = "awaiting_mining", "Awaiting approval: lookup mining"
+    AWAITING_EXTRACTION = "awaiting_extraction", "Awaiting approval: extraction"
     COMPLETED = "completed", "Completed"
     FAILED = "failed", "Failed"
     SKIPPED = "skipped", "Skipped"
@@ -442,6 +444,7 @@ class ExtractionJob(models.Model):
     prompt_snapshot = models.TextField(blank=True, help_text="The exact messages sent to the model (frozen at dispatch)")
     config_snapshot = models.JSONField(null=True, blank=True, help_text="Provider/model/schema version frozen at dispatch")
     retry_count = models.PositiveIntegerField(default=0, help_text="How many instructor retries the provider call used")
+    stage_trace = models.JSONField(default=list, blank=True, help_text="Ordered stage artifacts: prompt/result entries shown on the job detail page")
     extracted_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who performed the extraction")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

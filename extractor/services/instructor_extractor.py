@@ -299,15 +299,11 @@ Example: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left",
             yield from walk(model_table)
 
     @staticmethod
-    def mine_lookup_snippets(
-        client,
-        lookup_fields,
-        processed_content: str,
-        client_config,
-    ) -> Tuple[Dict[Tuple[str, str], List[str]], int]:
+    def build_mining_prompt(lookup_fields, processed_content: str) -> str:
         """
-        One LLM call that quotes verbatim document snippets for every lookup
-        field. Returns ({(table_lower, field_lower): [snippets]}, total_tokens).
+        The stage-1 mining prompt — verbatim-snippet quotes for every lookup
+        field. Single source of truth: mine_lookup_snippets sends it and the
+        job detail page displays it.
         """
         field_lines = []
         for model_table, field in lookup_fields:
@@ -318,7 +314,7 @@ Example: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "Left",
             )
         field_list = "\n".join(field_lines)
 
-        prompt = f"""You are locating information in a clinical document for a data-extraction pipeline.
+        return f"""You are locating information in a clinical document for a data-extraction pipeline.
 
 Below are FIELDS to extract, written as TABLE.FIELD with a short meaning.
 For EACH field, quote up to 3 DISTINCT text snippets from the document that
@@ -334,6 +330,20 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 <document>
 {processed_content}
 </document>"""
+
+    @staticmethod
+    def mine_lookup_snippets(
+        client,
+        lookup_fields,
+        processed_content: str,
+        client_config,
+    ) -> Tuple[Dict[Tuple[str, str], List[str]], int]:
+        """
+        One LLM call that quotes verbatim document snippets for every lookup
+        field. Returns ({(table_lower, field_lower): [snippets]}, total_tokens).
+        """
+        prompt = InstructorExtractionService.build_mining_prompt(
+            lookup_fields, processed_content)
 
         result, completion = client.chat.completions.create_with_completion(
             model=client_config.llm_model_name,
@@ -431,22 +441,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
             snippet_map, tokens = InstructorExtractionService.mine_lookup_snippets(
                 client, lookup_fields, processed_content, client_config)
-
-            for model_table, field in lookup_fields:
-                table_name = model_table.database_table.clientapp_content_type.model
-                snippets = snippet_map.get(
-                    (table_name.lower(), field.clientapp_field_name.lower()), [])
-                if not snippets:
-                    continue
-                try:
-                    options = InstructorExtractionService.resolve_snippets_to_options(
-                        field, snippets)
-                    if options:
-                        resolved[field.id] = options
-                except Exception as e:
-                    log.warning(
-                        f"Option resolution failed for "
-                        f"{field.clientapp_field_name}: {e}")
+            resolved = InstructorExtractionService._resolve_snippet_map(
+                lookup_fields, snippet_map)
 
             log.info(
                 f"Mined lookup options for {len(resolved)}/"
@@ -457,6 +453,33 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             log.warning(
                 f"Lookup option mining failed, continuing without options: {e}")
             return resolved, 0
+
+    @staticmethod
+    def _resolve_snippet_map(
+        lookup_fields,
+        snippet_map: Dict[Tuple[str, str], List[str]],
+    ) -> Dict[int, List[Dict[str, Any]]]:
+        """
+        Resolve mined snippets to real lookup options per field.
+        Returns {field_id: [{'code','label','similarity'}]}.
+        """
+        resolved: Dict[int, List[Dict[str, Any]]] = {}
+        for model_table, field in lookup_fields:
+            table_name = model_table.database_table.clientapp_content_type.model
+            snippets = snippet_map.get(
+                (table_name.lower(), field.clientapp_field_name.lower()), [])
+            if not snippets:
+                continue
+            try:
+                options = InstructorExtractionService.resolve_snippets_to_options(
+                    field, snippets)
+                if options:
+                    resolved[field.id] = options
+            except Exception as e:
+                log.warning(
+                    f"Option resolution failed for "
+                    f"{field.clientapp_field_name}: {e}")
+        return resolved
 
     @staticmethod
     def build_lookup_rules(
@@ -598,190 +621,400 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             return []
     
     @staticmethod
-    def extract_data(
-        extraction_job: ExtractionJob,
-        processed_content: str,
-        user
-    ) -> Dict[str, Any]:
-        """
-        Perform the actual data extraction using Instructor.
+    def _job_result(success: bool, data=None, tokens=None, raw=None, error=None):
+        """The result contract shared by all stage methods."""
+        return {'success': success, 'data': data, 'tokens_used': tokens,
+                'raw_response': raw, 'error': error}
 
-        Returns:
-            Dict with 'success', 'data', 'tokens_used', 'raw_response', 'error'
+    @staticmethod
+    def _append_trace(extraction_job: ExtractionJob, stage: str, kind: str, **payload):
+        """
+        Append one {stage, kind, at, ...} entry to job.stage_trace — the
+        prompt/result artifacts the job detail page renders. Caller saves.
+        """
+        trace = list(extraction_job.stage_trace or [])
+        trace.append({'stage': stage, 'kind': kind,
+                      'at': timezone.now().isoformat(), **payload})
+        extraction_job.stage_trace = trace
+
+    @staticmethod
+    def _stage_fail(extraction_job: ExtractionJob, message: str):
+        extraction_job.extraction_status = ExtractionStatusChoices.FAILED
+        extraction_job.extraction_error = message
+        extraction_job.extraction_end_datetime = timezone.now()
+        extraction_job.save()
+        return InstructorExtractionService._job_result(False, error=message)
+
+    @staticmethod
+    def _check_content_unchanged(extraction_job: ExtractionJob, processed_content: str):
+        """
+        Between approval clicks the processed file must stay byte-identical
+        to what stage_prepare hashed — a reprocessed file means the approved
+        prompts no longer match the document.
         """
         import hashlib
-        from django.db import transaction
+        digest = hashlib.sha256(processed_content.encode('utf-8')).hexdigest()
+        if extraction_job.input_content_hash \
+                and digest != extraction_job.input_content_hash:
+            return InstructorExtractionService._stage_fail(
+                extraction_job,
+                'Processed file changed since this run was prepared; '
+                'start a new extraction.')
+        return None
 
-        try:
-            client_config = extraction_job.response_model.client
-            processed_file = extraction_job.processed_file
+    @staticmethod
+    def _get_llm_client(response_model: ResponseModel):
+        """
+        Instructor client for the job's provider. Ollama models often don't
+        support function calling, so they run in JSON mode — check the base
+        URL too: configs labeled 'Other'/'openai' may still point at an
+        Ollama endpoint (ollama.com, localhost:11434, etc.)
+        """
+        client_config = response_model.client
+        provider = client_config.model_provider.lower()
+        base_url = (client_config.model_base_url or '').lower()
+        mode = None
+        if 'ollama' in provider or 'ollama' in base_url:
+            log.info("Using JSON mode for Ollama model (no tool support)")
+            mode = instructor.Mode.JSON
+        return InstructorExtractionService.get_instructor_client(response_model, mode=mode)
 
-            # Expired key guard: fail fast with a clear reason rather than a
-            # provider-side auth error mid-extraction
-            if client_config.api_key_expired():
-                extraction_job.extraction_status = ExtractionStatusChoices.FAILED
-                extraction_job.extraction_error = (
-                    f"API key expired on "
-                    f"{client_config.model_api_key_validity:%Y-%m-%d}")
-                extraction_job.extraction_end_datetime = timezone.now()
-                extraction_job.save()
-                return {'success': False, 'data': None, 'tokens_used': None,
-                        'raw_response': None, 'error': 'api key expired'}
+    @staticmethod
+    def stage_prepare(
+        extraction_job: ExtractionJob,
+        processed_content: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Stage 0 — everything before the first LLM call: guards, frozen
+        snapshots, extraction-model build, context budget, then the stage-1
+        mining prompt is written to stage_trace and the job parks in
+        awaiting_mining. Returns a result dict only on terminal outcomes
+        (skipped/failed); None means the job awaits approval.
+        """
+        import hashlib
 
-            # Empty-content guard: never spend an LLM call on a file that
-            # produced no usable text (scanned PDF, empty CSV, etc.)
-            if not processed_content or not processed_content.strip() \
-                    or processed_file.processing_warning == 'no_text' \
-                    or processed_file.content_length == 0:
-                extraction_job.extraction_status = ExtractionStatusChoices.SKIPPED
-                extraction_job.extraction_error = 'Processed file has no extractable text'
-                extraction_job.extraction_end_datetime = timezone.now()
-                extraction_job.save()
-                return {'success': False, 'data': None, 'tokens_used': None,
-                        'raw_response': None, 'error': 'skipped: no extractable text'}
+        client_config = extraction_job.response_model.client
+        processed_file = extraction_job.processed_file
 
-            # Freeze what this job ran on before any LLM call
-            extraction_job.input_content_hash = hashlib.sha256(
-                processed_content.encode('utf-8')).hexdigest()
-            extraction_job.config_snapshot = {
-                'provider': client_config.model_provider,
-                'model': client_config.llm_model_name,
-                'base_url': client_config.model_base_url,
-                'response_model_id': extraction_job.response_model_id,
-                'response_model_name': extraction_job.response_model.name,
-                'processed_file_id': processed_file.id,
-                'processed_file_version': processed_file.version,
-            }
-
-            # Update job status
-            extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
-            extraction_job.extraction_start_datetime = timezone.now()
+        # Expired key guard: fail fast with a clear reason rather than a
+        # provider-side auth error mid-extraction
+        if client_config.api_key_expired():
+            extraction_job.extraction_status = ExtractionStatusChoices.FAILED
+            extraction_job.extraction_error = (
+                f"API key expired on "
+                f"{client_config.model_api_key_validity:%Y-%m-%d}")
+            extraction_job.extraction_end_datetime = timezone.now()
             extraction_job.save()
+            return InstructorExtractionService._job_result(
+                False, error='api key expired')
 
-            response_model = extraction_job.response_model
+        # Empty-content guard: never spend an LLM call on a file that
+        # produced no usable text (scanned PDF, empty CSV, etc.)
+        if not processed_content or not processed_content.strip() \
+                or processed_file.processing_warning == 'no_text' \
+                or processed_file.content_length == 0:
+            extraction_job.extraction_status = ExtractionStatusChoices.SKIPPED
+            extraction_job.extraction_error = 'Processed file has no extractable text'
+            extraction_job.extraction_end_datetime = timezone.now()
+            extraction_job.save()
+            return InstructorExtractionService._job_result(
+                False, error='skipped: no extractable text')
 
-            # Determine mode based on provider
-            # Ollama models often don't support function calling, use JSON mode.
-            # Check the base URL too: configs labeled 'Other'/'openai' may still
-            # point at an Ollama endpoint (ollama.com, localhost:11434, etc.)
-            provider = client_config.model_provider.lower()
-            base_url = (client_config.model_base_url or '').lower()
-            mode = None
-            if 'ollama' in provider or 'ollama' in base_url:
-                log.info("Using JSON mode for Ollama model (no tool support)")
-                mode = instructor.Mode.JSON
+        # Freeze what this job ran on before any LLM call
+        extraction_job.input_content_hash = hashlib.sha256(
+            processed_content.encode('utf-8')).hexdigest()
+        extraction_job.config_snapshot = {
+            'provider': client_config.model_provider,
+            'model': client_config.llm_model_name,
+            'base_url': client_config.model_base_url,
+            'response_model_id': extraction_job.response_model_id,
+            'response_model_name': extraction_job.response_model.name,
+            'processed_file_id': processed_file.id,
+            'processed_file_version': processed_file.version,
+        }
 
-            # Get Instructor client with appropriate mode
-            client = InstructorExtractionService.get_instructor_client(response_model, mode=mode)
+        extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
+        extraction_job.extraction_start_datetime = timezone.now()
+        extraction_job.save()
 
-            # Build the extraction model — same builder the wizard preview uses
-            PydanticModel = PydanticModelBuilder.build_extraction_model(response_model)
+        response_model = extraction_job.response_model
 
-            # Context budget first — fail fast before the mining call rather
-            # than after spending a document pass on it
-            if len(processed_content) // 4 + 2048 > client_config.context_size:
-                raise ValueError(
-                    f"Document is ~{len(processed_content) // 4} tokens, over "
-                    f"the configured context size of "
-                    f"{client_config.context_size}. Split the document or "
-                    f"raise the client's context size."
-                )
+        # Build the extraction model — same builder the wizard preview uses
+        PydanticModelBuilder.build_extraction_model(response_model)
 
-            # Mine lookup options: one batched LLM call quotes verbatim
-            # document snippets per lookup field, then embeddings resolve
-            # them to real lookup entries for the "Valid Options" hints
-            resolved_options, mining_tokens = InstructorExtractionService.mine_lookup_options(
-                client, response_model, processed_content, client_config)
-            extraction_job.config_snapshot['lookup_options_mined'] = {
-                f.clientapp_field_name: len(resolved_options[f.id])
-                for _, f in InstructorExtractionService._iter_lookup_fields(response_model)
-                if f.id in resolved_options
-            }
+        # Context budget first — fail fast before the mining call rather
+        # than after spending a document pass on it
+        if len(processed_content) // 4 + 2048 > client_config.context_size:
+            raise ValueError(
+                f"Document is ~{len(processed_content) // 4} tokens, over "
+                f"the configured context size of "
+                f"{client_config.context_size}. Split the document or "
+                f"raise the client's context size."
+            )
 
-            # Ground-truth label sets for the model's lookup validators —
-            # out-of-lookup values fail pydantic validation and instructor
-            # re-asks with the error before the job saves anything
-            lookup_rules = InstructorExtractionService.build_lookup_rules(
-                response_model, resolved_options)
-
-            # Get messages
+        lookup_fields = list(
+            InstructorExtractionService._iter_lookup_fields(response_model))
+        if lookup_fields:
+            InstructorExtractionService._append_trace(
+                extraction_job, 'mining', 'prompt',
+                messages=[{
+                    'role': 'user',
+                    'content': InstructorExtractionService.build_mining_prompt(
+                        lookup_fields, processed_content)}])
+            extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_MINING
+        else:
+            # No lookup fields — nothing to mine, so build the stage-2
+            # prompt now and park for the single approval that remains
+            InstructorExtractionService._append_trace(
+                extraction_job, 'mining', 'result',
+                note='No lookup fields — mining stage skipped.',
+                snippets={}, resolved_options={}, tokens=0)
             messages = InstructorExtractionService.get_messages(
-                response_model, processed_content, resolved_options=resolved_options)
-
-            # Freeze the exact prompt on the job before sending
-            extraction_job.prompt_snapshot = json.dumps(messages)
-            extraction_job.save(update_fields=['prompt_snapshot'])
-
-            # Context budget: refuse rather than let the provider silently
-            # truncate the document tail (~4 chars/token estimate)
-            approx_tokens = sum(len(m.get('content', '')) for m in messages) // 4
+                response_model, processed_content, resolved_options={})
+            approx_tokens = sum(
+                len(m.get('content', '')) for m in messages) // 4
             if approx_tokens > client_config.context_size:
                 raise ValueError(
                     f"Prompt is ~{approx_tokens} tokens, over the configured "
                     f"context size of {client_config.context_size}. Split the "
                     f"document or raise the client's context size."
                 )
+            extraction_job.prompt_snapshot = json.dumps(messages)
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'prompt', messages=messages)
+            extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
 
-            log.info(f"Starting extraction job {extraction_job.id} with model: {client_config.llm_model_name}")
+        extraction_job.extraction_error = None
+        extraction_job.save()
+        return None
 
-            # Call Instructor; create_with_completion exposes usage stats
-            create_kwargs = dict(
-                model=client_config.llm_model_name,
-                response_model=PydanticModel,
-                messages=messages,
-                max_tokens=client_config.model_max_tokens,
-                timeout=client_config.request_timeout,
+    @staticmethod
+    def stage_mine(
+        extraction_job: ExtractionJob,
+        processed_content: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Stage 1 — the approved mining prompt goes to the LLM, snippets
+        resolve to real lookup options, and the stage-2 extraction messages
+        are built and parked under awaiting_extraction. Returns a result
+        dict only on terminal outcomes; None means awaiting approval.
+        """
+        changed = InstructorExtractionService._check_content_unchanged(
+            extraction_job, processed_content)
+        if changed:
+            return changed
+
+        client_config = extraction_job.response_model.client
+        response_model = extraction_job.response_model
+
+        extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
+        extraction_job.save()
+
+        client = InstructorExtractionService._get_llm_client(response_model)
+
+        # Mine lookup options: one batched LLM call quotes verbatim document
+        # snippets, then embeddings resolve them to real lookup entries for
+        # the "Valid Options" hints
+        lookup_fields = list(
+            InstructorExtractionService._iter_lookup_fields(response_model))
+        resolved_options: Dict[int, List[Dict[str, Any]]] = {}
+        mining_tokens = 0
+        if lookup_fields:
+            snippet_map, mining_tokens = InstructorExtractionService.mine_lookup_snippets(
+                client, lookup_fields, processed_content, client_config)
+            resolved_options = InstructorExtractionService._resolve_snippet_map(
+                lookup_fields, snippet_map)
+            log.info(
+                f"Mined lookup options for {len(resolved_options)}/"
+                f"{len(lookup_fields)} fields; mining tokens: {mining_tokens}")
+
+            InstructorExtractionService._append_trace(
+                extraction_job, 'mining', 'result',
+                snippets={f"{t}.{f}": s for (t, f), s in snippet_map.items()},
+                resolved_options={str(k): v for k, v in resolved_options.items()},
+                tokens=mining_tokens)
+
+        config_snapshot = dict(extraction_job.config_snapshot or {})
+        config_snapshot['lookup_options_mined'] = {
+            f.clientapp_field_name: len(resolved_options[f.id])
+            for _, f in lookup_fields
+            if f.id in resolved_options
+        }
+        extraction_job.config_snapshot = config_snapshot
+
+        # Get messages
+        messages = InstructorExtractionService.get_messages(
+            response_model, processed_content, resolved_options=resolved_options)
+
+        # Freeze the exact prompt on the job before sending
+        extraction_job.prompt_snapshot = json.dumps(messages)
+
+        # Context budget: refuse rather than let the provider silently
+        # truncate the document tail (~4 chars/token estimate)
+        approx_tokens = sum(len(m.get('content', '')) for m in messages) // 4
+        if approx_tokens > client_config.context_size:
+            raise ValueError(
+                f"Prompt is ~{approx_tokens} tokens, over the configured "
+                f"context size of {client_config.context_size}. Split the "
+                f"document or raise the client's context size."
             )
-            try:
-                result, completion = client.chat.completions.create_with_completion(
-                    context={PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules},
-                    **create_kwargs,
-                )
-            except InstructorRetryException as e:
-                # Only parse/validation failures leave failed_attempts — for a
-                # stubborn out-of-lookup value, re-ask once unconstrained so
-                # the record still lands in 'unresolved' review instead of
-                # failing the whole job. Transport errors re-raise.
-                if not e.failed_attempts:
-                    raise
-                log.warning(
-                    f"Extraction job {extraction_job.id}: validation retries "
-                    f"exhausted after {e.n_attempts} attempts; re-asking "
-                    f"without lookup constraints")
-                result, completion = client.chat.completions.create_with_completion(
-                    **create_kwargs)
 
-            # mode='json' keeps Decimals/dates JSON-serializable for
-            # raw_llm_response, nested dict/list fields, and the Celery result
-            extracted_data = result.model_dump(mode='json')
+        InstructorExtractionService._append_trace(
+            extraction_job, 'extraction', 'prompt', messages=messages)
+        extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
+        extraction_job.save()
+        return None
 
-            usage = getattr(completion, 'usage', None)
-            tokens = getattr(usage, 'total_tokens', None) if usage else None
+    @staticmethod
+    def stage_extract(
+        extraction_job: ExtractionJob,
+        processed_content: str,
+    ) -> Dict[str, Any]:
+        """
+        Stage 2 — the approved extraction messages go to the LLM verbatim
+        (read back from stage_trace, not rebuilt), results are saved, and
+        the job completes. Always returns a result dict.
+        """
+        from django.db import transaction
 
-            log.info(f"Extraction job {extraction_job.id} completed; tokens: {tokens}")
+        changed = InstructorExtractionService._check_content_unchanged(
+            extraction_job, processed_content)
+        if changed:
+            return changed
 
-            # Save results and mark complete atomically — a crash mid-save
-            # leaves the job non-complete rather than half-written
-            with transaction.atomic():
-                InstructorExtractionService.save_extraction_results(
-                    extraction_job,
-                    extracted_data,
-                    user,
-                    content=processed_content
-                )
-                extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
-                extraction_job.extraction_end_datetime = timezone.now()
-                extraction_job.raw_llm_response = json.dumps(extracted_data)
-                extraction_job.tokens_used = (tokens or 0) + mining_tokens
-                extraction_job.save()
+        client_config = extraction_job.response_model.client
+        response_model = extraction_job.response_model
 
-            return {
-                'success': True,
-                'data': extracted_data,
-                'tokens_used': tokens,
-                'raw_response': extracted_data,
-                'error': None
+        extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
+        extraction_job.save()
+
+        client = InstructorExtractionService._get_llm_client(response_model)
+        PydanticModel = PydanticModelBuilder.build_extraction_model(response_model)
+
+        # Send exactly the messages the user approved — not a rebuild
+        prompt_entry = next(
+            (e for e in reversed(extraction_job.stage_trace or [])
+             if e.get('stage') == 'extraction' and e.get('kind') == 'prompt'),
+            None)
+        if prompt_entry:
+            messages = prompt_entry['messages']
+        else:
+            # Defensive: jobs that reached here without a traced prompt
+            # rebuild the messages rather than sending nothing
+            messages = InstructorExtractionService.get_messages(
+                response_model, processed_content)
+            extraction_job.prompt_snapshot = json.dumps(messages)
+            extraction_job.save(update_fields=['prompt_snapshot'])
+
+        mine_entry = next(
+            (e for e in reversed(extraction_job.stage_trace or [])
+             if e.get('stage') == 'mining' and e.get('kind') == 'result'),
+            None) or {}
+        resolved_options = {
+            int(k): v for k, v in mine_entry.get('resolved_options', {}).items()}
+        mining_tokens = int(mine_entry.get('tokens') or 0)
+
+        # Ground-truth label sets for the model's lookup validators —
+        # out-of-lookup values fail pydantic validation and instructor
+        # re-asks with the error before the job saves anything
+        lookup_rules = InstructorExtractionService.build_lookup_rules(
+            response_model, resolved_options)
+
+        log.info(f"Starting extraction job {extraction_job.id} with model: {client_config.llm_model_name}")
+
+        # Call Instructor; create_with_completion exposes usage stats
+        create_kwargs = dict(
+            model=client_config.llm_model_name,
+            response_model=PydanticModel,
+            messages=messages,
+            max_tokens=client_config.model_max_tokens,
+            timeout=client_config.request_timeout,
+        )
+        try:
+            result, completion = client.chat.completions.create_with_completion(
+                context={PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules},
+                **create_kwargs,
+            )
+        except InstructorRetryException as e:
+            # Only parse/validation failures leave failed_attempts — for a
+            # stubborn out-of-lookup value, re-ask once unconstrained so
+            # the record still lands in 'unresolved' review instead of
+            # failing the whole job. Transport errors re-raise.
+            if not e.failed_attempts:
+                raise
+            log.warning(
+                f"Extraction job {extraction_job.id}: validation retries "
+                f"exhausted after {e.n_attempts} attempts; re-asking "
+                f"without lookup constraints")
+            result, completion = client.chat.completions.create_with_completion(
+                **create_kwargs)
+
+        # mode='json' keeps Decimals/dates JSON-serializable for
+        # raw_llm_response, nested dict/list fields, and the Celery result
+        extracted_data = result.model_dump(mode='json')
+
+        usage = getattr(completion, 'usage', None)
+        tokens = getattr(usage, 'total_tokens', None) if usage else None
+
+        InstructorExtractionService._append_trace(
+            extraction_job, 'extraction', 'result',
+            data=extracted_data, tokens=tokens)
+
+        log.info(f"Extraction job {extraction_job.id} completed; tokens: {tokens}")
+
+        # Save results and mark complete atomically — a crash mid-save
+        # leaves the job non-complete rather than half-written
+        with transaction.atomic():
+            InstructorExtractionService.save_extraction_results(
+                extraction_job,
+                extracted_data,
+                extraction_job.extracted_by,
+                content=processed_content
+            )
+            extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
+            extraction_job.extraction_end_datetime = timezone.now()
+            extraction_job.raw_llm_response = json.dumps(extracted_data)
+            extraction_job.tokens_used = (tokens or 0) + mining_tokens
+            extraction_job.save()
+
+        return InstructorExtractionService._job_result(
+            True, data=extracted_data, tokens=tokens, raw=extracted_data)
+
+    @staticmethod
+    def extract_data(
+        extraction_job: ExtractionJob,
+        processed_content: str,
+        user
+    ) -> Dict[str, Any]:
+        """
+        Synchronous full run — the same stages the approval-gated UI steps
+        through, called back-to-back for the bulk/management path.
+
+        Returns:
+            Dict with 'success', 'data', 'tokens_used', 'raw_response', 'error'
+        """
+        try:
+            # Same status-driven dispatch as tasks.advance_extraction_job,
+            # so jobs without lookup fields skip straight to extraction
+            stage_by_status = {
+                ExtractionStatusChoices.PENDING:
+                    InstructorExtractionService.stage_prepare,
+                ExtractionStatusChoices.AWAITING_MINING:
+                    InstructorExtractionService.stage_mine,
+                ExtractionStatusChoices.AWAITING_EXTRACTION:
+                    InstructorExtractionService.stage_extract,
             }
+            for _ in range(3):
+                stage = stage_by_status.get(extraction_job.extraction_status)
+                if stage is None:
+                    return InstructorExtractionService._job_result(
+                        extraction_job.extraction_status
+                        == ExtractionStatusChoices.COMPLETED)
+                outcome = stage(extraction_job, processed_content)
+                if outcome is not None:
+                    return outcome
+            return InstructorExtractionService._job_result(
+                False, error='pipeline did not reach a terminal state')
 
         except Exception as e:
             log.error(f"Extraction job {extraction_job.id} failed: {e}", exc_info=True)
@@ -792,14 +1025,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             extraction_job.extraction_error = str(e)
             extraction_job.save()
 
-            return {
-                'success': False,
-                'data': None,
-                'tokens_used': None,
-                'raw_response': None,
-                'error': str(e)
-            }
-    
+            return InstructorExtractionService._job_result(False, error=str(e))
+
     @staticmethod
     def save_extraction_results(
         extraction_job: ExtractionJob,
@@ -951,6 +1178,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         live_statuses = [
             ExtractionStatusChoices.PENDING,
             ExtractionStatusChoices.PROCESSING,
+            ExtractionStatusChoices.AWAITING_MINING,
+            ExtractionStatusChoices.AWAITING_EXTRACTION,
         ]
         existing = ExtractionJob.objects.filter(
             response_model=response_model,
@@ -978,7 +1207,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         """
         Perform bulk extraction on multiple processed files (synchronous path,
         kept for management-command/test use). The web UI dispatches Celery
-        tasks via extractor.tasks.run_extraction_job instead.
+        tasks via extractor.tasks.advance_extraction_job instead.
 
         Returns:
             Dict with 'total', 'successful', 'failed', 'jobs'

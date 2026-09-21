@@ -87,11 +87,13 @@
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                 {% if job.extraction_status == 'pending' %}bg-yellow-100 text-yellow-800
                                 {% elif job.extraction_status == 'processing' %}bg-blue-100 text-blue-800
+                                {% elif job.extraction_status == 'awaiting_mining' or job.extraction_status == 'awaiting_extraction' %}bg-amber-100 text-amber-800
                                 {% elif job.extraction_status == 'completed' %}bg-green-100 text-green-800
                                 {% elif job.extraction_status == 'failed' %}bg-red-100 text-red-800
                                 {% endif %}">
                                 {% if job.extraction_status == 'pending' %}<i class="fas fa-clock mr-1"></i>
                                 {% elif job.extraction_status == 'processing' %}<i class="fas fa-spinner fa-spin mr-1"></i>
+                                {% elif job.extraction_status == 'awaiting_mining' or job.extraction_status == 'awaiting_extraction' %}<i class="fas fa-pause mr-1"></i>
                                 {% elif job.extraction_status == 'completed' %}<i class="fas fa-check mr-1"></i>
                                 {% elif job.extraction_status == 'failed' %}<i class="fas fa-times mr-1"></i>
                                 {% endif %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path('response-models/', views.response_model_list, name='response_model_list'),
     path('response-models/<int:response_model_id>/', views.response_model_detail, name='response_model_detail'),
     path('response-models/<int:response_model_id>/messages/create/', views.instructor_message_create, name='instructor_message_create'),
+    path('messages/', views.instructor_message_list, name='instructor_message_list'),
     path('messages/<int:message_id>/edit/', views.instructor_message_edit, name='instructor_message_edit'),
     path('messages/<int:message_id>/delete/', views.instructor_message_delete, name='instructor_message_delete'),
     
@@ -38,6 +39,7 @@ urlpatterns = [
     path('extraction/start/', views.extraction_start, name='extraction_start'),
     path('extraction/results/', views.extraction_results_list, name='extraction_results_list'),
     path('extraction/results/<int:job_id>/', views.extraction_job_detail, name='extraction_job_detail'),
+    path('extraction/jobs/<int:job_id>/continue/', views.extraction_job_continue, name='extraction_job_continue'),
     path('extraction/results/<int:result_id>/update/', views.extraction_result_update, name='extraction_result_update'),
     path('extraction/record/<int:extracted_record_id>/create/', views.extraction_record_create, name='extraction_record_create'),
     

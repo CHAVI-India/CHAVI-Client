@@ -7,6 +7,7 @@ from logging import getLogger
 from celery import chain, shared_task
 from django.contrib.contenttypes.models import ContentType
 from django.db import close_old_connections
+from django.utils import timezone
 
 from extractor.models import EmbeddingConfiguration, BackgroundTask
 from extractor.services.embeddings import EmbeddingUnavailableError
@@ -173,13 +174,25 @@ def finalize_lookup_embeddings_task(self, task_id, config_id, target_version, re
 
 
 @shared_task(bind=True, max_retries=0)
-def run_extraction_job(self, job_id):
+def advance_extraction_job(self, job_id):
     """
-    Celery task: run one extraction job (one processed file x one model).
-    Retries are disabled — a failed job stays failed and can be re-dispatched
-    explicitly, so transient provider errors never double-charge silently.
+    Celery task: advance one extraction job by a single stage — the job
+    status says which stage runs next:
+
+      pending              -> stage_prepare (builds the mining prompt,
+                              parks at awaiting_mining)
+      awaiting_mining      -> stage_mine (mining LLM call, builds the
+                              extraction prompt, parks at awaiting_extraction)
+      awaiting_extraction  -> stage_extract (extraction LLM call, saves
+                              results, completes)
+      failed               -> re-run stage_prepare (explicit re-dispatch)
+
+    Anything else (processing, completed, skipped) is a no-op so double
+    dispatches are safe. Retries are disabled — a failed job stays failed
+    and can be re-dispatched explicitly, so transient provider errors
+    never double-charge silently.
     """
-    from extractor.models import ExtractionJob
+    from extractor.models import ExtractionJob, ExtractionStatusChoices
     from extractor.services.file_processor import FileProcessorService
     from extractor.services.instructor_extractor import InstructorExtractionService
 
@@ -191,13 +204,29 @@ def run_extraction_job(self, job_id):
         log.error(f"ExtractionJob {job_id} not found")
         return {'success': False, 'error': 'job not found'}
 
-    if job.extraction_status not in ('pending', 'failed'):
+    stage_by_status = {
+        ExtractionStatusChoices.PENDING: InstructorExtractionService.stage_prepare,
+        ExtractionStatusChoices.AWAITING_MINING: InstructorExtractionService.stage_mine,
+        ExtractionStatusChoices.AWAITING_EXTRACTION: InstructorExtractionService.stage_extract,
+        # An explicit re-dispatch after failure restarts the pipeline
+        ExtractionStatusChoices.FAILED: InstructorExtractionService.stage_prepare,
+    }
+    stage = stage_by_status.get(job.extraction_status)
+    if stage is None:
         log.info(f"Job {job_id} already {job.extraction_status}; skipping")
         return {'success': True, 'reused': True, 'status': job.extraction_status}
 
     content = FileProcessorService.get_processed_content(job.processed_file)
-    result = InstructorExtractionService.extract_data(job, content, job.extracted_by)
-    return result
+    try:
+        result = stage(job, content)
+    except Exception as e:
+        log.error(f"Extraction job {job_id} failed: {e}", exc_info=True)
+        job.extraction_status = ExtractionStatusChoices.FAILED
+        job.extraction_end_datetime = timezone.now()
+        job.extraction_error = str(e)
+        job.save()
+        return {'success': False, 'error': str(e)}
+    return result or {'success': True, 'status': job.extraction_status}
 
 
 @shared_task(bind=True, max_retries=0)

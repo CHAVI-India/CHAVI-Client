@@ -26,7 +26,7 @@ from extractor.services.model_hierarchy import ancestor_tables, identity_field_n
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.file_processor import FileProcessorService
 from extractor.services.instructor_extractor import InstructorExtractionService
-from extractor.tasks import run_extraction_job
+from extractor.tasks import advance_extraction_job
 from extractor.models import FileUpload, ProcessedText
 
 log = getLogger(__name__)
@@ -1121,12 +1121,14 @@ def extraction_start(request):
         # so double-submits don't double-charge.
         queued = 0
         reused = 0
+        single_job = None
         for processed_file in processed_files:
             job, created = InstructorExtractionService.get_or_create_job(
                 processed_file, response_model, request.user
             )
+            single_job = job
             if created:
-                run_extraction_job.delay(job.id)
+                advance_extraction_job.delay(job.id)
                 queued += 1
             else:
                 reused += 1
@@ -1138,6 +1140,10 @@ def extraction_start(request):
             + f" for {len(processed_files)} file(s)."
         )
 
+        # One file → land on the job detail page where the staged pipeline
+        # prompts wait for approval
+        if processed_files.count() == 1 and single_job is not None:
+            return redirect('extractor:extraction_job_detail', job_id=single_job.id)
         return redirect(back)
         
     except Exception as e:
@@ -1212,15 +1218,77 @@ def extraction_job_detail(request, job_id):
     # Get processed file content
     content = FileProcessorService.get_processed_content(extraction_job.processed_file)
 
+    # Stage trace → display entries; the prompt entry matching the awaiting
+    # status is the one parked for approval
+    awaiting_stage = {
+        ExtractionStatusChoices.AWAITING_MINING: 'mining',
+        ExtractionStatusChoices.AWAITING_EXTRACTION: 'extraction',
+    }.get(extraction_job.extraction_status)
+    trace = extraction_job.stage_trace or []
+    pending_idx = max(
+        (i for i, e in enumerate(trace)
+         if e.get('kind') == 'prompt' and e.get('stage') == awaiting_stage),
+        default=None)
+    stage_entries = []
+    for i, entry in enumerate(trace):
+        stage_entries.append({
+            'number': {'mining': 1, 'extraction': 2}.get(entry.get('stage'), '?'),
+            'label': {'mining': 'Lookup mining', 'extraction': 'Extraction'}.get(
+                entry.get('stage'), str(entry.get('stage', '')).title()),
+            'kind': entry.get('kind'),
+            'note': entry.get('note'),
+            'messages': entry.get('messages') or [],
+            'result_json': json.dumps(
+                {k: v for k, v in entry.items()
+                 if k not in ('stage', 'kind', 'at', 'messages', 'note')},
+                indent=2, default=str) if entry.get('kind') == 'result' else None,
+            'pending': awaiting_stage is not None and i == pending_idx,
+        })
+
     context = {
         'extraction_job': extraction_job,
         'extraction_results': extraction_results,
         'data_tree': data_tree,
         'processed_content': content,
         'total_results': extraction_results.count(),
+        'stage_entries': stage_entries,
+        'stage_running': extraction_job.extraction_status in (
+            ExtractionStatusChoices.PENDING, ExtractionStatusChoices.PROCESSING),
     }
 
     return render(request, 'extractor/extraction_job_detail.html', context)
+
+
+@login_required
+@permission_required('extractor.add_extractionjob', raise_exception=True)
+@require_http_methods(["POST"])
+def extraction_job_continue(request, job_id):
+    """
+    Approve the pending stage of a gated extraction job — dispatches the
+    Celery task that sends the shown prompt to the LLM. 'cancel' abandons
+    the job so the file can be re-extracted later.
+    """
+    extraction_job = get_object_or_404(ExtractionJob, id=job_id)
+    back = redirect('extractor:extraction_job_detail', job_id=job_id)
+
+    awaiting = (
+        ExtractionStatusChoices.AWAITING_MINING,
+        ExtractionStatusChoices.AWAITING_EXTRACTION,
+    )
+    if extraction_job.extraction_status not in awaiting:
+        messages.error(request, "This job is not waiting for approval.")
+        return back
+
+    if request.POST.get('action') == 'cancel':
+        extraction_job.extraction_status = ExtractionStatusChoices.SKIPPED
+        extraction_job.extraction_end_datetime = timezone.now()
+        extraction_job.save()
+        messages.info(request, f"Extraction job #{job_id} cancelled.")
+        return back
+
+    advance_extraction_job.delay(extraction_job.id)
+    messages.success(request, "Stage approved — dispatched to the worker.")
+    return back
 
 
 @login_required
@@ -1399,6 +1467,23 @@ def extraction_record_create(request, extracted_record_id):
 # Instructor Message Views
 
 @login_required
+@permission_required('extractor.view_instructormessage', raise_exception=True)
+def instructor_message_list(request):
+    """
+    List all instructor messages (prompts) grouped by response model.
+    """
+    response_models = ResponseModel.objects.filter(
+        is_complete=True
+    ).select_related('client').prefetch_related('instructormessage_set')
+
+    context = {
+        'response_models': response_models,
+    }
+
+    return render(request, 'extractor/instructor_message_list.html', context)
+
+
+@login_required
 @permission_required('extractor.add_instructormessage', raise_exception=True)
 def instructor_message_create(request, response_model_id):
     """
@@ -1506,7 +1591,10 @@ def instructor_message_delete(request, message_id):
     
     instructor_message.delete()
     messages.success(request, "Instructor message deleted successfully!")
-    
+
+    next_url = request.POST.get('next')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('extractor:response_model_detail', response_model_id=response_model_id)
 
 
