@@ -124,13 +124,22 @@
 </div>
 
 <script>
-function toggleDetail(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('hidden');
-}
 function toggleEdit(id) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden');
 }
+// Re-open the record card (and its ancestors) targeted by the URL hash —
+// forms redirect back here with #record-N so the reviewer lands where they were
+(function () {
+    if (!location.hash) return;
+    const target = document.getElementById(location.hash.slice(1));
+    if (!target) return;
+    let el = target;
+    while (el) {
+        if (el.tagName === 'DETAILS') el.open = true;
+        el = el.parentElement;
+    }
+    target.scrollIntoView();
+})();
 </script>
 {% endblock %}

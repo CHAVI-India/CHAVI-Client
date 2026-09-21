@@ -1,6 +1,7 @@
-{# Per-record detail body: field rows + edit controls + child records + write-back.
-   Used inside the grid detail panel and inside nested record cards.
-   Expects: rec, node (for the create button's table name), level, request #}
+{% comment %}
+Per-record detail body: field rows + edit controls + child records + write-back.
+Used inside the record cards. Expects: rec, node, level, request.
+{% endcomment %}
 <div class="text-xs text-gray-500 mb-3">
     record {{ rec.record.record_index }} · job #{{ rec.record.extraction_job_id }} · {{ rec.source }}
 </div>
@@ -50,13 +51,13 @@
             <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="accept">
-                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
                 <button class="text-green-600 hover:text-green-800 text-xs font-semibold px-1">Accept</button>
             </form>
             <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="reject">
-                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
                 <button class="text-red-600 hover:text-red-800 text-xs font-semibold px-1">Reject</button>
             </form>
             <button onclick="toggleEdit('edit-{{ d.result.id }}')"
@@ -71,7 +72,7 @@
               class="flex items-center gap-2 flex-wrap">
             {% csrf_token %}
             <input type="hidden" name="action" value="correct">
-            <input type="hidden" name="next" value="{{ request.path }}">
+            <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
             {% if d.field.lookup_field %}
             <select name="edited_code" required
                     class="border border-gray-300 rounded px-2 py-1 text-sm max-w-md">
@@ -98,14 +99,14 @@
             <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="revert">
-                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
                 <button class="text-gray-500 hover:text-gray-700 text-xs font-semibold">Revert to extracted</button>
             </form>
             {% endif %}
             <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="clear">
-                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
                 <button class="text-gray-500 hover:text-gray-700 text-xs font-semibold">Clear value</button>
             </form>
         </div>
@@ -135,7 +136,7 @@
     {% else %}
     <form method="post" action="{% url 'extractor:extraction_record_create' rec.record.id %}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.path }}">
+        <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
         <button type="submit"
                 class="bg-chavi-gradient text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90">
             <i class="fas fa-plus mr-1"></i>Create record → {{ node.table.clientapp_content_type.model }}
