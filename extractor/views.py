@@ -1245,6 +1245,13 @@ def extraction_job_detail(request, job_id):
             'pending': awaiting_stage is not None and i == pending_idx,
         })
 
+    # Coverage: extracted / not_found / unresolved counts for review
+    coverage = {
+        row['result_state']: row['n']
+        for row in ExtractionResult.objects.filter(extraction_job=extraction_job)
+        .values('result_state').annotate(n=Count('id'))
+    }
+
     context = {
         'extraction_job': extraction_job,
         'extraction_results': extraction_results,
@@ -1254,6 +1261,7 @@ def extraction_job_detail(request, job_id):
         'stage_entries': stage_entries,
         'stage_running': extraction_job.extraction_status in (
             ExtractionStatusChoices.PENDING, ExtractionStatusChoices.PROCESSING),
+        'coverage': coverage,
     }
 
     return render(request, 'extractor/extraction_job_detail.html', context)

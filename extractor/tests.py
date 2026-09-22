@@ -595,6 +595,34 @@ class StagedPipelineTests(TestCase):
             'squamous cell carcinoma',
             self.job.stage_trace[1]['snippets']['pathology.histological_type'])
 
+    def test_stage_mine_rechecks_empty_fields(self):
+        from extractor.services.instructor_extractor import (
+            FieldSnippetEntry, LookupSnippetMap)
+        InstructorExtractionService.stage_prepare(self.job, self.content)
+
+        calls = []
+        completion = type('C', (), {'usage': type('U', (), {'total_tokens': 5})()})()
+        def create(**kw):
+            calls.append(kw)
+            if len(calls) == 1:
+                return LookupSnippetMap(entries=[]), completion
+            return LookupSnippetMap(entries=[
+                FieldSnippetEntry(table='pathology', field='histological_type',
+                                  snippets=['squamous cell carcinoma'])]), completion
+        fake = self._fake_client(create_fn=create)
+        with patch.object(InstructorExtractionService, '_get_llm_client',
+                          return_value=fake):
+            InstructorExtractionService.stage_mine(self.job, self.content)
+
+        self.assertEqual(len(calls), 2)  # mining + empty-field recheck
+        self.job.refresh_from_db()
+        mine_result = self.job.stage_trace[1]
+        self.assertIn(
+            'squamous cell carcinoma',
+            mine_result['snippets']['pathology.histological_type'])
+        self.assertIn('pathology.histological_type',
+                      mine_result['rechecked_fields'])
+
     def test_stage_extract_sends_approved_messages_and_completes(self):
         InstructorExtractionService.stage_prepare(self.job, self.content)
         # Park at awaiting_extraction with a stored prompt + mining result
@@ -629,6 +657,8 @@ class StagedPipelineTests(TestCase):
         self.assertEqual(self.job.tokens_used, 45)
         self.assertTrue(ExtractionResult.objects.filter(
             extraction_job=self.job).exists())
+        self.assertEqual(
+            self.job.stage_trace[-1]['coverage']['extracted'], 1)
 
     def test_stage_mine_fails_on_changed_content(self):
         InstructorExtractionService.stage_prepare(self.job, self.content)

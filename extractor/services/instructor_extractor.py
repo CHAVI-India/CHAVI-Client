@@ -332,19 +332,49 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 </document>"""
 
     @staticmethod
-    def mine_lookup_snippets(
+    def build_recheck_prompt(empty_fields, processed_content: str) -> str:
+        """
+        The mining follow-up prompt for fields that produced no snippets on
+        the first pass — quote if present, else confirm absent.
+        """
+        field_lines = []
+        for model_table, field in empty_fields:
+            table_name = model_table.database_table.clientapp_content_type.model
+            field_lines.append(
+                f"- {table_name}.{field.clientapp_field_name} — "
+                f"{field.help_text or 'as named'}"
+            )
+        field_list = "\n".join(field_lines)
+
+        return f"""You are double-checking a clinical document for a data-extraction pipeline.
+
+A first pass returned NO text snippets for the FIELDS below. For EACH field,
+either quote up to 3 DISTINCT verbatim snippets that could supply its value —
+check the FINAL DIAGNOSIS, headers, and summary sections too, not just the
+body — or return an empty list ONLY if you are certain nothing in the
+document relates to it.
+
+FIELDS:
+{field_list}
+
+Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippets": [...]}}, ...]}}
+
+<document>
+{processed_content}
+</document>"""
+
+    @staticmethod
+    def _snippet_call(
         client,
+        prompt: str,
         lookup_fields,
-        processed_content: str,
         client_config,
     ) -> Tuple[Dict[Tuple[str, str], List[str]], int]:
         """
-        One LLM call that quotes verbatim document snippets for every lookup
-        field. Returns ({(table_lower, field_lower): [snippets]}, total_tokens).
+        One LookupSnippetMap call + entry filtering shared by the mining and
+        recheck prompts. Returns ({(table_lower, field_lower): [snippets]},
+        total_tokens).
         """
-        prompt = InstructorExtractionService.build_mining_prompt(
-            lookup_fields, processed_content)
-
         result, completion = client.chat.completions.create_with_completion(
             model=client_config.llm_model_name,
             response_model=LookupSnippetMap,
@@ -374,6 +404,62 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             snippet_map[key] = [s for s in entry.snippets if s][:5]
 
         return snippet_map, int(tokens or 0)
+
+    @staticmethod
+    def mine_lookup_snippets(
+        client,
+        lookup_fields,
+        processed_content: str,
+        client_config,
+    ) -> Tuple[Dict[Tuple[str, str], List[str]], int]:
+        """
+        One LLM call that quotes verbatim document snippets for every lookup
+        field. Returns ({(table_lower, field_lower): [snippets]}, total_tokens).
+        """
+        return InstructorExtractionService._snippet_call(
+            client,
+            InstructorExtractionService.build_mining_prompt(
+                lookup_fields, processed_content),
+            lookup_fields,
+            client_config)
+
+    @staticmethod
+    def recheck_empty_snippets(
+        client,
+        lookup_fields,
+        snippet_map: Dict[Tuple[str, str], List[str]],
+        processed_content: str,
+        client_config,
+    ) -> Tuple[Dict[Tuple[str, str], List[str]], int, List[str]]:
+        """
+        One confirmation pass over fields that produced no snippets — either
+        the first pass missed text (recall fix) or the field is genuinely
+        absent (confirmed). Returns (new_snippets, tokens, checked_fields).
+        Never raises — a failed recheck leaves the empties as they were.
+        """
+        empty = [
+            (model_table, field) for model_table, field in lookup_fields
+            if not snippet_map.get((
+                model_table.database_table.clientapp_content_type.model.lower(),
+                field.clientapp_field_name.lower()))
+        ]
+        checked = [
+            f"{model_table.database_table.clientapp_content_type.model}"
+            f".{field.clientapp_field_name}" for model_table, field in empty]
+        if not empty:
+            return {}, 0, checked
+
+        try:
+            found, tokens = InstructorExtractionService._snippet_call(
+                client,
+                InstructorExtractionService.build_recheck_prompt(
+                    empty, processed_content),
+                lookup_fields,
+                client_config)
+            return found, tokens, checked
+        except Exception as e:
+            log.warning(f"Empty-field recheck failed, keeping empties: {e}")
+            return {}, 0, checked
 
     @staticmethod
     def resolve_snippets_to_options(field, snippets: List[str]) -> List[Dict[str, Any]]:
@@ -819,9 +905,20 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             InstructorExtractionService._iter_lookup_fields(response_model))
         resolved_options: Dict[int, List[Dict[str, Any]]] = {}
         mining_tokens = 0
+        rechecked_fields: List[str] = []
         if lookup_fields:
             snippet_map, mining_tokens = InstructorExtractionService.mine_lookup_snippets(
                 client, lookup_fields, processed_content, client_config)
+
+            # Second pass on empty answers — the first pass may have missed
+            # text (recall) rather than the field being truly absent
+            recheck_map, recheck_tokens, rechecked_fields = (
+                InstructorExtractionService.recheck_empty_snippets(
+                    client, lookup_fields, snippet_map,
+                    processed_content, client_config))
+            snippet_map.update(recheck_map)
+            mining_tokens += recheck_tokens
+
             resolved_options = InstructorExtractionService._resolve_snippet_map(
                 lookup_fields, snippet_map)
             log.info(
@@ -832,6 +929,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 extraction_job, 'mining', 'result',
                 snippets={f"{t}.{f}": s for (t, f), s in snippet_map.items()},
                 resolved_options={str(k): v for k, v in resolved_options.items()},
+                rechecked_fields=rechecked_fields,
                 tokens=mining_tokens)
 
         config_snapshot = dict(extraction_job.config_snapshot or {})
@@ -876,6 +974,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         the job completes. Always returns a result dict.
         """
         from django.db import transaction
+        from django.db.models import Count
 
         changed = InstructorExtractionService._check_content_unchanged(
             extraction_job, processed_content)
@@ -956,10 +1055,6 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         usage = getattr(completion, 'usage', None)
         tokens = getattr(usage, 'total_tokens', None) if usage else None
 
-        InstructorExtractionService._append_trace(
-            extraction_job, 'extraction', 'result',
-            data=extracted_data, tokens=tokens)
-
         log.info(f"Extraction job {extraction_job.id} completed; tokens: {tokens}")
 
         # Save results and mark complete atomically — a crash mid-save
@@ -971,6 +1066,19 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 extraction_job.extracted_by,
                 content=processed_content
             )
+
+            # Coverage: how much of the schema actually produced a value —
+            # surfaced on the job detail page for review
+            coverage = {
+                row['result_state']: row['n']
+                for row in ExtractionResult.objects.filter(
+                    extraction_job=extraction_job)
+                .values('result_state').annotate(n=Count('id'))
+            }
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'result',
+                data=extracted_data, tokens=tokens, coverage=coverage)
+
             extraction_job.extraction_status = ExtractionStatusChoices.COMPLETED
             extraction_job.extraction_end_datetime = timezone.now()
             extraction_job.raw_llm_response = json.dumps(extracted_data)

@@ -168,9 +168,24 @@
     <!-- Extracted Data — canonical review/edit/write-back surface -->
     {% if extraction_results %}
     <div class="bg-white rounded-lg shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">
-            <i class="fas fa-database mr-2"></i>Extracted Data
-        </h2>
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
+            <h2 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-database mr-2"></i>Extracted Data
+            </h2>
+            {% if coverage %}
+            <div class="flex gap-2 text-xs font-semibold">
+                <span class="px-2.5 py-1 rounded-full bg-green-100 text-green-800">
+                    {{ coverage.extracted|default:0 }} extracted
+                </span>
+                <span class="px-2.5 py-1 rounded-full bg-gray-200 text-gray-700">
+                    {{ coverage.not_found|default:0 }} not found
+                </span>
+                <span class="px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                    {{ coverage.unresolved|default:0 }} unresolved
+                </span>
+            </div>
+            {% endif %}
+        </div>
         {% for node in data_tree %}
             {% include 'extractor/record_grid_node.html' with node=node level=0 %}
         {% endfor %}
