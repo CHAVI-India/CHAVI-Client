@@ -39,8 +39,9 @@ REVIEWABLE_MODEL_NAMES = {
 
 
 class ReviewValidationError(Exception):
-    def __init__(self, errors):
+    def __init__(self, errors, field_errors=None):
         self.errors = errors
+        self.field_errors = field_errors or {}
         super().__init__('The extraction review contains errors.')
 
 
@@ -338,6 +339,41 @@ def _validate_payload(job, payload):
         raise ReviewValidationError({'__all__': ['Invalid record list.']})
 
 
+def _record_label(record):
+    return f"{_model_name(record.database_table)} record {record.record_index}"
+
+
+def _format_record_errors(record, error_dict):
+    model = _model_for_table(record.database_table)
+    formatted = {}
+    for name, msgs in (error_dict or {}).items():
+        msgs = [str(m) for m in (msgs if isinstance(msgs, (list, tuple)) else [msgs])]
+        if name == '__all__':
+            label = None
+        elif name == 'operation':
+            label = 'Action'
+        else:
+            try:
+                label = str(model._meta.get_field(name).verbose_name)
+            except Exception:
+                label = name.replace('_', ' ')
+        if label:
+            label = label[0].upper() + label[1:]
+        formatted[name] = [m if label is None else f'{label}: {m}' for m in msgs]
+    return formatted
+
+
+def _collect_errors(planned, field_errors):
+    banner = {}
+    for rid, error_dict in field_errors.items():
+        formatted = _format_record_errors(planned[rid]['record'], error_dict)
+        banner[_record_label(planned[rid]['record'])] = [
+            msg for msgs in formatted.values() for msg in msgs]
+        field_errors[rid] = formatted
+    if banner:
+        raise ReviewValidationError(banner, field_errors)
+
+
 def _resolve_parent(record, entry, planned, errors):
     assignments = {}
     for rel in _relationship_fields(record):
@@ -602,7 +638,8 @@ def _prepare_instances(planned, ordered):
             instance = model(**values)
         if hasattr(instance, 'prepare_for_save'):
             instance.prepare_for_save()
-        plans.append(plan | {'planned_instance': instance})
+        plan['planned_instance'] = instance
+        plans.append(plan)
     return plans
 
 
@@ -636,8 +673,7 @@ def prepare_review(job, user, payload, request_key):
         plan['fields'] = _field_inputs(plan['record'], item, plan, plan['entry_errors'])
         if plan['entry_errors']:
             errors[rid] = plan['entry_errors']
-    if errors:
-        raise ReviewValidationError(errors)
+    _collect_errors(planned, errors)
     prepared_plans = _prepare_instances(planned, ordered)
     errors = {}
     for plan in prepared_plans:
@@ -656,8 +692,7 @@ def prepare_review(job, user, payload, request_key):
         if candidates:
             plan['warnings'].append(
                 f"Possible duplicate: {len(candidates)} existing record(s) match this record.")
-    if errors:
-        raise ReviewValidationError(errors)
+    _collect_errors(planned, errors)
     snapshot_records = []
     for item in payload['records']:
         rid = int(item['id'])
@@ -743,8 +778,8 @@ def approve_review(batch_id, user, *, confirm, acknowledge_duplicates):
     if snapshot['warnings'].get('duplicates') and not acknowledge_duplicates:
         raise ReviewValidationError({'acknowledge_duplicates': ['Acknowledge the duplicate warning before saving.']})
     with transaction.atomic():
-        batch = ExtractionReviewBatch.objects.select_for_update().select_related(
-            'extraction_job__processed_file__file_upload').get(id=batch_id)
+        # No select_related here: FOR UPDATE cannot span a nullable outer join.
+        batch = ExtractionReviewBatch.objects.select_for_update().get(id=batch_id)
         job = ExtractionJob.objects.select_for_update().get(id=batch.extraction_job_id)
         if not _require_pending(batch, user):
             return batch

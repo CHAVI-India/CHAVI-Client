@@ -224,7 +224,7 @@
         <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p class="font-semibold">The review could not be saved.</p>
             {% for key, errors in review_errors.items %}
-            <p><span class="font-semibold">{{ key }}:</span> {{ errors|join:" " }}</p>
+            <p><span class="font-semibold">{{ key|capfirst }}:</span> {{ errors|join:" " }}</p>
             {% endfor %}
         </div>
         {% endif %}

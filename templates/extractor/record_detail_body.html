@@ -1,7 +1,17 @@
+{% load extractor_filters %}
 {% comment %}
 Per-record review body: directly editable fields, record action, parent choice,
 and child records. Expects: rec, node, level.
 {% endcomment %}
+{% with rec_errors=review_field_errors|get_item:rec.record.id %}
+{% if rec_errors %}
+<div class="mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+    {% for name, msgs in rec_errors.items %}
+    {% for msg in msgs %}<p>{{ msg }}</p>{% endfor %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 <div class="review-record-controls">
     <label for="operation-{{ rec.record.id }}">Action
         <select id="operation-{{ rec.record.id }}" data-review-operation>
@@ -108,6 +118,11 @@ and child records. Expects: rec, node, level.
                    {% if d.separate_extraction %}placeholder="Enter a correction (optional)"{% endif %}>
             {% endif %}
             <input type="hidden" data-field-action="{{ d.field.id }}" value="apply">
+            {% with field_errs=review_field_errors|get_item:rec.record.id|get_item:d.field.clientapp_field_name %}
+            {% if field_errs %}
+            <span class="review-meta text-red-700" role="alert">{% for msg in field_errs %}{{ msg }} {% endfor %}</span>
+            {% endif %}
+            {% endwith %}
             <span class="review-meta" data-field-status aria-live="polite"></span>
             <div class="review-field-actions">
                 <button type="button" data-clear-field="{{ d.field.id }}">Clear</button>

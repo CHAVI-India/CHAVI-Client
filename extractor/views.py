@@ -1191,7 +1191,8 @@ def extraction_results_list(request):
 
 @login_required
 @permission_required('extractor.view_extractionjob', raise_exception=True)
-def extraction_job_detail(request, job_id, review_errors=None, posted_payload=None, status=200):
+def extraction_job_detail(request, job_id, review_errors=None, review_field_errors=None,
+                          posted_payload=None, status=200):
     """
     View details of a specific extraction job and its results.
     """
@@ -1274,6 +1275,7 @@ def extraction_job_detail(request, job_id, review_errors=None, posted_payload=No
         'coverage': coverage,
         'review': review_context,
         'review_errors': review_errors or {},
+        'review_field_errors': review_field_errors or {},
         'posted_payload': posted_payload,
         'approval_history': approval_history,
         'can_review': request.user.has_perm('extractor.change_extractionresult'),
@@ -1507,6 +1509,7 @@ def extraction_review_preview(request, job_id):
             posted_payload = None
         messages.error(request, 'Please correct the review errors shown below.')
         return extraction_job_detail(request, job_id, review_errors=exc.errors,
+                                     review_field_errors=exc.field_errors,
                                      posted_payload=posted_payload, status=422)
     except ReviewConflictError as exc:
         messages.error(request, str(exc))
