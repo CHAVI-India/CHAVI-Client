@@ -345,12 +345,14 @@ def _resolve_parent(record, entry, planned, errors):
         name = rel.clientapp_field_name
         if model is None:
             continue
+        model_field = _field_model_field(record.database_table, rel)
+        attname = model_field.attname if model_field is not None else f'{name}_id'
         if model._meta.model_name == 'patient':
-            assignments[f'{name}_id'] = record.extraction_job.processed_file.file_upload.patient_id_id
+            assignments[attname] = record.extraction_job.processed_file.file_upload.patient_id_id
             continue
         if entry['operation'] == 'update' and entry['instance'] is not None:
-            current_pk = getattr(entry['instance'], f'{name}_id')
-            assignments[f'{name}_id'] = current_pk
+            current_pk = getattr(entry['instance'], attname)
+            assignments[attname] = current_pk
             posted = (entry.get('parents') or {}).get(name)
             if posted and posted.get('kind') == 'existing' and str(posted.get('pk')) not in ('', str(current_pk)):
                 errors[name] = ['Existing records cannot be moved to a different parent.']
@@ -370,15 +372,15 @@ def _resolve_parent(record, entry, planned, errors):
             elif parent_plan['operation'] == 'skip':
                 errors[name] = ['The selected parent is marked Leave pending. Choose another parent.']
             else:
-                assignments[name] = parent_plan['future_pk']
+                assignments[attname] = parent_plan['future_pk']
         elif kind == 'existing':
             table = parent_table_for_relation(record, rel)
             target = _target_instance(table, record.extraction_job.processed_file.file_upload.patient_id,
                                     choice.get('pk'), errors, 'parent record')
             if target is not None:
-                assignments[f'{name}_id'] = target.pk
+                assignments[attname] = target.pk
         elif kind == 'patient':
-            assignments[f'{name}_id'] = record.extraction_job.processed_file.file_upload.patient_id_id
+            assignments[attname] = record.extraction_job.processed_file.file_upload.patient_id_id
         else:
             errors[name] = ['Choose a valid parent record.']
     return assignments
@@ -591,12 +593,12 @@ def _prepare_instances(planned, ordered):
         if plan['operation'] == 'update':
             instance = plan['instance']
             for name, value in plan['fields'].items():
-                setattr(instance, name, value)
+                setattr(instance, name, _restore_model_value(model, name, value))
         else:
             values = {model._meta.pk.name: plan['future_pk']}
-            values.update(plan['fields'])
-            for name, pk in plan['parents'].items():
-                values[f'{name}_id'] = pk
+            values.update({name: _restore_model_value(model, name, value)
+                           for name, value in plan['fields'].items()})
+            values.update(plan['parents'])
             instance = model(**values)
         if hasattr(instance, 'prepare_for_save'):
             instance.prepare_for_save()
@@ -805,7 +807,10 @@ def _apply_snapshot(batch, job, snapshot, user):
                     clientapp_field_name=name)
                 model_field = model._meta.get_field(name)
                 clean, _ = _clean_field(db_field, model_field, value, instance)
-                setattr(instance, name, clean)
+                if isinstance(model_field, models.ForeignKey):
+                    setattr(instance, f'{name}_id', clean)
+                else:
+                    setattr(instance, name, clean)
         else:
             values = {model._meta.pk.name: item['target_pk']}
             values.update({name: _restore_model_value(model, name, value) for name, value in item['fields'].items()})
