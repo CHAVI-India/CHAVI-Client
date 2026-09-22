@@ -1,4 +1,5 @@
-from typing import Dict, List, Any, Optional, Literal
+from typing import Annotated, Dict, List, Any, Optional, Literal
+from inspect import getsource
 from extractor.models import ResponseModel, ResponseModelTable, ResponseModelTableField, DatabaseField, EntityTypeChoices
 from extractor.services.model_hierarchy import (
     build_table_tree, child_key, ancestor_tables, identity_field_names)
@@ -10,9 +11,52 @@ import sys
 from io import StringIO
 import traceback
 from datetime import date as _date
-from pydantic import Field, ValidationInfo, create_model, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, create_model, field_validator, model_validator
 
 log = getLogger(__name__)
+
+
+class FieldAssessment(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+
+    field: str
+    basis: Literal['explicit', 'inferred', 'clinical_inference', 'calculated', 'unknown']
+    quotes: List[Annotated[str, Field(min_length=1, max_length=400)]] = Field(max_length=3)
+    rationale: str = Field(max_length=400)
+
+
+def supports_field_assessment(db_field: DatabaseField) -> bool:
+    return (db_field.is_active and db_field.is_extractable() and not db_field.lookup_field
+            and db_field.field_type in (
+                EntityTypeChoices.INTEGER, EntityTypeChoices.FLOAT, EntityTypeChoices.BOOLEAN))
+
+
+def validate_field_assessments(values, assessments, field_types, source_text=None):
+    names = [entry.field for entry in assessments]
+    if len(names) != len(set(names)) or set(names) != set(field_types):
+        raise ValueError('Provide exactly one field assessment for each configured numeric or boolean field.')
+    for entry in assessments:
+        value = values.get(entry.field)
+        kind = field_types[entry.field]
+        if entry.basis == 'unknown':
+            if value is not None:
+                raise ValueError(f'{entry.field}: unknown requires a null value.')
+        elif value is None:
+            raise ValueError(f'{entry.field}: unknown requires a null value.')
+        if entry.basis != 'explicit' and not entry.rationale.strip():
+            raise ValueError(f'{entry.field}: explain the inference briefly.')
+        if (value is not None and entry.basis == 'explicit' and not entry.quotes) or \
+                (value is None and entry.basis != 'unknown' and not (entry.quotes or entry.rationale.strip())):
+            raise ValueError(f'{entry.field}: provide supporting evidence or a concise reason.')
+        if entry.basis in ('inferred', 'clinical_inference'):
+            valid = value is False if kind == 'bool' else value == 0 and not isinstance(value, bool)
+            if not valid:
+                raise ValueError(f'{entry.field}: inferred values must be numeric zero or boolean false.')
+        if entry.basis == 'calculated' and kind == 'bool':
+            raise ValueError(f'{entry.field}: calculated values must be numeric.')
+        for quote in entry.quotes:
+            if not quote.strip() or (source_text is not None and quote.strip() not in source_text):
+                raise ValueError(f'{entry.field}: copy a supporting quotation verbatim from the document.')
 
 
 class PydanticModelBuilder:
@@ -153,8 +197,26 @@ class PydanticModelBuilder:
 
         return annotation, field_info
 
+    @staticmethod
+    def _assessment_validator(field_types):
+        def check(self, info: ValidationInfo):
+            validate_field_assessments(
+                {name: getattr(self, name) for name in field_types},
+                self.field_assessments, field_types, (info.context or {}).get('source_text'))
+            return self
+        return check
+
+    @staticmethod
+    def _assessment_fields(fields, child_tables):
+        names = {field.clientapp_field_name for field in fields}
+        names.update(child_key(table.database_table) for table in child_tables)
+        if 'field_assessments' in names:
+            raise ValueError('field_assessments is reserved for extraction metadata.')
+        return {field.clientapp_field_name: str(field.field_type)
+                for field in fields if supports_field_assessment(field)}
+
     @classmethod
-    def build_extraction_model(cls, response_model: ResponseModel):
+    def build_extraction_model(cls, response_model: ResponseModel, *, include_field_assessments=True):
         """
         Build the live Pydantic model used at extraction time — the single
         source of truth shared by the wizard preview and the runtime.
@@ -216,6 +278,21 @@ class PydanticModelBuilder:
                         f"{table_name} record; [] if none"))
                 )
 
+            if include_field_assessments:
+                assessment_fields = cls._assessment_fields(
+                    [tf.field for tf in table_fields], children.get(model_table.id, []))
+                if assessment_fields:
+                    assessment_cls = create_model(
+                        cls._safe_identifier(table_name) + 'FieldAssessment',
+                        __base__=FieldAssessment,
+                        field=(Literal[tuple(assessment_fields)], ...))
+                    field_defs['field_assessments'] = (
+                        List[assessment_cls], Field(description=(
+                            'One evidence assessment for every configured numeric or boolean field, '
+                            'including null values; belongs only to this record.')))
+                    validators['check_field_assessments'] = model_validator(mode='after')(
+                        cls._assessment_validator(assessment_fields))
+
             date_pairs = model_table.database_table.date_validation_pairs or []
             if date_pairs:
                 validators['check_date_order'] = model_validator(mode='after')(
@@ -246,7 +323,7 @@ class PydanticModelBuilder:
         )
 
     @classmethod
-    def build_pydantic_model(cls, response_model: ResponseModel) -> str:
+    def build_pydantic_model(cls, response_model: ResponseModel, *, include_field_assessments=True) -> str:
         """
         Generates Pydantic model code from a ResponseModel configuration.
         """
@@ -256,6 +333,8 @@ class PydanticModelBuilder:
         roots, children = build_table_tree(response_model)
 
         imports = cls._generate_imports()
+        if include_field_assessments:
+            imports += '\n\n' + getsource(FieldAssessment) + '\n\n' + getsource(validate_field_assessments)
         models_code = []
         emitted = set()
 
@@ -267,7 +346,8 @@ class PydanticModelBuilder:
             for child_mt in children.get(model_table.id, []):
                 emit(child_mt)
             models_code.append(
-                cls._build_table_model(model_table, children.get(model_table.id, [])))
+                cls._build_table_model(model_table, children.get(model_table.id, []),
+                                       include_field_assessments=include_field_assessments))
             emitted.add(model_table.id)
 
         for model_table in roots:
@@ -285,13 +365,13 @@ class PydanticModelBuilder:
         """
         Generates necessary imports for the Pydantic model.
         """
-        return """from pydantic import BaseModel, Field, model_validator
-from typing import Optional, List, Dict, Any, Literal
+        return """from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
+from typing import Annotated, Optional, List, Dict, Any, Literal
 from datetime import date
 from decimal import Decimal"""
     
     @classmethod
-    def _build_table_model(cls, model_table: ResponseModelTable, child_tables=None) -> str:
+    def _build_table_model(cls, model_table: ResponseModelTable, child_tables=None, *, include_field_assessments=True) -> str:
         """
         Builds a Pydantic model for a single database table.
         child_tables: ResponseModelTables nested inside each record.
@@ -318,13 +398,32 @@ from decimal import Decimal"""
                 f'Field(None, description="List of extracted {child_name} records '
                 f'belonging to this {table_name} record; [] if none")'
             )
+        assessment_fields = (cls._assessment_fields([fc.field for fc in fields], child_tables or [])
+                             if include_field_assessments else {})
+        assessment_code = ''
+        if assessment_fields:
+            field_literals = ', '.join(repr(name) for name in assessment_fields)
+            assessment_code = (f'class {class_name}FieldAssessment(FieldAssessment):\n'
+                               f'    field: Literal[{field_literals}]\n\n\n')
+            field_definitions.append(f'field_assessments: List[{class_name}FieldAssessment]')
         fields_code = "\n    ".join(field_definitions)
 
-        model_code = f"""class {class_name}(BaseModel):
+        model_code = assessment_code + f"""class {class_name}(BaseModel):
     \"\"\"
     Extracted data for {table_name} table.
     \"\"\"
     {fields_code}"""
+
+        if assessment_fields:
+            model_code += f"""
+
+    @model_validator(mode='after')
+    def check_field_assessments(self, info: ValidationInfo):
+        field_types = {assessment_fields!r}
+        validate_field_assessments(
+            {{name: getattr(self, name) for name in field_types}},
+            self.field_assessments, field_types, (info.context or {{}}).get('source_text'))
+        return self"""
 
         date_pairs = model_table.database_table.date_validation_pairs or []
         field_names = {fc.field.clientapp_field_name for fc in extractable}

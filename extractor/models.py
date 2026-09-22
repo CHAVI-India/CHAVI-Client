@@ -484,6 +484,14 @@ class ReviewChangeChoices(models.TextChoices):
     OMITTED_UNRESOLVED = 'omitted_unresolved', 'Omitted unresolved value'
 
 
+class ExtractionBasisChoices(models.TextChoices):
+    EXPLICIT = 'explicit', 'Explicitly reported'
+    INFERRED = 'inferred', 'Inferred from context'
+    CLINICAL_INFERENCE = 'clinical_inference', 'Clinically inferred'
+    CALCULATED = 'calculated', 'Calculated from reported values'
+    UNKNOWN = 'unknown', 'Unknown'
+
+
 class ResultSourceChoices(models.TextChoices):
     LLM = 'llm', 'LLM extraction'
     MANUAL_SUPPLEMENT = 'manual_supplement', 'Manual addition'
@@ -524,6 +532,8 @@ class ExtractionResult(models.Model):
     source_kind = models.CharField(max_length=20, choices=ResultSourceChoices.choices, default=ResultSourceChoices.LLM, help_text="Whether this value came from the LLM or was manually supplied")
     revision_history = models.JSONField(default=list, blank=True, help_text="Audit trail of review actions: [{action, old, new, user, at}]")
     evidence = EncryptedTextField(null=True, blank=True, help_text="Source-text snippet where this value was found in the processed document; encrypted like extracted_data. Empty when the value couldn't be located verbatim.")
+    extraction_basis = models.CharField(max_length=24, choices=ExtractionBasisChoices.choices, blank=True, default='')
+    inference_note = EncryptedTextField(null=True, blank=True)
     verified_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, help_text="User who verified the data")
     verification_date_time = models.DateTimeField(help_text="Date and time when the data was verified",null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

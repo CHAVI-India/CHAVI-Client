@@ -1,9 +1,9 @@
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from extractor.models import (
     ClientConfiguration, DatabaseField, DatabaseTable, EntityTypeChoices,
@@ -107,6 +107,429 @@ class HierarchyTests(TestCase):
         roots, children = build_table_tree(rm)
         self.assertEqual(roots, [rmt_path])
         self.assertEqual(children, {})
+
+
+class InferenceContractTests(SimpleTestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        table = DatabaseTable(clientapp_content_type=ContentType(
+            app_label='client_app', model='patientassessment'))
+        self.rm = ResponseModel(name='offline')
+        self.table = ResponseModelTable(id=1, database_table=table)
+        self.fields = [DatabaseField(
+            clientapp_database_table=table, clientapp_field_name=name, field_type=kind,
+            field_validation=validation) for name, kind, validation in (
+                ('count', 'int', {'min_value': 0}),
+                ('measurement', 'float', {'max_digits': 6, 'decimal_places': 2}),
+                ('present', 'bool', {}))]
+        query = Mock()
+        query.select_related.return_value.order_by.return_value = query
+        query.exists.return_value = True
+        query.__iter__ = Mock(side_effect=lambda: iter(
+            [SimpleNamespace(field=f) for f in self.fields]))
+        self.enterContext(patch('extractor.services.pydantic_builder.build_table_tree',
+                                return_value=([self.table], {})))
+        self.enterContext(patch.object(ResponseModelTable.objects, 'filter', return_value=query))
+        self.enterContext(patch.object(ResponseModelTableField.objects, 'filter', return_value=query))
+        self.source = 'No events. The finding is absent. Measurement was not assessed.'
+        self.record = {'count': 0, 'measurement': None, 'present': False,
+                       'field_assessments': [
+                           {'field': 'count', 'basis': 'clinical_inference',
+                            'quotes': ['No events.'], 'rationale': 'Zero is inferred.'},
+                           {'field': 'measurement', 'basis': 'unknown', 'quotes': [],
+                            'rationale': 'Not assessed.'},
+                           {'field': 'present', 'basis': 'inferred',
+                            'quotes': ['The finding is absent.'], 'rationale': 'Absent finding.'}]}
+        self.model = PydanticModelBuilder.build_extraction_model(self.rm)
+
+    def parse(self, record=None, source=None):
+        return self.model.model_validate({'patientassessment': [record or self.record]},
+                                         context={'source_text': self.source if source is None else source})
+
+    def test_runtime_schema_and_scalar_types(self):
+        rec = self.parse().patientassessment[0]
+        self.assertEqual(rec.count, 0)
+        self.assertIs(rec.present, False)
+        self.assertIsNone(rec.measurement)
+        self.assertEqual(len(rec.field_assessments), 3)
+        self.assertIn('field_assessments', self.model.model_json_schema()['$defs']['patientassessment']['required'])
+
+    def test_runtime_rejects_invalid_assessments(self):
+        from copy import deepcopy
+        from pydantic import ValidationError
+
+        changes = [
+            lambda r: r.pop('field_assessments'),
+            lambda r: r['field_assessments'].pop(),
+            lambda r: r['field_assessments'].append(r['field_assessments'][0]),
+            lambda r: r['field_assessments'][0].update(field='other'),
+            lambda r: r['field_assessments'][0].update(quotes=['invented']),
+            lambda r: r['field_assessments'][0].update(basis='explicit', quotes=[]),
+            lambda r: r['field_assessments'][0].update(quotes=[' ']),
+            lambda r: r['field_assessments'][0].update(quotes=['x' * 401]),
+            lambda r: r['field_assessments'][0].update(quotes=['No events.'] * 4),
+            lambda r: r['field_assessments'][0].update(rationale=' '),
+            lambda r: r['field_assessments'][0].update(rationale='x' * 401),
+            lambda r: r['field_assessments'][0].update(basis='unknown'),
+            lambda r: r['field_assessments'][0].update(extra='untrusted'),
+            lambda r: r['field_assessments'][1].update(basis='explicit'),
+            lambda r: r['field_assessments'][2].update(basis='calculated'),
+            lambda r: r.update(count=1),
+            lambda r: r.update(count=-1),
+            lambda r: r.update(present=True),
+        ]
+        for index, change in enumerate(changes):
+            record = deepcopy(self.record)
+            change(record)
+            with self.subTest(case=index), self.assertRaises(ValidationError):
+                self.parse(record)
+        with self.assertRaises(ValidationError):
+            self.parse(source='')
+
+    def test_generated_schema_and_validation_match_runtime(self):
+        from pydantic import ValidationError
+
+        code = PydanticModelBuilder.build_pydantic_model(self.rm)
+        self.assertTrue(PydanticModelBuilder.validate_generated_code(code)['valid'])
+        namespace = {}
+        exec(code, namespace)
+        model = namespace['OfflineModel']
+        parsed = model.model_validate({'patientassessment': [self.record]},
+                                      context={'source_text': self.source})
+        self.assertEqual(parsed.model_dump(), self.parse().model_dump())
+        with self.assertRaises(ValidationError):
+            model.model_validate({'patientassessment': [self.record]}, context={'source_text': ''})
+
+    def test_textual_inference_needs_reason_not_quote(self):
+        self.record['field_assessments'][0].update(
+            quotes=[], rationale='No events in this specimen implies zero events.')
+        self.assertEqual(self.parse().patientassessment[0].field_assessments[0].quotes, [])
+
+    def test_legacy_and_reserved_field(self):
+        legacy = PydanticModelBuilder.build_extraction_model(self.rm, include_field_assessments=False)
+        self.assertEqual(legacy(patientassessment=[{'count': 0}]).patientassessment[0].count, 0)
+        self.fields[0].clientapp_field_name = 'field_assessments'
+        for builder in (PydanticModelBuilder.build_extraction_model, PydanticModelBuilder.build_pydantic_model):
+            with self.assertRaisesMessage(ValueError, 'reserved'):
+                builder(self.rm)
+
+    def test_explicit_and_calculated_preserve_decimal(self):
+        self.record['measurement'] = '12.50'
+        self.record['field_assessments'][1].update(
+            basis='calculated', quotes=['25 divided by 2.'], rationale='25 / 2 = 12.50.')
+        self.record['present'] = True
+        self.record['field_assessments'][2].update(basis='explicit', rationale='')
+        parsed = self.parse(source=self.source + ' 25 divided by 2.').patientassessment[0]
+        self.assertEqual(parsed.measurement, Decimal('12.50'))
+        self.assertIs(parsed.present, True)
+
+
+    def test_prompt_is_generic_and_has_record_local_fields(self):
+        with patch('extractor.services.instructor_extractor.build_table_tree', return_value=([self.table], {})), \
+                patch('extractor.services.instructor_extractor.InstructorMessage.objects.filter') as messages:
+            messages.return_value.order_by.return_value = []
+            prompt = InstructorExtractionService.get_messages(self.rm, self.source)[-1]['content']
+            legacy = InstructorExtractionService.get_messages(
+                self.rm, self.source, include_field_assessments=False)[-1]['content']
+        self.assertIn('field_assessments required for: count, measurement, present', prompt)
+        self.assertIn('Do not treat silence', prompt)
+        self.assertIn('clinical_inference', prompt)
+        self.assertIn('unassessed', prompt)
+        self.assertIn('exact arithmetic', prompt)
+        self.assertIn('Do not wrap the response in markdown or code fences', prompt)
+        self.assertIn('copied character-for-character', prompt)
+        self.assertIn('leave quotes empty', prompt)
+        self.assertIn('<document>\n' + self.source, prompt)
+        self.assertNotIn('lymph_node', prompt)
+        self.assertNotIn('field_assessments', legacy)
+        self.assertIn('return only the integer number', legacy)
+
+    def test_assessment_version_is_explicit(self):
+        from types import SimpleNamespace
+
+        for snapshot, expected in ((None, False), ({}, False), ({'field_assessment_version': 1}, True)):
+            self.assertEqual(InstructorExtractionService.uses_field_assessments(
+                SimpleNamespace(config_snapshot=snapshot)), expected)
+        for version in (2, True, '1'):
+            with self.assertRaises(ValueError):
+                InstructorExtractionService.uses_field_assessments(
+                    SimpleNamespace(config_snapshot={'field_assessment_version': version}))
+
+    def test_strip_assessments_only_at_record_nodes(self):
+        from types import SimpleNamespace
+
+        child = SimpleNamespace(id=2, database_table=DatabaseTable(
+            clientapp_content_type=ContentType(app_label='client_app', model='pathology')))
+        record = dict(self.record, pathology=[dict(self.record)],
+                      payload={'field_assessments': 'legitimate clinical dictionary key'})
+        with patch('extractor.services.instructor_extractor.build_table_tree',
+                   return_value=([self.table], {1: [child]})):
+            clean = InstructorExtractionService.clinical_values_only(
+                self.rm, {'patientassessment': [record]})['patientassessment'][0]
+        self.assertNotIn('field_assessments', clean)
+        self.assertNotIn('field_assessments', clean['pathology'][0])
+        self.assertEqual(clean['payload']['field_assessments'], 'legitimate clinical dictionary key')
+        self.assertIn('field_assessments', record)
+
+    def stage_job(self):
+        from types import SimpleNamespace
+
+        self.rm.client = ClientConfiguration(llm_model_name='offline', model_max_tokens=4096,
+                                            request_timeout=60)
+        return SimpleNamespace(
+            id=1, config_snapshot={'field_assessment_version': 1}, input_content_hash='',
+            response_model=self.rm, extracted_by=None, save=Mock(),
+            stage_trace=[{'stage': 'extraction', 'kind': 'prompt',
+                          'messages': [{'role': 'user', 'content': 'APPROVED'}]}])
+
+    def mock_stage(self, create):
+        from contextlib import nullcontext
+
+        client = Mock()
+        client.chat.completions.create_with_completion.side_effect = create
+        self.enterContext(patch.object(InstructorExtractionService, '_get_llm_client', return_value=client))
+        self.enterContext(patch.object(InstructorExtractionService, 'build_lookup_rules', return_value={'x': {}}))
+        self.enterContext(patch('extractor.services.instructor_extractor.build_table_tree',
+                                return_value=([self.table], {})))
+        self.enterContext(patch('django.db.transaction.atomic', side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = [{'result_state': 'extracted', 'n': 2}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter', return_value=coverage))
+        saved = self.enterContext(patch.object(InstructorExtractionService, 'save_extraction_results'))
+        return client, saved
+
+    def test_stage_preserves_approved_prompt_and_hides_plain_metadata(self):
+        import json
+        from types import SimpleNamespace
+
+        def create(**kwargs):
+            self.assertEqual(kwargs['messages'], [{'role': 'user', 'content': 'APPROVED'}])
+            self.assertEqual(kwargs['context']['source_text'], self.source)
+            return self.parse(), SimpleNamespace(usage=SimpleNamespace(total_tokens=12))
+        client, saved = self.mock_stage(create)
+        job = self.stage_job()
+        result = InstructorExtractionService.stage_extract(job, self.source)
+        self.assertTrue(result['success'])
+        self.assertEqual(client.chat.completions.create_with_completion.call_count, 1)
+        self.assertIn('field_assessments', saved.call_args.args[1]['patientassessment'][0])
+        self.assertNotIn('field_assessments', result['data']['patientassessment'][0])
+        self.assertNotIn('field_assessments', job.stage_trace[-1]['data']['patientassessment'][0])
+        self.assertIn('field_assessments', json.loads(job.raw_llm_response)['patientassessment'][0])
+
+    def test_lookup_fallback_cannot_disable_evidence_validation(self):
+        from instructor.core import InstructorRetryException
+        from types import SimpleNamespace
+
+        calls = []
+        def create(**kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise InstructorRetryException('retry', n_attempts=2, total_usage=None, failed_attempts=[Mock()])
+            self.assertNotIn('lookup_rules', kwargs['context'])
+            self.assertEqual(kwargs['context']['source_text'], self.source)
+            invalid = self.parse()
+            invalid.patientassessment[0].field_assessments[0].quotes = ['SENSITIVE FABRICATION']
+            return invalid, SimpleNamespace(usage=None)
+        client, saved = self.mock_stage(create)
+        with self.assertRaisesMessage(ValueError, 'evidence could not be validated') as failure:
+            InstructorExtractionService.stage_extract(self.stage_job(), self.source)
+        self.assertNotIn('SENSITIVE', str(failure.exception))
+        self.assertEqual(client.chat.completions.create_with_completion.call_count, 2)
+        saved.assert_not_called()
+
+    def test_new_prompts_freeze_assessment_version_in_both_paths(self):
+        from types import SimpleNamespace
+
+        self.enterContext(patch('extractor.services.instructor_extractor.build_table_tree',
+                                return_value=([self.table], {})))
+        messages = self.enterContext(patch('extractor.services.instructor_extractor.InstructorMessage.objects.filter'))
+        messages.return_value.order_by.return_value = []
+        job = self.stage_job()
+        job.response_model_id = 1
+        job.processed_file = SimpleNamespace(id=1, version=1, content_length=len(self.source), processing_warning='')
+        job.stage_trace = []
+        with patch.object(InstructorExtractionService, '_iter_lookup_fields', return_value=[]):
+            InstructorExtractionService.stage_prepare(job, self.source)
+        self.assertEqual(job.config_snapshot['field_assessment_version'], 1)
+        self.assertEqual(job.extraction_status, 'awaiting_extraction')
+        self.assertIn('NUMERIC AND BOOLEAN ASSESSMENT', job.stage_trace[-1]['messages'][-1]['content'])
+        job = self.stage_job()
+        job.config_snapshot = {'preserved': 'setting'}
+        job.stage_trace = []
+        with patch.object(InstructorExtractionService, '_get_llm_client'), \
+                patch.object(InstructorExtractionService, '_iter_lookup_fields', return_value=[(self.table, self.fields[0])]), \
+                patch.object(InstructorExtractionService, 'mine_lookup_snippets', return_value=({}, 0)), \
+                patch.object(InstructorExtractionService, 'recheck_empty_snippets', return_value=({}, 0, [])):
+            InstructorExtractionService.stage_mine(job, self.source)
+        self.assertEqual(job.config_snapshot['field_assessment_version'], 1)
+        self.assertEqual(job.config_snapshot['preserved'], 'setting')
+        self.assertEqual(job.extraction_status, 'awaiting_extraction')
+        self.assertIn('NUMERIC AND BOOLEAN ASSESSMENT', job.stage_trace[-1]['messages'][-1]['content'])
+
+    def test_legacy_stage_does_not_require_assessments(self):
+        from types import SimpleNamespace
+
+        def create(**kwargs):
+            self.assertNotIn('source_text', kwargs['context'])
+            value = kwargs['response_model'](patientassessment=[{'count': 0}])
+            return value, SimpleNamespace(usage=None)
+        client, saved = self.mock_stage(create)
+        job = self.stage_job()
+        job.config_snapshot = {}
+        result = InstructorExtractionService.stage_extract(job, self.source)
+        self.assertTrue(result['success'])
+        self.assertNotIn('field_assessments', result['data']['patientassessment'][0])
+        saved.assert_called_once()
+
+    def test_save_passes_scalar_and_assessment_to_correct_rows(self):
+        job = self.stage_job()
+        with patch('extractor.services.instructor_extractor.build_table_tree', return_value=([self.table], {})), \
+                patch.object(ExtractedRecord.objects, 'create', return_value=Mock()), \
+                patch.object(ExtractionResult.objects, 'create') as saved, \
+                patch.object(InstructorExtractionService, '_find_evidence') as old_evidence:
+            InstructorExtractionService.save_extraction_results(
+                job, self.parse().model_dump(mode='json'), None, content=self.source)
+        results = {call.kwargs['database_field'].clientapp_field_name: call.kwargs
+                   for call in saved.call_args_list}
+        self.assertEqual(set(results), {'count', 'measurement', 'present'})
+        self.assertEqual(results['count']['extracted_data'], '0')
+        self.assertEqual(results['count']['extraction_basis'], 'clinical_inference')
+        self.assertEqual(results['count']['inference_note'], 'Zero is inferred.')
+        self.assertEqual(results['count']['evidence'], 'No events.')
+        self.assertEqual(results['present']['extracted_data'], 'False')
+        self.assertEqual(results['measurement']['result_state'], 'not_found')
+        self.assertEqual(results['measurement']['extraction_basis'], 'unknown')
+        old_evidence.assert_not_called()
+
+    def test_encrypted_note_round_trip_without_database(self):
+        from django.db import connection
+
+        field = ExtractionResult._meta.get_field('inference_note')
+        ciphertext = field.get_db_prep_save('Synthetic private explanation', connection)
+        self.assertNotIn('Synthetic private explanation', ciphertext)
+        self.assertEqual(field.from_db_value(ciphertext, None, connection), 'Synthetic private explanation')
+
+
+class InferenceModelTests(TestCase):
+    def setUp(self):
+        self.table = make_table('patientassessment', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt = ResponseModelTable.objects.create(response_model=self.rm, database_table=self.table)
+        self.fields = {}
+        for name, kind, validation in (
+            ('pulse', EntityTypeChoices.INTEGER, {'min_value': 0}),
+            ('height', EntityTypeChoices.FLOAT, {'max_digits': 10, 'decimal_places': 2}),
+            ('finding_present', EntityTypeChoices.BOOLEAN, {}),
+        ):
+            field = make_field(self.table, name, field_type=kind, field_validation=validation)
+            ResponseModelTableField.objects.create(response_model_table=self.rmt, field=field)
+            self.fields[name] = field
+        self.source = 'No events were observed. The finding is absent. Height was not assessed.'
+        self.record = {
+            'pulse': 0, 'height': None, 'finding_present': False,
+            'field_assessments': [
+                {'field': 'pulse', 'basis': 'inferred', 'quotes': ['No events were observed.'],
+                 'rationale': 'No observed events supports zero.'},
+                {'field': 'height', 'basis': 'unknown', 'quotes': ['Height was not assessed.'],
+                 'rationale': 'Height was not assessed.'},
+                {'field': 'finding_present', 'basis': 'inferred', 'quotes': ['The finding is absent.'],
+                 'rationale': 'The finding was described as absent.'},
+            ],
+        }
+
+    def validate(self, record=None, source=None):
+        return PydanticModelBuilder.build_extraction_model(self.rm).model_validate(
+            {'patientassessment': [self.record if record is None else record]},
+            context={'source_text': self.source if source is None else source})
+
+    def test_assessments_preserve_zero_false_and_null(self):
+        record = self.validate().patientassessment[0]
+        self.assertEqual(record.pulse, 0)
+        self.assertIs(record.finding_present, False)
+        self.assertIsNone(record.height)
+        self.assertEqual(record.field_assessments[0].basis, 'inferred')
+
+    def test_invalid_assessments_rejected(self):
+        from copy import deepcopy
+        from pydantic import ValidationError
+
+        changes = [
+            lambda r: r.pop('field_assessments'),
+            lambda r: r['field_assessments'].pop(),
+            lambda r: r['field_assessments'].append(r['field_assessments'][0]),
+            lambda r: r['field_assessments'][0].update(field='unconfigured'),
+            lambda r: r['field_assessments'][0].update(quotes=['Fabricated evidence']),
+            lambda r: r['field_assessments'][0].update(quotes=[]),
+            lambda r: r['field_assessments'][0].update(quotes=[' ']),
+            lambda r: r['field_assessments'][0].update(quotes=['x' * 401]),
+            lambda r: r['field_assessments'][0].update(quotes=['No events were observed.'] * 4),
+            lambda r: r['field_assessments'][0].update(rationale=' '),
+            lambda r: r['field_assessments'][0].update(rationale='x' * 401),
+            lambda r: r['field_assessments'][0].update(basis='unknown'),
+            lambda r: r['field_assessments'][0].update(extra='untrusted'),
+            lambda r: r['field_assessments'][1].update(basis='explicit'),
+            lambda r: r['field_assessments'][2].update(basis='calculated'),
+            lambda r: r.update(pulse=1),
+            lambda r: r.update(pulse=-1),
+            lambda r: r.update(finding_present=True),
+        ]
+        for index, change in enumerate(changes):
+            record = deepcopy(self.record)
+            change(record)
+            with self.subTest(case=index), self.assertRaises(ValidationError):
+                self.validate(record)
+        with self.assertRaises(ValidationError):
+            self.validate(source='')
+
+    def test_clinical_calculated_and_explicit_values(self):
+        self.record['field_assessments'][0]['basis'] = 'clinical_inference'
+        self.validate()
+        self.record['height'] = '12.50'
+        self.record['field_assessments'][1].update(
+            basis='calculated', quotes=['No events were observed.'], rationale='25 / 2 = 12.50.')
+        self.assertEqual(self.validate().patientassessment[0].height, Decimal('12.50'))
+        self.record['finding_present'] = True
+        self.record['field_assessments'][2].update(basis='explicit', rationale='')
+        self.assertIs(self.validate().patientassessment[0].finding_present, True)
+
+    def test_legacy_model_does_not_require_metadata(self):
+        model = PydanticModelBuilder.build_extraction_model(self.rm, include_field_assessments=False)
+        value = model.model_validate({'patientassessment': [{'pulse': 0}]})
+        self.assertEqual(value.patientassessment[0].pulse, 0)
+        self.assertNotIn('field_assessments', value.patientassessment[0].model_fields)
+
+    def test_generated_code_matches_assessment_validation(self):
+        from pydantic import ValidationError
+
+        code = PydanticModelBuilder.build_pydantic_model(self.rm)
+        self.assertTrue(PydanticModelBuilder.validate_generated_code(code)['valid'])
+        namespace = {}
+        exec(code, namespace)
+        model = namespace['TestRmModel']
+        parsed = model.model_validate({'patientassessment': [self.record]},
+                                      context={'source_text': self.source})
+        self.assertEqual(parsed.patientassessment[0].field_assessments[0].basis, 'inferred')
+        with self.assertRaises(ValidationError):
+            model.model_validate({'patientassessment': [self.record]}, context={'source_text': ''})
+
+    def test_eligibility_and_reserved_collision(self):
+        from extractor.services.pydantic_builder import supports_field_assessment
+
+        field = self.fields['pulse']
+        self.assertTrue(supports_field_assessment(field))
+        for kwargs in ({'lookup_field': True}, {'is_active': False},
+                       {'field_validation': {'is_relationship': True}},
+                       {'field_type': EntityTypeChoices.STRING}):
+            for key, value in kwargs.items():
+                setattr(field, key, value)
+            self.assertFalse(supports_field_assessment(field))
+            field.refresh_from_db()
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt, field=make_field(self.table, 'field_assessments'))
+        for builder in (PydanticModelBuilder.build_extraction_model, PydanticModelBuilder.build_pydantic_model):
+            with self.assertRaisesMessage(ValueError, 'reserved'):
+                builder(self.rm)
 
 
 class ExtractionModelTests(TestCase):
@@ -254,6 +677,30 @@ class SaveAndWriteBackTests(TestCase):
                    return_value=matches):
             with self.assertRaises(RecordWriteError):
                 _resolve_parent_fks(child)
+
+
+    def test_nested_numeric_assessments_stay_with_their_record(self):
+        for name, kind in (('lymph_nodes_in_specimen', 'int'), ('lymph_nodes_removed', 'bool')):
+            ResponseModelTableField.objects.create(response_model_table=self.rmt_path,
+                                                    field=make_field(self.pathology, name, field_type=kind))
+        self.job.config_snapshot = {'field_assessment_version': 1}
+        self.job.save()
+        payload = {'diagnosis': [{'diagnosis_date': '2024-01-01', 'pathology': [
+            {'lymph_nodes_in_specimen': count, 'lymph_nodes_removed': removed,
+             'field_assessments': [
+                 {'field': 'lymph_nodes_in_specimen', 'basis': 'explicit', 'quotes': [quote], 'rationale': ''},
+                 {'field': 'lymph_nodes_removed', 'basis': 'explicit', 'quotes': [quote], 'rationale': ''}]}
+            for count, removed, quote in ((0, False, 'Specimen A: none.'), (2, True, 'Specimen B: two.'))]}]}
+        InstructorExtractionService.save_extraction_results(self.job, payload, self.user)
+        children = ExtractedRecord.objects.filter(database_table=self.pathology).order_by('record_index')
+        self.assertEqual(children.count(), 2)
+        for record, expected, quote in zip(children, ('0', '2'), ('Specimen A: none.', 'Specimen B: two.')):
+            result = record.results.get(database_field__clientapp_field_name='lymph_nodes_in_specimen')
+            self.assertEqual(result.extracted_data, expected)
+            self.assertEqual(result.evidence, quote)
+            self.assertEqual(result.extraction_basis, 'explicit')
+        self.assertEqual(children[0].results.get(
+            database_field__clientapp_field_name='lymph_nodes_removed').extracted_data, 'False')
 
 
 class PatientDataTreeTests(TestCase):
@@ -740,6 +1187,64 @@ class StagedPipelineTests(TestCase):
         self.assertEqual(self.job.extraction_status, 'skipped')
 
 
+class InferenceReviewContractTests(SimpleTestCase):
+    def test_preview_preserves_zero_false_and_escapes_assessment(self):
+        from types import SimpleNamespace
+        from django.conf import settings
+        from django.template import Context, Engine
+
+        engine = Engine(dirs=[str(settings.BASE_DIR / 'templates')], loaders=[
+            ('django.template.loaders.locmem.Loader', {'base.html': '{% block content %}{% endblock %}'}),
+            'django.template.loaders.filesystem.Loader'])
+        rows = [{'name': name, 'before': value, 'after': value} for name, value in (
+            ('zero', 0), ('false', False), ('decimal', Decimal('0.00')), ('null', None), ('empty', ''))]
+        rows[0]['extraction'] = {'value': '0', 'basis': 'clinical_inference',
+                                 'label': 'Clinically inferred', 'note': '<script>note</script>',
+                                 'evidence': '<b>source</b>'}
+        html = engine.get_template('extractor/extraction_review_preview.html').render(Context({
+            'extraction_job': SimpleNamespace(id=1),
+            'batch': SimpleNamespace(status='approved'),
+            'snapshot': {'records': [{'model': 'example', 'operation': 'create', 'rows': rows}]},
+        }))
+        self.assertIn('text-gray-900">0</td>', html)
+        self.assertIn('text-gray-900">False</td>', html)
+        self.assertIn('text-gray-900">0.00</td>', html)
+        self.assertEqual(html.count('text-gray-900">—</td>'), 2)
+        self.assertIn('not explicitly reported', html)
+        self.assertIn('&lt;script&gt;note&lt;/script&gt;', html)
+        self.assertIn('&lt;b&gt;source&lt;/b&gt;', html)
+        self.assertNotIn('<script>note</script>', html)
+
+    def test_field_notes_describe_original_not_corrected_value(self):
+        from types import SimpleNamespace
+        from django.template.loader import render_to_string
+
+        result = ExtractionResult(extracted_data='0', extraction_basis='clinical_inference',
+                                  inference_note='<b>Likely absence</b>', evidence='No reported events.',
+                                  data_edited=True, edited_data='3')
+        detail = {'field': SimpleNamespace(id=1, clientapp_field_name='count'),
+                  'result': result, 'original_cell': {'text': '0'}, 'cell': {'text': '3'},
+                  'input_kind': 'integer', 'baseline': '3', 'original_value': '0'}
+        html = render_to_string('extractor/record_detail_body.html', {
+            'rec': {'record': SimpleNamespace(id=1), 'detail': [detail]}})
+        self.assertIn('not explicitly reported', html)
+        self.assertIn('Original LLM extraction: &lt;b&gt;Likely absence&lt;/b&gt;', html)
+        self.assertIn('Last reviewed value: 3', html)
+        self.assertIn('No reported events.', html)
+
+    def test_payload_retains_original_assessment_after_edit(self):
+        from extractor.services.review import _assessment_payload, _result_payload
+
+        result = ExtractionResult(extracted_data='0', extraction_basis='inferred',
+                                  inference_note='Absence described.', evidence='No events.',
+                                  data_edited=True, edited_data='3')
+        self.assertEqual(_assessment_payload(result)['value'], '0')
+        self.assertEqual(_result_payload(result)['edited'], '3')
+        result.result_state = 'not_found'
+        self.assertIsNone(_assessment_payload(result)['value'])
+        self.assertIsNone(_assessment_payload(ExtractionResult(extracted_data='0')))
+
+
 class ReviewValueTests(TestCase):
     def make_result(self, **kwargs):
         table = make_table('diagnosis', [PATIENT_STEP])
@@ -945,3 +1450,58 @@ class ReviewApprovalServiceTests(TestCase):
         self.assertTrue(approved.receipt)
         self.job.refresh_from_db()
         self.assertEqual(self.job.review_revision, 1)
+
+    def inferred_result(self):
+        field = make_field(self.table, 'pulse', field_type='int')
+        return ExtractionResult.objects.create(
+            extraction_job=self.job, database_field=field, record=self.record,
+            extracted_data='0', extraction_basis='inferred',
+            inference_note='Synthetic inference explanation.', evidence='Synthetic source quotation.')
+
+    def test_inference_snapshot_and_normal_approval_preserve_zero(self):
+        import json
+        import uuid
+        from client_app.models import PatientAssessment
+        from django.db import connection
+
+        result = self.inferred_result()
+        payload = self.payload()
+        payload['records'][0]['fields'][str(result.database_field_id)] = {'action': 'apply', 'value': '0'}
+        batch = prepare_review(self.job, self.user, payload, uuid.uuid4())
+        snapshot = json.loads(batch.snapshot)
+        row = next(row for row in snapshot['records'][0]['rows'] if row['name'] == 'pulse')
+        self.assertEqual(row['after'], 0)
+        self.assertEqual(row['extraction']['note'], result.inference_note)
+        approved = approve_review(batch.id, self.user, confirm=True, acknowledge_duplicates=False)
+        self.assertEqual(PatientAssessment.objects.get().pulse, 0)
+        result.refresh_from_db()
+        self.assertEqual(result.extraction_basis, 'inferred')
+        self.assertEqual(result.review_change, 'accepted')
+        self.assertEqual(json.loads(approved.snapshot)['records'][0]['rows'], snapshot['records'][0]['rows'])
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT inference_note, evidence FROM extractor_extractionresult WHERE id = %s', [result.id])
+            note, evidence = cursor.fetchone()
+        self.assertNotIn('Synthetic inference explanation.', note)
+        self.assertNotIn('Synthetic source quotation.', evidence)
+
+    def test_changed_inference_invalidates_pending_preview(self):
+        import uuid
+        from extractor.services.review import ReviewConflictError
+
+        result = self.inferred_result()
+        payload = self.payload()
+        payload['records'][0]['fields'][str(result.database_field_id)] = {'action': 'apply', 'value': '0'}
+        batch = prepare_review(self.job, self.user, payload, uuid.uuid4())
+        result.inference_note = 'Changed explanation.'
+        result.save(update_fields=['inference_note'])
+        with self.assertRaises(ReviewConflictError):
+            approve_review(batch.id, self.user, confirm=True, acknowledge_duplicates=False)
+
+    def test_blank_new_metadata_keeps_legacy_fingerprint(self):
+        from extractor.services.review import _fingerprint
+
+        original = _fingerprint(self.job)
+        self.result.extraction_basis = ''
+        self.result.inference_note = ''
+        self.result.save(update_fields=['extraction_basis', 'inference_note'])
+        self.assertEqual(_fingerprint(self.job), original)

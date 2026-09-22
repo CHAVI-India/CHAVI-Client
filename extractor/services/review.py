@@ -166,6 +166,9 @@ def _fingerprint(job):
             'review_change': result.review_change,
             'source_kind': result.source_kind,
         })
+        assessment = _assessment_payload(result)
+        if assessment is not None:
+            items[-1]['assessment'] = assessment
     records = list(job.extracted_records.order_by('id').values(
         'id', 'database_table_id', 'parent_record_id', 'record_index'))
     fields = list(DatabaseField.objects.filter(
@@ -251,6 +254,18 @@ def _parse_lookup_raw(raw):
     return parsed if isinstance(parsed, dict) else None
 
 
+def _assessment_payload(result):
+    if result is None or not (result.extraction_basis or result.inference_note):
+        return None
+    return {
+        'basis': result.extraction_basis,
+        'label': result.get_extraction_basis_display(),
+        'note': result.inference_note or '',
+        'evidence': result.evidence or '',
+        'value': result.extracted_data if result.result_state != 'not_found' else None,
+    }
+
+
 def _result_payload(result):
     if result is None:
         return {'state': 'not_found', 'extracted': None, 'edited': None,
@@ -262,6 +277,7 @@ def _result_payload(result):
         'edited_flag': result.data_edited,
         'lookup': _parse_lookup_raw(result.extracted_data),
         'has_result': True,
+        'assessment': _assessment_payload(result),
     }
 
 
@@ -647,6 +663,8 @@ def prepare_review(job, user, payload, request_key):
         record = plan['record']
         before_map = plan.get('before') or {}
         after_map = plan.get('after') or {}
+        results = list(record.results.select_related('database_field'))
+        assessments = {r.database_field.clientapp_field_name: _assessment_payload(r) for r in results}
         snapshot_records.append({
             'record_id': rid,
             'model': _model_name(record.database_table),
@@ -656,13 +674,14 @@ def prepare_review(job, user, payload, request_key):
             'fields': {k: _to_jsonable(v) for k, v in plan.get('fields', {}).items()},
             'before': before_map,
             'after': after_map,
-            'rows': [{'name': name, 'before': before_map.get(name), 'after': after}
+            'rows': [{'name': name, 'before': before_map.get(name), 'after': after,
+                      'extraction': assessments.get(name)}
                      for name, after in after_map.items()],
             'warnings': plan.get('warnings', []),
             'field_decisions': plan.get('field_decisions', {}),
             'source_results': {
                 r.database_field_id: _result_payload(r)
-                for r in record.results.select_related('database_field')
+                for r in results
             },
         })
     duplicate_warning = any(r['warnings'] and 'Possible duplicate' in ' '.join(r['warnings']) for r in snapshot_records)
