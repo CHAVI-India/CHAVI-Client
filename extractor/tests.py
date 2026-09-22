@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -13,7 +14,8 @@ from extractor.services.model_hierarchy import (
     ancestor_tables, build_table_tree, child_key, identity_field_names)
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.instructor_extractor import InstructorExtractionService
-from extractor.services.record_writer import RecordWriteError, _resolve_parent_fks
+from extractor.services.record_writer import RecordWriteError, _resolve_parent_fks, effective_result_value
+from extractor.services.review import classify_review, get_review_context, prepare_review, approve_review
 from extractor.services.patient_data import build_patient_data_tree
 
 
@@ -305,12 +307,13 @@ class PatientDataTreeTests(TestCase):
             extraction_job=self.job, database_table=self.pathology,
             record_index=1)
         roots = build_patient_data_tree(self.patient)
-        # diagnosis root + pathology node nested under it by depth
-        diag_node = roots[0]
-        path_nodes = diag_node['children']
-        self.assertEqual(len(path_nodes), 1)
+        # The orphan is shown at table level; depth alone must not imply a parent.
         self.assertEqual(
-            [r['record'].id for r in path_nodes[0]['records']], [orphan.id])
+            [node['table'].clientapp_content_type.model for node in roots],
+            ['diagnosis', 'pathology'])
+        path_node = roots[1]
+        self.assertEqual(
+            [r['record'].id for r in path_node['records']], [orphan.id])
 
     @staticmethod
     def _record_ids(nodes):
@@ -735,3 +738,210 @@ class StagedPipelineTests(TestCase):
         adv.delay.assert_not_called()
         self.job.refresh_from_db()
         self.assertEqual(self.job.extraction_status, 'skipped')
+
+
+class ReviewValueTests(TestCase):
+    def make_result(self, **kwargs):
+        table = make_table('diagnosis', [PATIENT_STEP])
+        field = make_field(table, 'diagnosis_date')
+        extracted_data = kwargs.pop('extracted_data', '')
+        return ExtractionResult(
+            extraction_job_id=0,
+            database_field=field,
+            extracted_data=extracted_data,
+            **kwargs)
+
+    def test_clear_does_not_restore_original(self):
+        result = self.make_result(extracted_data='12.50', data_edited=True,
+                                  edited_data='')
+        self.assertEqual(effective_result_value(result), '')
+
+    def test_filled_missing_value_has_its_own_flag(self):
+        change = classify_review(None, Decimal('12.50'),
+                                 source_state='not_found', disposition='apply')
+        self.assertEqual(change['data_accuracy'], 'inaccurate')
+        self.assertEqual(change['review_change'], 'filled_missing')
+
+    def test_equivalent_value_is_accepted(self):
+        change = classify_review(Decimal('12.50'), Decimal('12.5'),
+                                 source_state='extracted', disposition='apply')
+        self.assertEqual(change['data_accuracy'], 'accurate')
+        self.assertEqual(change['review_change'], 'accepted')
+
+    def test_zero_and_false_are_values_not_missing(self):
+        self.assertEqual(classify_review(None, 0, source_state='not_found',
+                                       disposition='apply')['review_change'],
+                         'filled_missing')
+        self.assertEqual(classify_review(None, False, source_state='not_found',
+                                       disposition='apply')['review_change'],
+                         'filled_missing')
+
+
+class ReviewDropdownTests(TestCase):
+    def setUp(self):
+        from client_app.models import Patient, SiteConfiguration
+        from lookup.models import LookupLaterality
+
+        SiteConfiguration.objects.create(chavi_center_id='C1', center_name='Test Center')
+        self.patient = Patient.objects.create(patient_id='P1')
+        self.user = User.objects.create_superuser(username='review-ui', password='test-password')
+        self.table = make_table('diagnosis', [PATIENT_STEP])
+        self.field = make_field(
+            self.table, 'cancer_side', lookup_field=True,
+            lookup_content_type=ContentType.objects.get_for_model(LookupLaterality),
+            lookup_table_pk_field_name='code', lookup_table_value_field_name='label')
+        self.right = LookupLaterality.objects.create(code='R', label='Right')
+        LookupLaterality.objects.create(code='L', label='Left')
+        upload = FileUpload.objects.create(patient_id=self.patient, file='synthetic.pdf')
+        self.job = ExtractionJob.objects.create(
+            response_model=make_response_model(),
+            processed_file=ProcessedText.objects.create(file_upload=upload),
+            extracted_by=self.user, extraction_status='completed')
+        self.record = ExtractedRecord.objects.create(extraction_job=self.job, database_table=self.table)
+        self.result = ExtractionResult.objects.create(
+            extraction_job=self.job, record=self.record, database_field=self.field,
+            extracted_data='{"code": "R", "label": "Right"}')
+
+    def test_review_fields_follow_model_order_in_parent_and_child_records(self):
+        from extractor.services.patient_data import build_job_data_tree
+
+        make_field(self.table, 'diagnosis_date')
+        make_field(self.table, 'cancer_system')
+        pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        for name in ('tumor_focality', 'specimen_type', 'date_pathology'):
+            make_field(pathology, name)
+        ExtractedRecord.objects.create(extraction_job=self.job, database_table=pathology,
+                                       parent_record=self.record)
+        parent = build_job_data_tree(self.job)[0]['records'][0]
+        self.assertEqual([row['field'].clientapp_field_name for row in parent['detail']],
+                         ['cancer_system', 'diagnosis_date', 'cancer_side'])
+        child = parent['child_nodes'][0]['records'][0]
+        self.assertEqual([row['field'].clientapp_field_name for row in child['detail']],
+                         ['date_pathology', 'specimen_type', 'tumor_focality'])
+
+    def test_selecting_same_lookup_code_is_accurate_after_an_earlier_edit(self):
+        from client_app.models import Diagnosis
+        from extractor.services.review import _classification, _result_payload
+
+        self.result.data_edited = True
+        self.result.edited_data = '{"code": "L", "label": "Left"}'
+        decision = _classification(self.field, Diagnosis._meta.get_field('cancer_side'),
+                                   _result_payload(self.result), 'R', 'apply')
+        self.assertEqual(decision['review_change'], 'accepted')
+        self.assertEqual(decision['data_accuracy'], 'accurate')
+        self.assertFalse(decision['data_edited'])
+
+    def test_lookup_endpoint_lists_searches_and_pages_real_choices(self):
+        from lookup.models import LookupLaterality
+        from extractor.services.review import review_options
+
+        data = review_options(self.job, self.user, record_id=self.record.id,
+                              kind='lookup', field_id=self.field.id)
+        self.assertTrue({'L', 'R'}.issubset({row['id'] for row in data['results']}))
+        data = review_options(self.job, self.user, record_id=self.record.id,
+                              kind='lookup', field_id=self.field.id, query='right')
+        self.assertIn('R', [row['id'] for row in data['results']])
+        self.assertTrue(all('right' in row['text'].lower() for row in data['results']))
+        LookupLaterality.objects.bulk_create([
+            LookupLaterality(code=f'T{i:02}', label=f'Test {i}') for i in range(30)])
+        data = review_options(self.job, self.user, record_id=self.record.id,
+                              kind='lookup', field_id=self.field.id, query='Test')
+        self.assertEqual(len(data['results']), 25)
+        self.assertTrue(data['pagination']['more'])
+
+    def test_extracted_lookup_is_separate_from_empty_correction_control(self):
+        import re
+        from django.template.loader import render_to_string
+        from extractor.services.patient_data import build_job_data_tree
+
+        with patch('extractor.services.patient_data._lookup_options_map',
+                   side_effect=AssertionError('Do not load complete lookup tables')):
+            tree = build_job_data_tree(self.job)
+        html = render_to_string('extractor/record_grid_node.html',
+                                {'node': tree[0], 'level': 0})
+        self.assertRegex(html, r'data-extracted-value[^>]*>Right \(R\)')
+        self.assertIn('data-baseline="R"', html)
+        control = re.search(r'<select[^>]*data-field-id[^>]*>(.*?)</select>', html, re.S).group(1)
+        self.assertNotIn('value="R" selected', control)
+        self.assertIn('<option value="">', control)
+
+    def test_lookup_rejects_unrelated_or_nonlookup_field(self):
+        from extractor.services.review import review_options, ReviewValidationError
+
+        other = make_field(self.table, 'diagnosis_date')
+        with self.assertRaises(ReviewValidationError):
+            review_options(self.job, self.user, record_id=self.record.id,
+                           kind='lookup', field_id=other.id)
+
+
+class ReviewApprovalServiceTests(TestCase):
+    def setUp(self):
+        from client_app.models import Patient, SiteConfiguration
+        from django.contrib.auth.models import Permission
+
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        self.patient = Patient.objects.create(patient_id='P1')
+        self.table = make_table('patientassessment', [PATIENT_STEP])
+        self.patient_field = make_field(
+            self.table, 'patient',
+            field_validation={'is_relationship': True},
+            relation_content_type=ContentType.objects.get(
+                app_label='client_app', model='patient'))
+        self.date_field = make_field(self.table, 'date_assessment',
+                                     field_type=EntityTypeChoices.DATE)
+        self.rm = make_response_model()
+        self.user = User.objects.create(username='reviewer')
+        for codename in (
+                'view_extractionjob', 'view_extractionresult',
+                'change_extractionresult', 'add_recordcreation',
+                'add_patientassessment'):
+            self.user.user_permissions.add(Permission.objects.get(codename=codename))
+        upload = FileUpload.objects.create(patient_id=self.patient, file='scan.pdf')
+        processed = ProcessedText.objects.create(file_upload=upload)
+        self.job = ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=processed,
+            extracted_by=self.user, extraction_status='completed')
+        self.record = ExtractedRecord.objects.create(
+            extraction_job=self.job, database_table=self.table)
+        self.result = ExtractionResult.objects.create(
+            extraction_job=self.job, database_field=self.date_field,
+            record=self.record, extracted_data='', result_state='not_found')
+
+    def payload(self):
+        token = get_review_context(self.job, self.user)['source_token']
+        return {
+            'schema_version': 1,
+            'job_revision': self.job.review_revision,
+            'source_token': token,
+            'records': [{
+                'id': self.record.id,
+                'operation': 'create',
+                'parents': {},
+                'fields': {str(self.date_field.id): {'action': 'apply', 'value': '2024-01-01'}},
+            }],
+        }
+
+    def test_preview_then_approval_saves_record_and_history(self):
+        from client_app.models import PatientAssessment
+        import uuid
+
+        payload = self.payload()
+        batch = prepare_review(self.job, self.user, payload, uuid.uuid4())
+        self.assertEqual(PatientAssessment.objects.count(), 0)
+        self.assertEqual(batch.status, 'pending')
+
+        approved = approve_review(batch.id, self.user, confirm=True,
+                                  acknowledge_duplicates=False)
+        self.assertEqual(approved.status, 'approved')
+        saved = PatientAssessment.objects.get()
+        self.assertEqual(str(saved.patient_id), str(self.patient.pk))
+        self.assertEqual(saved.date_assessment.isoformat(), '2024-01-01')
+        self.result.refresh_from_db()
+        self.assertEqual(self.result.data_accuracy, 'inaccurate')
+        self.assertEqual(self.result.review_change, 'filled_missing')
+        self.assertTrue(approved.receipt)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.review_revision, 1)

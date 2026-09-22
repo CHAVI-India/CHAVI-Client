@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, permission_required
@@ -19,13 +20,19 @@ from extractor.models import (
     DatabaseTable, DatabaseField, ClientConfiguration,
     ExtractionJob, ExtractionResult, ExtractionStatusChoices, DataAccuracyChoices,
     InstructorMessage, InstructorRole, EmbeddingConfiguration, LookupEmbedding,
-    BackgroundTask, FileTypeChoices
+    BackgroundTask, FileTypeChoices, ExtractedRecord, ExtractionReviewBatch,
+    DatabaseField
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.model_hierarchy import ancestor_tables, identity_field_names
 from extractor.services.pydantic_builder import PydanticModelBuilder
 from extractor.services.file_processor import FileProcessorService
 from extractor.services.instructor_extractor import InstructorExtractionService
+from extractor.services.review import (
+    ReviewConflictError, ReviewValidationError, approve_review,
+    get_review_context, prepare_review, review_options,
+)
+from extractor.forms import ReviewApprovalForm
 from extractor.tasks import advance_extraction_job
 from extractor.models import FileUpload, ProcessedText
 
@@ -1184,7 +1191,7 @@ def extraction_results_list(request):
 
 @login_required
 @permission_required('extractor.view_extractionjob', raise_exception=True)
-def extraction_job_detail(request, job_id):
+def extraction_job_detail(request, job_id, review_errors=None, posted_payload=None, status=200):
     """
     View details of a specific extraction job and its results.
     """
@@ -1252,6 +1259,9 @@ def extraction_job_detail(request, job_id):
         .values('result_state').annotate(n=Count('id'))
     }
 
+    review_context = get_review_context(extraction_job, request.user, posted_payload)
+    approval_history = ExtractionReviewBatch.objects.filter(
+        extraction_job=extraction_job).select_related('prepared_by', 'approved_by')
     context = {
         'extraction_job': extraction_job,
         'extraction_results': extraction_results,
@@ -1262,9 +1272,14 @@ def extraction_job_detail(request, job_id):
         'stage_running': extraction_job.extraction_status in (
             ExtractionStatusChoices.PENDING, ExtractionStatusChoices.PROCESSING),
         'coverage': coverage,
+        'review': review_context,
+        'review_errors': review_errors or {},
+        'posted_payload': posted_payload,
+        'approval_history': approval_history,
+        'can_review': request.user.has_perm('extractor.change_extractionresult'),
     }
 
-    return render(request, 'extractor/extraction_job_detail.html', context)
+    return render(request, 'extractor/extraction_job_detail.html', context, status=status)
 
 
 @login_required
@@ -1307,6 +1322,8 @@ def extraction_result_update(request, result_id):
     Update an extraction result (edit data, change accuracy).
     """
     extraction_result = get_object_or_404(ExtractionResult, id=result_id)
+    messages.info(request, "Field changes are reviewed and approved together from the extraction job page.")
+    return redirect('extractor:extraction_job_detail', job_id=extraction_result.extraction_job.id)
 
     action = request.POST.get('action', 'accept')
     data_accuracy = request.POST.get('data_accuracy')
@@ -1421,6 +1438,8 @@ def extraction_record_create(request, extracted_record_id):
             'extraction_job__processed_file__file_upload'),
         id=extracted_record_id)
     patient = record.extraction_job.processed_file.file_upload.patient_id
+    messages.info(request, "Records are created through the job-wide preview and approval workflow.")
+    return redirect('extractor:extraction_job_detail', job_id=record.extraction_job_id)
 
     back_url = request.POST.get('next')
     if not back_url and patient:
@@ -1470,6 +1489,115 @@ def extraction_record_create(request, extracted_record_id):
         messages.error(request, "Record creation failed unexpectedly; check the logs.")
 
     return redirect(back_url or 'extractor:extraction_dashboard')
+
+
+@login_required
+@permission_required('extractor.change_extractionresult', raise_exception=True)
+@require_http_methods(["POST"])
+def extraction_review_preview(request, job_id):
+    job = get_object_or_404(ExtractionJob, id=job_id)
+    try:
+        payload = json.loads(request.POST.get('payload') or '{}')
+        request_key = uuid.UUID(request.POST.get('request_key') or '')
+        batch = prepare_review(job, request.user, payload, request_key)
+    except ReviewValidationError as exc:
+        try:
+            posted_payload = json.loads(request.POST.get('payload') or '{}')
+        except json.JSONDecodeError:
+            posted_payload = None
+        messages.error(request, 'Please correct the review errors shown below.')
+        return extraction_job_detail(request, job_id, review_errors=exc.errors,
+                                     posted_payload=posted_payload, status=422)
+    except ReviewConflictError as exc:
+        messages.error(request, str(exc))
+        return extraction_job_detail(request, job_id, status=409)
+    except (ValueError, json.JSONDecodeError, TypeError):
+        messages.error(request, 'The review submission was incomplete or invalid.')
+        return extraction_job_detail(request, job_id, status=422)
+    return redirect('extractor:extraction_review_detail', job_id=job_id, batch_id=batch.id)
+
+
+@login_required
+@permission_required('extractor.view_extractionjob', raise_exception=True)
+@require_http_methods(["GET"])
+def extraction_review_detail(request, job_id, batch_id):
+    batch = get_object_or_404(
+        ExtractionReviewBatch.objects.select_related('prepared_by', 'approved_by'),
+        id=batch_id, extraction_job_id=job_id)
+    can_approve = (
+        batch.status == 'pending' and batch.prepared_by_id == request.user.id
+        and batch.expires_at > timezone.now()
+        and request.user.has_perm('extractor.change_extractionresult')
+        and request.user.has_perm('extractor.add_recordcreation')
+    )
+    form = ReviewApprovalForm()
+    response = render(request, 'extractor/extraction_review_preview.html', {
+        'batch': batch,
+        'extraction_job': batch.extraction_job,
+        'snapshot': json.loads(batch.snapshot),
+        'receipt': json.loads(batch.receipt) if batch.receipt else None,
+        'form': form,
+        'can_approve': can_approve,
+    })
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+@login_required
+@permission_required('extractor.change_extractionresult', raise_exception=True)
+@require_http_methods(["GET"])
+def extraction_review_edit(request, job_id, batch_id):
+    batch = get_object_or_404(ExtractionReviewBatch, id=batch_id, extraction_job_id=job_id,
+                            prepared_by=request.user)
+    snapshot = json.loads(batch.snapshot)
+    return extraction_job_detail(request, job_id, posted_payload=snapshot.get('input'))
+
+
+@login_required
+@permission_required('extractor.add_recordcreation', raise_exception=True)
+@require_http_methods(["POST"])
+def extraction_review_approve(request, job_id, batch_id):
+    batch = get_object_or_404(ExtractionReviewBatch, id=batch_id, extraction_job_id=job_id)
+    form = ReviewApprovalForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Confirm the preview before saving.')
+        return redirect('extractor:extraction_review_detail', job_id=job_id, batch_id=batch_id)
+    try:
+        batch = approve_review(
+            batch.id, request.user,
+            confirm=form.cleaned_data['confirm'],
+            acknowledge_duplicates=form.cleaned_data['acknowledge_duplicates'])
+        messages.success(request, 'Review approved and records saved.')
+    except ReviewValidationError as exc:
+        for field_errors in exc.errors.values():
+            for error in (field_errors if isinstance(field_errors, list) else [field_errors]):
+                messages.error(request, str(error))
+    except ReviewConflictError as exc:
+        messages.error(request, str(exc))
+    return redirect('extractor:extraction_review_detail', job_id=job_id, batch_id=batch.id)
+
+
+@login_required
+@permission_required('extractor.view_extractionjob', raise_exception=True)
+@require_http_methods(["GET"])
+def extraction_review_options(request, job_id):
+    job = get_object_or_404(ExtractionJob, id=job_id)
+    try:
+        data = review_options(
+            job, request.user,
+            record_id=request.GET.get('record_id'),
+            kind=request.GET.get('kind'),
+            field_id=request.GET.get('field_id'),
+            query=request.GET.get('q', ''),
+            page=int(request.GET.get('page') or 1),
+            selected_pk=request.GET.get('selected_pk'))
+    except (ExtractedRecord.DoesNotExist, DatabaseField.DoesNotExist, ValueError):
+        return JsonResponse({'results': [], 'pagination': {'more': False}}, status=404)
+    except ReviewValidationError:
+        return JsonResponse({'results': [], 'pagination': {'more': False}}, status=400)
+    response = JsonResponse(data)
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 # Instructor Message Views

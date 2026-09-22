@@ -85,18 +85,21 @@ def get_match_fields(db_table):
     return DEFAULT_MATCH_FIELDS.get(model_name, [])
 
 
+def effective_result_value(result):
+    """Return the reviewed value without losing an explicit empty edit."""
+    if result.data_edited:
+        return result.edited_data
+    if result.result_state in ('not_found', 'unresolved'):
+        return None
+    return result.extracted_data
+
+
 def _raw_value_map(extracted_record):
     """field_id -> effective raw value (edited beats extracted); not_found/unresolved -> None."""
     results = ExtractionResult.objects.filter(
         record=extracted_record
     ).select_related('database_field')
-    out = {}
-    for r in results:
-        if r.result_state in ('not_found', 'unresolved'):
-            out[r.database_field_id] = None
-            continue
-        out[r.database_field_id] = r.edited_data if r.data_edited and r.edited_data else r.extracted_data
-    return out
+    return {r.database_field_id: effective_result_value(r) for r in results}
 
 
 def find_duplicate_candidates(db_table, extracted_record):
@@ -304,9 +307,14 @@ def _resolve_parent_fks(extracted_record):
 
 def create_record_for_extracted_record(extracted_record, user):
     """
-    Create one client_app row from an ExtractedRecord. Idempotent: a second
-    call returns the existing RecordCreation.
+    Legacy entry point retained for compatibility. Extraction write-back must
+    go through an approved ExtractionReviewBatch.
     """
+    raise RecordWriteError(
+        "Direct record creation is no longer available; use the job review and approval workflow.")
+
+
+def _legacy_create_record_for_extracted_record(extracted_record, user):
     existing = RecordCreation.objects.filter(
         extracted_record=extracted_record, operation='create', record_created=True
     ).first()

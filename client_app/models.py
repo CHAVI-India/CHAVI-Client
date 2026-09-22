@@ -564,11 +564,14 @@ class Symptom(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
+    def prepare_for_save(self):
         # Calculate diagnosis date if we have both assessment date and duration
         if self.date_symptom_assessment and self.duration_of_symptom:
             # Subtract months from assessment date to get diagnosis date
             self.date_onset = self.date_symptom_assessment - relativedelta(months=self.duration_of_symptom)
+
+    def save(self, *args, **kwargs):
+        self.prepare_for_save()
         super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.chavi_symptom_id}"
@@ -1836,11 +1839,14 @@ class Comorbidity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
+    def prepare_for_save(self):
         # Calculate diagnosis date if we have both assessment date and duration
         if self.date_of_comorbidity_assessment and self.duration_of_comorbidity:
             # Subtract months from assessment date to get diagnosis date
             self.date_of_comorbidity_diagnosis = self.date_of_comorbidity_assessment - relativedelta(months=self.duration_of_comorbidity)
+
+    def save(self, *args, **kwargs):
+        self.prepare_for_save()
         super().save(*args, **kwargs)
 
     def __str__ (self):

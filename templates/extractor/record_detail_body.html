@@ -1,124 +1,118 @@
 {% comment %}
-Per-record detail body: field rows + edit controls + child records + write-back.
-Used inside the record cards. Expects: rec, node, level, request.
+Per-record review body: directly editable fields, record action, parent choice,
+and child records. Expects: rec, node, level.
 {% endcomment %}
-<div class="text-xs text-gray-500 mb-3">
-    record {{ rec.record.record_index }} · job #{{ rec.record.extraction_job_id }} · {{ rec.source }}
+<div class="review-record-controls">
+    <label for="operation-{{ rec.record.id }}">Action
+        <select id="operation-{{ rec.record.id }}" data-review-operation>
+            {% if rec.mapped_operation %}
+            <option value="link" selected>Use existing without changes</option>
+            <option value="update">Update existing</option>
+            <option value="skip">Leave pending</option>
+            {% else %}
+            <option value="create" selected>Create new</option>
+            <option value="update">Update existing</option>
+            <option value="link">Use existing without changes</option>
+            <option value="skip">Leave pending</option>
+            {% endif %}
+        </select>
+    </label>
+    <label for="target-{{ rec.record.id }}" data-target-wrap>Existing record
+        <select id="target-{{ rec.record.id }}" data-review-target data-placeholder="Search existing records">
+            <option value=""></option>
+            {% if rec.created_pk %}
+            <option value="{{ rec.created_pk }}" selected>{{ rec.created_pk }}</option>
+            {% endif %}
+        </select>
+    </label>
+    {% for parent in rec.parent_fields %}
+    <label for="parent-{{ rec.record.id }}-{{ parent.field_id }}" data-parent-wrap>{{ parent.name|capfirst }}
+        <select id="parent-{{ rec.record.id }}-{{ parent.field_id }}" data-parent-field="{{ parent.name }}" data-parent-field-id="{{ parent.field_id }}" data-placeholder="Choose a parent record">
+            <option value=""></option>
+            <optgroup label="Extracted records in this job">
+                {% for choice in parent.extracted_choices %}
+                <option value="record:{{ choice.id }}" {% if parent.default_record_id == choice.id %}selected{% endif %}>{{ choice.label }}</option>
+                {% endfor %}
+            </optgroup>
+        </select>
+    </label>
+    {% endfor %}
 </div>
-<div class="space-y-2">
+<p class="review-notice" data-record-notice aria-live="polite"></p>
+<div class="review-column-headings" aria-hidden="true"><span>Field</span><span>Extracted / database value</span><span>Add or correct a value</span></div>
+<div class="review-fields">
     {% for d in rec.detail %}
-    <div class="flex items-start gap-3 border-b border-gray-100 pb-2">
-        <div class="w-48 text-xs font-semibold text-gray-600 pt-1">{{ d.field.clientapp_field_name }}</div>
-        <div class="flex-1">
-            <div class="text-sm text-gray-900">
-                {{ d.cell.text }}
-                {% if d.unit_field %}
-                    <span class="text-gray-500 ml-1">{{ d.unit_cell.text }}</span>
-                {% endif %}
-                {% if d.needs_unit %}
-                <span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-xs font-semibold ml-1"
-                      title="A numeric value was extracted without its unit — set {{ d.unit_field.clientapp_field_name }} below">⚠ no unit</span>
-                {% endif %}
-                {% if d.result %}
-                {% if d.result.data_accuracy == 'accurate' %}<span class="text-green-600 text-xs font-semibold ml-1">[accurate]</span>
-                {% elif d.result.data_accuracy == 'partial' %}<span class="text-yellow-600 text-xs font-semibold ml-1">[partial]</span>
-                {% elif d.result.data_accuracy == 'inaccurate' %}<span class="text-red-600 text-xs font-semibold ml-1">[inaccurate]</span>
-                {% elif d.result.data_accuracy == 'unreviewed' %}<span class="text-gray-400 text-xs ml-1">[unreviewed]</span>
-                {% endif %}
-                {% if d.result.result_state == 'unresolved' %}<span class="text-yellow-700 text-xs font-semibold ml-1">[unresolved]</span>{% endif %}
-                {% if d.result.data_edited %}<span class="text-blue-600 text-xs ml-1">[edited]</span>{% endif %}
-                {% endif %}
-            </div>
+    <div class="review-field" data-review-field-wrap data-baseline="{{ d.baseline }}" data-original="{{ d.original_value }}"
+         data-separate-extraction="{{ d.separate_extraction|yesno:'true,false' }}" data-source-state="{{ d.result.result_state|default:'not_found' }}" data-input-kind="{{ d.input_kind }}">
+        <div class="review-field-label">
+            <label for="field-{{ rec.record.id }}-{{ d.field.id }}">{{ d.field.clientapp_field_name }}</label>
+            {% if d.result %}<span class="review-meta">Last review: {{ d.result.get_data_accuracy_display }}</span>{% endif %}
+            {% if d.needs_unit %}<span class="text-orange-800">Missing unit</span>{% endif %}
+        </div>
+        <div class="review-source">
+            <span class="review-meta">LLM extraction</span>
+            <span data-extracted-value>{{ d.original_cell.text|default:"Not extracted" }}</span>
+            {% if d.result.result_state == 'unresolved' %}<span class="text-amber-800">No lookup match — select a value to resolve it.</span>{% endif %}
+            {% if d.result.data_edited %}<span class="review-meta">Last reviewed value: {{ d.cell.text }}</span>{% endif %}
+            <span class="review-meta" data-database-wrap hidden>Database: <span data-database-value></span></span>
             {% if d.result and d.result.evidence %}
-            <details class="text-xs text-gray-500 mt-0.5">
-                <summary class="cursor-pointer text-chavi-primary">source evidence</summary>
-                <div class="mt-1 pl-3 border-l-2 border-gray-200 italic">{{ d.result.evidence }}</div>
+            <details class="review-meta">
+                <summary>Source evidence</summary>
+                <div>{{ d.result.evidence }}</div>
             </details>
             {% endif %}
             {% if d.lookup_detail %}
-            <details class="text-xs text-gray-500 mt-0.5">
-                <summary class="cursor-pointer text-chavi-primary">lookup details</summary>
-                <div class="mt-1 pl-3 border-l-2 border-gray-200">
-                    {% for name, value in d.lookup_detail %}
-                    <div><span class="font-semibold">{{ name }}</span>: {{ value }}</div>
-                    {% endfor %}
-                </div>
+            <details class="review-meta">
+                <summary>Lookup details</summary>
+                {% for name, value in d.lookup_detail %}<div><strong>{{ name }}</strong>: {{ value }}</div>{% endfor %}
             </details>
             {% endif %}
         </div>
-        {% if d.result %}
-        <div class="flex items-center gap-1">
-            <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="accept">
-                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-                <button class="text-green-600 hover:text-green-800 text-xs font-semibold px-1">Accept</button>
-            </form>
-            <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="reject">
-                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-                <button class="text-red-600 hover:text-red-800 text-xs font-semibold px-1">Reject</button>
-            </form>
-            <button onclick="toggleEdit('edit-{{ d.result.id }}')"
-                    class="text-chavi-primary hover:underline text-xs font-semibold px-1">Edit</button>
-        </div>
-        {% endif %}
-    </div>
-    {% if d.result %}
-    {# Inline edit row — dropdown for lookup fields, text for the rest #}
-    <div id="edit-{{ d.result.id }}" class="hidden pl-48 pb-2 space-y-2">
-        <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}"
-              class="flex items-center gap-2 flex-wrap">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="correct">
-            <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-            {% if d.field.lookup_field %}
-            <select name="edited_code" required
-                    class="border border-gray-300 rounded px-2 py-1 text-sm max-w-md">
-                <option value="">Select…</option>
-                {% for opt in d.field.options %}
-                <option value="{{ opt.code }}">{{ opt.label }} ({{ opt.code }})</option>
+        <div class="review-editor">
+            {% if d.input_kind == 'lookup' %}
+            <select id="field-{{ rec.record.id }}-{{ d.field.id }}" data-field-id="{{ d.field.id }}" data-lookup-field="1" data-placeholder="{% if d.separate_extraction %}Select a correction (optional){% else %}Search lookup values{% endif %}">
+                <option value=""></option>
+                {% if d.lookup_selected %}<option value="{{ d.lookup_selected.code }}" selected>{{ d.lookup_selected.label }} ({{ d.lookup_selected.code }})</option>{% endif %}
+            </select>
+            {% elif d.input_kind == 'choice' %}
+            <select id="field-{{ rec.record.id }}-{{ d.field.id }}" data-field-id="{{ d.field.id }}" data-placeholder="{% if d.separate_extraction %}Select a correction (optional){% else %}Select a value{% endif %}">
+                <option value=""></option>
+                {% for value, label in d.model_field.choices %}
+                <option value="{{ value }}" {% if d.input_value == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
-            {% else %}
-            <input type="text" name="edited_data" value="{{ d.cell.text }}"
-                   class="border border-gray-300 rounded px-2 py-1 text-sm w-64">
-            {% endif %}
-            <select name="data_accuracy"
-                    class="border border-gray-300 rounded px-2 py-1 text-sm">
-                <option value="unreviewed" {% if d.result.data_accuracy == 'unreviewed' %}selected{% endif %}>Unreviewed</option>
-                <option value="accurate" {% if d.result.data_accuracy == 'accurate' %}selected{% endif %}>Accurate</option>
-                <option value="partial" {% if d.result.data_accuracy == 'partial' %}selected{% endif %}>Partial</option>
-                <option value="inaccurate" {% if d.result.data_accuracy == 'inaccurate' %}selected{% endif %}>Inaccurate</option>
+            {% elif d.input_kind == 'boolean' %}
+            <select id="field-{{ rec.record.id }}-{{ d.field.id }}" data-field-id="{{ d.field.id }}" data-placeholder="{% if d.separate_extraction %}Select a correction (optional){% else %}Unknown{% endif %}">
+                <option value=""></option>
+                <option value="True" {% if d.input_value == "True" or d.input_value == "true" %}selected{% endif %}>Yes</option>
+                <option value="False" {% if d.input_value == "False" or d.input_value == "false" %}selected{% endif %}>No</option>
             </select>
-            <button class="bg-chavi-primary text-white px-3 py-1 rounded text-xs font-semibold">Save</button>
-        </form>
-        <div class="flex items-center gap-3">
-            {% if d.result.data_edited %}
-            <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="revert">
-                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-                <button class="text-gray-500 hover:text-gray-700 text-xs font-semibold">Revert to extracted</button>
-            </form>
+            {% elif d.input_kind == 'textarea' %}
+            <textarea id="field-{{ rec.record.id }}-{{ d.field.id }}" data-field-id="{{ d.field.id }}" rows="2">{{ d.input_value }}</textarea>
+            {% else %}
+            <input id="field-{{ rec.record.id }}-{{ d.field.id }}" data-field-id="{{ d.field.id }}" value="{{ d.input_value }}"
+                   {% if d.input_kind == 'datefield' %}type="date"
+                   {% elif d.input_kind == 'timefield' %}type="time"
+                   {% elif d.input_kind == 'integer' %}type="number" step="1"
+                   {% elif d.input_kind == 'decimal' %}type="number" step="any"
+                   {% else %}type="text"{% endif %}
+                   {% if d.separate_extraction %}placeholder="Enter a correction (optional)"{% endif %}>
             {% endif %}
-            <form method="post" action="{% url 'extractor:extraction_result_update' d.result.id %}" class="inline">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="clear">
-                <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-                <button class="text-gray-500 hover:text-gray-700 text-xs font-semibold">Clear value</button>
-            </form>
+            <input type="hidden" data-field-action="{{ d.field.id }}" value="apply">
+            <span class="review-meta" data-field-status aria-live="polite"></span>
+            <div class="review-field-actions">
+                <button type="button" data-clear-field="{{ d.field.id }}">Clear</button>
+                <button type="button" data-restore-field="{{ d.field.id }}">Restore extraction</button>
+                <button type="button" data-preserve-field="{{ d.field.id }}" hidden>Keep database value</button>
+            </div>
         </div>
     </div>
-    {% endif %}
     {% endfor %}
 </div>
 
-{# Child records belonging to this record (nested extraction) #}
 {% if rec.child_nodes %}
-<div class="mt-4 pt-3 border-t border-gray-200">
-    <div class="text-xs font-semibold text-gray-600 mb-2">
+<div class="mt-3 border-t border-gray-200 pt-2">
+    <div class="mb-2 font-semibold text-gray-600">
         <i class="fas fa-sitemap mr-1"></i>Child records belonging to this record
     </div>
     {% for child in rec.child_nodes %}
@@ -126,22 +120,3 @@ Used inside the record cards. Expects: rec, node, level, request.
     {% endfor %}
 </div>
 {% endif %}
-
-{# Record-level actions #}
-<div class="mt-4 pt-3 border-t border-gray-200 flex items-center gap-3">
-    {% if rec.created_pk %}
-    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold" title="{{ rec.created_pk }}">
-        <i class="fas fa-check mr-1"></i>Created as #{{ rec.created_pk|slice:":8" }}
-    </span>
-    {% else %}
-    <form method="post" action="{% url 'extractor:extraction_record_create' rec.record.id %}">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.path }}#record-{{ rec.record.id }}">
-        <button type="submit"
-                class="bg-chavi-gradient text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90">
-            <i class="fas fa-plus mr-1"></i>Create record → {{ node.table.clientapp_content_type.model }}
-        </button>
-    </form>
-    <span class="text-xs text-gray-400">writes to client_app; parent records must exist first</span>
-    {% endif %}
-</div>

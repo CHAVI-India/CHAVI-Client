@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Extraction Review - CHAVI Client{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl px-4 py-8">
+    <div class="mb-6 rounded-lg bg-white p-8 shadow-lg">
+        <a href="{% url 'extractor:extraction_job_detail' extraction_job.id %}" class="text-sm font-semibold text-chavi-primary">
+            <i class="fas fa-arrow-left mr-1"></i>Back to extraction job
+        </a>
+        <h1 class="mt-3 text-3xl font-bold text-gray-800">
+            {% if batch.status == 'approved' %}Approved review{% else %}Review preview{% endif %}
+        </h1>
+        <p class="mt-2 text-sm text-gray-600">
+            Job #{{ extraction_job.id }} · prepared by {{ snapshot.prepared_by.username }}
+            on {{ batch.created_at|date:"M d, Y H:i" }}
+        </p>
+        <p class="mt-1 text-sm text-gray-600">Status: <span class="font-semibold">{{ batch.get_status_display }}</span></p>
+        {% if batch.status == 'pending' %}
+        <p class="mt-1 text-sm text-gray-600">This preview expires at {{ batch.expires_at|date:"M d, Y H:i" }}.</p>
+        {% endif %}
+    </div>
+
+    {% if batch.status == 'pending' %}
+    <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        Nothing has been written to the clinical tables yet. Check every value below before approving.
+    </div>
+    {% elif batch.status == 'superseded' %}
+    <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+        This preview was replaced by a newer review and cannot be approved.
+    </div>
+    {% endif %}
+
+    <div class="space-y-6">
+        {% for item in snapshot.records %}
+        <section class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <h2 class="text-xl font-bold text-gray-800">{{ item.model }} · extracted record {{ item.record_id }}</h2>
+                <span class="rounded-full px-3 py-1 text-xs font-semibold
+                    {% if item.operation == 'create' %}bg-green-100 text-green-800
+                    {% elif item.operation == 'update' %}bg-blue-100 text-blue-800
+                    {% elif item.operation == 'link' %}bg-purple-100 text-purple-800
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">{{ item.operation }}</span>
+                {% if item.target_pk %}<span class="font-mono text-xs text-gray-500">{{ item.target_pk }}</span>{% endif %}
+            </div>
+            {% for name, parent in item.parents.items %}
+            <p class="mb-1 text-sm text-gray-600"><span class="font-semibold">{{ name }}:</span> {{ parent }}</p>
+            {% endfor %}
+            {% if item.warnings %}
+            <div class="mb-4 rounded border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
+                {% for warning in item.warnings %}<p>{{ warning }}</p>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if item.operation == 'skip' %}
+            <p class="text-sm text-gray-600">This extracted record will remain pending. Unfinished edits to it are not saved.</p>
+            {% elif item.operation == 'link' %}
+            <p class="text-sm text-gray-600">This extracted record will be linked to the selected existing record without changing it.</p>
+            {% else %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Field</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Current</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Will save</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for row in item.rows %}
+                        <tr class="{% if item.before %}{% if row.before != row.after %}bg-yellow-50{% endif %}{% endif %}">
+                            <td class="px-3 py-2 font-semibold text-gray-700">{{ row.name }}</td>
+                            <td class="px-3 py-2 text-gray-600">{{ row.before|default:"—" }}</td>
+                            <td class="px-3 py-2 text-gray-900">{{ row.after|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 space-y-1 text-xs text-gray-600">
+                {% for field_id, decision in item.field_decisions.items %}
+                <p>field {{ field_id }}: <span class="font-semibold">{{ decision.review_change }}</span> · {{ decision.data_accuracy }}{% if not decision.applied %} · not applied{% endif %}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+        {% endfor %}
+    </div>
+
+    {% if batch.status == 'pending' %}
+    <form method="post" action="{% url 'extractor:extraction_review_approve' extraction_job.id batch.id %}"
+          class="sticky bottom-0 mt-6 rounded-lg bg-white p-5 shadow-lg">
+        {% csrf_token %}
+        {% if snapshot.warnings.duplicates %}
+        <label class="mb-3 flex items-start gap-2 text-sm text-gray-800">
+            <input type="checkbox" name="acknowledge_duplicates" value="1" class="mt-1">
+            <span>I have reviewed the possible duplicate warnings.</span>
+        </label>
+        {% endif %}
+        <label class="mb-4 flex items-start gap-2 text-sm font-semibold text-gray-800">
+            <input type="checkbox" name="confirm" value="1" class="mt-1" required>
+            <span>I approve the displayed creates, updates, links, omissions, and pending records.</span>
+        </label>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'extractor:extraction_review_edit' extraction_job.id batch.id %}"
+               class="rounded-lg border border-gray-300 px-5 py-2 font-semibold text-gray-700">Back to review</a>
+            {% if can_approve %}
+            <button type="submit" class="bg-chavi-gradient rounded-lg px-5 py-2 font-semibold text-white">Approve &amp; Save</button>
+            {% else %}
+            <span class="rounded bg-gray-100 px-4 py-2 text-sm text-gray-600">This preview cannot be approved by the current user.</span>
+            {% endif %}
+        </div>
+    </form>
+    {% elif receipt %}
+    <div class="mt-6 rounded-lg bg-white p-6 shadow-lg">
+        <h2 class="mb-3 text-xl font-bold text-gray-800">Saved changes</h2>
+        <p class="mb-3 text-sm text-gray-600">Approved by {{ receipt.approved_by.username }} at {{ receipt.approved_at }}.</p>
+        {% for op in receipt.operations %}
+        <p class="text-sm"><span class="font-semibold">{{ op.operation }}</span> {{ op.model }} · <span class="font-mono text-xs">{{ op.target_pk }}</span></p>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

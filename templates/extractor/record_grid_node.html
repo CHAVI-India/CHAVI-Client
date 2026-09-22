@@ -1,19 +1,19 @@
 {# Table node — card layout at every level; no wide grids, no horizontal scroll #}
-<div class="mb-4 {% if level > 0 %}ml-6 border-l-2 border-chavi-primary pl-4{% endif %}">
+<div class="mb-4 {% if level > 0 %}ml-2 border-l-2 border-chavi-primary pl-2{% endif %}">
     <h3 class="font-semibold text-gray-800 mb-2" style="text-transform: capitalize">
         <i class="fas fa-table text-chavi-primary mr-1"></i>{{ node.display_name }}
-        {% if level > 0 %}<span class="text-xs font-normal text-gray-500">child table</span>{% endif %}
+        {% if level > 0 %}<span class="text-sm font-normal text-gray-500">child table</span>{% endif %}
     </h3>
 
     {# Existing client_app rows — collapsible, read-only #}
     {% for ex in node.existing %}
     <details class="border border-gray-200 rounded-lg mb-2 bg-gray-50">
-        <summary class="cursor-pointer px-4 py-2 text-xs text-gray-500 hover:text-gray-700">
+        <summary class="cursor-pointer px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
             <i class="fas fa-database mr-1"></i>existing <span title="{{ ex.pk }}">#{{ ex.pk|slice:":8" }}</span> <span class="italic">in database</span>
         </summary>
         <div class="px-4 pb-3 space-y-1">
             {% for p in ex.pairs %}
-            <div class="flex gap-2 text-xs">
+            <div class="flex gap-2 text-sm">
                 <span class="w-48 shrink-0 font-semibold text-gray-500">{{ p.name }}</span>
                 <span class="text-gray-700 break-words">{{ p.cell.text }}</span>
             </div>
@@ -25,8 +25,8 @@
     {# Extracted staging records — collapsible cards #}
     <div class="space-y-3">
         {% for rec in node.records %}
-        <details id="record-{{ rec.record.id }}" class="border border-gray-200 rounded-lg bg-white">
-            <summary class="cursor-pointer px-4 py-2.5 flex items-center gap-2 flex-wrap text-xs hover:bg-blue-50 rounded-t-lg">
+        <details id="record-{{ rec.record.id }}" class="border border-gray-200 rounded-lg bg-white" data-review-record="{{ rec.record.id }}" open>
+            <summary class="cursor-pointer px-4 py-2.5 flex items-center gap-2 flex-wrap text-sm hover:bg-blue-50 rounded-t-lg">
                 <span class="font-semibold text-gray-800">
                     <i class="fas fa-file-lines mr-1 text-chavi-primary"></i>rec{{ rec.record.record_index }}
                 </span>

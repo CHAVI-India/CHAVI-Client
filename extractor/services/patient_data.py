@@ -18,7 +18,7 @@ from extractor.models import (
 )
 from extractor.services.schema_discovery import SchemaDiscoveryService
 from extractor.services.semantic_search import build_lookup_label
-from extractor.services.record_writer import find_duplicate_candidates, resolve_record_pk
+from extractor.services.record_writer import find_duplicate_candidates, resolve_record_pk, effective_result_value
 
 log = getLogger(__name__)
 
@@ -80,11 +80,13 @@ def _is_lookup_json(value):
     return isinstance(value, dict) and 'code' in value
 
 
-def _cell_value(result):
+def _cell_value(result, *, original=False):
     """Effective display value for an ExtractionResult."""
-    if result.result_state == 'not_found':
+    if result.result_state == 'not_found' and (original or not result.data_edited):
         return {'text': '—', 'kind': 'not_found'}
-    raw = result.edited_data if result.data_edited and result.edited_data else result.extracted_data
+    raw = result.extracted_data if original or (
+        result.result_state == 'unresolved' and not result.data_edited
+    ) else effective_result_value(result)
     try:
         parsed = json.loads(raw) if raw is not None else None
     except (TypeError, json.JSONDecodeError):
@@ -102,14 +104,17 @@ def _cell_value(result):
 
 
 def _grid_columns(db_table):
-    """Extractable columns for a table's grid, ordered by field name."""
+    """Extractable columns for a table's grid, in model declaration order."""
+    model = db_table.clientapp_content_type.model_class()
+    field_order = {field.name: index for index, field in enumerate(model._meta.fields)} if model else {}
     cols = []
-    for f in db_table.databasefield_set.filter(is_active=True).order_by('clientapp_field_name'):
+    for f in db_table.databasefield_set.filter(is_active=True).order_by('pk'):
         if not f.is_extractable():
             continue
         if f.clientapp_field_name in _SKIP_FIELD_NAMES:
             continue
         cols.append(f)
+    cols.sort(key=lambda field: field_order.get(field.clientapp_field_name, len(field_order)))
     return cols
 
 
@@ -254,6 +259,98 @@ def _record_qs():
     ).order_by('extraction_job_id', 'record_index')
 
 
+def _input_kind(model_field, db_field):
+    if db_field.lookup_field:
+        return 'lookup'
+    if model_field is None:
+        return 'text'
+    if getattr(model_field, 'choices', None):
+        return 'choice'
+    internal = model_field.get_internal_type()
+    if internal in ('BooleanField', 'NullBooleanField'):
+        return 'boolean'
+    if internal in ('DateField', 'DateTimeField', 'TimeField'):
+        return internal.lower()
+    if internal in ('IntegerField', 'PositiveIntegerField', 'SmallIntegerField', 'BigIntegerField'):
+        return 'integer'
+    if internal in ('FloatField', 'DecimalField'):
+        return 'decimal'
+    if internal == 'TextField':
+        return 'textarea'
+    return 'text'
+
+
+def _input_value(result, db_field, *, original=False):
+    if result is None:
+        return ''
+    raw = result.extracted_data if original else effective_result_value(result)
+    if original and result.result_state == 'not_found':
+        return ''
+    if db_field.lookup_field:
+        try:
+            parsed = json.loads(raw) if raw else None
+        except (TypeError, json.JSONDecodeError):
+            parsed = raw
+        value = parsed.get('code') if isinstance(parsed, dict) else parsed
+        return '' if value is None else str(value)
+    return '' if raw is None else str(raw)
+
+
+def _lookup_selected(result, db_field):
+    if result is None:
+        return None
+    raw = effective_result_value(result)
+    try:
+        parsed = json.loads(raw) if raw else None
+    except (TypeError, json.JSONDecodeError):
+        parsed = None
+    if not isinstance(parsed, dict) or parsed.get('code') in (None, ''):
+        return None
+    return {'code': str(parsed['code']), 'label': parsed.get('label') or str(parsed['code'])}
+
+
+def _row_label(row):
+    parts = [p['cell']['text'] for p in row.get('pairs', []) if p['cell'].get('kind') not in ('not_found',)]
+    return ' · '.join(parts[:3]) or str(row.get('pk'))
+
+
+def _review_parent_fields(rec, patient, records_by_table):
+    """Parent choices for the extracted record's real relationship fields."""
+    out = []
+    for rel in rec.database_table.databasefield_set.filter(
+            is_active=True, field_validation__is_relationship=True,
+            relation_content_type__isnull=False).select_related('relation_content_type'):
+        if rel.relation_content_type.model == 'patient':
+            continue
+        parent_table = DatabaseTable.objects.filter(
+            clientapp_content_type=rel.relation_content_type).first()
+        extracted_choices = []
+        existing_choices = []
+        if parent_table:
+            extracted_choices = [
+                {'id': r.id, 'label': f"Extracted {parent_table.clientapp_content_type.model} record {r.record_index}"}
+                for r in records_by_table.get(parent_table.id, [])
+            ]
+            existing_choices = [
+                {'pk': row['pk'], 'label': f"#{str(row['pk'])[:8]} — {_row_label(row)}"}
+                for row in get_existing_rows(parent_table, patient, _grid_columns(parent_table))
+            ]
+        default_record_id = rec.parent_record_id if (
+            rec.parent_record and
+            rec.parent_record.database_table.clientapp_content_type_id == rel.relation_content_type_id
+        ) else None
+        out.append({
+            'field': rel,
+            'field_id': rel.id,
+            'name': rel.clientapp_field_name,
+            'model': rel.relation_content_type.model,
+            'extracted_choices': extracted_choices,
+            'existing_choices': existing_choices,
+            'default_record_id': default_record_id,
+        })
+    return out
+
+
 def build_records_data_tree(records, patient):
     """
     Per-table grid data for a set of extracted staging records. Extracted
@@ -282,17 +379,20 @@ def build_records_data_tree(records, patient):
     structure = SchemaDiscoveryService.get_hierarchical_table_structure()
     depth_of = {t['id']: (t['depth'] or 99) for t in structure}
 
-    created_map = {
-        rc.extracted_record_id: rc.created_record_pk
-        for rc in RecordCreation.objects.filter(
-            extracted_record__in=records, operation='create', record_created=True)
-    }
+    latest_operations = {}
+    for rc in RecordCreation.objects.filter(
+            extracted_record__in=records, record_created=True).order_by('created_at'):
+        latest_operations[rc.extracted_record_id] = rc
+
+    records_by_table = {}
+    for rec in records:
+        records_by_table.setdefault(rec.database_table_id, []).append(rec)
 
     # Presentation pieces shared by root and child nodes
     table_meta = {}
     for table in tables:
         columns = _grid_columns(table)
-        options = _lookup_options_map(table)
+        options = {}
         # Attach dropdown options to column objects for template access
         for col in columns:
             col.options = options.get(col.id)
@@ -333,7 +433,7 @@ def build_records_data_tree(records, patient):
             res = results.get(col.id)
             if not res or not col.lookup_field:
                 continue
-            raw = res.edited_data if res.data_edited and res.edited_data else res.extracted_data
+            raw = effective_result_value(res)
             try:
                 parsed = json.loads(raw) if raw else None
             except (TypeError, json.JSONDecodeError):
@@ -352,9 +452,31 @@ def build_records_data_tree(records, patient):
                 and cell['kind'] in ('value', 'lookup')
                 and (unit_result is None or unit_result.result_state in ('not_found', 'unresolved'))
             )
+            model_field = None
+            model_class = meta['table'].clientapp_content_type.model_class()
+            if model_class:
+                try:
+                    model_field = model_class._meta.get_field(col.clientapp_field_name)
+                except Exception:
+                    model_field = None
+            result = results.get(col.id)
+            original_value = _input_value(result, col, original=True)
+            baseline = _input_value(result, col)
+            separate_extraction = bool(result and result.source_kind == 'llm' and
+                                       result.result_state != 'not_found' and
+                                       result.extracted_data not in (None, ''))
+            corrected = bool(result and result.data_edited and baseline != original_value)
             detail.append({
                 'field': col,
-                'result': results.get(col.id),
+                'model_field': model_field,
+                'input_kind': _input_kind(model_field, col),
+                'input_value': baseline if corrected or not separate_extraction else '',
+                'baseline': baseline,
+                'original_value': original_value,
+                'separate_extraction': separate_extraction,
+                'original_cell': _cell_value(result, original=True) if result else None,
+                'lookup_selected': _lookup_selected(result, col) if corrected or not separate_extraction else None,
+                'result': result,
                 'cell': cell,
                 'lookup_detail': lookup_details.get(col.id),
                 'unit_field': unit_field,
@@ -383,13 +505,20 @@ def build_records_data_tree(records, patient):
                 'children': [],
             })
 
+        latest = latest_operations.get(rec.id)
         return {
             'record': rec,
             'cells': cells,
             'detail': detail,
             'state': state,
             'source': fname,
-            'created_pk': created_map.get(rec.id),
+            'created_pk': latest.created_record_pk if latest else None,
+            'mapped_operation': latest.operation if latest else None,
+            'target_options': [
+                {'pk': row['pk'], 'label': f"#{str(row['pk'])[:8]} — {_row_label(row)}"}
+                for row in get_existing_rows(meta['table'], patient, columns)
+            ],
+            'parent_fields': _review_parent_fields(rec, patient, records_by_table),
             'lookup_details': lookup_details,
             'dup_count': len(find_duplicate_candidates(meta['table'], rec)),
             'child_nodes': child_nodes,
@@ -411,16 +540,6 @@ def build_records_data_tree(records, patient):
             'children': [],
         })
 
-    # Nest deeper table nodes under the nearest shallower one (depth order)
-    roots = []
-    for node in nodes:
-        parent = None
-        for candidate in reversed(roots):
-            if candidate['depth'] < node['depth']:
-                parent = candidate
-                break
-        if parent:
-            parent['children'].append(node)
-        else:
-            roots.append(node)
-    return roots
+    # Only real parent_record links nest records. Orphaned child-table rows stay
+    # at table level so a parent can be chosen explicitly during review.
+    return nodes

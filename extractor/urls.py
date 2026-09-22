@@ -42,6 +42,11 @@ urlpatterns = [
     path('extraction/jobs/<int:job_id>/continue/', views.extraction_job_continue, name='extraction_job_continue'),
     path('extraction/results/<int:result_id>/update/', views.extraction_result_update, name='extraction_result_update'),
     path('extraction/record/<int:extracted_record_id>/create/', views.extraction_record_create, name='extraction_record_create'),
+    path('extraction/jobs/<int:job_id>/review/preview/', views.extraction_review_preview, name='extraction_review_preview'),
+    path('extraction/jobs/<int:job_id>/review/<uuid:batch_id>/', views.extraction_review_detail, name='extraction_review_detail'),
+    path('extraction/jobs/<int:job_id>/review/<uuid:batch_id>/edit/', views.extraction_review_edit, name='extraction_review_edit'),
+    path('extraction/jobs/<int:job_id>/review/<uuid:batch_id>/approve/', views.extraction_review_approve, name='extraction_review_approve'),
+    path('extraction/jobs/<int:job_id>/review/options/', views.extraction_review_options, name='extraction_review_options'),
     
     path('semantic-search/', views.semantic_search_settings, name='semantic_search_settings'),
     path('semantic-search/config/create/', views.embedding_config_create, name='embedding_config_create'),

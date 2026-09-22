@@ -19,6 +19,7 @@ from .models import (
     ExtractionResult,
     RecordCreation,
     RecordCreationField,
+    ExtractionReviewBatch,
     EmbeddingConfiguration,
     LookupEmbedding,
 )
@@ -310,7 +311,7 @@ class ExtractionResultAdmin(ModelAdmin):
     ]
     search_fields = ['extraction_job__response_model__name', 'database_field__clientapp_field_name', 'verified_by__username']
     autocomplete_fields = ['extraction_job', 'database_field', 'verified_by']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['extracted_data', 'data_accuracy', 'data_edited', 'edited_data', 'review_change', 'source_kind', 'verified_by', 'verification_date_time', 'created_at', 'updated_at']
     fieldsets = (
         ('Extraction', {
             'fields': ['extraction_job', 'database_field', 'extracted_data']
@@ -326,7 +327,7 @@ class ExtractionResultAdmin(ModelAdmin):
 
 @admin.register(RecordCreation)
 class RecordCreationAdmin(ModelAdmin):
-    list_display = ['extraction_job', 'database_table', 'created_record_pk', 'operation', 'record_created', 'record_created_by', 'record_created_at']
+    list_display = ['extraction_job', 'database_table', 'created_record_pk', 'operation', 'review_batch', 'record_created', 'record_created_by', 'record_created_at']
     list_filter = [
         ('operation', ChoicesDropdownFilter),
         'record_created',
@@ -336,7 +337,7 @@ class RecordCreationAdmin(ModelAdmin):
     ]
     search_fields = ['extraction_job__response_model__name', 'created_record_pk', 'database_table__clientapp_content_type__model']
     autocomplete_fields = ['extraction_job', 'database_table', 'record_created_by']
-    readonly_fields = ['record_created_at', 'created_at', 'updated_at']
+    readonly_fields = ['record_created_at', 'review_batch', 'created_at', 'updated_at']
     inlines = [RecordCreationFieldInline]
     fieldsets = (
         ('Record Operation', {
@@ -349,6 +350,41 @@ class RecordCreationAdmin(ModelAdmin):
             'fields': [('created_at', 'updated_at')]
         }),
     )
+
+
+@admin.register(ExtractionReviewBatch)
+class ExtractionReviewBatchAdmin(ModelAdmin):
+    list_display = ['id', 'extraction_job', 'status', 'prepared_by', 'approved_by', 'created_at', 'approved_at']
+    list_filter = [
+        ('status', ChoicesDropdownFilter),
+        ('created_at', RangeDateTimeFilter),
+        ('approved_at', RangeDateTimeFilter),
+    ]
+    search_fields = ['id', 'extraction_job__id', 'prepared_by__username', 'approved_by__username']
+    readonly_fields = ['id', 'extraction_job', 'prepared_by', 'approved_by', 'status', 'approved_at', 'expires_at', 'request_key', 'source_revision', 'payload_digest', 'snapshot', 'receipt', 'created_at', 'updated_at']
+    fieldsets = (
+        ('Review', {
+            'fields': ['id', 'extraction_job', 'status', ('prepared_by', 'approved_by'), ('created_at', 'approved_at', 'expires_at')]
+        }),
+        ('Request', {
+            'fields': ['request_key', 'source_revision', 'payload_digest']
+        }),
+        ('Encrypted approval data', {
+            'fields': ['snapshot', 'receipt']
+        }),
+        ('Timestamps', {
+            'fields': [('updated_at',)]
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return obj is None or obj.status != 'approved'
+
+    def has_delete_permission(self, request, obj=None):
+        return obj is not None and obj.status != 'approved'
 
 
 @admin.register(EmbeddingConfiguration)

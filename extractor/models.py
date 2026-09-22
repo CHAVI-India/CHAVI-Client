@@ -445,6 +445,7 @@ class ExtractionJob(models.Model):
     config_snapshot = models.JSONField(null=True, blank=True, help_text="Provider/model/schema version frozen at dispatch")
     retry_count = models.PositiveIntegerField(default=0, help_text="How many instructor retries the provider call used")
     stage_trace = models.JSONField(default=list, blank=True, help_text="Ordered stage artifacts: prompt/result entries shown on the job detail page")
+    review_revision = models.PositiveIntegerField(default=0, help_text="Incremented after each approved extraction review")
     extracted_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who performed the extraction")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -473,6 +474,20 @@ class ResultStateChoices(models.TextChoices):
     EXTRACTED = "extracted", "Extracted"
     NOT_FOUND = "not_found", "Not found"
     UNRESOLVED = "unresolved", "Unresolved lookup"
+
+
+class ReviewChangeChoices(models.TextChoices):
+    ACCEPTED = 'accepted', 'Accepted unchanged'
+    EDITED = 'edited', 'Edited extracted value'
+    FILLED_MISSING = 'filled_missing', 'Filled missing value'
+    CLEARED = 'cleared', 'Cleared value'
+    OMITTED_UNRESOLVED = 'omitted_unresolved', 'Omitted unresolved value'
+
+
+class ResultSourceChoices(models.TextChoices):
+    LLM = 'llm', 'LLM extraction'
+    MANUAL_SUPPLEMENT = 'manual_supplement', 'Manual addition'
+
 
 class ExtractedRecord(models.Model):
     '''
@@ -505,6 +520,8 @@ class ExtractionResult(models.Model):
     data_accuracy = models.CharField(max_length=50, choices=DataAccuracyChoices.choices, default=DataAccuracyChoices.UNREVIEWED)
     data_edited = models.BooleanField(default=False, help_text="Whether the data was edited by the user")
     edited_data = EncryptedTextField(help_text="Edited data after user edits the extracted data. This will be stored as an encrypted text.",null=True,blank=True)
+    review_change = models.CharField(max_length=30, choices=ReviewChangeChoices.choices, blank=True, default='', help_text="Type of change made by the latest approved review")
+    source_kind = models.CharField(max_length=20, choices=ResultSourceChoices.choices, default=ResultSourceChoices.LLM, help_text="Whether this value came from the LLM or was manually supplied")
     revision_history = models.JSONField(default=list, blank=True, help_text="Audit trail of review actions: [{action, old, new, user, at}]")
     evidence = EncryptedTextField(null=True, blank=True, help_text="Source-text snippet where this value was found in the processed document; encrypted like extracted_data. Empty when the value couldn't be located verbatim.")
     verified_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, help_text="User who verified the data")
@@ -518,9 +535,49 @@ class ExtractionResult(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+class ReviewStatusChoices(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    SUPERSEDED = 'superseded', 'Superseded'
+    APPROVED = 'approved', 'Approved'
+
+
+class ExtractionReviewBatch(models.Model):
+    '''
+    A checked review submission. Pending rows contain only a preview;
+    approval records the actual save and the values that were approved.
+    '''
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.SET_NULL, null=True, blank=True, related_name='review_batches')
+    prepared_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='prepared_extraction_reviews')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_extraction_reviews')
+    status = models.CharField(max_length=20, choices=ReviewStatusChoices.choices, default=ReviewStatusChoices.PENDING)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    request_key = models.UUIDField()
+    source_revision = models.PositiveIntegerField(default=0)
+    payload_digest = models.CharField(max_length=64)
+    snapshot = EncryptedTextField()
+    receipt = EncryptedTextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        job = self.extraction_job_id or 'deleted job'
+        return f"Review {self.id} for job {job} - {self.status}"
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['extraction_job', 'prepared_by', 'request_key'], name='unique_review_request'),
+            models.CheckConstraint(condition=models.Q(status='approved', approved_at__isnull=False) | ~models.Q(status='approved') & models.Q(approved_at__isnull=True), name='review_approval_time_consistent'),
+            models.CheckConstraint(condition=models.Q(status='approved', receipt__isnull=False) | ~models.Q(status='approved'), name='approved_review_has_receipt'),
+        ]
+
+
 class RecordOperationChoices(models.TextChoices):
     CREATE = "create", "Create"
     UPDATE = "update", "Update"
+    LINK = "link", "Link"
 
 class RecordCreation(models.Model):
     '''
@@ -530,6 +587,7 @@ class RecordCreation(models.Model):
     extraction_job = models.ForeignKey(ExtractionJob, on_delete=models.CASCADE,help_text="Extraction job that produced this record")
     database_table = models.ForeignKey(DatabaseTable, on_delete=models.CASCADE,help_text="The table for which the record was created")
     extracted_record = models.ForeignKey(ExtractedRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name='record_creations', help_text="The extracted record that was written back")
+    review_batch = models.ForeignKey(ExtractionReviewBatch, on_delete=models.PROTECT, null=True, blank=True, related_name='record_operations', help_text="Approved review that performed this operation")
     created_record_pk = models.CharField(max_length=255, help_text="The actual primary key of the created/updated record in client_app")
     operation = models.CharField(max_length=20, choices=RecordOperationChoices.choices, default=RecordOperationChoices.CREATE, help_text="Whether this was a create or update operation")
     record_created = models.BooleanField(default=False, help_text="Whether the record operation was successful")
@@ -544,7 +602,10 @@ class RecordCreation(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        constraints = [models.UniqueConstraint(fields=['extraction_job', 'database_table', 'created_record_pk', 'operation'], name='unique_record_operation_per_extraction')]
+        constraints = [
+            models.UniqueConstraint(fields=['extraction_job', 'database_table', 'created_record_pk', 'operation'], condition=models.Q(review_batch__isnull=True), name='unique_record_operation_per_extraction'),
+            models.UniqueConstraint(fields=['review_batch', 'extracted_record'], condition=models.Q(review_batch__isnull=False), name='unique_record_operation_per_review'),
+        ]
 
 
 class RecordCreationField(models.Model):
