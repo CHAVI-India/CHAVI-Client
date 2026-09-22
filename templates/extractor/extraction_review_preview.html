@@ -67,9 +67,19 @@
                     <tbody class="divide-y divide-gray-100">
                         {% for row in item.rows %}
                         <tr class="{% if item.before %}{% if row.before != row.after %}bg-yellow-50{% endif %}{% endif %}">
-                            <td class="px-3 py-2 font-semibold text-gray-700">{{ row.name }}</td>
-                            <td class="px-3 py-2 text-gray-600">{{ row.before|default:"—" }}</td>
-                            <td class="px-3 py-2 text-gray-900">{{ row.after|default:"—" }}</td>
+                            <td class="px-3 py-2 font-semibold text-gray-700">
+                                {{ row.name }}
+                                {% if row.extraction %}
+                                <details class="mt-1 text-xs font-normal">
+                                    <summary>Original LLM extraction: {{ row.extraction.label }}{% if row.extraction.basis == 'clinical_inference' %} — not explicitly reported{% endif %}</summary>
+                                    <div>Original value: {% if row.extraction.value is None or row.extraction.value == "" %}—{% else %}{{ row.extraction.value }}{% endif %}</div>
+                                    {% if row.extraction.note %}<div>{{ row.extraction.note }}</div>{% endif %}
+                                    {% if row.extraction.evidence %}<div>Source evidence: {{ row.extraction.evidence }}</div>{% endif %}
+                                </details>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-gray-600">{% if row.before is None or row.before == "" %}—{% else %}{{ row.before }}{% endif %}</td>
+                            <td class="px-3 py-2 text-gray-900">{% if row.after is None or row.after == "" %}—{% else %}{{ row.after }}{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
