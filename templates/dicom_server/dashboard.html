@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}DICOM Server - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    {% include "dicom_server/_messages.html" %}
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">DICOM Server</h1>
+        <div class="space-x-3">
+            <a href="{% url 'dicom_server:retrieve' %}" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">Retrieve Studies</a>
+            <a href="{% url 'dicom_server:job_list' %}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Retrieval Jobs</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-3">Local Server Configuration</h2>
+            <dl class="text-sm space-y-1">
+                <div class="flex justify-between"><dt class="text-gray-500">AE Title</dt><dd class="font-mono">{{ config.ae_title }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Listening on</dt><dd class="font-mono">{{ config.bind_address }}:{{ config.port }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Max PDU</dt><dd>{{ config.max_pdu }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Storage</dt><dd>{% if config.is_enabled %}<span class="text-green-600 font-semibold">Enabled</span>{% else %}<span class="text-red-600 font-semibold">Disabled</span>{% endif %}</dd></div>
+            </dl>
+            {% if user.is_staff %}
+            <a href="{% url 'dicom_server:config_edit' %}" class="text-chavi-primary text-sm hover:underline mt-3 inline-block">Edit configuration</a>
+            {% endif %}
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-3">Remote Nodes</h2>
+            {% if nodes %}
+            <ul class="text-sm space-y-1">
+                {% for node in nodes %}
+                <li class="flex justify-between">
+                    <span>{{ node.name }}</span>
+                    <span class="font-mono text-gray-500">{{ node.ae_title }}@{{ node.host }}:{{ node.port }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500">No remote nodes configured.</p>
+            {% endif %}
+            {% if user.is_staff %}
+            <a href="{% url 'dicom_server:node_list' %}" class="text-chavi-primary text-sm hover:underline mt-3 inline-block">Manage nodes</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+        <h2 class="text-lg font-semibold mb-3">Recent Retrieval Jobs</h2>
+        {% if recent_jobs %}
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-4">Job</th><th class="py-2 pr-4">Patient</th><th class="py-2 pr-4">Node</th>
+                <th class="py-2 pr-4">Status</th><th class="py-2 pr-4">Instances</th><th class="py-2">Created</th>
+            </tr></thead>
+            <tbody>
+                {% for job in recent_jobs %}
+                <tr class="border-b">
+                    <td class="py-2 pr-4"><a href="{% url 'dicom_server:job_detail' job.pk %}" class="text-chavi-primary hover:underline">#{{ job.pk }}</a></td>
+                    <td class="py-2 pr-4">{{ job.patient_id }}</td>
+                    <td class="py-2 pr-4">{{ job.node.name }}</td>
+                    <td class="py-2 pr-4">{{ job.get_status_display }}</td>
+                    <td class="py-2 pr-4">{{ job.instances_received }}</td>
+                    <td class="py-2">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p class="text-sm text-gray-500">No retrieval jobs yet.</p>{% endif %}
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-3">Recent Inbound Instances</h2>
+        {% if recent_inbound %}
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-4">Received</th><th class="py-2 pr-4">Status</th><th class="py-2 pr-4">Patient ID</th>
+                <th class="py-2 pr-4">Study UID</th><th class="py-2 pr-4">Modality</th><th class="py-2">From AE</th>
+            </tr></thead>
+            <tbody>
+                {% for inst in recent_inbound %}
+                <tr class="border-b">
+                    <td class="py-2 pr-4">{{ inst.received_at|date:"Y-m-d H:i:s" }}</td>
+                    <td class="py-2 pr-4">
+                        {% if inst.status == 'STORED' %}<span class="text-green-600">Stored</span>
+                        {% else %}<span class="text-red-600" title="{{ inst.reject_reason }}">Rejected</span>{% endif %}
+                    </td>
+                    <td class="py-2 pr-4">{{ inst.dicom_patient_id }}</td>
+                    <td class="py-2 pr-4 font-mono text-xs">{{ inst.study_instance_uid|truncatechars:30 }}</td>
+                    <td class="py-2 pr-4">{{ inst.modality }}</td>
+                    <td class="py-2">{{ inst.calling_ae_title }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p class="text-sm text-gray-500">No inbound instances received yet.</p>{% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -422,3 +422,77 @@ changed/deleted lookup rows are flagged stale automatically.
 Extraction jobs and results are **staging data** — deleting an uploaded file
 cascade-deletes its processed text, jobs, and results. The delete confirmation
 shows the dependent counts.
+
+## DICOM Server (`dicom_server`)
+
+An inbound DICOM service that receives DICOM data **into** the application —
+it never sends instances outward. All received data is written to the existing
+`client_app` models (`Patient` → `DICOMStudy`) and stored under
+`media/processed_dicom/<patient>/<study>/<sop>.dcm`.
+
+**Patient allow-list:** only instances whose `PatientID` matches an existing
+`Patient` row (exact match, then the same canonical-ID matching used by the
+bulk importer) are accepted. Everything else is rejected — no patient records
+are ever created automatically.
+
+### Services
+
+- **C-ECHO SCP** — verification.
+- **C-STORE SCP** — inbound storage (all storage SOP classes).
+- **C-FIND SCP** — patient/study-level query against the local database.
+- **Query/Retrieve SCU** — pull studies inward from configured remote PACS
+  via C-GET or C-MOVE.
+
+### Running the SCP
+
+Development (separate process — **not** a management command):
+
+```bash
+python -m dicom_server
+```
+
+Production: the `chaviclient-dicom` docker-compose service starts it
+automatically (`command: ["python", "-m", "dicom_server"]`, publishes port
+`11112`). Configuration is **database-backed** — the published port must
+match the configured listen port. The process waits for the database at
+startup and shuts down cleanly on SIGTERM/SIGINT.
+
+### Configuration (staff only)
+
+All DICOM configuration lives in the database — **no environment variables**.
+Staff users (`is_staff`) can edit:
+
+- **DICOM Server → Server configuration** (`/dicom-server/config/`): AE title,
+  bind address, port, max PDU, Q/R timeout, storage enable/disable. Changes to
+  AE title/bind/port take effect on the next server restart.
+- **DICOM Server → Remote nodes** (`/dicom-server/nodes/`): remote PACS
+  name/AE title/host/port, active flag, and **prefer C-GET**. Includes a
+  C-ECHO connectivity test button.
+
+### Query/Retrieve (frontend)
+
+Users with the `client_app.add_dicomstudy` permission can access
+`/dicom-server/` — dashboard, retrieval form (`/dicom-server/retrieve/`), and
+job history. Retrieval runs under Celery (`dicom_server.task_retrieve_studies`)
+and reports progress through the existing `TaskRun`/`Notification`
+infrastructure. Every received instance is audited in `InboundDICOMInstance`
+(visible in Django admin).
+
+**C-GET vs C-MOVE:** C-GET receives instances over the same association — use
+it when this server cannot accept inbound connections from the remote (e.g.
+behind NAT; this is the case for `dicomserver.co.uk`). C-MOVE requires the
+remote to open a connection back to this server's configured AE title/port, so
+this host must be reachable from the remote.
+
+### Testing
+
+```bash
+python manage.py test dicom_server          # unit + loopback + stub-PACS tests
+DICOM_LIVE_TESTS=1 python manage.py test dicom_server.tests.test_live  # live
+```
+
+The live suite targets `www.dicomserver.co.uk:11112` by default (override with
+`DICOM_LIVE_HOST`/`DICOM_LIVE_PORT`/`DICOM_LIVE_AET`). It pushes only
+synthetic, anonymised datasets — never send real patient data to a public
+server. Live tests use C-GET because public-server C-MOVE requires a publicly
+reachable destination AE.

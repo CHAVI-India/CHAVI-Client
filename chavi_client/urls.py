@@ -39,6 +39,8 @@ urlpatterns = [
     path('extractor/', include('extractor.urls')),
     # Deidentification URLs
     path('deidentification/', include('deidentification.urls')),
+    # DICOM server URLs
+    path('dicom-server/', include('dicom_server.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Celery progress endpoint for task progress bars

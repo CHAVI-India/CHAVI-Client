@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Retrieve DICOM Studies - CHAVI Client{% endblock %}
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 42px; border: 1px solid #d1d5db; border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 40px; padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+    .select2-container { width: 100% !important; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    {% include "dicom_server/_messages.html" %}
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Retrieve DICOM Studies</h1>
+    <div class="bg-white rounded-lg shadow p-6">
+        <p class="text-sm text-gray-600 mb-4">
+            Query a remote node for all studies of a patient and retrieve them
+            into this server. Only patients registered in the Patient model can
+            be retrieved — instances for unknown patient IDs are rejected on receipt.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.node|as_crispy_field }}
+            <div class="mt-4">
+                <label for="id_patient" class="block text-sm font-medium text-gray-700 mb-1">Patient</label>
+                {{ form.patient }}
+            </div>
+            {{ form.retrieve_all|as_crispy_field }}
+            <div class="mt-6 flex space-x-3">
+                <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">Start Retrieval</button>
+                <a href="{% url 'dicom_server:dashboard' %}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+    $('#id_patient').select2({
+        placeholder: '-- Search for a patient --',
+        allowClear: true,
+        width: '100%',
+        ajax: {
+            url: '{% url "client_app:api_patient_search" %}',
+            dataType: 'json',
+            delay: 300,
+            data: function (params) { return { q: params.term }; },
+            processResults: function (data) { return { results: data.results }; },
+            cache: true
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -26,6 +26,7 @@ The Docker Compose setup includes the following containers:
 | chaviclient-django | Django web application (Gunicorn) |
 | chaviclient-celery-worker | Celery worker for asynchronous task processing |
 | chaviclient-celery-beat | Celery beat scheduler for periodic tasks |
+| chaviclient-dicom | Inbound DICOM server (C-ECHO/C-STORE/C-FIND SCP on port 11112) |
 | chaviclient-proxy | Nginx reverse proxy |
 
 ### RabbitMQ Management UI
@@ -89,3 +90,12 @@ The `./media` directory is shared between the Django and Celery worker container
 ### Task Results
 
 Celery task results are stored in the Django database via `django-celery-results`. You can view task results and download generated files from the Django admin under **Task Results**.
+
+### DICOM Server
+
+The `chaviclient-dicom` container runs the inbound DICOM service (`python -m dicom_server`): a C-ECHO/C-STORE/C-FIND SCP plus a Query/Retrieve SCU for pulling studies from remote PACS into the app. Received files land in the shared `./media` volume under `processed_dicom/` and update the same patient/study tables as the web uploads.
+
+- **Port:** DICOM peers connect to port `11112` (published in the compose file). The listen port is configured in the database — keep the published port in sync if you change it.
+- **Configuration:** all DICOM settings are database-backed (no env vars). Staff users edit them under **Data Import → DICOM Server** in the web UI: server AE title/port/enable at `/dicom-server/config/`, remote PACS nodes at `/dicom-server/nodes/`. Restart the container after changing AE title, bind address, or port: `docker compose restart chaviclient-dicom`.
+- **Patient allow-list:** only instances whose `PatientID` matches an existing patient record are stored; unknown patients are rejected.
+- **Retrieval:** query/retrieve jobs are dispatched to the Celery worker (no extra setup needed). Use **prefer C-GET** on a remote node when the remote cannot connect back to this server (e.g. behind NAT); C-MOVE requires the remote to reach this host on the configured port.

@@ -31,6 +31,23 @@ services:
       - ./logs:/app/logs
     command: ["./entrypoint.docker.sh"]
 
+  chaviclient-dicom:
+    build: .
+    container_name: chaviclient-dicom
+    restart: always
+    depends_on:
+      chaviclient-django:
+        condition: service_started
+    env_file:
+      - .env.docker
+    volumes:
+      - app_data:/app
+      - ./media:/app/media
+      - ./logs:/app/logs
+    ports:
+      - "11112:11112"
+    command: ["python", "-m", "dicom_server"]
+
   chaviclient-proxy:
     image: nginx:latest
     container_name: chaviclient-proxy

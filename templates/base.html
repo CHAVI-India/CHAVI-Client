@@ -68,6 +68,11 @@
                                     <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                         <i class="fas fa-list mr-2"></i>DICOM Sessions
                                     </a>
+                                    {% if perms.client_app.add_dicomstudy %}
+                                    <a href="{% url 'dicom_server:dashboard' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-network-wired mr-2"></i>DICOM Server
+                                    </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -227,6 +232,11 @@
                 <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
                     <i class="fas fa-list mr-2"></i>DICOM Sessions
                 </a>
+                {% if perms.client_app.add_dicomstudy %}
+                <a href="{% url 'dicom_server:dashboard' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
+                    <i class="fas fa-network-wired mr-2"></i>DICOM Server
+                </a>
+                {% endif %}
                 <!-- LLM Extraction Section -->
                 <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">LLM EXTRACTION</div>
                 <a href="{% url 'extractor:extraction_dashboard' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">

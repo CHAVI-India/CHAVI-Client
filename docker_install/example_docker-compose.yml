@@ -92,6 +92,24 @@ services:
       - ./media:/app/media
     command: ["celery", "-A", "chavi_client", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
+  chaviclient-dicom:
+    image: chaviapp/chaviclient:main
+    container_name: chaviclient-dicom
+    restart: always
+    depends_on:
+      chaviclient-database:
+        condition: service_healthy
+      chaviclient-django:
+        condition: service_started
+    env_file:
+      - .env
+    volumes:
+      - chaviclient_app_data:/app
+      - ./media:/app/media
+    ports:
+      - "11112:11112"
+    command: ["python", "-m", "dicom_server"]
+
   chaviclient-proxy:
     image: nginx:latest
     container_name: chaviclient-proxy

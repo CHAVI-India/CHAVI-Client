@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Retrieval Job #{{ job.pk }} - CHAVI Client{% endblock %}
+{% block extra_head %}{% if job.status == 'PENDING' or job.status == 'RUNNING' %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    {% include "dicom_server/_messages.html" %}
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Retrieval Job #{{ job.pk }}</h1>
+
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <dl class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div><dt class="text-gray-500">Status</dt><dd class="font-semibold">{{ job.get_status_display }}</dd></div>
+            <div><dt class="text-gray-500">Patient</dt><dd>{{ job.patient_id }}</dd></div>
+            <div><dt class="text-gray-500">Node</dt><dd>{{ job.node }}</dd></div>
+            <div><dt class="text-gray-500">Retrieval method</dt><dd>{% if job.node.prefer_c_get %}C-GET{% else %}C-MOVE{% endif %}</dd></div>
+            <div><dt class="text-gray-500">Instances received</dt><dd>{{ job.instances_received }}</dd></div>
+            <div><dt class="text-gray-500">Created</dt><dd>{{ job.created_at|date:"Y-m-d H:i:s" }} by {{ job.created_by|default:"-" }}</dd></div>
+        </dl>
+        {% if job.error_log %}
+        <div class="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded whitespace-pre-wrap">{{ job.error_log }}</div>
+        {% endif %}
+    </div>
+
+    {% if job.studies_found %}
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-3">Studies ({{ job.studies_found|length }})</h2>
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-4">Study Instance UID</th><th class="py-2 pr-4">Date</th>
+                <th class="py-2 pr-4">Description</th><th class="py-2">Modalities</th>
+            </tr></thead>
+            <tbody>
+                {% for s in job.studies_found %}
+                <tr class="border-b">
+                    <td class="py-2 pr-4 font-mono text-xs">{{ s.study_instance_uid|truncatechars:45 }}</td>
+                    <td class="py-2 pr-4">{{ s.study_date }}</td>
+                    <td class="py-2 pr-4">{{ s.study_description }}</td>
+                    <td class="py-2">{{ s.modalities }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if instances %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-3">Received Instances ({{ instances|length }})</h2>
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-4">Received</th><th class="py-2 pr-4">Status</th><th class="py-2 pr-4">SOP Instance UID</th><th class="py-2">Modality</th>
+            </tr></thead>
+            <tbody>
+                {% for inst in instances %}
+                <tr class="border-b">
+                    <td class="py-2 pr-4">{{ inst.received_at|date:"H:i:s" }}</td>
+                    <td class="py-2 pr-4">{% if inst.status == 'STORED' %}<span class="text-green-600">Stored</span>{% else %}<span class="text-red-600">Rejected</span>{% endif %}</td>
+                    <td class="py-2 pr-4 font-mono text-xs">{{ inst.sop_instance_uid|truncatechars:40 }}</td>
+                    <td class="py-2">{{ inst.modality }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'dicom_server:job_list' %}" class="text-chavi-primary text-sm hover:underline mt-4 inline-block">&larr; All jobs</a>
+</div>
+{% endblock %}

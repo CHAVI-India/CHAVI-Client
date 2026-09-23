@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'celery_progress',
     'deidentification',
+    'dicom_server',
 ]
 
 MIDDLEWARE = [
@@ -238,6 +239,11 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs', 'deidentification.log'),
             'formatter': 'detailed',
         },
+        'dicom_server': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'dicom_server.log'),
+            'formatter': 'detailed',
+        },
     },
     'loggers': {
         'django': {
@@ -262,6 +268,11 @@ LOGGING = {
         },
         'deidentification': {
             'handlers': ['console', 'deidentification'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'dicom_server': {
+            'handlers': ['console', 'dicom_server'],
             'level': 'DEBUG',
             'propagate': False,
         },

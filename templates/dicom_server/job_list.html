@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Retrieval Jobs - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    {% include "dicom_server/_messages.html" %}
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Retrieval Jobs</h1>
+        <a href="{% url 'dicom_server:retrieve' %}" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">New Retrieval</a>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        {% if jobs %}
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 border-b">
+                <th class="py-2 pr-4">Job</th><th class="py-2 pr-4">Patient</th><th class="py-2 pr-4">Node</th>
+                <th class="py-2 pr-4">Status</th><th class="py-2 pr-4">Instances</th><th class="py-2 pr-4">Created by</th><th class="py-2">Created</th>
+            </tr></thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr class="border-b">
+                    <td class="py-2 pr-4"><a href="{% url 'dicom_server:job_detail' job.pk %}" class="text-chavi-primary hover:underline">#{{ job.pk }}</a></td>
+                    <td class="py-2 pr-4">{{ job.patient_id }}</td>
+                    <td class="py-2 pr-4">{{ job.node.name }}</td>
+                    <td class="py-2 pr-4">{{ job.get_status_display }}</td>
+                    <td class="py-2 pr-4">{{ job.instances_received }}</td>
+                    <td class="py-2 pr-4">{{ job.created_by|default:"-" }}</td>
+                    <td class="py-2">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if is_paginated %}
+        <div class="mt-4 flex space-x-2 text-sm">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="text-chavi-primary hover:underline">&larr; Previous</a>{% endif %}
+            <span class="text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="text-chavi-primary hover:underline">Next &rarr;</a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="text-sm text-gray-500">No retrieval jobs yet.</p>
+        {% endif %}
+    </div>
+    <a href="{% url 'dicom_server:dashboard' %}" class="text-chavi-primary text-sm hover:underline mt-4 inline-block">&larr; Back to dashboard</a>
+</div>
+{% endblock %}
