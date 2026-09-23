@@ -3,7 +3,8 @@ Embedding provider adapter — the single path used by query-time semantic
 search, background index builds, and management commands.
 
 Two providers are supported:
-- 'sentence-transformers' (local model, CPU)
+- 'sentence-transformers' (local model; CUDA is auto-detected per process and
+  falls back to CPU — GPU containers need the device granted via compose)
 - 'openai' / 'openai-compatible' (any OpenAI-compatible /embeddings endpoint,
   including remote OpenAI, Azure-style endpoints, or a local Ollama server)
 
@@ -22,6 +23,36 @@ log = getLogger(__name__)
 
 class EmbeddingUnavailableError(Exception):
     """Raised when embeddings cannot be computed for the active configuration."""
+
+
+class _CudaSmokeTestFailed(Exception):
+    """Internal signal: model loaded on CUDA but a warmup encode failed."""
+
+
+def _resolve_device() -> str:
+    """
+    Pick 'cuda' only when a GPU is present AND this torch build ships kernels
+    for its compute capability. is_available() alone is not enough: it returns
+    True for GPUs whose kernels aren't compiled in (e.g. an sm_50 card with a
+    torch cu13x build supporting sm_75+), where the first encode would crash
+    mid-task. Any detection error resolves to 'cpu'.
+    """
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return 'cpu'
+        major, minor = torch.cuda.get_device_capability(0)
+        arch = f'sm_{major}{minor}'
+        if arch not in torch.cuda.get_arch_list():
+            log.warning(
+                f"GPU '{torch.cuda.get_device_name(0)}' ({arch}) is not supported "
+                f"by this torch build {torch.cuda.get_arch_list()}; using CPU"
+            )
+            return 'cpu'
+        return 'cuda'
+    except Exception as e:
+        log.warning(f"CUDA detection failed ({e}); using CPU")
+        return 'cpu'
 
 
 class BaseEmbeddingProvider:
@@ -47,10 +78,16 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
                 "sentence-transformers is not installed. "
                 "Install it with: pip install sentence-transformers"
             ) from e
-        # CPU keeps this off GPU memory and avoids CUDA version issues.
         # token authenticates HF Hub requests (required for gated models;
         # also silences the unauthenticated-request warnings).
-        self._model = SentenceTransformer(model_name, device='cpu', token=token or None)
+        self._device = _resolve_device()
+        try:
+            self._model = self._load_model(SentenceTransformer, model_name,
+                                           self._device, token)
+        except _CudaSmokeTestFailed:
+            self._device = 'cpu'
+            self._model = self._load_model(SentenceTransformer, model_name,
+                                           'cpu', token)
         self._dimensions = int(self._model.get_sentence_embedding_dimension())
         if expected_dim and self._dimensions != expected_dim:
             raise EmbeddingUnavailableError(
@@ -58,13 +95,31 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
                 f"the configuration declares {expected_dim}. Fix embedding_dimension "
                 f"on the configuration to match the model's actual output."
             )
+        log.info(f"Embedding model '{model_name}' loaded on {self._device}")
+
+    @staticmethod
+    def _load_model(SentenceTransformer, model_name, device, token):
+        model = SentenceTransformer(model_name, device=device, token=token or None)
+        if device == 'cuda':
+            # Detection can still pass on an unusable GPU (driver mismatch,
+            # init-time OOM) — verify with a real encode so a bad GPU falls
+            # back to CPU here instead of dying mid-batch in a Celery task.
+            try:
+                model.encode(['warmup'])
+            except Exception:
+                log.warning("GPU smoke test failed; falling back to CPU",
+                            exc_info=True)
+                raise _CudaSmokeTestFailed
+        return model
 
     @property
     def dimensions(self):
         return self._dimensions
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        embeddings = self._model.encode(list(texts))
+        # Larger batches pay off on GPU; 32 is the encode() default.
+        batch_size = 64 if self._device == 'cuda' else 32
+        embeddings = self._model.encode(list(texts), batch_size=batch_size)
         return embeddings.tolist()
 
 

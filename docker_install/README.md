@@ -43,6 +43,45 @@ RABBITMQ_DEFAULT_PASS=chavipassword
 RABBITMQ_DEFAULT_VHOST=chavi_vhost
 ```
 
+### GPU Acceleration (Optional)
+
+Lookup-table embeddings (semantic search) are computed by the Celery worker and
+auto-detect a usable NVIDIA GPU — no configuration is needed beyond granting
+the container GPU access. Without it, computation runs on CPU.
+
+Host prerequisites:
+
+- NVIDIA driver recent enough for the bundled CUDA build (torch cu130)
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- A GPU with compute capability ≥ sm_75 (Turing or newer, ~2018+); unsupported
+  GPUs are detected and automatically skipped in favour of CPU
+
+Then uncomment the `deploy.resources.reservations.devices` block on
+`chaviclient-celery-worker` in `docker-compose.yml` and restart:
+
+```bash
+docker compose up -d
+```
+
+Verify the worker sees the GPU:
+
+```bash
+docker exec chaviclient-celery-worker python -c "import torch; print(torch.cuda.is_available())"
+```
+
+The worker log records the resolved device when the embedding model loads.
+Note that each prefork child loads its own model copy — with
+`--concurrency=2`, VRAM usage is roughly 2× the model size, so lower the
+concurrency for large models on small GPUs.
+
+Only the worker computes embeddings — the web container dispatches tasks and
+never loads the model, so it needs no GPU grant. If you run the embedding
+management command manually, run it inside the worker container to get GPU:
+
+```bash
+docker exec chaviclient-celery-worker python manage.py compute_lookup_embeddings --refresh
+```
+
 ### Shared Media Volume
 
 The `./media` directory is shared between the Django and Celery worker containers. This ensures that files uploaded through the Django app are accessible to Celery workers for processing, and that generated export files are accessible to Django for download.

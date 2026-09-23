@@ -242,10 +242,14 @@ python manage.py compute_lookup_embeddings --batch-size 500
 ```
 
 3. **Use GPU for embedding computation:**
-```python
-# In semantic_search.py
-model = SentenceTransformer('all-MiniLM-L6-v2', device='cuda')
-```
+
+The sentence-transformers provider auto-detects a usable CUDA GPU and falls
+back to CPU otherwise — no code changes needed. For Docker installs, grant the
+`chaviclient-celery-worker` container GPU access (see the commented `deploy`
+block in `docker_install/example_docker-compose.yml` and
+`docker_install/README.md` for host prerequisites). Unsupported GPUs
+(compute capability below sm_75 for the bundled torch build) are detected and
+skipped automatically.
 
 ## Troubleshooting
 
