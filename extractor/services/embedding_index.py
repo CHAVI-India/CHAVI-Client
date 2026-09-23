@@ -19,6 +19,7 @@ Both share the build-then-swap refresh semantics:
 
 from typing import Callable, Optional, Dict, Any, List
 from logging import getLogger
+from time import perf_counter
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import close_old_connections, transaction
@@ -155,8 +156,17 @@ def compute_lookup_table_embeddings(
     # chunk of work and memory stays bounded on very large tables.
     new_count = 0
     table_failed = 0
+    chunk_total = (len(pending) + 99) // 100
     for i in range(0, len(pending), 100):
         chunk = pending[i:i + 100]
+        chunk_number = i // 100 + 1
+        first_key = f"{chunk[0][0]}.{chunk[0][1]}"
+        last_key = f"{chunk[-1][0]}.{chunk[-1][1]}"
+        log.info(
+            "Embedding %s v%s chunk %s/%s: %s texts (%s to %s)",
+            table_name, target_version, chunk_number, chunk_total,
+            len(chunk), first_key, last_key)
+        encode_started = perf_counter()
         try:
             vectors = provider.embed_texts([t for _, _, t in chunk])
             if len(vectors) != len(chunk):
@@ -164,9 +174,13 @@ def compute_lookup_table_embeddings(
                     f"provider returned {len(vectors)} embeddings "
                     f"for {len(chunk)} texts")
         except Exception as e:
-            log.error(f"Embedding batch failed for {table_name}: {e}")
+            log.error(
+                "Embedding %s v%s chunk %s/%s failed after %.2fs: %s",
+                table_name, target_version, chunk_number, chunk_total,
+                perf_counter() - encode_started, e)
             table_failed += len(chunk)
             continue
+        encode_seconds = perf_counter() - encode_started
         rows = [LookupEmbedding(
             content_type=content_type,
             object_id=pk_value,
@@ -178,8 +192,15 @@ def compute_lookup_table_embeddings(
         ) for (pk_value, field_name, text_value), vector in zip(chunk, vectors)]
         # Encoding idles the DB connection for minutes — drop it before writing.
         close_old_connections()
+        write_started = perf_counter()
         LookupEmbedding.objects.bulk_create(rows, ignore_conflicts=True)
+        write_seconds = perf_counter() - write_started
         new_count += len(rows)
+        log.info(
+            "Saved %s v%s chunk %s/%s: %s rows "
+            "(encode %.2fs, database %.2fs)",
+            table_name, target_version, chunk_number, chunk_total,
+            len(rows), encode_seconds, write_seconds)
 
     return {'table': table_name, 'count': new_count, 'failed': table_failed}
 

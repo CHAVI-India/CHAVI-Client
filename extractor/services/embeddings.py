@@ -105,7 +105,7 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
             # init-time OOM) — verify with a real encode so a bad GPU falls
             # back to CPU here instead of dying mid-batch in a Celery task.
             try:
-                model.encode(['warmup'])
+                model.encode(['warmup'], show_progress_bar=False)
             except Exception:
                 log.warning("GPU smoke test failed; falling back to CPU",
                             exc_info=True)
@@ -119,7 +119,8 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         # Larger batches pay off on GPU; 32 is the encode() default.
         batch_size = 64 if self._device == 'cuda' else 32
-        embeddings = self._model.encode(list(texts), batch_size=batch_size)
+        embeddings = self._model.encode(
+            list(texts), batch_size=batch_size, show_progress_bar=False)
         return embeddings.tolist()
 
 
