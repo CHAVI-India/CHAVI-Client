@@ -763,7 +763,10 @@ class LookupEmbedding(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['content_type', 'object_id', 'field_name', 'embedding_config'],
+                # index_version is part of the key so a refresh build writes a
+                # new generation alongside the live one (build-then-swap);
+                # without it every refresh insert collides with the live row.
+                fields=['content_type', 'object_id', 'field_name', 'embedding_config', 'index_version'],
                 name='unique_lookup_embedding'
             )
         ]

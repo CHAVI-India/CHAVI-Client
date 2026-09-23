@@ -21,7 +21,7 @@ from typing import Callable, Optional, Dict, Any, List
 from logging import getLogger
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import close_old_connections
+from django.db import close_old_connections, transaction
 from django.db import models as django_models
 
 from extractor.models import EmbeddingConfiguration, LookupEmbedding
@@ -74,6 +74,10 @@ def compute_lookup_table_embeddings(
     for this table, a '__label__' vector of the joined display label is also
     embedded per record — it's the string the LLM is asked to return.
 
+    Builds resume per row: target-version rows whose stored text still
+    matches the source are skipped in both refresh and gap-fill modes, so
+    an interrupted build continues where it left off.
+
     Returns {'table', 'count', 'failed'}. Provider setup failures propagate as
     EmbeddingUnavailableError so callers can treat them as fatal.
     """
@@ -88,8 +92,12 @@ def compute_lookup_table_embeddings(
     close_old_connections()
     notify(f"Indexing {table_name}")
 
-    # Flag rows whose record was deleted or whose text changed
-    stale = SemanticSearchService.mark_stale_embeddings(content_type, lookup_model)
+    # Flag rows whose record was deleted or whose text changed — scoped to
+    # the generation being built so a failed refresh can't mark the live
+    # index stale.
+    stale = SemanticSearchService.mark_stale_embeddings(
+        content_type, lookup_model,
+        embedding_config=config, index_version=target_version)
     if stale:
         log.info(f"  {table_name}: {stale} stale embeddings flagged")
 
@@ -99,8 +107,27 @@ def compute_lookup_table_embeddings(
     if not text_fields and not label_spec:
         return {'table': table_name, 'count': 0, 'failed': 0}
 
+    # Stale rows at the generation being built are invisible to queries and
+    # would only block re-embedding through the unique constraint.
+    LookupEmbedding.objects.filter(
+        content_type=content_type, embedding_config=config,
+        index_version=target_version, is_current=False,
+    ).delete()
+
+    # One query for the whole table: what the target generation already has.
+    # Covers gap-fill and refresh-resume alike — a re-run skips only rows
+    # whose stored text still matches the source.
+    existing = {
+        (object_id, field_name): (row_id, text_value)
+        for row_id, object_id, field_name, text_value in LookupEmbedding.objects.filter(
+            content_type=content_type, embedding_config=config,
+            index_version=target_version, is_current=True,
+        ).values_list('id', 'object_id', 'field_name', 'text_value')
+    }
+
     # Collect (pk, field, text) triples needing embeddings
     pending = []
+    replaced_ids = []
     for record in lookup_model.objects.all().iterator():
         pk_value = getattr(record, pk_field)
         candidates = [(f, str(getattr(record, f, '') or '')) for f in text_fields]
@@ -112,58 +139,64 @@ def compute_lookup_table_embeddings(
         for field_name, text_value in candidates:
             if not text_value.strip():
                 continue
-            if not refresh and LookupEmbedding.objects.filter(
-                content_type=content_type,
-                object_id=str(pk_value),
-                field_name=field_name,
-                embedding_config=config,
-                index_version=target_version,
-            ).exists():
-                continue
+            entry = existing.get((str(pk_value), field_name))
+            if entry is not None:
+                if entry[1] == text_value:
+                    continue
+                # Text changed after the stale scan — the old row must go
+                # before the fresh one can take its unique slot.
+                replaced_ids.append(entry[0])
             pending.append((str(pk_value), field_name, text_value))
 
-    # Batch-encode
-    new_rows = []
+    if replaced_ids:
+        LookupEmbedding.objects.filter(id__in=replaced_ids).delete()
+
+    # Batch-encode; flush each chunk so a crash mid-table loses at most one
+    # chunk of work and memory stays bounded on very large tables.
+    new_count = 0
     table_failed = 0
     for i in range(0, len(pending), 100):
         chunk = pending[i:i + 100]
         try:
             vectors = provider.embed_texts([t for _, _, t in chunk])
+            if len(vectors) != len(chunk):
+                raise ValueError(
+                    f"provider returned {len(vectors)} embeddings "
+                    f"for {len(chunk)} texts")
         except Exception as e:
             log.error(f"Embedding batch failed for {table_name}: {e}")
             table_failed += len(chunk)
             continue
-        for (pk_value, field_name, text_value), vector in zip(chunk, vectors):
-            new_rows.append(LookupEmbedding(
-                content_type=content_type,
-                object_id=pk_value,
-                field_name=field_name,
-                text_value=text_value,
-                embedding=vector,
-                embedding_config=config,
-                index_version=target_version,
-            ))
-
-    if new_rows:
-        # The encode loop does no DB work — the connection may have idled
-        # through it, so drop it before writing.
+        rows = [LookupEmbedding(
+            content_type=content_type,
+            object_id=pk_value,
+            field_name=field_name,
+            text_value=text_value,
+            embedding=vector,
+            embedding_config=config,
+            index_version=target_version,
+        ) for (pk_value, field_name, text_value), vector in zip(chunk, vectors)]
+        # Encoding idles the DB connection for minutes — drop it before writing.
         close_old_connections()
-        LookupEmbedding.objects.bulk_create(new_rows, ignore_conflicts=True)
+        LookupEmbedding.objects.bulk_create(rows, ignore_conflicts=True)
+        new_count += len(rows)
 
-    return {'table': table_name, 'count': len(new_rows), 'failed': table_failed}
+    return {'table': table_name, 'count': new_count, 'failed': table_failed}
 
 
 def finalize_lookup_index(config: EmbeddingConfiguration, target_version: int) -> None:
     """
-    Swap generations: mark every row outside the new build stale and make
-    target_version live. Call only after a successful refresh build.
+    Swap generations: activate target_version and delete every other
+    generation for this config. Atomic — the old index stays live until the
+    pointer moves. Call only after a fully successful refresh build.
     """
     close_old_connections()
-    LookupEmbedding.objects.filter(
-        embedding_config=config
-    ).exclude(index_version=target_version).update(is_current=False)
-    config.version = target_version
-    config.save(update_fields=['version', 'updated_at'])
+    with transaction.atomic():
+        config.version = target_version
+        config.save(update_fields=['version', 'updated_at'])
+        LookupEmbedding.objects.filter(
+            embedding_config=config
+        ).exclude(index_version=target_version).delete()
 
 
 def compute_lookup_embeddings(
@@ -212,9 +245,17 @@ def compute_lookup_embeddings(
         results.append(stats)
 
     if refresh:
-        if total_processed == 0:
+        # A resumed run can legitimately add zero rows — completeness is
+        # clean per-table results plus committed target-version rows, not
+        # this run's write count.
+        clean = all(not r.get('failed') and not r.get('error') for r in results)
+        built = LookupEmbedding.objects.filter(
+            embedding_config=config, index_version=target_version,
+            is_current=True).exists()
+        if not clean or not built:
             raise RuntimeError(
-                "Refresh produced zero embeddings; keeping the existing index active."
+                "Refresh incomplete; keeping the existing index active. "
+                "Re-run to resume the partial build."
             )
         finalize_lookup_index(config, target_version)
         notify(f"Index v{target_version} activated")

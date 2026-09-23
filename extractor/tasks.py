@@ -9,17 +9,24 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import close_old_connections
 from django.utils import timezone
 
-from extractor.models import EmbeddingConfiguration, BackgroundTask
+from extractor.models import EmbeddingConfiguration, BackgroundTask, LookupEmbedding
 from extractor.services.embeddings import EmbeddingUnavailableError
 
 log = getLogger(__name__)
 
 
 def _record_table_result(task, stats, position, total):
-    """Append a per-table outcome to the shared BackgroundTask and advance progress."""
+    """
+    Record a per-table outcome on the shared BackgroundTask and advance
+    progress. A redelivered task replaces its table's earlier result rather
+    than appending a duplicate — the finalize gate reads one outcome per
+    table.
+    """
     close_old_connections()
     data = task.result_data or {}
-    data.setdefault('results', []).append(stats)
+    results = [r for r in data.get('results', []) if r.get('table') != stats.get('table')]
+    results.append(stats)
+    data['results'] = results
     task.result_data = data
     task.save(update_fields=['result_data'])
     task.update_progress(
@@ -144,10 +151,19 @@ def finalize_lookup_embeddings_task(self, task_id, config_id, target_version, re
     if data.get('fatal'):
         task.mark_failed(f"Embedding provider unavailable: {data['fatal']}")
         return
-    if refresh and total_processed == 0:
-        task.mark_failed("Refresh produced zero embeddings; keeping the existing index active.")
-        return
-    if total_processed == 0 and (total_failed > 0 or errored):
+    if refresh:
+        # A resumed run can legitimately add zero rows — completeness is
+        # clean per-table results plus committed target-version rows, not
+        # this run's write count.
+        built = LookupEmbedding.objects.filter(
+            embedding_config=config, index_version=target_version,
+            is_current=True).exists()
+        if total_failed or errored or not built:
+            task.mark_failed(
+                "Refresh incomplete; keeping the existing index active. "
+                "Re-run to resume the partial build.")
+            return
+    elif total_processed == 0 and (total_failed > 0 or errored):
         task.mark_failed(
             f"All embedding computations failed "
             f"({len(errored)} table errors, {total_failed} failed items)"

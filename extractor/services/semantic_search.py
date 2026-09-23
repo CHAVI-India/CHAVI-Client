@@ -214,13 +214,22 @@ class SemanticSearchService:
         ]
 
     @classmethod
-    def mark_stale_embeddings(cls, content_type, model_class) -> int:
+    def mark_stale_embeddings(cls, content_type, model_class,
+                              embedding_config=None, index_version=None) -> int:
         """
         Flag embeddings whose lookup record no longer exists or whose text
         changed since they were computed. Returns the number marked.
+
+        Scoped to a config/index generation when given — during a refresh
+        build only the target generation may be flagged, so a failed build
+        can't mark the still-live index stale.
         """
         stale = 0
         qs = LookupEmbedding.objects.filter(content_type=content_type, is_current=True)
+        if embedding_config is not None:
+            qs = qs.filter(embedding_config=embedding_config)
+        if index_version is not None:
+            qs = qs.filter(index_version=index_version)
         live = {str(getattr(o, model_class._meta.pk.name)): o for o in model_class.objects.all()}
         label_spec = composite_label_spec(content_type)
 

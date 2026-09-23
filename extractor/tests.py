@@ -1505,3 +1505,227 @@ class ReviewApprovalServiceTests(TestCase):
         self.result.inference_note = ''
         self.result.save(update_fields=['extraction_basis', 'inference_note'])
         self.assertEqual(_fingerprint(self.job), original)
+
+
+class EmbeddingIndexTests(TestCase):
+    """
+    Index build/swap semantics: versioned uniqueness, per-row resume,
+    stale repair, and safe finalization.
+
+    LookupLaterality's pk ('code') is in NON_SEMANTIC_FIELDS, so each record
+    produces exactly one 'label' embedding — keeps row counting simple.
+    """
+
+    def setUp(self):
+        from lookup.models import LookupLaterality
+        from extractor.models import EmbeddingConfiguration
+
+        self.model = LookupLaterality
+        self.ct = ContentType.objects.get_for_model(LookupLaterality)
+        self.config = EmbeddingConfiguration.objects.create(
+            model_name='test-embed', model_provider='sentence-transformers',
+            embedding_dimension=384, is_active=True)
+        # Unique labels so "this text was encoded" assertions can't collide
+        # with migration-seeded lookup rows.
+        for code, label in (('TESTL', 'zz-laterality-left'),
+                            ('TESTR', 'zz-laterality-right'),
+                            ('TESTB', 'zz-laterality-bilateral')):
+            LookupLaterality.objects.create(code=code, label=label)
+        self.record_count = self.model.objects.count()
+
+        # The builder calls close_old_connections() — harmless in production
+        # but fatal inside TestCase's wrapping transaction.
+        for target in (
+                'extractor.services.embedding_index.close_old_connections',
+                'extractor.tasks.close_old_connections'):
+            patcher = patch(target, lambda: None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _provider(texts_seen=None):
+        provider = Mock()
+        def embed(texts):
+            if texts_seen is not None:
+                texts_seen.extend(texts)
+            return [[0.1] * 384 for _ in texts]
+        provider.embed_texts.side_effect = embed
+        return provider
+
+    def _build_table(self, target_version=1, provider=None):
+        from extractor.services.embedding_index import compute_lookup_table_embeddings
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=provider or self._provider()):
+            return compute_lookup_table_embeddings(
+                self.config, self.ct, target_version)
+
+    def test_refresh_writes_new_version_and_swaps(self):
+        """Regression: refresh inserts must not collide with the live generation."""
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import compute_lookup_embeddings
+
+        self._build_table(target_version=1)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=1).count(), self.record_count)
+
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=self._provider()):
+            compute_lookup_embeddings(self.config, refresh=True)
+
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.version, 2)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=2).count(), self.record_count)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=1).count(), 0)
+
+    def test_refresh_resume_skips_existing_rows(self):
+        """A row committed by a crashed build is reused, not re-encoded."""
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import compute_lookup_embeddings
+
+        self._build_table(target_version=1)
+        LookupEmbedding.objects.create(
+            content_type=self.ct, object_id='TESTL', field_name='label',
+            text_value='zz-laterality-left', embedding=[0.1] * 384,
+            embedding_config=self.config, index_version=2)
+
+        seen = []
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=self._provider(seen)):
+            compute_lookup_embeddings(self.config, refresh=True)
+
+        self.assertNotIn('zz-laterality-left', seen)
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.version, 2)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=2).count(), self.record_count)
+
+    def test_gap_fill_reembeds_changed_text(self):
+        """Changed source text replaces the stale row instead of staying stuck."""
+        from extractor.models import LookupEmbedding
+
+        self._build_table(target_version=1)
+        self.model.objects.filter(code='TESTL').update(label='zz-laterality-left-v2')
+
+        seen = []
+        stats = self._build_table(target_version=1, provider=self._provider(seen))
+
+        row = LookupEmbedding.objects.get(
+            content_type=self.ct, object_id='TESTL', field_name='label',
+            index_version=1)
+        self.assertEqual(row.text_value, 'zz-laterality-left-v2')
+        self.assertTrue(row.is_current)
+        self.assertIn('zz-laterality-left-v2', seen)
+        self.assertEqual(stats['count'], 1)
+
+    def test_refresh_fully_built_still_finalizes(self):
+        """A build that crashed after writing but before swapping can still activate."""
+        from django.apps import apps
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import compute_lookup_embeddings
+
+        self._build_table(target_version=1)
+        # Only this table has records, so a fully-built v2 means zero new rows
+        for m in apps.get_app_config('lookup').get_models():
+            if m is not self.model:
+                m.objects.all().delete()
+        LookupEmbedding.objects.bulk_create([
+            LookupEmbedding(
+                content_type=self.ct, object_id=record.code, field_name='label',
+                text_value=record.label, embedding=[0.1] * 384,
+                embedding_config=self.config, index_version=2)
+            for record in self.model.objects.all()])
+
+        seen = []
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=self._provider(seen)):
+            result = compute_lookup_embeddings(self.config, refresh=True)
+
+        self.assertEqual(seen, [])
+        self.assertEqual(result['total_processed'], 0)
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.version, 2)
+
+    def test_failed_refresh_keeps_old_index(self):
+        """Provider failure mid-refresh leaves the live version untouched."""
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import compute_lookup_embeddings
+
+        self._build_table(target_version=1)
+
+        failing = Mock()
+        failing.embed_texts.side_effect = RuntimeError('provider down')
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=failing):
+            with self.assertRaises(RuntimeError):
+                compute_lookup_embeddings(self.config, refresh=True)
+
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.version, 1)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=1, is_current=True).count(),
+            self.record_count)
+
+    def test_failed_refresh_partial_rows_do_not_finalize(self):
+        """A refresh with committed rows AND a failed table must not swap."""
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import compute_lookup_embeddings
+
+        self._build_table(target_version=1)
+        LookupEmbedding.objects.create(
+            content_type=self.ct, object_id='TESTL', field_name='label',
+            text_value='zz-laterality-left', embedding=[0.1] * 384,
+            embedding_config=self.config, index_version=2)
+
+        failing = Mock()
+        failing.embed_texts.side_effect = RuntimeError('provider down')
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=failing):
+            with self.assertRaises(RuntimeError):
+                compute_lookup_embeddings(self.config, refresh=True)
+
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.version, 1)
+        self.assertEqual(LookupEmbedding.objects.filter(
+            content_type=self.ct, index_version=1, is_current=True).count(),
+            self.record_count)
+        # The partial v2 row survives for a later resume.
+        self.assertTrue(LookupEmbedding.objects.filter(
+            index_version=2, object_id='TESTL').exists())
+
+    def test_count_mismatch_is_batch_failure(self):
+        """A provider returning fewer vectors than texts fails the batch."""
+        short = Mock()
+        short.embed_texts.return_value = [[0.1] * 384]
+        stats = self._build_table(target_version=1, provider=short)
+        self.assertEqual(stats['count'], 0)
+        self.assertEqual(stats['failed'], self.record_count)
+
+    def test_deleted_record_row_removed(self):
+        """A deleted lookup record's embedding is cleaned on the next build."""
+        from extractor.models import LookupEmbedding
+
+        self._build_table(target_version=1)
+        self.model.objects.filter(code='TESTB').delete()
+        self._build_table(target_version=1)
+
+        self.assertFalse(LookupEmbedding.objects.filter(
+            object_id='TESTB', index_version=1).exists())
+        self.assertEqual(LookupEmbedding.objects.filter(
+            index_version=1, is_current=True).count(), self.record_count - 1)
+
+    def test_record_table_result_replaces_retry(self):
+        """A redelivered table task replaces its earlier result, not appends."""
+        from extractor.models import BackgroundTask
+        from extractor.tasks import _record_table_result
+
+        task = BackgroundTask.objects.create(task_id='t1', task_name='x')
+        _record_table_result(
+            task, {'table': 'lookuplaterality', 'count': 1, 'failed': 0}, 1, 2)
+        _record_table_result(
+            task, {'table': 'lookuplaterality', 'count': 3, 'failed': 0}, 1, 2)
+        task.refresh_from_db()
+        results = task.result_data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['count'], 3)
