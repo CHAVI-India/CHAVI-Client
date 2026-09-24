@@ -98,13 +98,35 @@ def _subop_stats(status) -> dict:
     """Extract C-MOVE/C-GET sub-operation counters from the final status."""
     if status is None:
         return {'status': None, 'remaining': 0, 'completed': 0, 'failed': 0, 'warning': 0}
+    remaining = int(getattr(status, 'NumberOfRemainingSuboperations', 0) or 0)
     return {
-        'status': status.Status,
-        'remaining': int(getattr(status, 'NumberOfRemainingSuboperations', 0) or 0),
+        'status': getattr(status, 'Status', None),
+        'remaining': remaining,
         'completed': int(getattr(status, 'NumberOfCompletedSuboperations', 0) or 0),
-        'failed': int(getattr(status, 'NumberOfFailedSuboperations', 0) or 0),
+        # instances still pending when the operation ended never arrived
+        'failed': int(getattr(status, 'NumberOfFailedSuboperations', 0) or 0) + remaining,
         'warning': int(getattr(status, 'NumberOfWarningSuboperations', 0) or 0),
     }
+
+
+def _collect_subop_stats(responses, operation: str) -> dict:
+    """Consume a send_c_move/send_c_get response iterator into sub-op stats.
+
+    On DIMSE timeout pynetdicom aborts and yields a status dataset with no
+    Status attribute — fall back to the last valid response for the counters
+    and flag the error instead of crashing.
+    """
+    final = last_valid = None
+    for status, _ in responses:
+        if status is None:
+            raise ConnectionError(f'{operation} timed out or aborted')
+        final = status
+        if getattr(status, 'Status', None) is not None:
+            last_valid = status
+    stats = _subop_stats(last_valid or final)
+    if final is not None and getattr(final, 'Status', None) is None:
+        stats['error'] = f'{operation} timed out before final response'
+    return stats
 
 
 def _study_identifier(study_instance_uid: str, patient_id: str | None) -> Dataset:
@@ -131,14 +153,10 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
     try:
         destination = destination or DICOMServerConfiguration.load().ae_title
         q = _study_identifier(study_instance_uid, patient_id)
-        final = None
-        for status, _ in assoc.send_c_move(
-            q, destination, StudyRootQueryRetrieveInformationModelMove
-        ):
-            if status is None:
-                raise ConnectionError(f'C-MOVE on {node} timed out or aborted')
-            final = status
-        stats = _subop_stats(final)
+        stats = _collect_subop_stats(
+            assoc.send_c_move(q, destination, StudyRootQueryRetrieveInformationModelMove),
+            f'C-MOVE on {node}',
+        )
         logger.info('C-MOVE %s study %s -> %s: %s', node, study_instance_uid, destination, stats)
         return stats
     finally:
@@ -170,12 +188,10 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
         raise ConnectionError(f'Association to {node} rejected or timed out')
     try:
         q = _study_identifier(study_instance_uid, patient_id)
-        final = None
-        for status, _ in assoc.send_c_get(q, StudyRootQueryRetrieveInformationModelGet):
-            if status is None:
-                raise ConnectionError(f'C-GET on {node} timed out or aborted')
-            final = status
-        stats = _subop_stats(final)
+        stats = _collect_subop_stats(
+            assoc.send_c_get(q, StudyRootQueryRetrieveInformationModelGet),
+            f'C-GET on {node}',
+        )
         logger.info('C-GET %s study %s: %s', node, study_instance_uid, stats)
         return stats
     finally:
