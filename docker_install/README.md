@@ -93,9 +93,64 @@ Celery task results are stored in the Django database via `django-celery-results
 
 ### DICOM Server
 
-The `chaviclient-dicom` container runs the inbound DICOM service (`python -m dicom_server`): a C-ECHO/C-STORE/C-FIND SCP plus a Query/Retrieve SCU for pulling studies from remote PACS into the app. Received files land in the shared `./media` volume under `processed_dicom/` and update the same patient/study tables as the web uploads.
+The `chaviclient-dicom` container runs the inbound DICOM service (`python -m dicom_server`): a C-ECHO/C-STORE/C-FIND SCP that receives studies into the app. Received files land in the shared `./media` volume under `processed_dicom/` and update the same patient/study tables as the web uploads. Outbound Query/Retrieve to remote PACS runs elsewhere — see *Query/Retrieve networking* below.
 
 - **Port:** DICOM peers connect to port `11112` (published in the compose file). The listen port is configured in the database — keep the published port in sync if you change it.
 - **Configuration:** all DICOM settings are database-backed (no env vars). Staff users edit them under **Data Import → DICOM Server** in the web UI: server AE title/port/enable at `/dicom-server/config/`, remote PACS nodes at `/dicom-server/nodes/`. Restart the container after changing AE title, bind address, or port: `docker compose restart chaviclient-dicom`.
 - **Patient allow-list:** only instances whose `PatientID` matches an existing patient record are stored; unknown patients are rejected.
 - **Retrieval:** query/retrieve jobs are dispatched to the Celery worker (no extra setup needed). Use **prefer C-GET** on a remote node when the remote cannot connect back to this server (e.g. behind NAT); C-MOVE requires the remote to reach this host on the configured port.
+
+#### Query/Retrieve networking
+
+Q/R traffic is split across three containers — knowing which one initiates each
+connection makes firewall and PACS-side setup straightforward:
+
+| Container | DICOM role |
+| ------ | ------ |
+| `chaviclient-celery-worker` | **Outbound Q/R SCU.** Retrieval jobs (manual `/dicom-server/retrieve/` and scheduled auto-retrieval) open TCP associations from here to each remote node's `host:port` — C-ECHO, C-FIND, C-MOVE and C-GET. |
+| `chaviclient-django` | Runs the **C-ECHO test button** on `/dicom-server/nodes/` synchronously — another outbound SCU source. |
+| `chaviclient-dicom` | **Inbound SCP only.** Receives C-STORE deliveries on the published port `11112` (direct pushes from modalities/PACS and C-MOVE sub-operations). |
+| `chaviclient-celery-beat` | Schedules auto-retrieval tasks via RabbitMQ; opens no DICOM connections itself. |
+
+**Outbound connections need no compose configuration.** Docker NAT handles them;
+the only requirements are that `node.host` resolves inside the container (a LAN
+IP or public FQDN is fine) and that the remote accepts our calling AE title
+(`CHAVI_CLIENT` by default).
+
+**Inbound connectivity is only needed for C-MOVE.** The remote opens a *new*
+connection back to our AE title, resolved on the PACS side to the Docker host's
+IP and published port `11112`. C-GET (`prefer_c_get` on the node) instead
+receives instances over the same association the worker opened, so it works
+even when the Docker host is behind NAT — provided the remote supports C-GET.
+
+| Remote node location | C-ECHO / C-FIND | C-MOVE | C-GET |
+| ------ | ------ | ------ | ------ |
+| Same LAN/site | Works | Works if the PACS routes our AE title → Docker host IP:11112 and the host firewall allows inbound 11112 | Works |
+| Remote over internet/VPN, host behind NAT | Works if the remote address is routable | Fails unless the site router port-forwards to host:11112 | **Recommended** |
+| Same Docker host | Set `node.host` to the host LAN IP — `localhost` inside a container means the container itself | Same as LAN | Works |
+
+Notes:
+
+- A failed C-MOVE return path does **not** raise an error in the request — the
+  job completes with failed sub-operation counts. Check the RetrievalJob detail
+  page and the `InboundDICOMInstance` audit rows in Django admin.
+- `bind_address` must stay `0.0.0.0` so the SCP accepts connections forwarded by
+  Docker. Changing the configured listen port requires editing the compose port
+  mapping and re-creating the container.
+- The **storage enabled** checkbox at `/dicom-server/config/` gates all inbound
+  storage, including C-GET deliveries.
+- If a remote node ever runs on the Docker host itself and you prefer the name
+  `host.docker.internal`, add `extra_hosts: ["host.docker.internal:host-gateway"]`
+  to the worker and web services (Docker Desktop resolves it automatically;
+  needed on Linux only). Using the host's LAN IP works without it.
+
+Quick checks:
+
+```bash
+# SCP listener reachable through the published port
+nc -zv <docker-host-ip> 11112
+docker exec chaviclient-dicom python -c "import socket; socket.create_connection(('127.0.0.1', 11112), 3)"
+
+# Outbound reachability from the worker (Q/R SCU container)
+docker exec chaviclient-celery-worker python -c "import socket; socket.create_connection(('<remote-host>', <remote-port>), 5)"
+```

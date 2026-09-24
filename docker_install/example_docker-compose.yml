@@ -48,7 +48,14 @@ services:
       - ./media:/app/media
       - ./static:/app/static
     command: ["./entrypoint.docker.sh"]
+    # If a remote DICOM node can't be resolved by DNS, pin it here
+    # (e.g. a node with only a static IP):
+    #extra_hosts:
+    #  - "www.dicomserver.co.uk=198.244.176.149"
 
+  # Outbound DICOM Q/R (C-ECHO/C-FIND/C-MOVE/C-GET) originates here.
+  # No published ports needed — the container only needs outbound TCP
+  # to each remote node's host:port configured in the web UI.
   chaviclient-celery-worker:
     image: chaviapp/chaviclient:main
     container_name: chaviclient-celery-worker
@@ -65,6 +72,9 @@ services:
       - ./media:/app/media
       - ./static:/app/static
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "--concurrency=2"]
+    # Pin remote DICOM node hostnames to IPs here if container DNS fails:
+    #extra_hosts:
+    #  - "www.dicomserver.co.uk=198.244.176.149"
     # GPU (optional): uncomment on hosts with an NVIDIA GPU and the
     # nvidia-container-toolkit installed. Lookup-table embedding computation
     # then auto-detects and runs on CUDA; without this block it stays on CPU.
@@ -92,6 +102,9 @@ services:
       - ./media:/app/media
     command: ["celery", "-A", "chavi_client", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
+  # Inbound DICOM SCP (C-ECHO/C-STORE/C-FIND). The published port must
+  # equal the listen port configured at /dicom-server/config/ — remote
+  # PACS must reach the Docker host on this port for C-MOVE deliveries.
   chaviclient-dicom:
     image: chaviapp/chaviclient:main
     container_name: chaviclient-dicom

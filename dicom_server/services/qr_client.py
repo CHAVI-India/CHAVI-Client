@@ -41,6 +41,12 @@ def echo(node: RemoteDICOMNode) -> bool:
         logger.warning("C-ECHO association to %s failed: %s", node, e)
         return False
     if not assoc.is_established:
+        reason = (
+            'rejected by peer (check AE titles)' if assoc.is_rejected
+            else 'aborted' if assoc.is_aborted
+            else 'not established'
+        )
+        logger.warning("C-ECHO association to %s %s", node, reason)
         return False
     try:
         status = assoc.send_c_echo()
