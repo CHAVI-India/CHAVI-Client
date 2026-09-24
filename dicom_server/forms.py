@@ -13,7 +13,15 @@ class DICOMServerConfigForm(forms.ModelForm):
 class RemoteDICOMNodeForm(forms.ModelForm):
     class Meta:
         model = RemoteDICOMNode
-        fields = ['name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get']
+        fields = [
+            'name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get',
+            'auto_retrieve_enabled',
+            'auto_retrieve_minute', 'auto_retrieve_hour',
+            'auto_retrieve_day_of_week', 'auto_retrieve_day_of_month',
+            'auto_retrieve_month_of_year',
+            'auto_retrieve_min_interval_minutes',
+            'auto_retrieve_batch_size',
+        ]
 
 
 class RetrieveStudiesForm(forms.Form):

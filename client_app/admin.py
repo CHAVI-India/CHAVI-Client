@@ -1092,11 +1092,33 @@ class PatientReportedOutcomeAdmin (ModelAdmin, ImportExportModelAdmin):
     list_filter = ['pro_assessment_date', 'pro_instrument', 'pro_scale']
     resource_classes = [PatientReportedOutcomeResource]
 
+@admin.register(StudyTypeRule)
+class StudyTypeRuleAdmin(ModelAdmin):
+    list_display = ['id', 'priority', 'study_type', 'enabled', 'reference_event']
+    list_editable = ['priority', 'enabled']
+    list_filter = ['study_type', 'enabled', 'reference_event']
+    fieldsets = (
+        (None, {
+            'fields': ('study_type', 'priority', 'enabled'),
+        }),
+        ('Keyword conditions', {
+            'fields': (
+                ('match_modality', 'modality_operator'),
+                ('match_study_description', 'study_description_operator'),
+                ('match_series_description', 'series_description_operator'),
+            ),
+        }),
+        ('Date window condition', {
+            'fields': ('reference_event', 'date_window_start_days', 'date_window_end_days'),
+        }),
+    )
+
+
 ## Create the DICOM Study form Class
 @admin.register(DICOMStudy)
 class DICOMStudyAdmin(ModelAdmin):
     search_fields = ['patient__patient_id']
-    list_display = ['patient', 'study_date', 'study_type','study_description', 'series_descriptions','created_at','updated_at']
+    list_display = ['patient', 'study_date', 'study_type', 'study_type_source', 'study_description', 'series_descriptions', 'created_at', 'updated_at']
     autocomplete_fields = ['patient']
     list_editable = ['study_type']
     fieldsets = (
@@ -1104,15 +1126,15 @@ class DICOMStudyAdmin(ModelAdmin):
             'fields':[('patient','study_date')]
         }),
         ('Study Data',{
-            'fields':[('study_instance_uid','study_type'),('study_description','study_modalities'),'series_descriptions','folder_path']
+            'fields':[('study_instance_uid','study_type','study_type_source'),('study_description','study_modalities'),'series_descriptions','folder_path']
         }),
         ('Timestamps',{
             'fields':[('created_at','updated_at')]
         }),
     )
-    readonly_fields = ['patient','study_date','study_instance_uid','study_description','series_descriptions','study_modalities','folder_path','created_at','updated_at']
-    list_filter = ['study_date', 'patient','created_at','updated_at']
-    actions = ['associate_dicom_files_to_project', 'export_dicom_data_async']
+    readonly_fields = ['patient','study_date','study_instance_uid','study_type_source','study_description','series_descriptions','study_modalities','folder_path','created_at','updated_at']
+    list_filter = ['study_type', 'study_type_source', 'study_date', 'patient','created_at','updated_at']
+    actions = ['associate_dicom_files_to_project', 'export_dicom_data_async', 'reclassify_studies']
 
     def associate_dicom_files_to_project(self, request, queryset):
         return associate_dicom_form_action(self, request, queryset)
@@ -1129,6 +1151,12 @@ class DICOMStudyAdmin(ModelAdmin):
             messages.SUCCESS
         )
     export_dicom_data_async.short_description = "Export DICOM data as ZIP (async)"
+
+    @admin.action(description='Re-apply study type classification rules')
+    def reclassify_studies(self, request, queryset):
+        from dicom_server.services.classifier import classify_all_studies
+        classify_all_studies(queryset)
+        self.message_user(request, 'Study type classification re-applied to selected studies.')
 
 
 @admin.register(DICOMStudyProject)

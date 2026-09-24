@@ -2,7 +2,8 @@ from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 
 from dicom_server.models import (
-    DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance, RetrievalJob,
+    DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
+    PatientIDAlias, AutoRetrievalState, RetrievalJob,
 )
 
 
@@ -17,12 +18,41 @@ class DICOMServerConfigurationAdmin(ModelAdmin):
         return False
 
 
+class PatientIDAliasInline(admin.TabularInline):
+    model = PatientIDAlias
+    extra = 1
+    autocomplete_fields = ['patient']
+
+
 @admin.register(RemoteDICOMNode)
 class RemoteDICOMNodeAdmin(ModelAdmin):
-    list_display = ['name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get']
-    list_filter = ['is_active']
+    list_display = [
+        'name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get',
+        'auto_retrieve_enabled', 'crontab_display',
+    ]
+    list_filter = ['is_active', 'auto_retrieve_enabled']
     search_fields = ['name', 'ae_title', 'host']
-    actions = ['test_echo']
+    actions = ['test_echo', 'sync_schedules']
+    inlines = [PatientIDAliasInline]
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get'),
+        }),
+        ('Automatic retrieval schedule', {
+            'fields': (
+                'auto_retrieve_enabled',
+                'auto_retrieve_minute', 'auto_retrieve_hour',
+                'auto_retrieve_day_of_week', 'auto_retrieve_day_of_month',
+                'auto_retrieve_month_of_year',
+                'auto_retrieve_min_interval_minutes',
+                'auto_retrieve_batch_size',
+            ),
+        }),
+    )
+
+    @admin.display(description='Schedule')
+    def crontab_display(self, obj):
+        return ' '.join(obj.crontab_tuple)
 
     def test_echo(self, request, queryset):
         from dicom_server.services import qr_client
@@ -38,6 +68,13 @@ class RemoteDICOMNodeAdmin(ModelAdmin):
             else:
                 self.message_user(request, f"{node}: C-ECHO failed {err}", messages.ERROR)
     test_echo.short_description = "Test connectivity (C-ECHO)"
+
+    @admin.action(description='Sync selected node schedules to Celery Beat')
+    def sync_schedules(self, request, queryset):
+        from dicom_server.services.schedule_sync import sync_node_schedule
+        for node in queryset:
+            sync_node_schedule(node)
+        self.message_user(request, 'Node schedules synced.')
 
 
 @admin.register(InboundDICOMInstance)
@@ -62,4 +99,18 @@ class RetrievalJobAdmin(ModelAdmin):
     readonly_fields = [f.name for f in RetrievalJob._meta.fields]
 
     def has_add_permission(self, request):
+        return False
+
+
+@admin.register(AutoRetrievalState)
+class AutoRetrievalStateAdmin(ModelAdmin):
+    list_display = ['patient', 'node', 'last_attempt_at', 'last_success_at']
+    list_filter = ['node']
+    search_fields = ['patient__patient_id']
+    readonly_fields = [f.name for f in AutoRetrievalState._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False

@@ -10,6 +10,7 @@ from pydicom.dataset import Dataset
 
 from client_app.models import Patient, DICOMStudy, _make_canonical_id
 from dicom_server.models import InboundDICOMInstance
+from dicom_server.services.classifier import classify_study
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,10 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
                 status=InboundDICOMInstance.Status.STORED,
                 matched_patient=patient, file_path=str(dest), **log_fields,
             )
+        try:
+            classify_study(DICOMStudy.objects.get(study_instance_uid=str(ds.StudyInstanceUID)))
+        except Exception:
+            logger.exception("Failed to classify study %s", study_uid)
         logger.info("Stored %s for patient %s (%s)", sop_uid, patient.patient_id, calling_ae)
         return IngestResult(status=STATUS_SUCCESS, file_path=str(dest), patient=patient)
     except Exception:

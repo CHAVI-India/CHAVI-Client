@@ -15,7 +15,8 @@ from dicom_server.forms import (
     DICOMServerConfigForm, RemoteDICOMNodeForm, RetrieveStudiesForm,
 )
 from dicom_server.models import (
-    DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance, RetrievalJob,
+    DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
+    PatientIDAlias, RetrievalJob,
 )
 from dicom_server.services import qr_client
 from dicom_server.tasks import task_retrieve_studies
@@ -141,9 +142,14 @@ class RetrieveStudiesView(QRPermissionMixin, FormView):
         job = RetrievalJob.objects.create(
             node=node, patient=patient, created_by=self.request.user,
         )
+        aliases = list(
+            PatientIDAlias.objects.filter(node=node, patient=patient)
+            .values_list('remote_patient_id', flat=True)
+        )
         try:
             result = task_retrieve_studies.delay(
                 node.pk, patient.patient_id, self.request.user.pk, job.pk,
+                patient_id_aliases=aliases,
             )
             job.celery_task_id = result.id or ''
             job.save(update_fields=['celery_task_id'])

@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from django.templatetags.static import static
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
+from celery.schedules import crontab
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -784,8 +785,10 @@ CELERY_WORKER_LOST_WAIT = 10  # Seconds to wait before marking worker as lost
 CELERY_CONTROL_QUEUE_EXCLUSIVE = True
 CELERY_EVENT_QUEUE_EXCLUSIVE = True
 
+# Use the django-celery-beat database scheduler so RemoteDICOMNode schedules are picked up.
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 # Celery Beat Schedule
-from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'detect-stalled-tasks': {
         'task': 'client_app.tasks.task_detect_stalled_tasks',

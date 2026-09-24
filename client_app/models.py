@@ -211,6 +211,10 @@ class StudyTypeChoices(models.TextChoices):
     POSTTREATMENT_DIAGNOSTIC_IMAGE = 'POSTTREATMENT_DIAGNOSTIC_IMAGE', 'Post-treatment Diagnostic Image'
     OTHER = 'OTHER', 'Other'
 
+class StudyTypeSource(models.TextChoices):
+    AUTO = 'AUTO', 'Auto'
+    MANUAL = 'MANUAL', 'Manual'
+
 
 # DICOM Related Models
 class DICOMStudy(models.Model):
@@ -245,6 +249,14 @@ class DICOMStudy(models.Model):
         blank = True,
         help_text = "The type of study. This is a choice field that can be selected from the list of study types."
     )
+
+    study_type_source = models.CharField(
+        max_length=10,
+        choices=StudyTypeSource.choices,
+        default=StudyTypeSource.AUTO,
+        help_text='AUTO = set by classification rules; MANUAL = user override, never overwritten.'
+    )
+
     study_modalities = models.CharField(
         max_length = 255,
         null = True,
@@ -260,6 +272,17 @@ class DICOMStudy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, auto_classified=False, update_fields=None, **kwargs):
+        if auto_classified:
+            self.study_type_source = StudyTypeSource.AUTO
+        elif self.pk and update_fields is not None and 'study_type' in update_fields and 'study_type_source' not in update_fields:
+            self.study_type_source = StudyTypeSource.MANUAL
+        elif self.pk and update_fields is None:
+            old_type = DICOMStudy.objects.filter(pk=self.pk).values_list('study_type', flat=True).first()
+            if old_type is not None and old_type != self.study_type:
+                self.study_type_source = StudyTypeSource.MANUAL
+        super().save(*args, update_fields=update_fields, **kwargs)
+
     def __str__(self):
         return (
             f'{self.patient.patient_id} {self.study_date} \n'
@@ -271,6 +294,57 @@ class DICOMStudy(models.Model):
 
     class Meta:
         verbose_name_plural = "DICOM Studies"
+
+
+class StudyTypeRule(models.Model):
+    """A configurable rule used to set DICOMStudy.study_type automatically."""
+
+    class Operator(models.TextChoices):
+        CONTAINS = 'contains', 'contains (case-insensitive)'
+        EXACT = 'exact', 'exact'
+        REGEX = 'regex', 'matches regex'
+
+    class ReferenceEvent(models.TextChoices):
+        NONE = 'NONE', 'None'
+        DIAGNOSIS_DATE = 'DIAGNOSIS_DATE', 'Diagnosis date'
+        RADIOTHERAPY_START = 'RADIOTHERAPY_START', 'Radiotherapy start'
+        RADIOTHERAPY_END = 'RADIOTHERAPY_END', 'Radiotherapy end'
+        SYSTEMIC_THERAPY_START = 'SYSTEMIC_THERAPY_START', 'Systemic therapy start'
+        SYSTEMIC_THERAPY_END = 'SYSTEMIC_THERAPY_END', 'Systemic therapy end'
+
+    study_type = models.CharField(max_length=50, choices=StudyTypeChoices.choices)
+    priority = models.PositiveIntegerField(
+        default=100,
+        help_text='Rules are evaluated in ascending priority order; the first match wins.'
+    )
+    enabled = models.BooleanField(default=True)
+
+    match_modality = models.CharField(max_length=255, blank=True, default='')
+    modality_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
+
+    match_study_description = models.CharField(max_length=255, blank=True, default='')
+    study_description_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
+
+    match_series_description = models.CharField(max_length=255, blank=True, default='')
+    series_description_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
+
+    reference_event = models.CharField(
+        max_length=40, choices=ReferenceEvent.choices, default=ReferenceEvent.NONE,
+        help_text='Optional clinical date used for a date-window check.'
+    )
+    date_window_start_days = models.IntegerField(default=-7)
+    date_window_end_days = models.IntegerField(default=7)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['priority', 'created_at']
+        verbose_name = 'Study type rule'
+        verbose_name_plural = 'Study type rules'
+
+    def __str__(self):
+        return f'{self.priority}: {self.study_type} ({"enabled" if self.enabled else "disabled"})'
 
 
 # Clinical Data Models

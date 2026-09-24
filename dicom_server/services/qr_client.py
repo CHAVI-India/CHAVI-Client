@@ -94,6 +94,30 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
         assoc.release()
 
 
+def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> list[dict]:
+    """Union C-FIND results for the canonical patient ID plus any node aliases.
+
+    Duplicates are removed by StudyInstanceUID.
+    """
+    patient_ids = [patient.patient_id]
+    if aliases:
+        patient_ids.extend(aliases)
+    patient_ids = list(dict.fromkeys(patient_ids))
+
+    seen = set()
+    results = []
+    for pid in patient_ids:
+        try:
+            for study in find_studies(node, pid):
+                uid = study.get('study_instance_uid')
+                if uid and uid not in seen:
+                    seen.add(uid)
+                    results.append(study)
+        except Exception:
+            logger.exception('C-FIND failed for patient ID %r on %s', pid, node)
+    return results
+
+
 def _subop_stats(status) -> dict:
     """Extract C-MOVE/C-GET sub-operation counters from the final status."""
     if status is None:
