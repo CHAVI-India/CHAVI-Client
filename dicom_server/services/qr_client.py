@@ -57,6 +57,22 @@ def echo(node: RemoteDICOMNode) -> bool:
         assoc.release()
 
 
+def _connect(ae: AE, node: RemoteDICOMNode):
+    """Open an association or raise ConnectionError with the actual cause."""
+    assoc = ae.associate(node.host, node.port, ae_title=node.ae_title)
+    if assoc.is_established:
+        return assoc
+    if assoc.is_rejected:
+        detail = 'rejected by peer (check AE titles)'
+    elif assoc.is_aborted:
+        detail = 'aborted (connection failed or dropped)'
+    elif getattr(assoc.acceptor, 'primitive', None) is not None:
+        detail = 'no accepted presentation contexts (peer does not support this SOP class)'
+    else:
+        detail = 'rejected or timed out'
+    raise ConnectionError(f'Association to {node} {detail}')
+
+
 def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
     """Study Root C-FIND at STUDY level for a PatientID.
 
@@ -65,9 +81,7 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
-    assoc = ae.associate(node.host, node.port, ae_title=node.ae_title)
-    if not assoc.is_established:
-        raise ConnectionError(f'Association to {node} rejected or timed out')
+    assoc = _connect(ae, node)
     try:
         q = Dataset()
         q.QueryRetrieveLevel = 'STUDY'
