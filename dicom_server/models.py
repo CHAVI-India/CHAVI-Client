@@ -233,19 +233,3 @@ class AutoRetrievalState(models.Model):
     def __str__(self):
         return f'{self.patient.patient_id} / {self.node.name}'
 
-
-# Signals must live at module end to avoid circular imports.
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
-
-
-@receiver(post_save, sender=RemoteDICOMNode)
-def _sync_node_schedule_on_save(sender, instance, **kwargs):
-    from dicom_server.services.schedule_sync import sync_node_schedule
-    sync_node_schedule(instance)
-
-
-@receiver(post_delete, sender=RemoteDICOMNode)
-def _disable_node_schedule_on_delete(sender, instance, **kwargs):
-    from django_celery_beat.models import PeriodicTask
-    PeriodicTask.objects.filter(name=f'dicom-auto-retrieve-node-{instance.pk}').delete()

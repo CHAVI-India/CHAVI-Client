@@ -25,6 +25,7 @@ from unfold.contrib.forms.widgets import ArrayWidget
 from chavi_client.settings import BASE_DIR
 from client_app.models import *
 from lookup.models import *
+from dicom_server.services.classifier import classify_all_studies
 from pathlib import Path
 import tempfile
 import zipfile
@@ -1154,7 +1155,6 @@ class DICOMStudyAdmin(ModelAdmin):
 
     @admin.action(description='Re-apply study type classification rules')
     def reclassify_studies(self, request, queryset):
-        from dicom_server.services.classifier import classify_all_studies
         classify_all_studies(queryset)
         self.message_user(request, 'Study type classification re-applied to selected studies.')
 

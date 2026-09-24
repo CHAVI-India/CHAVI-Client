@@ -3,6 +3,9 @@ import json
 import logging
 
 from django.conf import settings
+from django_celery_beat.models import CrontabSchedule, PeriodicTask
+
+from dicom_server.models import RemoteDICOMNode
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +18,6 @@ def _periodic_task_name(node_id: int) -> str:
 
 def sync_node_schedule(node):
     """Create/update/disable the PeriodicTask for a RemoteDICOMNode."""
-    from django_celery_beat.models import CrontabSchedule, PeriodicTask
-
     name = _periodic_task_name(node.pk)
 
     if not node.auto_retrieve_enabled:
@@ -45,6 +46,5 @@ def sync_node_schedule(node):
 
 
 def sync_all_node_schedules():
-    from dicom_server.models import RemoteDICOMNode
     for node in RemoteDICOMNode.objects.all():
         sync_node_schedule(node)

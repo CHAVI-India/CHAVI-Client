@@ -5,6 +5,8 @@ from dicom_server.models import (
     DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
     PatientIDAlias, AutoRetrievalState, RetrievalJob,
 )
+from dicom_server.services import qr_client
+from dicom_server.services.schedule_sync import sync_node_schedule
 
 
 @admin.register(DICOMServerConfiguration)
@@ -55,7 +57,6 @@ class RemoteDICOMNodeAdmin(ModelAdmin):
         return ' '.join(obj.crontab_tuple)
 
     def test_echo(self, request, queryset):
-        from dicom_server.services import qr_client
         for node in queryset:
             try:
                 ok = qr_client.echo(node)
@@ -71,7 +72,6 @@ class RemoteDICOMNodeAdmin(ModelAdmin):
 
     @admin.action(description='Sync selected node schedules to Celery Beat')
     def sync_schedules(self, request, queryset):
-        from dicom_server.services.schedule_sync import sync_node_schedule
         for node in queryset:
             sync_node_schedule(node)
         self.message_user(request, 'Node schedules synced.')
