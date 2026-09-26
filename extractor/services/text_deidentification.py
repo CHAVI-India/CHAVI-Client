@@ -391,7 +391,13 @@ class TextDeidentificationService:
 
     @staticmethod
     def _resolve_overlaps(results):
-        """Keep highest-scoring span among overlaps; longest wins ties."""
+        """Keep highest-scoring span among overlaps; longest wins ties.
+
+        A span that fully contains lower-scored overlaps wins regardless of
+        score — e.g. the context-gated MRN pattern covering 'MR/24/012817'
+        must beat the NER's two-letter 'MR' org tag, or the actual record
+        digits leak while only the prefix is redacted.
+        """
         if not results:
             return []
         ordered = sorted(
@@ -399,8 +405,13 @@ class TextDeidentificationService:
             key=lambda r: (-r.score, -(r.end - r.start), r.start))
         kept = []
         for r in ordered:
-            if not any(r.start < k.end and r.end > k.start for k in kept):
+            overlapping = [k for k in kept
+                           if r.start < k.end and r.end > k.start]
+            if not overlapping:
                 kept.append(r)
+            elif all(r.start <= k.start and r.end >= k.end
+                     for k in overlapping):
+                kept = [k for k in kept if k not in overlapping] + [r]
         return sorted(kept, key=lambda r: r.start)
 
     @classmethod

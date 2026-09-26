@@ -82,12 +82,19 @@ def build_text_recognizers():
                 r"\b[A-Z]{2}[-\s]?\d{2}[-\s]?\d{4}[-\s]?\d{7}\b", 0.4)],
             context=["driving licence", "driving license", "dl no", "dl number"],
         ),
-        # Hospital identifiers: MRN/UHID/registration numbers. Bare pattern is
-        # too generic — context-gated.
+        # Hospital identifiers: MRN/UHID/registration numbers.
         PatternRecognizer(
             supported_entity="MEDICAL_RECORD_NUMBER",
             name="MedicalRecordNumberRecognizer",
             patterns=[
+                # Prefixed segmented IDs: MR/26/092837, OP/26/093450,
+                # AS/26/011111/040 — the letter-letter/digits/digits shape is
+                # unambiguous on its own; near-certain score so NER's
+                # short prefix tags (e.g. 'MR' as ORGANIZATION) can't
+                # outvote it and leave the digits behind.
+                Pattern(
+                    "Prefixed segmented record number",
+                    r"\b[A-Z]{2}/\d{2}/\d{4,}\b", 0.95),
                 # Segmented identifiers: S-23-004512, MR-23-004512
                 Pattern(
                     "Segmented record number",

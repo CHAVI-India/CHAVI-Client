@@ -61,23 +61,13 @@ class AnalyzerEngineBuildTests(SimpleTestCase):
 
 
 class LabelMapTests(SimpleTestCase):
-    def test_label_map_covers_ai4privacy_labels(self):
+    def test_label_map_covers_model_labels(self):
         from django.conf import settings
 
+        # Label set of DEID_HF_NER_MODEL — every predicted label must be
+        # mapped or HuggingFaceNerRecognizer drops it silently.
         model_labels = {
-            "FIRSTNAME", "MIDDLENAME", "LASTNAME", "PREFIX",
-            "CITY", "STATE", "COUNTY", "STREET", "BUILDINGNUMBER",
-            "SECONDARYADDRESS", "ZIPCODE", "NEARBYGPSCOORDINATE",
-            "ORDINALDIRECTION", "DATE", "DOB", "TIME", "AGE",
-            "PHONENUMBER", "PHONEIMEI", "EMAIL", "URL",
-            "IP", "IPV4", "IPV6", "MAC", "SSN", "ACCOUNTNUMBER",
-            "PIN", "MASKEDNUMBER", "IBAN", "BIC", "CREDITCARDNUMBER",
-            "CREDITCARDCVV", "CREDITCARDISSUER", "BITCOINADDRESS",
-            "LITECOINADDRESS", "ETHEREUMADDRESS", "VEHICLEVIN",
-            "VEHICLEVRM", "COMPANYNAME", "JOBTITLE", "JOBAREA", "JOBTYPE",
-            "GENDER", "SEX", "HEIGHT", "EYECOLOR", "PASSWORD",
-            "USERAGENT", "USERNAME", "ACCOUNTNAME", "AMOUNT", "CURRENCY",
-            "CURRENCYCODE", "CURRENCYNAME", "CURRENCYSYMBOL",
+            "VENDOR", "DATE", "HCW", "HOSPITAL", "ID", "PATIENT", "PHONE",
         }
         self.assertTrue(
             model_labels.issubset(set(settings.DEID_HF_LABEL_MAP.keys()))
