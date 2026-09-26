@@ -505,8 +505,9 @@ def client_configuration_create(request):
         try:
             request_timeout = int(request.POST.get('request_timeout') or 60)
             context_size = int(request.POST.get('context_size') or 8192)
+            model_max_tokens = int(request.POST.get('model_max_tokens') or 4096)
         except ValueError:
-            messages.error(request, "Timeout and context size must be numbers.")
+            messages.error(request, "Timeout, context size and max tokens must be numbers.")
             return redirect('extractor:client_configuration_create')
 
         if not all([llm_model_name, model_provider, model_api_key, model_base_url]):
@@ -524,6 +525,7 @@ def client_configuration_create(request):
                 model_api_refresh_key=model_api_refresh_key,
                 request_timeout=request_timeout,
                 context_size=context_size,
+                model_max_tokens=model_max_tokens,
             )
             configuration.full_clean()
             configuration.save()
@@ -536,6 +538,7 @@ def client_configuration_create(request):
             messages.error(request, f"Error creating configuration: {str(e)}")
             return redirect('extractor:client_configuration_create')
     
+    limit_fields = ('request_timeout', 'context_size', 'model_max_tokens')
     context = {
         'providers': [
             'OpenAI',
@@ -546,7 +549,10 @@ def client_configuration_create(request):
             'Mistral',
             'Local (Ollama)',
             'Other',
-        ]
+        ],
+        'field_help': {
+            n: ClientConfiguration._meta.get_field(n).help_text
+            for n in limit_fields},
     }
     
     return render(request, 'extractor/client_configuration_create.html', context)
@@ -570,8 +576,9 @@ def client_configuration_edit(request, config_id):
         try:
             configuration.request_timeout = int(request.POST.get('request_timeout') or 60)
             configuration.context_size = int(request.POST.get('context_size') or 8192)
+            configuration.model_max_tokens = int(request.POST.get('model_max_tokens') or 4096)
         except ValueError:
-            messages.error(request, "Timeout and context size must be numbers.")
+            messages.error(request, "Timeout, context size and max tokens must be numbers.")
             return redirect('extractor:client_configuration_edit', config_id=configuration.id)
 
         new_api_key = request.POST.get('model_api_key')
@@ -592,6 +599,7 @@ def client_configuration_edit(request, config_id):
             log.error(f"Error updating client configuration: {e}")
             messages.error(request, f"Error updating configuration: {str(e)}")
     
+    limit_fields = ('request_timeout', 'context_size', 'model_max_tokens')
     context = {
         'configuration': configuration,
         'providers': [
@@ -603,7 +611,10 @@ def client_configuration_edit(request, config_id):
             'Mistral',
             'Local (Ollama)',
             'Other',
-        ]
+        ],
+        'field_help': {
+            n: ClientConfiguration._meta.get_field(n).help_text
+            for n in limit_fields},
     }
     
     return render(request, 'extractor/client_configuration_edit.html', context)
@@ -669,10 +680,12 @@ def client_configuration_test_connection(request, config_id):
         )
 
         start_time = datetime.now()
+        # Reasoning models consume tokens on thinking before the visible
+        # reply — 5 is too tight for them, 64 still keeps the ping cheap.
         response = client.chat.completions.create(
             model=configuration.llm_model_name,
             messages=[{'role': 'user', 'content': 'Reply with the word "ok".'}],
-            max_tokens=5,
+            max_tokens=64,
         )
         response_time = (datetime.now() - start_time).total_seconds()
 

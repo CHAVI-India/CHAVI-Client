@@ -40,9 +40,29 @@ class ClientConfiguration(models.Model):
     model_api_key_validity = models.DateTimeField(null=True,blank=True,help_text="Validity date of the API key")
     model_api_refresh_key = EncryptedCharField(max_length=512,null=True,blank=True,help_text="Refresh key for the API key")
     model_base_url = models.CharField(max_length=255, validators=[URLValidator()])
-    request_timeout = models.PositiveIntegerField(default=60, help_text="Seconds to wait for a provider response before failing")
-    context_size = models.PositiveIntegerField(default=8192, help_text="Model context window in tokens; prompts larger than this are refused rather than silently truncated")
-    model_max_tokens = models.PositiveIntegerField(default=4096, help_text="Maximum tokens in a single provider response")
+    request_timeout = models.PositiveIntegerField(
+        default=60,
+        help_text="Seconds to wait for a single provider response before "
+                  "failing. Small chat models are fine at 60; reasoning "
+                  "models (gpt-oss, o-series, deepseek-r1) or large responses "
+                  "may need 300-600.")
+    context_size = models.PositiveIntegerField(
+        default=8192,
+        help_text="Total token budget shared by the prompt and the response. "
+                  "Prompts estimated larger than this are refused before the "
+                  "provider is called. Examples: 8192 for gemma/gpt-4o-mini "
+                  "class models, 32768 for gpt-oss:120b or long documents. "
+                  "For Ollama, this should match the server's num_ctx "
+                  "(OLLAMA_CONTEXT_LENGTH) — it is a budget check here, it "
+                  "does not change the server's window.")
+    model_max_tokens = models.PositiveIntegerField(
+        default=4096,
+        help_text="Maximum tokens in a single provider response. If "
+                  "extraction output is cut off mid-response ('output is "
+                  "incomplete due to a max_token length limit'), raise this. "
+                  "Reasoning models (gpt-oss, o-series, deepseek-r1) spend "
+                  "part of this budget on hidden thinking tokens, so use "
+                  "8192-16384; non-reasoning models are usually fine at 4096.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

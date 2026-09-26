@@ -455,7 +455,10 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             response_model=LookupSnippetMap,
             messages=[{'role': 'user', 'content': prompt}],
             max_retries=2,
-            max_tokens=min(2048, client_config.model_max_tokens),
+            # The response body is small (<=5 snippets per lookup field) but
+            # reasoning models spend part of the budget on thinking tokens;
+            # a hard 2048 cap truncates them before the JSON finishes.
+            max_tokens=client_config.model_max_tokens,
             timeout=client_config.request_timeout,
         )
 
