@@ -756,6 +756,46 @@ DEID_SKIP_PIXEL_SCRUB_MODALITIES = {'MR', 'RTPLAN', 'RTDOSE', 'RTSTRUCT', 'REG'}
 DEID_LOG_PIXEL_REDACTION_BBOXES = True
 DEID_SUB_BATCH_SIZE = 50
 
+# Burnt-in pixel scrubbing — extra NER recognizer layered on spaCy.
+# "hf"   = HuggingFaceNerRecognizer (same model as extractor text-deid engine)
+# "none" = spaCy + pattern recognizers only (legacy behavior)
+DEID_PIXEL_NER_BACKEND = "hf"
+DEID_HF_NER_MODEL = "Isotonic/deberta-v3-base_finetuned_ai4privacy_v2"
+DEID_HF_NER_THRESHOLD = 0.20  # lower = more recall / more over-redaction (safe for de-id)
+# ai4privacy-v2 label -> Presidio entity (verified against model config.json).
+# Every label is mapped so nothing the model predicts is dropped; prune entries
+# here if a class over-redacts benign clinical annotations.
+DEID_HF_LABEL_MAP = {
+    "FIRSTNAME": "PERSON", "MIDDLENAME": "PERSON", "LASTNAME": "PERSON",
+    "PREFIX": "PERSON", "USERNAME": "ID", "ACCOUNTNAME": "ID",
+    "CITY": "LOCATION", "STATE": "LOCATION", "COUNTY": "LOCATION",
+    "STREET": "LOCATION", "BUILDINGNUMBER": "LOCATION",
+    "SECONDARYADDRESS": "LOCATION", "ZIPCODE": "LOCATION",
+    "NEARBYGPSCOORDINATE": "LOCATION", "ORDINALDIRECTION": "LOCATION",
+    "DATE": "DATE_TIME", "DOB": "DATE_TIME", "TIME": "DATE_TIME", "AGE": "AGE",
+    "PHONENUMBER": "PHONE_NUMBER", "PHONEIMEI": "ID",
+    "EMAIL": "EMAIL_ADDRESS", "URL": "URL",
+    "IP": "IP_ADDRESS", "IPV4": "IP_ADDRESS", "IPV6": "IP_ADDRESS", "MAC": "ID",
+    "SSN": "US_SSN", "ACCOUNTNUMBER": "US_BANK_NUMBER", "PIN": "ID",
+    "MASKEDNUMBER": "ID", "IBAN": "IBAN_CODE", "BIC": "ID",
+    "CREDITCARDNUMBER": "CREDIT_CARD", "CREDITCARDCVV": "ID",
+    "CREDITCARDISSUER": "ID", "BITCOINADDRESS": "CRYPTO",
+    "LITECOINADDRESS": "CRYPTO", "ETHEREUMADDRESS": "CRYPTO",
+    "VEHICLEVIN": "ID", "VEHICLEVRM": "IN_VEHICLE_REGISTRATION",
+    "COMPANYNAME": "ORGANIZATION", "JOBTITLE": "ID", "JOBAREA": "ID",
+    "JOBTYPE": "ID", "GENDER": "ID", "SEX": "ID", "HEIGHT": "ID",
+    "EYECOLOR": "ID", "PASSWORD": "ID", "USERAGENT": "ID",
+    "AMOUNT": "ID", "CURRENCY": "ID", "CURRENCYCODE": "ID",
+    "CURRENCYNAME": "ID", "CURRENCYSYMBOL": "ID",
+}
+# Title-case OCR words before NER — ALL-CAPS burnt-in annotations degrade
+# cased NER models; words are normalized length-preservingly so bbox mapping
+# is unaffected.
+DEID_PIXEL_NORMALIZE_CASE = True
+# Register lenient India-specific recognizers (Aadhaar without checksum,
+# Indian mobile) in the pixel-scrub analyzer.
+DEID_LENIENT_INDIAN_IDS = True
+
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')
