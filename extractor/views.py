@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import uuid
 from django.shortcuts import render, redirect, get_object_or_404
@@ -858,6 +859,7 @@ def file_upload_detail(request, file_id):
         'processed_files': processed_files,
         'dependent_jobs_count': dependent_jobs.count(),
         'dependent_results_count': dependent_results.count(),
+        'deid_enabled': getattr(settings, 'EXTRACTOR_DEID_ENABLED', True),
     }
 
     return render(request, 'extractor/file_upload_detail.html', context)
@@ -892,12 +894,49 @@ def file_upload_process(request, file_id):
 
         for warning in result.get('warnings', []):
             messages.warning(request, warning)
-        
+
+        if result['success'] or result.get('processed_files'):
+            _dispatch_deid_tasks(result.get('processed_files', []), request)
+
     except Exception as e:
         log.error(f"File processing error: {e}")
         messages.error(request, f"Processing failed: {str(e)}")
-    
+
     return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
+
+def _dispatch_deid_tasks(processed_files, request):
+    """Auto-dispatch deidentification for each produced ProcessedText row
+    when EXTRACTOR_DEID_AUTO_RUN is on. Mirrors the OCR dispatch pattern."""
+    if not getattr(settings, 'EXTRACTOR_DEID_ENABLED', True):
+        return
+    if not getattr(settings, 'EXTRACTOR_DEID_AUTO_RUN', True):
+        return
+    from extractor.tasks import deidentify_processed_text_task
+    dispatched = 0
+    for entry in processed_files:
+        pt_id = entry.get('id')
+        if not pt_id:
+            continue
+        running = BackgroundTask.objects.filter(
+            task_name__startswith=f"Deidentify processed file {pt_id}",
+            status__in=['pending', 'running']
+        ).exists()
+        if running:
+            continue
+        task = BackgroundTask.objects.create(
+            task_id=f"deid-{pt_id}-{int(timezone.now().timestamp())}",
+            task_name=f"Deidentify processed file {pt_id}",
+            status='pending',
+        )
+        deidentify_processed_text_task.delay(
+            task.task_id, pt_id, user_id=request.user.id)
+        dispatched += 1
+    if dispatched:
+        messages.info(
+            request,
+            f"Deidentification started for {dispatched} file(s); "
+            "review each deidentified version before extraction.")
 
 
 @login_required
@@ -986,6 +1025,116 @@ def processed_text_ocr(request, processed_text_id):
 
 
 @login_required
+@permission_required('extractor.change_processedtext', raise_exception=True)
+@require_http_methods(["POST"])
+def processed_text_deidentify(request, processed_text_id):
+    """
+    Dispatch deidentification for a processed text version (manual action —
+    backfill for files processed before deid existed, or retries after a
+    failed run). Creates a BackgroundTask and returns to the referring page.
+    """
+    processed_text = get_object_or_404(ProcessedText, id=processed_text_id)
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'extractor:extraction_dashboard'
+
+    if processed_text.deidentified:
+        messages.info(request, "This version was already produced by deidentification.")
+        return redirect(next_url)
+
+    running = BackgroundTask.objects.filter(
+        task_name__startswith=f"Deidentify processed file {processed_text_id}",
+        status__in=['pending', 'running']
+    ).exists()
+    if running:
+        messages.warning(request, "Deidentification is already in progress for this file.")
+        return redirect(next_url)
+
+    task = BackgroundTask.objects.create(
+        task_id=f"deid-{processed_text_id}-{int(timezone.now().timestamp())}",
+        task_name=f"Deidentify processed file {processed_text_id}",
+        status='pending',
+    )
+    from extractor.tasks import deidentify_processed_text_task
+    deidentify_processed_text_task.delay(task.task_id, processed_text_id, user_id=request.user.id)
+
+    messages.success(request, f"Deidentification started for '{processed_text.file_upload.original_filename}'.")
+    return redirect(next_url)
+
+
+@login_required
+@permission_required('extractor.view_processedtext', raise_exception=True)
+def processed_text_deid_review(request, processed_id):
+    """
+    Review page for a deidentified processed text version: highlighted tags,
+    search, textarea edit + select-to-redact, save, and mark-reviewed.
+    """
+    from extractor.services.text_deidentification import (
+        TextDeidentificationService,
+    )
+
+    processed_text = get_object_or_404(ProcessedText, id=processed_id)
+    next_url = request.POST.get('next') or request.GET.get('next') or 'extractor:extraction_dashboard'
+
+    if not processed_text.deidentified:
+        messages.warning(request, "This version is not deidentified.")
+        return redirect('extractor:processed_text_view', processed_id=processed_id)
+
+    if request.method == 'POST':
+        if not request.user.has_perm('extractor.change_processedtext'):
+            messages.error(request, "You do not have permission to edit deidentified text.")
+            return redirect(next_url)
+        action = request.POST.get('action')
+        try:
+            if action == 'save':
+                new_content = request.POST.get('content', '')
+                TextDeidentificationService.save_manual_edit(
+                    processed_text, new_content, user=request.user)
+                messages.success(request, "Deidentified text updated.")
+            elif action == 'review':
+                TextDeidentificationService.mark_reviewed(
+                    processed_text, user=request.user)
+                messages.success(request, "Deidentified text marked as reviewed.")
+                return redirect(next_url)
+            elif action == 'restore':
+                tag = request.POST.get('tag', '').strip()
+                n = TextDeidentificationService.restore_tag(
+                    processed_text, tag)
+                if n:
+                    messages.success(
+                        request,
+                        f"Restored {tag} to its original value "
+                        f"({n} occurrence(s)).")
+                else:
+                    messages.warning(
+                        request, f"No occurrences of {tag} found to restore.")
+        except Exception as e:
+            log.error(f"Deid review save failed: {e}", exc_info=True)
+            messages.error(request, f"Save failed: {e}")
+
+    content = FileProcessorService.get_processed_content(processed_text)
+
+    # Live tag inventory: regex over the current content so manual edits are
+    # reflected without storing spans.
+    tag_counts = {}
+    for t in re.findall(r'<[A-Z_]+(?:_\d+)?>', content):
+        tag_counts[t] = tag_counts.get(t, 0) + 1
+
+    # Redaction map limited to tags actually present in the current text —
+    # restored or manually removed entries disappear once gone.
+    deid_map = [
+        e for e in (processed_text.deid_map or [])
+        if e.get('tag') and e['tag'] in content]
+
+    context = {
+        'processed_text': processed_text,
+        'content': content,
+        'tag_counts': tag_counts,
+        'deid_map': deid_map,
+        'next': next_url,
+    }
+    return render(request, 'extractor/processed_text_deid_review.html', context)
+
+
+@login_required
 @permission_required('extractor.view_processedtext', raise_exception=True)
 def extraction_dashboard(request):
     """
@@ -1009,6 +1158,10 @@ def extraction_dashboard(request):
                     jobs_active=Count(
                         'fileupload__processedtext__extractionjob', distinct=True,
                         filter=Q(fileupload__processedtext__extractionjob__extraction_status__in=['pending', 'processing'])),
+                    deid_pending_review=Count(
+                        'fileupload__processedtext', distinct=True,
+                        filter=Q(fileupload__processedtext__deidentified=True,
+                                 fileupload__processedtext__deid_reviewed=False)),
                 )
                 .order_by('patient_id')
                 .distinct())
@@ -1085,6 +1238,8 @@ def patient_data(request, patient_pk):
         'file_rows': file_rows,
         'jobs': jobs,
         'response_models': ResponseModel.objects.filter(is_complete=True).select_related('client'),
+        'deid_enabled': getattr(settings, 'EXTRACTOR_DEID_ENABLED', True),
+        'deid_require_review': getattr(settings, 'EXTRACTOR_DEID_REQUIRE_REVIEW', True),
     }
     return render(request, 'extractor/patient_data.html', context)
 
@@ -1111,6 +1266,33 @@ def extraction_start(request):
         if not processed_files.exists():
             messages.error(request, "No valid files selected.")
             return redirect(back)
+
+        # Deidentification gate: only reviewed, deidentified versions may be
+        # sent to the extraction provider.
+        if getattr(settings, 'EXTRACTOR_DEID_ENABLED', True):
+            not_deid = processed_files.filter(deidentified=False)
+            if not_deid.exists():
+                names = ', '.join(
+                    pf.file_upload.original_filename or str(pf.id)
+                    for pf in not_deid[:5])
+                messages.error(
+                    request,
+                    f"Extraction blocked: {not_deid.count()} file(s) are not "
+                    f"deidentified ({names}). Deidentification runs after "
+                    "processing — retry once it completes.")
+                return redirect(back)
+            if getattr(settings, 'EXTRACTOR_DEID_REQUIRE_REVIEW', True):
+                unreviewed = processed_files.filter(deid_reviewed=False)
+                if unreviewed.exists():
+                    names = ', '.join(
+                        pf.file_upload.original_filename or str(pf.id)
+                        for pf in unreviewed[:5])
+                    messages.error(
+                        request,
+                        f"Extraction blocked: {unreviewed.count()} file(s) "
+                        f"await deidentification review ({names}). Open each "
+                        "deidentified version and mark it reviewed first.")
+                    return redirect(back)
 
         # Readiness check: refuse to run an unbuildable extraction model
         readiness = PydanticModelBuilder.validate_model_configuration(response_model)
@@ -1200,6 +1382,7 @@ def extraction_job_detail(request, job_id, review_errors=None, review_field_erro
         ExtractionJob.objects.select_related(
             'response_model',
             'processed_file__file_upload__patient_id',
+            'processed_file__deidentified_source',
             'extracted_by'
         ),
         id=job_id
@@ -1223,8 +1406,16 @@ def extraction_job_detail(request, job_id, review_errors=None, review_field_erro
     from extractor.services.patient_data import build_job_data_tree
     data_tree = build_job_data_tree(extraction_job)
 
-    # Get processed file content
-    content = FileProcessorService.get_processed_content(extraction_job.processed_file)
+    # Reviewers verify extracted values against the real document — when the
+    # job ran on a deidentified version, show the original text; the
+    # deidentified text the LLM saw stays available alongside.
+    processed_file = extraction_job.processed_file
+    source_file = processed_file.deidentified_source \
+        if processed_file.deidentified and processed_file.deidentified_source \
+        else processed_file
+    content = FileProcessorService.get_processed_content(source_file)
+    deid_content = (FileProcessorService.get_processed_content(processed_file)
+                    if source_file is not processed_file else None)
 
     # Stage trace → display entries; the prompt entry matching the awaiting
     # status is the one parked for approval
@@ -1268,6 +1459,7 @@ def extraction_job_detail(request, job_id, review_errors=None, review_field_erro
         'extraction_results': extraction_results,
         'data_tree': data_tree,
         'processed_content': content,
+        'deid_content': deid_content,
         'total_results': extraction_results.count(),
         'stage_entries': stage_entries,
         'stage_running': extraction_job.extraction_status in (
@@ -1311,7 +1503,26 @@ def extraction_job_continue(request, job_id):
         messages.info(request, f"Extraction job #{job_id} cancelled.")
         return back
 
-    advance_extraction_job.delay(extraction_job.id)
+    # Claim the stage before dispatching — the job flips to processing now,
+    # so the Approve button dies with the first click and a duplicate POST
+    # or queued task can't re-dispatch (or leapfrog the next approval gate).
+    approved_status = extraction_job.extraction_status
+    claimed = ExtractionJob.objects.filter(
+        id=extraction_job.id,
+        extraction_status__in=awaiting,
+    ).update(extraction_status=ExtractionStatusChoices.PROCESSING)
+    if not claimed:
+        messages.error(request, "This job is not waiting for approval.")
+        return back
+    try:
+        advance_extraction_job.delay(
+            extraction_job.id, approved_status=approved_status)
+    except Exception:
+        ExtractionJob.objects.filter(
+            id=extraction_job.id,
+            extraction_status=ExtractionStatusChoices.PROCESSING,
+        ).update(extraction_status=approved_status)
+        raise
     messages.success(request, "Stage approved — dispatched to the worker.")
     return back
 

@@ -17,7 +17,7 @@
         <input type="hidden" name="sort" value="{{ current_sort }}">
         <input type="hidden" name="dir" value="{{ current_dir }}">
         <input type="hidden" name="per_page" value="{{ per_page }}">
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Patient ID</label>
                 <input type="text" name="search" value="{{ search }}" placeholder="Search by Patient ID..."
@@ -68,23 +68,43 @@
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Created From</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Patient Created From</label>
                 <input type="date" name="created_from" value="{{ created_from }}"
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Created To</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Patient Created To</label>
                 <input type="date" name="created_to" value="{{ created_to }}"
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Updated From</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Patient Updated From</label>
                 <input type="date" name="updated_from" value="{{ updated_from }}"
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Updated To</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Patient Updated To</label>
                 <input type="date" name="updated_to" value="{{ updated_to }}"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Study Created From</label>
+                <input type="date" name="study_created_from" value="{{ study_created_from }}"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Study Created To</label>
+                <input type="date" name="study_created_to" value="{{ study_created_to }}"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Study Updated From</label>
+                <input type="date" name="study_updated_from" value="{{ study_updated_from }}"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Study Updated To</label>
+                <input type="date" name="study_updated_to" value="{{ study_updated_to }}"
                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
@@ -158,123 +178,100 @@
         </span>
     </div>
 
-    <div class="bg-white shadow rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
-                    </th>
-                    {% sort_link 'patient_id' as sort_patient_id %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_patient_id.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Patient ID <i class="fas {{ sort_patient_id.icon }}{% if sort_patient_id.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'gender' as sort_gender %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_gender.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Gender <i class="fas {{ sort_gender.icon }}{% if sort_gender.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'dob' as sort_dob %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_dob.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">DOB <i class="fas {{ sort_dob.icon }}{% if sort_dob.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'created' as sort_created %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_created.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Created <i class="fas {{ sort_created.icon }}{% if sort_created.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'updated' as sort_updated %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_updated.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Updated <i class="fas {{ sort_updated.icon }}{% if sort_updated.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'studies' as sort_studies %}
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_studies.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Studies <i class="fas {{ sort_studies.icon }}{% if sort_studies.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'series' as sort_series %}
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_series.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Series <i class="fas {{ sort_series.icon }}{% if sort_series.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'instances' as sort_instances %}
-                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_instances.url }}" class="inline-flex items-center justify-center gap-1 hover:text-gray-700">Instances <i class="fas {{ sort_instances.icon }}{% if sort_instances.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'deidentified' as sort_deidentified %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_deidentified.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Deidentified <i class="fas {{ sort_deidentified.icon }}{% if sort_deidentified.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    {% sort_link 'job_status' as sort_job_status %}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ sort_job_status.url }}" class="inline-flex items-center gap-1 hover:text-gray-700">Job Status <i class="fas {{ sort_job_status.icon }}{% if sort_job_status.active %} text-chavi-primary{% endif %}"></i></a>
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for patient in patients %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        <input type="checkbox" name="patient_ids" value="{{ patient.patient_id }}"
-                            class="patient-checkbox rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ patient.patient_id }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.gender|default:"—" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.date_of_birth|default:"—" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.created_at|date:"Y-m-d"|default:"—" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ patient.updated_at|date:"Y-m-d"|default:"—" }}</td>
-                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.study_count|default:"0" }}</td>
-                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.series_count|default:"0" }}</td>
-                    <td class="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-700">{{ patient.instance_count|default:"0" }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if patient.has_deid %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <i class="fas fa-check mr-1"></i>Yes
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                            No
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        {% if patient.deid_jobs_total == 0 %}
-                            <span class="text-gray-400 text-xs">No jobs</span>
-                        {% else %}
-                            <div class="flex items-center space-x-1 text-xs">
-                                {% if patient.deid_jobs_success %}
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-100 text-green-800" title="Success">
-                                    <i class="fas fa-check"></i> {{ patient.deid_jobs_success }}
-                                </span>
-                                {% endif %}
-                                {% if patient.deid_jobs_processing %}
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800" title="Processing">
-                                    <i class="fas fa-spinner"></i> {{ patient.deid_jobs_processing }}
-                                </span>
-                                {% endif %}
-                                {% if patient.deid_jobs_pending %}
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" title="Pending">
-                                    <i class="fas fa-clock"></i> {{ patient.deid_jobs_pending }}
-                                </span>
-                                {% endif %}
-                                {% if patient.deid_jobs_failed %}
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-100 text-red-800" title="Failed">
-                                    <i class="fas fa-times"></i> {{ patient.deid_jobs_failed }}
-                                </span>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <a href="{% url 'deidentification:patient_detail' patient.patient_id %}" class="text-chavi-primary hover:text-chavi-secondary font-medium">
-                            <i class="fas fa-eye mr-1"></i>View
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="12" class="px-6 py-12 text-center text-sm text-gray-400">No patients found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- List toolbar: select-all + sorting controls -->
+    <div class="mb-2 flex items-center justify-between gap-3 flex-wrap">
+        <label class="inline-flex items-center gap-2 px-1">
+            <input type="checkbox" id="select-all" class="rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Select page</span>
+        </label>
+        <div class="flex items-center gap-2">
+            <label for="sort-select" class="text-xs font-medium text-gray-500 uppercase tracking-wide">Sort by</label>
+            <select id="sort-select" class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:ring-chavi-primary focus:border-chavi-primary">
+                <option value="patient_id" {% if current_sort == 'patient_id' %}selected{% endif %}>Patient ID</option>
+                <option value="gender" {% if current_sort == 'gender' %}selected{% endif %}>Gender</option>
+                <option value="dob" {% if current_sort == 'dob' %}selected{% endif %}>DOB</option>
+                <option value="created" {% if current_sort == 'created' %}selected{% endif %}>Patient Created</option>
+                <option value="updated" {% if current_sort == 'updated' %}selected{% endif %}>Patient Updated</option>
+                <option value="study_created" {% if current_sort == 'study_created' %}selected{% endif %}>Latest Study Created</option>
+                <option value="study_updated" {% if current_sort == 'study_updated' %}selected{% endif %}>Latest Study Updated</option>
+                <option value="studies" {% if current_sort == 'studies' %}selected{% endif %}>Studies</option>
+                <option value="series" {% if current_sort == 'series' %}selected{% endif %}>Series</option>
+                <option value="instances" {% if current_sort == 'instances' %}selected{% endif %}>Instances</option>
+                <option value="deidentified" {% if current_sort == 'deidentified' %}selected{% endif %}>Deidentified</option>
+                <option value="job_status" {% if current_sort == 'job_status' %}selected{% endif %}>Job Status</option>
+            </select>
+            {% sort_link current_sort as sort_dir %}
+            <a href="{{ sort_dir.url }}" title="Toggle sort direction ({{ current_dir }})"
+                class="inline-flex items-center px-2 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 bg-white hover:bg-gray-50">
+                <i class="fas {% if current_dir == 'desc' %}fa-sort-amount-down{% else %}fa-sort-amount-up{% endif %}"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Patient cards: one compact row per patient -->
+    <div class="space-y-2">
+        {% for patient in patients %}
+        <div class="bg-white shadow rounded-lg px-4 py-2.5 flex items-center gap-x-4 gap-y-1 flex-wrap hover:bg-gray-50">
+            <input type="checkbox" name="patient_ids" value="{{ patient.patient_id }}"
+                class="patient-checkbox rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary shrink-0">
+            <a href="{% url 'deidentification:patient_detail' patient.patient_id %}"
+                class="text-sm font-medium text-gray-900 hover:text-chavi-primary truncate max-w-[10rem]" title="{{ patient.patient_id }}">
+                {{ patient.patient_id }}
+            </a>
+            <span class="text-xs text-gray-500 whitespace-nowrap">
+                {{ patient.gender|default:"—" }}<span class="mx-1.5 text-gray-300">|</span>DOB {{ patient.date_of_birth|default:"—" }}
+            </span>
+            <span class="text-xs text-gray-500 whitespace-nowrap" title="Patient record created / updated">
+                <span class="text-gray-400">Patient</span> {{ patient.created_at|date:"Y-m-d"|default:"—" }} / {{ patient.updated_at|date:"Y-m-d"|default:"—" }}
+            </span>
+            <span class="text-xs text-gray-500 whitespace-nowrap" title="Latest study created / updated">
+                <span class="text-gray-400">Latest study</span> {{ patient.latest_study_created|date:"Y-m-d"|default:"—" }} / {{ patient.latest_study_updated|date:"Y-m-d"|default:"—" }}
+            </span>
+            <span class="text-xs text-gray-600 whitespace-nowrap" title="Studies / Series / Instances">
+                <i class="fas fa-layer-group mr-1 text-gray-400"></i>{{ patient.study_count|default:"0" }} st · {{ patient.series_count|default:"0" }} se · {{ patient.instance_count|default:"0" }} in
+            </span>
+            {% if patient.has_deid %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
+                <i class="fas fa-check mr-1"></i>Deidentified
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">
+                Not deidentified
+            </span>
+            {% endif %}
+            {% if patient.deid_jobs_total == 0 %}
+                <span class="text-gray-400 text-xs whitespace-nowrap">No jobs</span>
+            {% else %}
+                <span class="inline-flex items-center space-x-1 text-xs whitespace-nowrap">
+                    {% if patient.deid_jobs_success %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-100 text-green-800" title="Success">
+                        <i class="fas fa-check"></i>&nbsp;{{ patient.deid_jobs_success }}
+                    </span>
+                    {% endif %}
+                    {% if patient.deid_jobs_processing %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800" title="Processing">
+                        <i class="fas fa-spinner"></i>&nbsp;{{ patient.deid_jobs_processing }}
+                    </span>
+                    {% endif %}
+                    {% if patient.deid_jobs_pending %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600" title="Pending">
+                        <i class="fas fa-clock"></i>&nbsp;{{ patient.deid_jobs_pending }}
+                    </span>
+                    {% endif %}
+                    {% if patient.deid_jobs_failed %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-100 text-red-800" title="Failed">
+                        <i class="fas fa-times"></i>&nbsp;{{ patient.deid_jobs_failed }}
+                    </span>
+                    {% endif %}
+                </span>
+            {% endif %}
+            <a href="{% url 'deidentification:patient_detail' patient.patient_id %}" class="ml-auto text-sm text-chavi-primary hover:text-chavi-secondary font-medium whitespace-nowrap">
+                <i class="fas fa-eye mr-1"></i>View
+            </a>
+        </div>
+        {% empty %}
+        <div class="bg-white shadow rounded-lg px-6 py-12 text-center text-sm text-gray-400">No patients found.</div>
+        {% endfor %}
     </div>
 
     {% include 'components/pagination.html' with page_obj=page_obj query_string=query_string elided_range=elided_page_range ellipsis=ellipsis per_page=per_page page_size_options=page_size_options show_per_page=True total_count=total_count %}
@@ -315,6 +312,19 @@ function handleBulkDownloadClick(e, url) {
         opSelect.addEventListener('change', function() {
             valInput.disabled = ['all', 'has_studies', 'no_studies'].indexOf(this.value) !== -1;
             if (valInput.disabled) valInput.value = '';
+        });
+    }
+})();
+
+// Sort field selector: reload with new sort param, preserving filters
+(function() {
+    var sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            var params = new URLSearchParams(window.location.search);
+            params.set('sort', this.value);
+            params.delete('page');
+            window.location.href = window.location.pathname + '?' + params.toString();
         });
     }
 })();

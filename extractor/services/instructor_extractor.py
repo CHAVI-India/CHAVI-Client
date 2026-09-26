@@ -1,5 +1,6 @@
 import instructor
 import json
+import re
 from instructor.core import InstructorRetryException
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
@@ -1114,25 +1115,20 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             result, completion = client.chat.completions.create_with_completion(
                 context=validation_context, **create_kwargs)
         except InstructorRetryException as e:
-            # Only parse/validation failures leave failed_attempts — for a
-            # stubborn out-of-lookup value, re-ask once unconstrained so
-            # the record still lands in 'unresolved' review instead of
-            # failing the whole job. Transport errors re-raise.
+            # Only parse/validation failures leave failed_attempts — recover
+            # the last response, null the fields that failed validation, and
+            # send the corrected payload back for one repair run rather than
+            # discarding the whole extraction. Transport errors re-raise.
             if not e.failed_attempts:
                 raise
             log.warning(
                 f"Extraction job {extraction_job.id}: validation retries "
-                f"exhausted after {e.n_attempts} attempts; re-asking "
-                f"without lookup constraints")
-            validation_context = ({'source_text': processed_content} if include_assessments else {})
-            try:
-                result, completion = client.chat.completions.create_with_completion(
-                    context=validation_context, **create_kwargs)
-            except (InstructorRetryException, ValidationError):
-                if include_assessments:
-                    raise ValueError(
-                        'Extraction response failed evidence validation; no results saved.') from None
-                raise
+                f"exhausted after {e.n_attempts} attempts; nulling invalid "
+                f"fields and re-asking")
+            result, completion, validation_context = \
+                InstructorExtractionService._repair_failed_extraction(
+                    client, e, PydanticModel, create_kwargs, validation_context,
+                    extraction_job.id)
         except ValidationError:
             if include_assessments:
                 raise ValueError('Extraction evidence could not be validated; no results saved.') from None
@@ -1186,6 +1182,185 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
         return InstructorExtractionService._job_result(
             True, data=clinical_data, tokens=tokens, raw=clinical_data)
+
+    REPAIR_PROMPT = (
+        'The previous response is shown above; fields set to null failed '
+        'validation. Return the complete corrected extraction. For each null '
+        'field, provide a value only when the document contains verbatim '
+        'supporting evidence copied character-for-character; otherwise leave '
+        'it null. Do not invent quotations. Do not change fields that '
+        'already have values.')
+
+    @staticmethod
+    def _completion_data(completion):
+        """Parse the JSON payload out of a raw chat completion (JSON or tools mode)."""
+        try:
+            message = completion.choices[0].message
+            text = getattr(message, 'content', None)
+            if not text:
+                for call in getattr(message, 'tool_calls', None) or []:
+                    text = getattr(getattr(call, 'function', None), 'arguments', None)
+                    if text:
+                        break
+            if not isinstance(text, str):
+                return None
+            text = text.strip()
+            if text.startswith('```'):  # tolerate markdown-fenced JSON
+                text = re.sub(r'^```\w*\s*|\s*```$', '', text).strip()
+            return json.loads(text)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _resolve_node(data, loc):
+        """Walk a pydantic error `loc` path into the parsed payload."""
+        node = data
+        for part in loc:
+            if isinstance(node, dict):
+                node = node.get(part)
+            elif isinstance(node, list) and isinstance(part, int) and 0 <= part < len(node):
+                node = node[part]
+            else:
+                return None
+        return node
+
+    @staticmethod
+    def _reset_field(record, field_name, reason):
+        """Null one field and mark its evidence assessment as unknown."""
+        record[field_name] = None
+        for entry in record.get('field_assessments') or []:
+            if isinstance(entry, dict) and entry.get('field') == field_name:
+                entry['basis'] = 'unknown'
+                entry['quotes'] = []
+                entry['rationale'] = (
+                    'Value removed after failed validation: ' + reason)[:400]
+
+    @staticmethod
+    def _fix_validation_error(data, error, lookup_rules):
+        """
+        Repair one pydantic error in-place. Lookup-membership failures relax
+        that field's rule so the extracted label still reaches 'unresolved'
+        review; everything else nulls the offending field. Returns True when
+        a fix was applied.
+        """
+        loc = error.get('loc') or ()
+        msg = error.get('msg', '')
+
+        match = re.search(r"is not a known ([\w.]+) lookup option", msg)
+        if match and lookup_rules and match.group(1) in lookup_rules:
+            del lookup_rules[match.group(1)]
+            return True
+
+        # Errors inside a field_assessments entry implicate its target field
+        if 'field_assessments' in loc:
+            index = loc.index('field_assessments')
+            record = InstructorExtractionService._resolve_node(data, loc[:index])
+            entry = InstructorExtractionService._resolve_node(data, loc[:index + 2])
+            if isinstance(record, dict) and isinstance(entry, dict):
+                for key in list(entry):
+                    if key not in ('field', 'basis', 'quotes', 'rationale'):
+                        del entry[key]
+                name = entry.get('field')
+                if name in record:
+                    InstructorExtractionService._reset_field(record, name, msg)
+                    return True
+            return False
+
+        # Record-level (model) validators resolve to the record dict and embed
+        # the offending field names in the message
+        record = InstructorExtractionService._resolve_node(data, loc)
+        if isinstance(record, dict):
+            names = [t for t in re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', msg)
+                     if t in record and t != 'field_assessments']
+            if names:
+                for name in names:
+                    InstructorExtractionService._reset_field(record, name, msg)
+                return True
+
+        # Field-level error — null the deepest field whose parent is a record
+        for end in range(len(loc), 0, -1):
+            name = loc[end - 1]
+            if not isinstance(name, str) or name == 'field_assessments':
+                continue
+            parent = InstructorExtractionService._resolve_node(data, loc[:end - 1])
+            if isinstance(parent, dict):
+                InstructorExtractionService._reset_field(parent, name, msg)
+                return True
+        return False
+
+    @staticmethod
+    def _sanitize_extraction_data(data, model, validation_context):
+        """
+        Null failing fields (and relax unresolved lookup rules) until the
+        payload passes model validation. Returns (model_instance, context)
+        or (None, None) when the payload cannot be repaired.
+        """
+        context = dict(validation_context or {})
+        context[PydanticModelBuilder.LOOKUP_CONTEXT_KEY] = dict(
+            context.get(PydanticModelBuilder.LOOKUP_CONTEXT_KEY) or {})
+        for _ in range(10):
+            try:
+                return model.model_validate(data, context=context), context
+            except ValidationError as ve:
+                fixes = sum(
+                    1 for error in ve.errors()
+                    if InstructorExtractionService._fix_validation_error(
+                        data, error, context[PydanticModelBuilder.LOOKUP_CONTEXT_KEY]))
+                if not fixes:
+                    return None, None
+        return None, None
+
+    @staticmethod
+    def _repair_failed_extraction(client, retry_error, model, create_kwargs,
+                                  validation_context, job_id):
+        """
+        Recover an extraction after validation retries were exhausted: null
+        the fields that failed validation, then send the corrected payload
+        back through instructor for one repair run. If the repair run also
+        fails, its sanitized response (or the first sanitized one) is
+        accepted — fields that validated are never discarded. Returns
+        (result, completion, effective_context).
+        """
+        completion = retry_error.last_completion
+        if completion is None and retry_error.failed_attempts:
+            completion = retry_error.failed_attempts[-1].completion
+
+        data = InstructorExtractionService._completion_data(completion)
+        if data is None:
+            raise retry_error
+
+        sanitized_model, relaxed_context = \
+            InstructorExtractionService._sanitize_extraction_data(
+                data, model, validation_context)
+        if sanitized_model is None:
+            raise ValueError(
+                'Extraction response could not be repaired; no results saved.') from None
+
+        repair_kwargs = dict(create_kwargs)
+        repair_kwargs['messages'] = list(create_kwargs.get('messages') or []) + [
+            {'role': 'assistant',
+             'content': json.dumps(sanitized_model.model_dump(mode='json'))},
+            {'role': 'user', 'content': InstructorExtractionService.REPAIR_PROMPT},
+        ]
+        try:
+            result, completion = client.chat.completions.create_with_completion(
+                context=validation_context, **repair_kwargs)
+            return result, completion, validation_context
+        except InstructorRetryException as e2:
+            completion = e2.last_completion
+            if completion is None and e2.failed_attempts:
+                completion = e2.failed_attempts[-1].completion
+            data2 = InstructorExtractionService._completion_data(completion)
+            if data2 is not None:
+                repaired, relaxed_context = \
+                    InstructorExtractionService._sanitize_extraction_data(
+                        data2, model, validation_context)
+                if repaired is not None:
+                    return repaired, completion, relaxed_context
+        except Exception as e2:
+            log.warning(f"Extraction job {job_id}: repair run failed "
+                        f"({e2}); accepting sanitized response")
+        return sanitized_model, completion, relaxed_context
 
     @staticmethod
     def extract_data(
@@ -1279,6 +1454,14 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         roots, children = build_table_tree(response_model)
         include_assessments = InstructorExtractionService.uses_field_assessments(extraction_job)
 
+        # Deidentified sources had every DATE_TIME shifted by a random
+        # per-document offset; extracted date values must be un-shifted
+        # (subtraction) before persistence so real dates land in client_app.
+        date_shift_days = None
+        pf = extraction_job.processed_file
+        if pf is not None and pf.deidentified:
+            date_shift_days = pf.deid_date_shift_days
+
         def save_record(model_table, record_data, record_index, parent_record):
             extracted_record = ExtractedRecord.objects.create(
                 extraction_job=extraction_job,
@@ -1347,6 +1530,19 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                     else:
                         data_to_store = str(extracted_value)
 
+                    # Un-shift dates extracted from deidentified text; an
+                    # unparseable value is flagged for review instead of
+                    # storing the shifted (wrong) date.
+                    if (date_shift_days is not None and field.field_type in (
+                            'datetime.date', 'datetime.datetime')):
+                        restored = InstructorExtractionService._unshift_date(
+                            extracted_value, date_shift_days)
+                        if restored is not None:
+                            data_to_store = restored
+                        else:
+                            data_to_store = ''
+                            result_state = 'unresolved'
+
                 evidence = (assessment_evidence if assessment is not None else
                             InstructorExtractionService._find_evidence(content, extracted_value))
 
@@ -1407,6 +1603,32 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         end = min(len(content), idx + len(needle) + max_len // 2)
         snippet = content[start:end].strip()
         return f"…{snippet}…" if start > 0 or end < len(content) else snippet
+
+    @staticmethod
+    def _unshift_date(extracted_value, shift_days):
+        """Restore the real date for a value extracted from deidentified
+        text. Deid shifts every DATE_TIME by a random per-document offset;
+        subtracting it here yields the original date. Returns the ISO
+        string, or None when the value can't be parsed."""
+        from dateutil.parser import parse as parse_date
+
+        stripped = str(extracted_value).strip()
+        try:
+            if re.match(r'^\d{4}-\d{1,2}-\d{1,2}', stripped):
+                # ISO is year-first; dayfirst=True would misparse it.
+                parsed = parse_date(stripped, yearfirst=True)
+            else:
+                # Same convention as _shifted_date_text — deid re-emits
+                # dates in the source's surface format (DD/MM/YYYY etc.)
+                parsed = parse_date(stripped, dayfirst=True)
+        except (ValueError, OverflowError, TypeError):
+            return None
+        restored = parsed - timezone.timedelta(days=shift_days)
+        # Preserve datetime fields as datetimes, date fields as dates.
+        return restored.strftime('%Y-%m-%d %H:%M:%S') if (
+            getattr(parsed, 'hour', 0) or getattr(parsed, 'minute', 0)
+            or getattr(parsed, 'second', 0)
+        ) else restored.strftime('%Y-%m-%d')
 
     @staticmethod
     def get_or_create_job(

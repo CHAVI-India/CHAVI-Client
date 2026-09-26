@@ -190,7 +190,7 @@ def finalize_lookup_embeddings_task(self, task_id, config_id, target_version, re
 
 
 @shared_task(bind=True, max_retries=0)
-def advance_extraction_job(self, job_id):
+def advance_extraction_job(self, job_id, approved_status=None):
     """
     Celery task: advance one extraction job by a single stage — the job
     status says which stage runs next:
@@ -203,10 +203,14 @@ def advance_extraction_job(self, job_id):
                               results, completes)
       failed               -> re-run stage_prepare (explicit re-dispatch)
 
-    Anything else (processing, completed, skipped) is a no-op so double
-    dispatches are safe. Retries are disabled — a failed job stays failed
-    and can be re-dispatched explicitly, so transient provider errors
-    never double-charge silently.
+    `approved_status` records the awaiting_* status an approval click
+    claimed before dispatching — the view flips the job to processing up
+    front, so the stage to run comes from that argument, not the row.
+    Direct dispatches (no approved_status) claim the stage atomically
+    instead. Anything else (processing, completed, skipped) is a no-op so
+    double dispatches are safe. Retries are disabled — a failed job stays
+    failed and can be re-dispatched explicitly, so transient provider
+    errors never double-charge silently.
     """
     from extractor.models import ExtractionJob, ExtractionStatusChoices
     from extractor.services.file_processor import FileProcessorService
@@ -227,10 +231,58 @@ def advance_extraction_job(self, job_id):
         # An explicit re-dispatch after failure restarts the pipeline
         ExtractionStatusChoices.FAILED: InstructorExtractionService.stage_prepare,
     }
-    stage = stage_by_status.get(job.extraction_status)
-    if stage is None:
-        log.info(f"Job {job_id} already {job.extraction_status}; skipping")
-        return {'success': True, 'reused': True, 'status': job.extraction_status}
+    if approved_status is not None:
+        # The approval view already claimed the job — run the stage that
+        # was awaiting; bail if the job was reset or moved on meanwhile.
+        if job.extraction_status != ExtractionStatusChoices.PROCESSING:
+            log.info(
+                f"Job {job_id} is {job.extraction_status}, not processing; "
+                f"skipping approved {approved_status} stage")
+            return {'success': True, 'reused': True,
+                    'status': job.extraction_status}
+        stage = stage_by_status.get(approved_status)
+    else:
+        stage = stage_by_status.get(job.extraction_status)
+        if stage is None:
+            log.info(f"Job {job_id} already {job.extraction_status}; skipping")
+            return {'success': True, 'reused': True, 'status': job.extraction_status}
+        # Claim the stage so a duplicate queued task no-ops
+        if not ExtractionJob.objects.filter(
+                id=job_id,
+                extraction_status=job.extraction_status).update(
+                extraction_status=ExtractionStatusChoices.PROCESSING):
+            log.info(f"Job {job_id} stage already claimed; skipping")
+            return {'success': True, 'reused': True,
+                    'status': ExtractionStatusChoices.PROCESSING}
+        job.extraction_status = ExtractionStatusChoices.PROCESSING
+
+    from django.conf import settings
+    if (getattr(settings, 'EXTRACTOR_DEID_ENABLED', True)
+            and job.processed_file_id is not None):
+        pf = job.processed_file
+        if not pf.deidentified:
+            msg = (
+                f"Job {job_id} references non-deidentified text "
+                f"(ProcessedText {pf.id}) — blocked"
+            )
+            log.error(msg)
+            job.extraction_status = ExtractionStatusChoices.FAILED
+            job.extraction_end_datetime = timezone.now()
+            job.extraction_error = msg
+            job.save()
+            return {'success': False, 'error': msg}
+        if (getattr(settings, 'EXTRACTOR_DEID_REQUIRE_REVIEW', True)
+                and not pf.deid_reviewed):
+            msg = (
+                f"Job {job_id} references unreviewed deidentified text "
+                f"(ProcessedText {pf.id}) — blocked"
+            )
+            log.error(msg)
+            job.extraction_status = ExtractionStatusChoices.FAILED
+            job.extraction_end_datetime = timezone.now()
+            job.extraction_error = msg
+            job.save()
+            return {'success': False, 'error': msg}
 
     content = FileProcessorService.get_processed_content(job.processed_file)
     try:
@@ -251,6 +303,7 @@ def ocr_processed_text_task(self, task_id, processed_text_id, user_id=None):
     Celery task: OCR a scanned PDF into a new versioned ProcessedText row.
     Progress is tracked on the BackgroundTask row created by the view.
     """
+    from django.conf import settings
     from extractor.models import ProcessedText
     from extractor.services.file_processor import FileProcessorService
     from django.contrib.auth import get_user_model
@@ -269,12 +322,68 @@ def ocr_processed_text_task(self, task_id, processed_text_id, user_id=None):
         pt = ProcessedText.objects.select_related('file_upload').get(id=processed_text_id)
         user = User.objects.filter(id=user_id).first() if user_id else None
         new_version = FileProcessorService.ocr_pdf(pt, user=user)
+        result = {
+            'success': True,
+            'processed_text_id': new_version.id,
+            'version': new_version.version,
+            'content_length': new_version.content_length,
+        }
+        if getattr(settings, 'EXTRACTOR_DEID_AUTO_RUN', True) and new_version:
+            deid_task = BackgroundTask.objects.create(
+                task_id=f"deid-{new_version.id}-{int(timezone.now().timestamp())}",
+                task_name=f"Deidentify processed file {new_version.id}",
+                status='pending',
+            )
+            deidentify_processed_text_task.delay(
+                deid_task.task_id, new_version.id,
+                user_id=user.id if user else None)
+            result['deid_task_id'] = deid_task.task_id
+        task.mark_complete(result)
+    except Exception as e:
+        log.error(f"OCR task failed for processed_text {processed_text_id}: {e}", exc_info=True)
+        task.mark_failed(str(e))
+
+
+@shared_task(bind=True, max_retries=0)
+def deidentify_processed_text_task(self, task_id, processed_text_id, user_id=None):
+    """
+    Celery task: deidentify a ProcessedText version into a new versioned
+    row. Progress is tracked on the BackgroundTask row created by the view
+    or the caller that auto-dispatched it.
+    """
+    from django.conf import settings
+    from extractor.models import ProcessedText
+    from extractor.services.text_deidentification import TextDeidentificationService
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    try:
+        task = BackgroundTask.objects.get(task_id=task_id)
+    except BackgroundTask.DoesNotExist:
+        log.error(f"BackgroundTask {task_id} not found")
+        return
+
+    task.mark_running()
+    task.update_progress('Running deidentification...')
+
+    try:
+        pt = ProcessedText.objects.select_related(
+            'file_upload__patient_id').get(id=processed_text_id)
+        user = User.objects.filter(id=user_id).first() if user_id else None
+        new_version = TextDeidentificationService.deidentify(pt, user=user)
+        if new_version is None:
+            task.mark_complete({'success': True, 'skipped': 'already deidentified'})
+            return
         task.mark_complete({
             'success': True,
             'processed_text_id': new_version.id,
             'version': new_version.version,
             'content_length': new_version.content_length,
+            'engine': new_version.deid_engine,
+            'entities': new_version.deid_entities,
         })
     except Exception as e:
-        log.error(f"OCR task failed for processed_text {processed_text_id}: {e}", exc_info=True)
+        log.error(
+            f"Deid task failed for processed_text {processed_text_id}: {e}",
+            exc_info=True)
         task.mark_failed(str(e))

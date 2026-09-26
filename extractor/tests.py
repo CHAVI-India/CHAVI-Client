@@ -1,3 +1,4 @@
+import os
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -280,6 +281,7 @@ class InferenceContractTests(SimpleTestCase):
         return SimpleNamespace(
             id=1, config_snapshot={'field_assessment_version': 1}, input_content_hash='',
             response_model=self.rm, extracted_by=None, save=Mock(),
+            processed_file=None,
             stage_trace=[{'stage': 'extraction', 'kind': 'prompt',
                           'messages': [{'role': 'user', 'content': 'APPROVED'}]}])
 
@@ -317,26 +319,84 @@ class InferenceContractTests(SimpleTestCase):
         self.assertNotIn('field_assessments', job.stage_trace[-1]['data']['patientassessment'][0])
         self.assertIn('field_assessments', json.loads(job.raw_llm_response)['patientassessment'][0])
 
-    def test_lookup_fallback_cannot_disable_evidence_validation(self):
+    def test_failed_validation_nulls_field_and_repairs(self):
+        import json
         from instructor.core import InstructorRetryException
         from types import SimpleNamespace
+
+        bad_record = {
+            'count': 7, 'measurement': None, 'present': False,
+            'field_assessments': [
+                {'field': 'count', 'basis': 'explicit',
+                 'quotes': ['FABRICATED QUOTE'], 'rationale': 'made up'},
+                {'field': 'measurement', 'basis': 'unknown', 'quotes': [],
+                 'rationale': 'Not assessed.'},
+                {'field': 'present', 'basis': 'inferred',
+                 'quotes': ['The finding is absent.'], 'rationale': 'Absent.'},
+            ],
+        }
+        completion = SimpleNamespace(choices=[SimpleNamespace(
+            message=SimpleNamespace(
+                content=json.dumps({'patientassessment': [bad_record]})))])
 
         calls = []
         def create(**kwargs):
             calls.append(kwargs)
             if len(calls) == 1:
-                raise InstructorRetryException('retry', n_attempts=2, total_usage=None, failed_attempts=[Mock()])
-            self.assertNotIn('lookup_rules', kwargs['context'])
-            self.assertEqual(kwargs['context']['source_text'], self.source)
-            invalid = self.parse()
-            invalid.patientassessment[0].field_assessments[0].quotes = ['SENSITIVE FABRICATION']
-            return invalid, SimpleNamespace(usage=None)
+                raise InstructorRetryException(
+                    'retry', n_attempts=2, total_usage=None,
+                    failed_attempts=[Mock()], last_completion=completion)
+            # Repair run: model returns a fully valid response
+            return self.parse(), SimpleNamespace(usage=SimpleNamespace(total_tokens=9))
         client, saved = self.mock_stage(create)
-        with self.assertRaisesMessage(ValueError, 'evidence could not be validated') as failure:
-            InstructorExtractionService.stage_extract(self.stage_job(), self.source)
-        self.assertNotIn('SENSITIVE', str(failure.exception))
+        job = self.stage_job()
+        result = InstructorExtractionService.stage_extract(job, self.source)
+        self.assertTrue(result['success'])
         self.assertEqual(client.chat.completions.create_with_completion.call_count, 2)
-        saved.assert_not_called()
+        # Repair run received the sanitized payload + repair instruction,
+        # still under the full validation context
+        repair_messages = calls[1]['messages']
+        self.assertEqual(repair_messages[0], {'role': 'user', 'content': 'APPROVED'})
+        self.assertEqual(repair_messages[-1]['content'],
+                         InstructorExtractionService.REPAIR_PROMPT)
+        self.assertIn('"count": null', repair_messages[-2]['content'])
+        self.assertEqual(calls[1]['context']['source_text'], self.source)
+        saved.assert_called_once()
+
+    def test_failed_repair_accepts_sanitized_response(self):
+        import json
+        from instructor.core import InstructorRetryException
+        from types import SimpleNamespace
+
+        bad_record = {
+            'count': 7, 'measurement': None, 'present': False,
+            'field_assessments': [
+                {'field': 'count', 'basis': 'explicit',
+                 'quotes': ['FABRICATED QUOTE'], 'rationale': 'made up'},
+                {'field': 'measurement', 'basis': 'unknown', 'quotes': [],
+                 'rationale': 'Not assessed.'},
+                {'field': 'present', 'basis': 'inferred',
+                 'quotes': ['The finding is absent.'], 'rationale': 'Absent.'},
+            ],
+        }
+        completion = SimpleNamespace(choices=[SimpleNamespace(
+            message=SimpleNamespace(
+                content=json.dumps({'patientassessment': [bad_record]})))])
+
+        def create(**kwargs):
+            raise InstructorRetryException(
+                'retry', n_attempts=2, total_usage=None,
+                failed_attempts=[Mock()], last_completion=completion)
+        client, saved = self.mock_stage(create)
+        job = self.stage_job()
+        result = InstructorExtractionService.stage_extract(job, self.source)
+        # Both runs failed validation — the sanitized payload is still saved
+        self.assertTrue(result['success'])
+        saved_data = saved.call_args.args[1]
+        record = saved_data['patientassessment'][0]
+        self.assertIsNone(record['count'])
+        self.assertFalse(record['present'])
+        self.assertIsNone(record['measurement'])
 
     def test_new_prompts_freeze_assessment_version_in_both_paths(self):
         from types import SimpleNamespace
@@ -994,7 +1054,8 @@ class StagedPipelineTests(TestCase):
         self.user = User.objects.create(username='tester')
         upload = FileUpload.objects.create(file='scan.pdf')
         self.processed = ProcessedText.objects.create(
-            file_upload=upload, content_length=5)
+            file_upload=upload, content_length=5,
+            deidentified=True, deid_reviewed=True)
         self.job = ExtractionJob.objects.create(
             response_model=self.rm, processed_file=self.processed,
             extracted_by=self.user)
@@ -1158,8 +1219,16 @@ class StagedPipelineTests(TestCase):
         with patch('extractor.views.advance_extraction_job') as adv:
             resp = self.client.post(
                 f'/extractor/extraction/jobs/{self.job.id}/continue/')
-        adv.delay.assert_called_once_with(self.job.id)
+        adv.delay.assert_called_once_with(
+            self.job.id, approved_status='awaiting_mining')
         self.assertEqual(resp.status_code, 302)
+        # The click claims the stage — a second POST must not dispatch again
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'processing')
+        with patch('extractor.views.advance_extraction_job') as adv:
+            self.client.post(
+                f'/extractor/extraction/jobs/{self.job.id}/continue/')
+        adv.delay.assert_not_called()
 
         self.job.extraction_status = 'completed'
         self.job.save()
@@ -1729,3 +1798,375 @@ class EmbeddingIndexTests(TestCase):
         results = task.result_data['results']
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['count'], 3)
+
+
+# ---------------------------------------------------------------------
+# Text deidentification (extractor.services.text_deidentification)
+# ---------------------------------------------------------------------
+
+class DeidRecognizerTests(SimpleTestCase):
+    """Text-specific recognizer patterns — no NLP engine required."""
+
+    def _rec(self, name):
+        from extractor.services.deid_recognizers import build_text_recognizers
+        return {r.name: r for r in build_text_recognizers()}[name]
+
+    def test_abha_number(self):
+        rec = self._rec('AbhaNumberRecognizer')
+        results = rec.analyze("ABHA 91-2345-6789-0123", entities=["IN_ABHA"])
+        self.assertTrue(results)
+
+    def test_abha_address(self):
+        rec = self._rec('AbhaAddressRecognizer')
+        results = rec.analyze("health id ramesh.k@abdm", entities=["IN_ABHA"])
+        self.assertTrue(results)
+
+    def test_pincode_context_gated_low_score(self):
+        rec = self._rec('IndianPinCodeRecognizer')
+        results = rec.analyze("PIN 560001", entities=["IN_PINCODE"])
+        self.assertTrue(results)
+        # Base score stays below the analyzer threshold — context must lift it
+        self.assertLess(results[0].score, 0.35)
+
+    def test_mrn_recognizer_is_context_gated(self):
+        rec = self._rec('MedicalRecordNumberRecognizer')
+        results = rec.analyze("MRN 12345678", entities=["MEDICAL_RECORD_NUMBER"])
+        self.assertTrue(results)
+        self.assertLess(results[0].score, 0.35)
+
+    def test_date_patterns(self):
+        rec = self._rec('DatePatternRecognizer')
+        for surface in ('12/03/2024', '12-03-24', '2024-03-12',
+                        '12 Mar 2024', 'March 12th, 2024'):
+            results = rec.analyze(f"seen on {surface}", entities=["DATE_TIME"])
+            self.assertTrue(results, f"no date match for {surface}")
+
+    def test_title_name(self):
+        rec = self._rec('IndianTitleNameRecognizer')
+        results = rec.analyze("Dr. Sharma referred the patient",
+                              entities=["PERSON"])
+        self.assertTrue(results)
+
+    def test_patient_adhoc_recognizers(self):
+        import datetime as dt
+        from unittest.mock import Mock
+        from extractor.services.deid_recognizers import (
+            build_patient_recognizers)
+        patient = Mock(patient_id='P-10293',
+                       date_of_birth=dt.date(1990, 1, 5))
+        recs = build_patient_recognizers(patient)
+        self.assertEqual(len(recs), 2)
+        pid_results = recs[0].analyze("ref P-10293", entities=["PATIENT_ID"])
+        self.assertTrue(pid_results)
+        dob_results = recs[1].analyze("DOB 05/01/1990", entities=["DATE_TIME"])
+        self.assertTrue(dob_results)
+
+    def test_patient_adhoc_recognizers_none(self):
+        from extractor.services.deid_recognizers import (
+            build_patient_recognizers)
+        self.assertEqual(build_patient_recognizers(None), [])
+
+
+class DeidReplacementTests(SimpleTestCase):
+    """Pure splice/shift/tag logic."""
+
+    def test_shifted_date_preserves_format(self):
+        from extractor.services.text_deidentification import _shifted_date_text
+        self.assertEqual(_shifted_date_text('12/03/2024', 10), '22/03/2024')
+        self.assertEqual(_shifted_date_text('2024-03-12', -2), '2024-03-10')
+        out = _shifted_date_text('12 Mar 2024', 30)
+        self.assertIn('Apr', out)
+
+    def test_unparseable_date_becomes_tag(self):
+        from extractor.services.text_deidentification import _shifted_date_text
+        self.assertEqual(_shifted_date_text('next Tuesday', 10), '<DATE>')
+
+    def test_tag_numbering_consistent_per_value(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        tag_map = {}
+        t1 = TextDeidentificationService._tag_for('PERSON', 'Ramesh', tag_map)
+        t2 = TextDeidentificationService._tag_for('PERSON', 'Ramesh', tag_map)
+        t3 = TextDeidentificationService._tag_for('PERSON', 'Suresh', tag_map)
+        self.assertEqual(t1, '<PERSON_1>')
+        self.assertEqual(t1, t2)
+        self.assertEqual(t3, '<PERSON_2>')
+
+    def test_patient_id_fixed_tag(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        self.assertEqual(
+            TextDeidentificationService._tag_for('PATIENT_ID', 'P-1', {}),
+            '<PATIENT_ID>')
+
+    def test_apply_replacements_right_to_left(self):
+        from presidio_analyzer import RecognizerResult
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        text = 'Ramesh visited on 12/03/2024 with Suresh'
+        results = [
+            RecognizerResult(entity_type='PERSON', start=0, end=6, score=0.9),
+            RecognizerResult(entity_type='DATE_TIME', start=18, end=28, score=0.5),
+            RecognizerResult(entity_type='PERSON', start=34, end=40, score=0.9),
+        ]
+        out = TextDeidentificationService._apply_replacements(
+            text, results, 10, {})
+        # First occurrence in document order gets _1
+        self.assertTrue(out.startswith('<PERSON_1>'))
+        self.assertIn('<PERSON_2>', out)
+        self.assertIn('22/03/2024', out)
+        self.assertNotIn('Ramesh', out)
+
+    def test_resolve_overlaps_keeps_highest_score(self):
+        from presidio_analyzer import RecognizerResult
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        results = [
+            RecognizerResult(entity_type='PERSON', start=0, end=6, score=0.9),
+            RecognizerResult(entity_type='LOCATION', start=0, end=10, score=0.4),
+            RecognizerResult(entity_type='DATE_TIME', start=20, end=24, score=0.5),
+        ]
+        kept = TextDeidentificationService._resolve_overlaps(results)
+        self.assertEqual(len(kept), 2)
+        self.assertEqual(kept[0].entity_type, 'PERSON')
+
+    def test_unshift_date_round_trip(self):
+        from extractor.services.instructor_extractor import (
+            InstructorExtractionService)
+        # Shifted date in the deidentified text, un-shifted on save
+        self.assertEqual(
+            InstructorExtractionService._unshift_date('2024-03-22', 10),
+            '2024-03-12')
+        # Deid re-emits dates in the source's surface format — DD/MM must
+        # parse day-first or ambiguous dates would be silently corrupted
+        self.assertEqual(
+            InstructorExtractionService._unshift_date('05/06/2024', 10),
+            '2024-05-26')
+        self.assertEqual(
+            InstructorExtractionService._unshift_date('05/06/2024 14:30', -10),
+            '2024-06-15 14:30:00')
+        self.assertIsNone(
+            InstructorExtractionService._unshift_date('not-a-date', 10))
+
+
+class _FakeAnalyzer:
+    """Stand-in analyzer: detects 'Ramesh Kumar' and dd/mm/yyyy dates."""
+
+    def analyze(self, text, language='en', score_threshold=0.35,
+                ad_hoc_recognizers=None):
+        import re as _re
+        from presidio_analyzer import RecognizerResult
+        results = []
+        for m in _re.finditer(_re.escape('Ramesh Kumar'), text):
+            results.append(RecognizerResult(
+                entity_type='PERSON', start=m.start(), end=m.end(), score=0.9))
+        for m in _re.finditer(r'\d{2}/\d{2}/\d{4}', text):
+            results.append(RecognizerResult(
+                entity_type='DATE_TIME', start=m.start(), end=m.end(),
+                score=0.5))
+        for rec in ad_hoc_recognizers or []:
+            results.extend(rec.analyze(
+                text, entities=list(rec.supported_entities)))
+        return results
+
+
+class TextDeidPipelineTests(TestCase):
+    """End-to-end deidentify() against real ProcessedText rows."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._override = self.settings(MEDIA_ROOT=self._tmp.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
+
+        from client_app.models import Patient, SiteConfiguration
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        self.patient = Patient.objects.create(patient_id='P-T1')
+        self.user = User.objects.create(username='deidtester')
+        self.upload = FileUpload.objects.create(
+            patient_id=self.patient, file='note.pdf')
+
+    def _source_row(self, filename, content):
+        path = os.path.join(self._tmp.name, filename)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return ProcessedText.objects.create(
+            file_upload=self.upload, processed_file_path=filename)
+
+    def _fake_engine(self):
+        return (_FakeAnalyzer(), 'full')
+
+    def test_text_path_creates_deid_version(self):
+        from unittest.mock import patch
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        src = self._source_row(
+            'v1.md',
+            'Pt Ramesh Kumar seen on 12/03/2024. Ramesh Kumar stable.')
+        with patch.object(TextDeidentificationService, '_get_analyzer',
+                          side_effect=self._fake_engine):
+            out = TextDeidentificationService.deidentify(src, user=self.user)
+
+        self.assertTrue(out.deidentified)
+        self.assertEqual(out.deidentified_source, src)
+        self.assertIsNotNone(out.deid_date_shift_days)
+        self.assertEqual(out.deid_entities.get('PERSON'), 2)
+
+        from extractor.services.file_processor import FileProcessorService
+        content = FileProcessorService.get_processed_content(out)
+        self.assertNotIn('Ramesh Kumar', content)
+        # Same original value reuses the same numbered tag
+        self.assertEqual(content.count('<PERSON_1>'), 2)
+        self.assertIn('.deid.', out.processed_file_path)
+
+    def test_already_deidentified_is_noop(self):
+        from unittest.mock import patch
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        src = self._source_row('v1.md', 'text')
+        with patch.object(TextDeidentificationService, '_get_analyzer',
+                          side_effect=self._fake_engine):
+            out = TextDeidentificationService.deidentify(src)
+            again = TextDeidentificationService.deidentify(out)
+        self.assertIsNone(again)
+
+    def test_csv_path_mapped_columns_and_cell_ner(self):
+        from unittest.mock import patch
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        src = self._source_row(
+            'v1.csv',
+            'patient_name,dob,notes\n'
+            'Ramesh Kumar,12/03/1970,"Ramesh Kumar seen today"\n')
+        with patch.object(TextDeidentificationService, '_get_analyzer',
+                          side_effect=self._fake_engine):
+            out = TextDeidentificationService.deidentify(src)
+
+        self.assertIn('patient_name', out.deid_csv_columns_flagged)
+        self.assertIn('dob', out.deid_csv_columns_flagged)
+
+        import csv as _csv, io as _io
+        from extractor.services.file_processor import FileProcessorService
+        rows = list(_csv.reader(
+            _io.StringIO(FileProcessorService.get_processed_content(out))))
+        self.assertEqual(rows[0], ['patient_name', 'dob', 'notes'])
+        name_cell, dob_cell, notes_cell = rows[1]
+        self.assertEqual(name_cell, '<PERSON_1>')
+        self.assertNotEqual(dob_cell, '12/03/1970')
+        self.assertNotIn('Ramesh Kumar', notes_cell)
+        # Same value in the free-text cell reuses the column's tag
+        self.assertIn('<PERSON_1>', notes_cell)
+
+    def test_manual_edit_and_review_flags(self):
+        from unittest.mock import patch
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        src = self._source_row('v1.md', 'Pt Ramesh Kumar.')
+        with patch.object(TextDeidentificationService, '_get_analyzer',
+                          side_effect=self._fake_engine):
+            out = TextDeidentificationService.deidentify(src)
+
+        TextDeidentificationService.save_manual_edit(
+            out, 'Pt <MANUAL>.', user=self.user)
+        out.refresh_from_db()
+        self.assertEqual(out.deid_manual_edits, 1)
+
+        self.assertFalse(out.deid_reviewed)
+        TextDeidentificationService.mark_reviewed(out, user=self.user)
+        out.refresh_from_db()
+        self.assertTrue(out.deid_reviewed)
+        self.assertEqual(out.deid_reviewed_by, self.user)
+        self.assertIsNotNone(out.deid_reviewed_at)
+
+    def test_deid_map_and_restore(self):
+        """Each tag's original is recorded; restore puts the value back."""
+        from unittest.mock import patch
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        src = self._source_row(
+            'v1.md', 'Pt Ramesh Kumar seen. Ramesh Kumar stable.')
+        with patch.object(TextDeidentificationService, '_get_analyzer',
+                          side_effect=self._fake_engine):
+            out = TextDeidentificationService.deidentify(src)
+
+        entry = next(e for e in out.deid_map if e['tag'] == '<PERSON_1>')
+        self.assertEqual(entry['original'], 'Ramesh Kumar')
+        self.assertEqual(entry['count'], 2)
+
+        n = TextDeidentificationService.restore_tag(out, '<PERSON_1>')
+        self.assertEqual(n, 2)
+        from extractor.services.file_processor import FileProcessorService
+        content = FileProcessorService.get_processed_content(out)
+        self.assertEqual(content.count('Ramesh Kumar'), 2)
+        self.assertNotIn('<PERSON_1>', content)
+        out.refresh_from_db()
+        self.assertFalse(
+            any(e['tag'] == '<PERSON_1>' for e in out.deid_map))
+
+
+class DeidUnshiftOnSaveTests(TestCase):
+    """save_extraction_results restores real dates for deid sources."""
+
+    def setUp(self):
+        from client_app.models import Patient, SiteConfiguration
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        self.patient = Patient.objects.create(patient_id='P-U1')
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_diag = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_diag,
+            field=make_field(self.diagnosis, 'diagnosis_date',
+                             field_type=EntityTypeChoices.DATE))
+        self.user = User.objects.create(username='deidwriter')
+        self.upload = FileUpload.objects.create(
+            patient_id=self.patient, file='note.pdf')
+        self.processed = ProcessedText.objects.create(
+            file_upload=self.upload, deidentified=True,
+            deid_date_shift_days=30)
+        self.job = ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user)
+
+    def test_date_fields_are_unshifted(self):
+        InstructorExtractionService.save_extraction_results(
+            self.job,
+            {'diagnosis': [{'diagnosis_date': '2024-02-01'}]},
+            self.user)
+        result = ExtractionResult.objects.get(
+            extraction_job=self.job,
+            database_field__clientapp_field_name='diagnosis_date')
+        # Shifted +30 in text -> stored as real date 30 days earlier
+        self.assertEqual(result.extracted_data, '2024-01-02')
+
+    def test_non_deid_source_is_untouched(self):
+        self.processed.deidentified = False
+        self.processed.save()
+        InstructorExtractionService.save_extraction_results(
+            self.job,
+            {'diagnosis': [{'diagnosis_date': '2024-02-01'}]},
+            self.user)
+        result = ExtractionResult.objects.get(
+            extraction_job=self.job,
+            database_field__clientapp_field_name='diagnosis_date')
+        self.assertEqual(result.extracted_data, '2024-02-01')
+
+    def test_drop_entity_types_and_bare_dates(self):
+        from presidio_analyzer import RecognizerResult
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        text = '45-year-old, nodes 26, lesion 3.2cm, DOB 12/03/1970'
+        results = [
+            RecognizerResult('AGE', 0, 2, 0.8),          # "45"
+            RecognizerResult('ID', 16, 18, 0.8),         # "26"
+            RecognizerResult('ID', 29, 34, 0.8),         # "3.2cm"
+            RecognizerResult('DATE_TIME', 41, 51, 0.5),  # real date kept
+        ]
+        kept = TextDeidentificationService._filter_results(text, results)
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0].entity_type, 'DATE_TIME')

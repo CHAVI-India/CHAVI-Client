@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+{% load extractor_filters %}
+
+{% block title %}Deidentified Text Review - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+
+        {# Header strip #}
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-user-shield text-chavi-primary mr-2"></i>
+                    Deidentified Text Review
+                </h1>
+                <p class="text-gray-600 mt-2">
+                    {{ processed_text.processed_file_path|basename }}
+                    <span class="text-gray-400 mx-1">·</span> version {{ processed_text.version }}
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if processed_text.deid_reviewed %}
+                <span class="bg-green-100 text-green-800 px-2.5 py-1 rounded text-xs font-semibold">
+                    <i class="fas fa-check mr-1"></i>DEID · Reviewed
+                </span>
+                {% else %}
+                <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded text-xs font-semibold">
+                    <i class="fas fa-clock mr-1"></i>DEID · Pending review
+                </span>
+                {% endif %}
+                <span class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded text-xs font-semibold">
+                    NER: {{ processed_text.deid_engine|default:"unknown" }}
+                </span>
+                <a href="{{ next }}"
+                   class="text-gray-600 hover:text-gray-800 transition-colors px-4 py-2">
+                    <i class="fas fa-arrow-left mr-2"></i>Back
+                </a>
+            </div>
+        </div>
+
+        {# Warning banner #}
+        <div class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+            <p class="text-sm text-amber-800">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                <strong>PHI replaced with tags — verify before extraction.</strong>
+                Scan for residual names, IDs, phones, and dates that slipped through;
+                redact them manually below, then mark the text reviewed.
+                Raw text must not be used for extraction.
+                {% if processed_text.deid_reviewed_by %}
+                <br><span class="text-xs">Reviewed by {{ processed_text.deid_reviewed_by.username }}
+                    on {{ processed_text.deid_reviewed_at|date:"M d, Y H:i" }}.</span>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {# Text pane #}
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-lg border border-gray-200">
+                    <div class="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                        <div class="flex gap-1">
+                            <button id="tab-preview" onclick="showTab('preview')"
+                                    class="px-4 py-1.5 rounded text-sm font-semibold bg-chavi-primary text-white">Preview</button>
+                            <button id="tab-edit" onclick="showTab('edit')"
+                                    class="px-4 py-1.5 rounded text-sm font-semibold text-gray-600 hover:bg-gray-200">Edit</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input id="search-box" type="text" placeholder="Search text…"
+                                   class="border border-gray-300 rounded px-2 py-1 text-sm w-48"
+                                   oninput="highlightSearch()">
+                            <button onclick="jumpResult(-1)" class="text-gray-500 hover:text-gray-800 px-1" title="Previous">
+                                <i class="fas fa-chevron-up"></i></button>
+                            <span id="search-count" class="text-xs text-gray-500 w-10 text-center"></span>
+                            <button onclick="jumpResult(1)" class="text-gray-500 hover:text-gray-800 px-1" title="Next">
+                                <i class="fas fa-chevron-down"></i></button>
+                        </div>
+                    </div>
+
+                    {# Preview tab #}
+                    <div id="pane-preview" class="p-4">
+                        {% if content %}
+                        <pre id="deid-content" class="bg-gray-50 p-4 rounded-lg overflow-auto text-sm border border-gray-200 whitespace-pre-wrap max-h-[70vh]">{{ content }}</pre>
+                        {% else %}
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fas fa-file-excel text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-lg font-semibold">No content to display</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# Edit tab #}
+                    <div id="pane-edit" class="p-4 hidden">
+                        <form method="post" id="edit-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="save">
+                            <input type="hidden" name="next" value="{{ next }}">
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <select id="redact-type"
+                                        class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                    <option value="PERSON">PERSON</option>
+                                    <option value="LOCATION">LOCATION</option>
+                                    <option value="DATE">DATE</option>
+                                    <option value="PHONE_NUMBER">PHONE_NUMBER</option>
+                                    <option value="EMAIL_ADDRESS">EMAIL_ADDRESS</option>
+                                    <option value="IN_AADHAAR">IN_AADHAAR</option>
+                                    <option value="IN_PAN">IN_PAN</option>
+                                    <option value="IN_ABHA">IN_ABHA</option>
+                                    <option value="MEDICAL_RECORD_NUMBER">MRN</option>
+                                    <option value="MANUAL">MANUAL</option>
+                                </select>
+                                <button type="button" onclick="redactSelection()"
+                                        class="bg-red-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-red-700">
+                                    <i class="fas fa-eye-slash mr-1"></i>Redact selection
+                                </button>
+                                <span class="text-xs text-gray-500">Select text in the box, pick a type, redact.</span>
+                            </div>
+                            <textarea name="content" id="deid-editor" rows="24"
+                                      class="w-full font-mono text-sm border border-gray-300 rounded-lg p-4">{{ content }}</textarea>
+                            <div class="mt-3 flex justify-end">
+                                <button type="submit"
+                                        class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
+                                    <i class="fas fa-save mr-2"></i>Save edits
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {# Sidebar #}
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-800 mb-3">
+                        <i class="fas fa-tags mr-1"></i>Detected entities
+                    </h3>
+                    {% if processed_text.deid_entities %}
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        {% for type, count in processed_text.deid_entities.items %}
+                        <span class="entity-chip bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded text-xs font-medium"
+                              data-type="{{ type }}">{{ type }} ×{{ count }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-gray-500 mb-3">No recognizer detections recorded.</p>
+                    {% endif %}
+
+                    {% if processed_text.deid_csv_columns_flagged %}
+                    <h4 class="text-xs font-bold text-gray-600 mt-2 mb-1">Flagged CSV columns</h4>
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        {% for col in processed_text.deid_csv_columns_flagged %}
+                        <span class="bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded text-xs">{{ col }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <h4 class="text-xs font-bold text-gray-600 mb-1">Tags in text</h4>
+                    <div class="max-h-64 overflow-y-auto space-y-1">
+                        {% for tag, count in tag_counts.items %}
+                        <button type="button"
+                                class="tag-jump w-full text-left bg-white border border-gray-200 rounded px-2 py-1 text-xs font-mono text-gray-700 hover:bg-gray-100"
+                                data-tag="{{ tag }}">{{ tag }} <span class="text-gray-400">×{{ count }}</span></button>
+                        {% empty %}
+                        <p class="text-xs text-gray-400">No tags present.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {# Redaction map — what each tag replaced; reject = restore #}
+                <div class="bg-red-50 rounded-lg border border-red-200 p-4">
+                    <h3 class="text-sm font-bold text-gray-800 mb-1">
+                        <i class="fas fa-exchange-alt mr-1"></i>Replacements
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-3">
+                        Originals shown for verification. Use <em>Restore</em> to
+                        undo a mistaken redaction — the original text is put back
+                        everywhere the tag appears.
+                    </p>
+                    <div class="max-h-80 overflow-y-auto space-y-1.5">
+                        {% for e in deid_map %}
+                        <div class="bg-white border border-gray-200 rounded px-2 py-1.5 text-xs">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="font-mono font-semibold text-gray-800 truncate">{{ e.tag }}</span>
+                                <span class="text-gray-400 shrink-0">×{{ e.count }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 mt-1">
+                                <span class="text-red-700 truncate" title="{{ e.original }}">
+                                    {{ e.original|truncatechars:28 }}
+                                </span>
+                                <span class="flex gap-1 shrink-0">
+                                    <button type="button" class="tag-jump text-chavi-primary hover:underline"
+                                            data-tag="{{ e.tag }}">find</button>
+                                    <button type="submit" form="restore-{{ forloop.counter }}"
+                                            class="text-red-600 font-semibold hover:underline"
+                                            title="Put the original back everywhere {{ e.tag }} appears">restore</button>
+                                </span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-xs text-gray-400">No replacements recorded.</p>
+                        {% endfor %}
+                    </div>
+                    {# detached forms — one per entry, submitted via form= attr #}
+                    {% for e in deid_map %}
+                    <form id="restore-{{ forloop.counter }}" method="post" class="hidden">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="restore">
+                        <input type="hidden" name="tag" value="{{ e.tag }}">
+                        <input type="hidden" name="next" value="{{ next }}">
+                    </form>
+                    {% endfor %}
+                </div>
+
+                <div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    {% if processed_text.deid_manual_edits %}
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-edit mr-1"></i>{{ processed_text.deid_manual_edits }} manual edit(s) saved
+                    </p>
+                    {% endif %}
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="review">
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <button type="submit"
+                            class="w-full {% if processed_text.deid_reviewed %}bg-gray-400{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white px-4 py-3 rounded-lg font-semibold transition-colors shadow-md">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        {% if processed_text.deid_reviewed %}Mark reviewed again{% else %}Mark as reviewed{% endif %}
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2 text-center">
+                        Required before this version can be sent for extraction.
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .deid-tag { padding: 0 2px; border-radius: 3px; font-weight: 600; }
+    .deid-tag-PERSON, .deid-tag-PATIENT_ID { background: #dbeafe; color: #1e40af; }
+    .deid-tag-DATE, .deid-tag-DATE_TIME { background: #fef3c7; color: #92400e; }
+    .deid-tag-IN_AADHAAR, .deid-tag-IN_PAN, .deid-tag-IN_ABHA, .deid-tag-IN_GSTIN,
+    .deid-tag-IN_VOTER, .deid-tag-IN_PASSPORT, .deid-tag-IN_VEHICLE_REGISTRATION,
+    .deid-tag-IN_DRIVING_LICENSE, .deid-tag-IN_UPI, .deid-tag-IN_PINCODE,
+    .deid-tag-IN_RELIGION, .deid-tag-MEDICAL_RECORD_NUMBER { background: #fee2e2; color: #991b1b; }
+    .deid-tag-PHONE_NUMBER, .deid-tag-EMAIL_ADDRESS { background: #d1fae5; color: #065f46; }
+    .deid-tag-MANUAL { background: #ede9fe; color: #5b21b6; }
+    .deid-tag-hit { outline: 2px solid #f59e0b; }
+    mark.search-hit { background: #fde047; padding: 0; }
+    mark.search-hit.active { background: #fb923c; }
+</style>
+
+<script>
+// --- Highlight <TAG> tokens in the preview ---
+const TAG_RE_HTML = /&lt;([A-Z_]+(?:_\d+)?)&gt;/g;
+
+function paintTags() {
+    const pre = document.getElementById('deid-content');
+    if (!pre) return;
+    pre.innerHTML = pre.innerHTML.replace(
+        TAG_RE_HTML,
+        (m, t) => `<span class="deid-tag deid-tag-${t.replace(/_\d+$/, '')}">${m}</span>`);
+}
+paintTags();
+
+// --- Tabs ---
+function showTab(name) {
+    const preview = document.getElementById('pane-preview');
+    const edit = document.getElementById('pane-edit');
+    const tbP = document.getElementById('tab-preview');
+    const tbE = document.getElementById('tab-edit');
+    const on = ['bg-chavi-primary', 'text-white'];
+    const off = ['text-gray-600'];
+    if (name === 'preview') {
+        preview.classList.remove('hidden'); edit.classList.add('hidden');
+        tbP.classList.add(...on); tbP.classList.remove(...off, 'hover:bg-gray-200');
+        tbE.classList.remove(...on); tbE.classList.add(...off);
+    } else {
+        edit.classList.remove('hidden'); preview.classList.add('hidden');
+        tbE.classList.add(...on); tbE.classList.remove(...off, 'hover:bg-gray-200');
+        tbP.classList.remove(...on); tbP.classList.add(...off);
+    }
+}
+
+// --- Redact selection in the editor ---
+function redactSelection() {
+    const ta = document.getElementById('deid-editor');
+    const type = document.getElementById('redact-type').value;
+    const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+    if (!sel) return;
+    const tag = `<${type}>`;
+    ta.value = ta.value.substring(0, ta.selectionStart) + tag + ta.value.substring(ta.selectionEnd);
+}
+
+// --- Search highlighting in preview ---
+let searchMarks = [];
+let searchIdx = -1;
+
+function highlightSearch() {
+    const pre = document.getElementById('deid-content');
+    if (!pre) return;
+    // Strip previous marks
+    pre.querySelectorAll('mark.search-hit').forEach(m => {
+        m.replaceWith(document.createTextNode(m.textContent));
+    });
+    pre.normalize();
+    paintTags();
+    searchMarks = [];
+    searchIdx = -1;
+    document.getElementById('search-count').textContent = '';
+
+    const q = document.getElementById('search-box').value;
+    if (!q || q.length < 2) return;
+
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    const lq = q.toLowerCase();
+    nodes.forEach(node => {
+        let idx = node.textContent.toLowerCase().indexOf(lq);
+        while (idx !== -1) {
+            const range = document.createRange();
+            range.setStart(node, idx);
+            range.setEnd(node, idx + q.length);
+            const mark = document.createElement('mark');
+            mark.className = 'search-hit';
+            try { range.surroundContents(mark); searchMarks.push(mark); }
+            catch (e) { break; }
+            node = mark.nextSibling;
+            if (!node || node.nodeType !== Node.TEXT_NODE) break;
+            idx = node.textContent.toLowerCase().indexOf(lq);
+        }
+    });
+    document.getElementById('search-count').textContent =
+        searchMarks.length ? `1/${searchMarks.length}` : '0';
+    if (searchMarks.length) { searchIdx = 0; activateMark(); }
+}
+
+function jumpResult(dir) {
+    if (!searchMarks.length) return;
+    searchIdx = (searchIdx + dir + searchMarks.length) % searchMarks.length;
+    document.getElementById('search-count').textContent =
+        `${searchIdx + 1}/${searchMarks.length}`;
+    activateMark();
+}
+
+function activateMark() {
+    searchMarks.forEach(m => m.classList.remove('active'));
+    const m = searchMarks[searchIdx];
+    m.classList.add('active');
+    m.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+// --- Sidebar tag jump ---
+document.querySelectorAll('.tag-jump').forEach(btn => {
+    btn.addEventListener('click', () => {
+        showTab('preview');
+        const tag = btn.dataset.tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const box = document.getElementById('search-box');
+        box.value = tag;
+        highlightSearch();
+    });
+});
+</script>
+{% endblock %}

@@ -31,12 +31,27 @@
             {% for fr in file_rows %}
             <div class="flex items-center gap-3 border border-gray-200 rounded-lg px-4 py-2.5">
                 <input type="checkbox" name="processed_files" value="{{ fr.processed_file.id }}" form="extract-form"
-                       class="rounded border-gray-300 text-chavi-primary">
+                       class="rounded border-gray-300 text-chavi-primary"
+                       {% if deid_enabled %}
+                           {% if not fr.processed_file.deidentified %}disabled title="Deidentification required before extraction"{% endif %}
+                           {% if fr.processed_file.deidentified and deid_require_review and not fr.processed_file.deid_reviewed %}disabled title="Review the deidentified text before extraction"{% endif %}
+                       {% endif %}>
                 <div class="flex-1 min-w-0">
                     <span class="font-medium text-gray-900">{{ fr.processed_file.file_upload.original_filename }}</span>
                     <span class="text-xs text-gray-400 ml-2">v{{ fr.processed_file.version }}</span>
                     {% if fr.processed_file.ocr_applied %}
                     <span class="ml-1 bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">OCR</span>
+                    {% endif %}
+                    {% if deid_enabled %}
+                        {% if fr.processed_file.deidentified %}
+                            {% if fr.processed_file.deid_reviewed %}
+                            <span class="ml-1 bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID ✓</span>
+                            {% else %}
+                            <span class="ml-1 bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="ml-1 bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-semibold">Needs deidentification</span>
+                        {% endif %}
                     {% endif %}
                     {% if fr.processed_file.processing_warning %}
                     <span class="ml-1 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs font-semibold">⚠ {{ fr.processed_file.processing_warning }}</span>
@@ -63,6 +78,21 @@
                         Run OCR
                     </button>
                 </form>
+                {% endif %}
+                {% if deid_enabled %}
+                    {% if fr.processed_file.deidentified %}
+                    <a href="{% url 'extractor:processed_text_deid_review' fr.processed_file.id %}?next={{ request.path|urlencode }}"
+                       class="text-green-700 text-xs font-semibold hover:underline">Review deid</a>
+                    {% else %}
+                    <form method="post" action="{% url 'extractor:processed_text_deidentify' fr.processed_file.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="bg-teal-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-teal-700"
+                                title="Run deidentification on this version">
+                            Run deid
+                        </button>
+                    </form>
+                    {% endif %}
                 {% endif %}
                 <a href="{% url 'extractor:processed_text_view' fr.processed_file.id %}"
                    class="text-chavi-primary text-xs font-semibold hover:underline">View</a>

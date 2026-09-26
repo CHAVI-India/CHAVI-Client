@@ -7,7 +7,7 @@ from django.db.models.signals import post_delete
 from django.core.validators import FileExtensionValidator,URLValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
+from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from pgvector.django import VectorField
@@ -138,6 +138,18 @@ class ProcessedText(models.Model):
     version = models.IntegerField(default=1, help_text="Processing version; increments on reprocessing.")
     is_source_alias = models.BooleanField(default=False, help_text="True when this row points at the original upload rather than a derived file.")
     ocr_applied = models.BooleanField(default=False, help_text="True when this version's text was produced by OCR rather than direct text extraction.")
+    deidentified = models.BooleanField(default=False, help_text="True when this version's content was produced by the deidentification pipeline.")
+    deidentified_source = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_derivatives', help_text="The ProcessedText version this deidentified version was derived from.")
+    deid_engine = models.CharField(max_length=20, blank=True, help_text="'full' (all recognizers incl. HF model) or 'degraded' (spaCy+rules only).")
+    deid_model = models.CharField(max_length=255, blank=True, help_text="HF NER model used for this run (empty in degraded mode).")
+    deid_entities = models.JSONField(default=dict, blank=True, help_text="Detected-entity counts by type, e.g. {'PERSON': 4, 'DATE_TIME': 12}.")
+    deid_csv_columns_flagged = models.JSONField(default=list, blank=True, help_text="CSV headers mapped to PHI types by the column-map pass (CSV inputs only).")
+    deid_map = models.JSONField(default=list, blank=True, help_text="Replacement map for review: [{tag, type, original, count}] — lets a reviewer see and restore what each tag replaced.")
+    deid_manual_edits = models.PositiveIntegerField(default=0, help_text="Number of manual save/redact edits applied on the review page.")
+    deid_date_shift_days = EncryptedIntegerField(null=True, blank=True, help_text="Random per-document day offset applied to DATE_TIME entities; subtracted during extraction to restore real dates.")
+    deid_reviewed = models.BooleanField(default=False, help_text="User has reviewed the deidentified text; required before extraction when EXTRACTOR_DEID_REQUIRE_REVIEW.")
+    deid_reviewed_by = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_reviews')
+    deid_reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

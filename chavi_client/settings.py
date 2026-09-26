@@ -796,6 +796,49 @@ DEID_PIXEL_NORMALIZE_CASE = True
 # Indian mobile) in the pixel-scrub analyzer.
 DEID_LENIENT_INDIAN_IDS = True
 
+# Extractor text deidentification (extractor.services.text_deidentification)
+# Runs between file processing/OCR and extraction; reuses DEID_HF_NER_MODEL /
+# DEID_HF_LABEL_MAP / DEID_HF_NER_THRESHOLD / DEID_LENIENT_INDIAN_IDS above.
+EXTRACTOR_DEID_ENABLED = True
+# Dispatch a deid Celery task automatically after file processing and OCR.
+EXTRACTOR_DEID_AUTO_RUN = True
+# Require a human to mark the deidentified text reviewed before extraction.
+EXTRACTOR_DEID_REQUIRE_REVIEW = True
+# Presidio analyzer score floor for text/CSV-cell analysis.
+EXTRACTOR_DEID_SCORE_THRESHOLD = 0.35
+# Random per-document date offset bounds, +/- days.
+EXTRACTOR_DEID_DATE_SHIFT_RANGE = 100
+# "hf" = HuggingFaceNerRecognizer (DEID_HF_NER_MODEL); "none" = spaCy+rules only.
+EXTRACTOR_DEID_NER_BACKEND = "hf"
+# Entity types dropped entirely from text-deid results. 'ID' is the
+# ai4privacy catch-all — on clinical notes it eats measurements, lymph-node
+# counts and marker names (p16, D2-40); real identifiers are covered by the
+# pattern recognizers instead. 'AGE' is not redacted (age is not a direct
+# identifier and ages are needed for extraction).
+EXTRACTOR_DEID_DROP_ENTITY_TYPES = {'ID', 'AGE', 'NRP'}
+# CSV column header (lowercased) -> entity type; mapped columns are replaced
+# wholesale, unmapped columns get per-cell NER.
+EXTRACTOR_DEID_CSV_COLUMN_MAP = {
+    'patient_name': 'PERSON', 'name': 'PERSON', 'pt_name': 'PERSON',
+    'patient': 'PERSON', 'doctor': 'PERSON', 'referring_doctor': 'PERSON',
+    'mrn': 'PATIENT_ID', 'uhid': 'PATIENT_ID', 'reg_no': 'PATIENT_ID',
+    'hospital_no': 'PATIENT_ID', 'patient_id': 'PATIENT_ID',
+    'dob': 'DATE_TIME', 'date_of_birth': 'DATE_TIME', 'doa': 'DATE_TIME',
+    'dod': 'DATE_TIME', 'admission_date': 'DATE_TIME',
+    'discharge_date': 'DATE_TIME', 'diagnosis_date': 'DATE_TIME',
+    'visit_date': 'DATE_TIME', 'date': 'DATE_TIME',
+    'phone': 'PHONE_NUMBER', 'mobile': 'PHONE_NUMBER',
+    'contact': 'PHONE_NUMBER', 'phone_no': 'PHONE_NUMBER',
+    'address': 'LOCATION', 'addr': 'LOCATION',
+    'aadhaar': 'IN_AADHAAR', 'aadhar': 'IN_AADHAAR',
+    'abha': 'IN_ABHA', 'health_id': 'IN_ABHA',
+    'email': 'EMAIL_ADDRESS',
+    'city': 'LOCATION', 'district': 'LOCATION', 'state': 'LOCATION',
+    'village': 'LOCATION',
+    'pin': 'IN_PINCODE', 'pincode': 'IN_PINCODE',
+    'age': 'AGE',
+}
+
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')

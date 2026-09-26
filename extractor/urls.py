@@ -33,6 +33,8 @@ urlpatterns = [
     path('files/<int:file_id>/delete/', views.file_upload_delete, name='file_upload_delete'),
     path('processed/<int:processed_id>/', views.processed_text_view, name='processed_text_view'),
     path('processed/<int:processed_text_id>/ocr/', views.processed_text_ocr, name='processed_text_ocr'),
+    path('processed/<int:processed_text_id>/deidentify/', views.processed_text_deidentify, name='processed_text_deidentify'),
+    path('processed/<int:processed_id>/deid-review/', views.processed_text_deid_review, name='processed_text_deid_review'),
     
     path('extraction/', views.extraction_dashboard, name='extraction_dashboard'),
     path('extraction/patient/<path:patient_pk>/', views.patient_data, name='patient_data'),

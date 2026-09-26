@@ -6,7 +6,7 @@ import urllib.parse
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.conf import settings
-from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
+from django.db.models import Case, Count, Exists, F, IntegerField, Max, OuterRef, Q, Value, When
 from django.http import JsonResponse, Http404, FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,8 +25,51 @@ class StaffPermissionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Perm
         return self.request.user.is_staff
 
 
+def _annotate_patient_list(qs):
+    """Annotate a Patient queryset with the aggregates the list view/filters rely on."""
+    return qs.annotate(
+        study_count=Count('patient', distinct=True),
+        series_count=Count('patient__series', distinct=True),
+        instance_count=Count('patient__series__instances', distinct=True),
+        has_deid=Exists(DeidPatient.objects.filter(patient=OuterRef('pk'))),
+        deid_jobs_total=Count('patient__deid_jobs', distinct=True),
+        deid_jobs_success=Count(
+            'patient__deid_jobs',
+            filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.SUCCESS),
+            distinct=True,
+        ),
+        deid_jobs_failed=Count(
+            'patient__deid_jobs',
+            filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.FAILURE),
+            distinct=True,
+        ),
+        deid_jobs_processing=Count(
+            'patient__deid_jobs',
+            filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PROCESSING),
+            distinct=True,
+        ),
+        deid_jobs_pending=Count(
+            'patient__deid_jobs',
+            filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PENDING),
+            distinct=True,
+        ),
+        latest_study_created=Max('patient__created_at'),
+        latest_study_updated=Max('patient__updated_at'),
+    ).annotate(
+        job_status_rank=Case(
+            When(deid_jobs_failed__gt=0, then=Value(4)),
+            When(deid_jobs_processing__gt=0, then=Value(3)),
+            When(deid_jobs_pending__gt=0, then=Value(2)),
+            When(deid_jobs_success__gt=0, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    )
+
+
 def apply_patient_list_filters(qs, params):
     """Apply the patient list filter params (QueryDict or plain dict) to a Patient queryset."""
+    qs = _annotate_patient_list(qs)
     # --- Text search by patient_id ---
     search = params.get('search', '').strip()
     if search:
@@ -88,6 +131,21 @@ def apply_patient_list_filters(qs, params):
     if updated_to:
         qs = qs.filter(updated_at__date__lte=updated_to)
 
+    # --- Latest study created/updated date range (DICOMStudy aggregates) ---
+    study_created_from = params.get('study_created_from', '').strip()
+    study_created_to = params.get('study_created_to', '').strip()
+    if study_created_from:
+        qs = qs.filter(latest_study_created__date__gte=study_created_from)
+    if study_created_to:
+        qs = qs.filter(latest_study_created__date__lte=study_created_to)
+
+    study_updated_from = params.get('study_updated_from', '').strip()
+    study_updated_to = params.get('study_updated_to', '').strip()
+    if study_updated_from:
+        qs = qs.filter(latest_study_updated__date__gte=study_updated_from)
+    if study_updated_to:
+        qs = qs.filter(latest_study_updated__date__lte=study_updated_to)
+
     # --- Deid updated date range (DeidPatient.updated_at) ---
     deid_updated_from = params.get('deid_updated_from', '').strip()
     deid_updated_to = params.get('deid_updated_to', '').strip()
@@ -138,13 +196,15 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         'dob': 'date_of_birth',
         'created': 'created_at',
         'updated': 'updated_at',
+        'study_created': 'latest_study_created',
+        'study_updated': 'latest_study_updated',
         'studies': 'study_count',
         'series': 'series_count',
         'instances': 'instance_count',
         'deidentified': 'has_deid',
         'job_status': 'job_status_rank',
     }
-    NULLABLE_SORTS = ('dob', 'gender')
+    NULLABLE_SORTS = ('dob', 'gender', 'study_created', 'study_updated')
 
     def get_paginate_by(self, queryset):
         per_page = self.request.GET.get('per_page', str(self.paginate_by))
@@ -157,44 +217,7 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         return size if size in self.PAGE_SIZE_OPTIONS else self.paginate_by
 
     def get_queryset(self):
-        qs = Patient.objects.annotate(
-            study_count=Count('patient', distinct=True),
-            series_count=Count('patient__series', distinct=True),
-            instance_count=Count('patient__series__instances', distinct=True),
-            has_deid=Exists(DeidPatient.objects.filter(patient=OuterRef('pk'))),
-            deid_jobs_total=Count('patient__deid_jobs', distinct=True),
-            deid_jobs_success=Count(
-                'patient__deid_jobs',
-                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.SUCCESS),
-                distinct=True,
-            ),
-            deid_jobs_failed=Count(
-                'patient__deid_jobs',
-                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.FAILURE),
-                distinct=True,
-            ),
-            deid_jobs_processing=Count(
-                'patient__deid_jobs',
-                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PROCESSING),
-                distinct=True,
-            ),
-            deid_jobs_pending=Count(
-                'patient__deid_jobs',
-                filter=Q(patient__deid_jobs__status=DeidentificationJob.Status.PENDING),
-                distinct=True,
-            ),
-        ).annotate(
-            job_status_rank=Case(
-                When(deid_jobs_failed__gt=0, then=Value(4)),
-                When(deid_jobs_processing__gt=0, then=Value(3)),
-                When(deid_jobs_pending__gt=0, then=Value(2)),
-                When(deid_jobs_success__gt=0, then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField(),
-            )
-        )
-
-        qs = apply_patient_list_filters(qs, self.request.GET)
+        qs = apply_patient_list_filters(Patient.objects.all(), self.request.GET)
         return self._apply_sorting(qs)
 
     def _apply_sorting(self, qs):
@@ -223,6 +246,10 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         context['created_to'] = self.request.GET.get('created_to', '')
         context['updated_from'] = self.request.GET.get('updated_from', '')
         context['updated_to'] = self.request.GET.get('updated_to', '')
+        context['study_created_from'] = self.request.GET.get('study_created_from', '')
+        context['study_created_to'] = self.request.GET.get('study_created_to', '')
+        context['study_updated_from'] = self.request.GET.get('study_updated_from', '')
+        context['study_updated_to'] = self.request.GET.get('study_updated_to', '')
         context['deid_updated_from'] = self.request.GET.get('deid_updated_from', '')
         context['deid_updated_to'] = self.request.GET.get('deid_updated_to', '')
         # Sort / page-size state

@@ -131,6 +131,17 @@
                                 {% if processed.ocr_applied %}
                                     <span class="ml-2 bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">OCR</span>
                                 {% endif %}
+                                {% if deid_enabled %}
+                                    {% if processed.deidentified %}
+                                        {% if processed.deid_reviewed %}
+                                            <span class="ml-2 bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID ✓</span>
+                                        {% else %}
+                                            <span class="ml-2 bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID · pending review</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="ml-2 bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-semibold">Needs deidentification</span>
+                                    {% endif %}
+                                {% endif %}
                                 {% if processed.processing_warning %}
                                     <span class="ml-2 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs font-semibold">
                                         ⚠ {{ processed.processing_warning|cut:"_"|title }}
@@ -150,6 +161,26 @@
                                     Run OCR
                                 </button>
                             </form>
+                            {% endif %}
+                            {% if deid_enabled %}
+                                {% if processed.deidentified %}
+                                <a href="{% url 'extractor:processed_text_deid_review' processed.id %}?next={{ request.path|urlencode }}"
+                                   class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-user-shield mr-2"></i>
+                                    Review deid
+                                </a>
+                                {% else %}
+                                <form method="post" action="{% url 'extractor:processed_text_deidentify' processed.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.path }}">
+                                    <button type="submit"
+                                            class="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition-colors"
+                                            title="Run deidentification on this version">
+                                        <i class="fas fa-user-shield mr-2"></i>
+                                        Run deid
+                                    </button>
+                                </form>
+                                {% endif %}
                             {% endif %}
                             <a href="{% url 'extractor:processed_text_view' processed.id %}" 
                                class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-chavi-secondary transition-colors">
