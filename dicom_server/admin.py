@@ -59,11 +59,9 @@ class RemoteDICOMNodeAdmin(ModelAdmin):
     def test_echo(self, request, queryset):
         for node in queryset:
             try:
-                ok = qr_client.echo(node)
+                ok, err = qr_client.echo(node)
             except Exception as e:
                 ok, err = False, str(e)
-            else:
-                err = ''
             if ok:
                 self.message_user(request, f"{node}: C-ECHO succeeded", messages.SUCCESS)
             else:

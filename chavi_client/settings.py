@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+import socket
 from dotenv import load_dotenv
 from django.templatetags.static import static
 from django.urls import reverse_lazy
@@ -203,9 +204,25 @@ STATICFILES_DIRS = [
 ]
 
 # Logging Configuration
+_HOSTNAME = socket.gethostname()
+
+
+def _add_hostname(record):
+    """Stamp the container hostname on each record — django, celery-worker and
+    dicom containers write to the same shared log files."""
+    record.hostname = _HOSTNAME
+    return True
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'hostname': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': _add_hostname,
+        },
+    },
     'formatters': {
         'verbose': {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
@@ -216,7 +233,7 @@ LOGGING = {
             'style': '{',
         },
         'detailed': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} [File: {pathname}:{lineno}]',
+            'format': '{levelname} {asctime} {hostname} {module} {process:d} {thread:d} {message} [File: {pathname}:{lineno}]',
             'style': '{',
         },
     },
@@ -229,21 +246,25 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
             'formatter': 'detailed',
+            'filters': ['hostname'],
         },
         'dicom_import': {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'dicom_import.log'),
             'formatter': 'detailed',
+            'filters': ['hostname'],
         },
         'deidentification': {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'deidentification.log'),
             'formatter': 'detailed',
+            'filters': ['hostname'],
         },
         'dicom_server': {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'dicom_server.log'),
             'formatter': 'detailed',
+            'filters': ['hostname'],
         },
     },
     'loggers': {

@@ -10,6 +10,7 @@ import re
 from datetime import datetime, date
 from pathlib import Path
 
+from django.db.models import Q
 from pydicom.dataset import Dataset
 
 from client_app.models import Patient, DICOMStudy, _make_canonical_id
@@ -76,13 +77,16 @@ def _patient_matches(identifier):
         else:
             candidates = candidates.filter(patient_id=q)
             if not candidates.exists():
-                # canonical fallback — same rule as ingest
+                # canonical fallback — same rule as ingest, resolved in SQL.
+                # Guard: endswith('') matches every row, so an ID that
+                # normalises to nothing must yield no candidates.
                 canon = _make_canonical_id(q)
-                candidates = [
-                    p for p in Patient.objects.only('patient_id')
-                    if _make_canonical_id(p.patient_id) == canon
-                    or _make_canonical_id(p.patient_id).endswith(canon)
-                ]
+                candidates = (
+                    Patient.objects.filter(
+                        Q(canonical_patient_id=canon)
+                        | Q(canonical_patient_id__endswith=canon)
+                    ) if canon else Patient.objects.none()
+                )
     return list(candidates)
 
 
@@ -95,10 +99,14 @@ def _fill(ds: Dataset, identifier, level: str, values: dict) -> Dataset:
     for kw in keys:
         if kw in requested or kw in values:
             setattr(ds, kw, str(values.get(kw, '') or ''))
-    # echo empty for any other requested key we cannot answer
+    # echo empty for any other requested key we cannot answer; a key whose
+    # empty value can't be built must not sink the whole C-FIND response
     for e in identifier:
         if e.keyword and e.keyword not in ds and e.keyword != 'QueryRetrieveLevel':
-            ds.add_new(e.tag, e.VR, '')
+            try:
+                ds.add_new(e.tag, e.VR, [] if e.VR == 'SQ' else '')
+            except Exception:
+                logger.debug('Cannot echo empty %s (VR %s)', e.tag, e.VR)
     return ds
 
 
@@ -124,6 +132,12 @@ def iter_find_responses(identifier, level: str):
         patient_ids = [p.patient_id for p in _patient_matches(identifier)]
         studies = studies.filter(patient__patient_id__in=patient_ids)
 
+    # only touch the filesystem when the peer actually asked for the count —
+    # the glob runs inside the association thread
+    want_instance_count = 'NumberOfStudyRelatedInstances' in {
+        e.keyword for e in identifier if e.keyword
+    }
+
     for study in studies:
         if not match_value(getattr(identifier, 'StudyInstanceUID', None), study.study_instance_uid):
             continue
@@ -135,7 +149,7 @@ def iter_find_responses(identifier, level: str):
             continue
 
         n_instances = None
-        if study.folder_path and Path(study.folder_path).is_dir():
+        if want_instance_count and study.folder_path and Path(study.folder_path).is_dir():
             n_instances = len(list(Path(study.folder_path).glob('*.dcm')))
 
         yield _fill(Dataset(), identifier, level, {

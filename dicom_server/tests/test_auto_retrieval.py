@@ -7,6 +7,7 @@ from dicom_server.models import RemoteDICOMNode, RetrievalJob, AutoRetrievalStat
 from dicom_server.tasks import (
     _auto_retrieve_patient_node,
     task_auto_retrieve_node,
+    task_auto_retrieve_patient,
     task_auto_retrieve_patient_batch,
 )
 
@@ -98,6 +99,16 @@ class AutoRetrievalTaskTests(TestCase):
         result = task_auto_retrieve_patient_batch(self.node.pk, [self.patient.patient_id, p2.patient_id])
         self.assertEqual(len(result), 2)
         self.assertEqual(RetrievalJob.objects.count(), 2)
+
+    @patch('dicom_server.tasks.task_auto_retrieve_patient_node.delay')
+    def test_patient_event_skips_nodes_without_auto_retrieval(self, mock_dispatch):
+        RemoteDICOMNode.objects.create(
+            name='off', ae_title='OFF', host='localhost', port=104,
+            is_active=True, auto_retrieve_enabled=False,
+        )
+        task_auto_retrieve_patient(self.patient.patient_id)
+        dispatched = [c.args[0] for c in mock_dispatch.call_args_list]
+        self.assertEqual(dispatched, [self.node.pk])
 
     def test_non_consented_patient_skipped(self):
         p2 = self._create_patient('P002', consent=False)

@@ -38,7 +38,7 @@ def task_retrieve_studies(self, node_id, patient_id, user_id=None, job_id=None, 
             job = RetrievalJob.objects.get(pk=job_id)
             job.status = RetrievalJob.Status.RUNNING
             job.celery_task_id = self.request.id or ''
-            job.save(update_fields=['status', 'celery_task_id', 'completed_at', 'error_log'])
+            job.save(update_fields=['status', 'celery_task_id'])
     except (RemoteDICOMNode.DoesNotExist, Patient.DoesNotExist, RetrievalJob.DoesNotExist) as e:
         _fail_task_run(task_run, e)
         if job_id:
@@ -55,15 +55,15 @@ def task_retrieve_studies(self, node_id, patient_id, user_id=None, job_id=None, 
             job.save()
 
     try:
-        _update_task_run(task_run, None, 0, 100, description='Testing connectivity (C-ECHO)')
-        if not qr_client.echo(node):
-            raise ConnectionError(f'C-ECHO to {node} failed — node unreachable')
-
-        _update_task_run(task_run, None, 10, 100, description='Querying studies (C-FIND)')
-        studies = qr_client.find_studies_for_patient(node, patient, patient_id_aliases)
         requested = set(job.study_uids or []) if job else set()
         if requested:
-            studies = [s for s in studies if s['study_instance_uid'] in requested]
+            # Study UIDs were pre-selected (auto-retrieval) — retrieve them
+            # directly instead of re-running C-FIND; each still gets its own
+            # sub-op stats below. Connectivity failures surface there.
+            studies = [{'study_instance_uid': uid} for uid in sorted(requested)]
+        else:
+            _update_task_run(task_run, None, 10, 100, description='Querying studies (C-FIND)')
+            studies = qr_client.find_studies_for_patient(node, patient, patient_id_aliases)
         _job_update(studies_found=studies)
 
         total = len(studies)
@@ -240,7 +240,7 @@ def task_auto_retrieve_patient(self, patient_id):
     except Patient.DoesNotExist:
         return {'skipped': True, 'reason': 'patient not found or no consent'}
 
-    nodes = RemoteDICOMNode.objects.filter(is_active=True)
+    nodes = RemoteDICOMNode.objects.filter(is_active=True, auto_retrieve_enabled=True)
     for node in nodes:
         task_auto_retrieve_patient_node.delay(node.pk, patient.patient_id, force=True)
 

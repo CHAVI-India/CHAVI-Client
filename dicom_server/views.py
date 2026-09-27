@@ -118,7 +118,7 @@ class RemoteNodeEchoView(StaffRequiredMixin, View):
     def post(self, request, pk):
         node = get_object_or_404(RemoteDICOMNode, pk=pk)
         try:
-            ok = qr_client.echo(node)
+            ok, reason = qr_client.echo(node)
         except Exception as e:
             logger.exception('C-ECHO to %s failed', node)
             messages.error(request, f'{node}: C-ECHO failed — {e}')
@@ -126,7 +126,7 @@ class RemoteNodeEchoView(StaffRequiredMixin, View):
             if ok:
                 messages.success(request, f'{node}: C-ECHO succeeded')
             else:
-                messages.error(request, f'{node}: C-ECHO failed')
+                messages.error(request, f'{node}: C-ECHO failed — {reason}')
         return redirect('dicom_server:node_list')
 
 

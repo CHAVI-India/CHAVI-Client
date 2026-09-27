@@ -16,6 +16,9 @@ class DicomFrontendTestCase(TestCase):
     def setUpTestData(cls):
         SiteConfiguration.objects.create(chavi_center_id='TEST', center_name='Test Hospital')
         cls.patient = Patient.objects.create(patient_id='MR/25/004771', gender='Female')
+        # .update() bypasses post_save — no broker in tests
+        Patient.objects.filter(pk=cls.patient.pk).update(chavi_consent=True)
+        cls.patient.chavi_consent = True
         cls.staff = User.objects.create_user('staff', password='pw', is_staff=True)
         cls.perm_user = User.objects.create_user('qruser', password='pw')
         cls.perm_user.user_permissions.add(
@@ -103,6 +106,11 @@ class TestNodeCRUD(DicomFrontendTestCase):
         resp = self.client.post(reverse('dicom_server:node_create'), {
             'name': 'New PACS', 'ae_title': 'NEWPACS', 'host': '10.0.0.1',
             'port': 104, 'is_active': 'on', 'prefer_c_get': 'on',
+            'auto_retrieve_minute': '0', 'auto_retrieve_hour': '22',
+            'auto_retrieve_day_of_week': '*', 'auto_retrieve_day_of_month': '*',
+            'auto_retrieve_month_of_year': '*',
+            'auto_retrieve_min_interval_minutes': '60',
+            'auto_retrieve_batch_size': '50',
         })
         self.assertEqual(resp.status_code, 302)
         node = RemoteDICOMNode.objects.get(name='New PACS')
@@ -110,6 +118,11 @@ class TestNodeCRUD(DicomFrontendTestCase):
         resp = self.client.post(reverse('dicom_server:node_update', args=[node.pk]), {
             'name': 'Renamed', 'ae_title': 'NEWPACS', 'host': '10.0.0.2',
             'port': 11112, 'is_active': 'on',
+            'auto_retrieve_minute': '0', 'auto_retrieve_hour': '22',
+            'auto_retrieve_day_of_week': '*', 'auto_retrieve_day_of_month': '*',
+            'auto_retrieve_month_of_year': '*',
+            'auto_retrieve_min_interval_minutes': '60',
+            'auto_retrieve_batch_size': '50',
         })
         self.assertEqual(resp.status_code, 302)
         node.refresh_from_db()
@@ -128,7 +141,7 @@ class TestNodeCRUD(DicomFrontendTestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertFalse(RemoteDICOMNode.objects.filter(name='X').exists())
 
-    @mock.patch('dicom_server.views.qr_client.echo', return_value=True)
+    @mock.patch('dicom_server.views.qr_client.echo', return_value=(True, ''))
     def test_echo_action_staff(self, mock_echo):
         self.client.force_login(self.staff)
         resp = self.client.post(reverse('dicom_server:node_echo', args=[self.node.pk]))
@@ -140,15 +153,16 @@ class TestNodeCRUD(DicomFrontendTestCase):
         )
         self.assertContains(resp, 'C-ECHO succeeded')
 
-    @mock.patch('dicom_server.views.qr_client.echo', return_value=False)
+    @mock.patch('dicom_server.views.qr_client.echo', return_value=(False, 'rejected by peer'))
     def test_echo_failure_shows_error_message(self, mock_echo):
         self.client.force_login(self.staff)
         resp = self.client.post(
             reverse('dicom_server:node_echo', args=[self.node.pk]), follow=True,
         )
         self.assertContains(resp, 'C-ECHO failed')
+        self.assertContains(resp, 'rejected by peer')
 
-    @mock.patch('dicom_server.views.qr_client.echo', return_value=True)
+    @mock.patch('dicom_server.views.qr_client.echo', return_value=(True, ''))
     def test_echo_action_denied_for_perm_user(self, mock_echo):
         self.client.force_login(self.perm_user)
         resp = self.client.post(reverse('dicom_server:node_echo', args=[self.node.pk]))
@@ -175,6 +189,7 @@ class TestRetrieveView(DicomFrontendTestCase):
         self.assertEqual(job.celery_task_id, 'task-123')
         mock_delay.assert_called_once_with(
             self.node.pk, self.patient.patient_id, self.perm_user.pk, job.pk,
+            patient_id_aliases=[],
         )
 
     @mock.patch('dicom_server.views.task_retrieve_studies.delay')

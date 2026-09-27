@@ -87,6 +87,14 @@ docker exec chaviclient-celery-worker python manage.py compute_lookup_embeddings
 
 The `./media` directory is shared between the Django and Celery worker containers. This ensures that files uploaded through the Django app are accessible to Celery workers for processing, and that generated export files are accessible to Django for download.
 
+### Logs
+
+All app containers mount `./logs` at `/app/logs`, so `debug.log`,
+`dicom_server.log`, `dicom_import.log` and `deidentification.log` are readable
+directly on the Docker host. Log lines are prefixed with the container
+hostname, which identifies which container wrote each line of the shared
+files.
+
 ### Task Results
 
 Celery task results are stored in the Django database via `django-celery-results`. You can view task results and download generated files from the Django admin under **Task Results**.
@@ -112,10 +120,35 @@ connection makes firewall and PACS-side setup straightforward:
 | `chaviclient-dicom` | **Inbound SCP only.** Receives C-STORE deliveries on the published port `11112` (direct pushes from modalities/PACS and C-MOVE sub-operations). |
 | `chaviclient-celery-beat` | Schedules auto-retrieval tasks via RabbitMQ; opens no DICOM connections itself. |
 
-**Outbound connections need no compose configuration.** Docker NAT handles them;
-the only requirements are that `node.host` resolves inside the container (a LAN
-IP or public FQDN is fine) and that the remote accepts our calling AE title
-(`CHAVI_CLIENT` by default).
+**Outbound SCU connections originate from `chaviclient-django` and
+`chaviclient-celery-worker`** — `chaviclient-dicom` never dials out, so it needs
+no name-resolution setup. Docker NAT handles outbound traffic, but `node.host`
+must resolve *inside each SCU container*. A LAN IP or public FQDN works as-is;
+a bare hostname that DNS cannot resolve must be pinned with `extra_hosts` on
+**both** SCU services:
+
+```yaml
+services:
+  chaviclient-django:
+    extra_hosts:
+      - "siemenspacs:192.168.1.50"
+  chaviclient-celery-worker:
+    extra_hosts:
+      - "siemenspacs:192.168.1.50"
+```
+
+Apply with `docker compose up -d` — `docker compose restart` does **not**
+recreate containers, so `extra_hosts` edits have no effect until the next
+`up -d`. Verify resolution inside each SCU container:
+
+```bash
+docker exec chaviclient-django        getent hosts siemenspacs
+docker exec chaviclient-celery-worker getent hosts siemenspacs
+```
+
+The remote must also accept our calling AE title (`CHAVI_CLIENT` by default) —
+many PACS and workstations whitelist calling AETs, and the *called* AET must
+match the peer's configured DICOM AE title (often not its machine hostname).
 
 **Inbound connectivity is only needed for C-MOVE.** The remote opens a *new*
 connection back to our AE title, resolved on the PACS side to the Docker host's

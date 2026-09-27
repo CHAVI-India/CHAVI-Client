@@ -25,7 +25,6 @@ services:
     env_file:
       - .env.docker      
     volumes:
-      - app_data:/app
       - ./media:/app/media
       - ./static:/app/static
       - ./logs:/app/logs
@@ -41,7 +40,6 @@ services:
     env_file:
       - .env.docker
     volumes:
-      - app_data:/app
       - ./media:/app/media
       - ./logs:/app/logs
     ports:
@@ -61,4 +59,3 @@ services:
       - chaviclient-django
 volumes:
   postgres_data:
-  app_data:

@@ -116,11 +116,11 @@ def extract_and_analyze_upload(session):
                 # Match if the DICOM canonical is a suffix of (or equal to) the DB canonical
                 canonical_dicom = _make_canonical_id(patient_id)
                 canonical_match = None
-                for db_patient in Patient.objects.only('patient_id'):
-                    canonical_db = _make_canonical_id(db_patient.patient_id)
-                    if canonical_db == canonical_dicom or canonical_db.endswith(canonical_dicom):
-                        canonical_match = db_patient
-                        break
+                if canonical_dicom:
+                    canonical_match = (
+                        Patient.objects.filter(canonical_patient_id=canonical_dicom).first()
+                        or Patient.objects.filter(canonical_patient_id__endswith=canonical_dicom).first()
+                    )
                 if canonical_match:
                     match_status = BulkDICOMStudyMatch.MatchStatus.AUTO_MATCHED
                     matched_patient = canonical_match

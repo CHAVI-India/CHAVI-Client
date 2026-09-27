@@ -81,7 +81,9 @@ class BaseSerializer(serializers.ModelSerializer):
 class PatientSerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):
         model = Patient
-        exclude = BaseSerializer.Meta.exclude + ['chavi_consent','date_chavi_consent']
+        exclude = BaseSerializer.Meta.exclude + [
+            'chavi_consent', 'date_chavi_consent', 'canonical_patient_id',
+        ]
 
 class DICOMStudySerializer(BaseSerializer):
     class Meta(BaseSerializer.Meta):

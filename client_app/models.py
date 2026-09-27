@@ -124,6 +124,10 @@ class Patient(DateValidationMixin, models.Model):
         primary_key=True,
         help_text="This should be your institution's medical record number or another consistent identifier used by your center."
     )
+    canonical_patient_id = models.CharField(
+        max_length=255, db_index=True, blank=True, default='', editable=False,
+        help_text="Normalised patient_id for canonical DICOM matching (set automatically on save).",
+    )
     class Gender(models.TextChoices):
         Male = 'Male',
         Female = 'Female',
@@ -165,6 +169,13 @@ class Patient(DateValidationMixin, models.Model):
     date_validation_pairs = [
         ('date_of_birth', 'date_of_registration')
     ]
+
+    def save(self, *args, **kwargs):
+        self.canonical_patient_id = _make_canonical_id(self.patient_id)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {'canonical_patient_id'}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.patient_id

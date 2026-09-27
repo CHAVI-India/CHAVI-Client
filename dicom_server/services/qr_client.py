@@ -6,6 +6,7 @@ C-GET receives sub-ops on the same association (handled by the same ingest path
 as the SCP's C-STORE handler).
 """
 import logging
+import socket
 
 from pydicom.dataset import Dataset
 from pynetdicom import AE, evt, build_role, StoragePresentationContexts
@@ -25,41 +26,69 @@ logger = logging.getLogger(__name__)
 def _scu_ae() -> AE:
     config = DICOMServerConfiguration.load()
     ae = AE(ae_title=config.ae_title)
+    ae.connection_timeout = config.qr_timeout
     ae.network_timeout = config.qr_timeout
     ae.acse_timeout = config.qr_timeout
     ae.dimse_timeout = config.qr_timeout
     return ae
 
 
-def echo(node: RemoteDICOMNode) -> bool:
-    """C-ECHO against a remote node. Returns True on success."""
+def echo(node: RemoteDICOMNode) -> tuple[bool, str]:
+    """C-ECHO against a remote node.
+
+    Returns (ok, reason): reason is '' on success, otherwise a short
+    description of the failing stage (DNS, TCP connect, association
+    reject/abort, or non-zero echo status).
+    """
     ae = _scu_ae()
     ae.add_requested_context(Verification)
     try:
-        assoc = ae.associate(node.host, node.port, ae_title=node.ae_title)
-    except Exception as e:
-        logger.warning("C-ECHO association to %s failed: %s", node, e)
-        return False
-    if not assoc.is_established:
-        reason = (
-            'rejected by peer (check AE titles)' if assoc.is_rejected
-            else 'aborted' if assoc.is_aborted
-            else 'not established'
-        )
-        logger.warning("C-ECHO association to %s %s", node, reason)
-        return False
+        assoc = _connect(ae, node)
+    except ConnectionError as e:
+        logger.warning('C-ECHO association to %s failed: %s', node, e)
+        return False, str(e)
     try:
         status = assoc.send_c_echo()
-        ok = bool(status and status.Status == 0x0000)
-        logger.info("C-ECHO %s: %s", node, 'success' if ok else 'failed')
-        return ok
+        if status and status.Status == 0x0000:
+            logger.info('C-ECHO %s: success', node)
+            return True, ''
+        reason = (
+            f'C-ECHO returned status 0x{status.Status:04X}'
+            if status is not None else 'C-ECHO timed out'
+        )
+        logger.info('C-ECHO %s: failed (%s)', node, reason)
+        return False, reason
     finally:
         assoc.release()
 
 
-def _connect(ae: AE, node: RemoteDICOMNode):
-    """Open an association or raise ConnectionError with the actual cause."""
-    assoc = ae.associate(node.host, node.port, ae_title=node.ae_title)
+def _connect(ae: AE, node: RemoteDICOMNode, **assoc_kwargs):
+    """Open an association or raise ConnectionError with the actual cause.
+
+    A bare TCP pre-flight runs first so DNS, refused and timeout failures are
+    distinguished from DICOM-layer rejections (pynetdicom reports them all as
+    'aborted'). assoc_kwargs are forwarded to AE.associate (e.g. ext_neg,
+    evt_handlers for C-GET).
+    """
+    try:
+        sock = socket.create_connection(
+            (node.host, node.port), timeout=ae.connection_timeout or 30,
+        )
+    except socket.gaierror as e:
+        raise ConnectionError(
+            f'{node}: cannot resolve hostname {node.host!r} ({e})'
+        ) from e
+    except OSError as e:
+        raise ConnectionError(
+            f'{node}: TCP connect to {node.host}:{node.port} '
+            f'refused or timed out ({e})'
+        ) from e
+    else:
+        sock.close()
+
+    assoc = ae.associate(
+        node.host, node.port, ae_title=node.ae_title, **assoc_kwargs,
+    )
     if assoc.is_established:
         return assoc
     if assoc.is_rejected:
@@ -117,7 +146,9 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
 def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> list[dict]:
     """Union C-FIND results for the canonical patient ID plus any node aliases.
 
-    Duplicates are removed by StudyInstanceUID.
+    Duplicates are removed by StudyInstanceUID. Raises ConnectionError if every
+    patient ID tried failed (e.g. the node is unreachable) — callers must not
+    treat that as "no studies".
     """
     patient_ids = [patient.patient_id]
     if aliases:
@@ -126,6 +157,7 @@ def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> li
 
     seen = set()
     results = []
+    errors = []
     for pid in patient_ids:
         try:
             for study in find_studies(node, pid):
@@ -133,8 +165,14 @@ def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> li
                 if uid and uid not in seen:
                     seen.add(uid)
                     results.append(study)
-        except Exception:
+        except Exception as e:
             logger.exception('C-FIND failed for patient ID %r on %s', pid, node)
+            errors.append(f'{pid}: {e}')
+    if errors and len(errors) == len(patient_ids):
+        raise ConnectionError(
+            f'C-FIND on {node} failed for every patient ID tried: '
+            + '; '.join(errors)
+        )
     return results
 
 
@@ -191,9 +229,7 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelMove)
-    assoc = ae.associate(node.host, node.port, ae_title=node.ae_title)
-    if not assoc.is_established:
-        raise ConnectionError(f'Association to {node} rejected or timed out')
+    assoc = _connect(ae, node)
     try:
         destination = destination or DICOMServerConfiguration.load().ae_title
         q = _study_identifier(study_instance_uid, patient_id)
@@ -207,6 +243,28 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
         assoc.release()
 
 
+# Extra storage SOP classes offered on C-GET beyond the curated common set.
+# An association negotiates at most 128 presentation contexts and the Q/R-GET
+# model takes one slot, leaving room for 127 — the curated 120 plus 7 extras,
+# spent on the second-generation RT objects an oncology PACS serves.
+_EXTRA_STORAGE_UIDS = (
+    '1.2.840.10008.5.1.4.1.1.481.10',  # RT Physician Intent
+    '1.2.840.10008.5.1.4.1.1.481.11',  # RT Segment Annotation
+    '1.2.840.10008.5.1.4.1.1.481.12',  # RT Radiation Set
+    '1.2.840.10008.5.1.4.1.1.481.16',  # RT Radiation Record Set
+    '1.2.840.10008.5.1.4.1.1.481.22',  # RT Treatment Preparation
+    '1.2.840.10008.5.1.4.1.1.481.23',  # Enhanced RT Image
+    '1.2.840.10008.5.1.4.1.1.481.24',  # Enhanced Continuous RT Image
+)
+
+
+def _get_storage_uids() -> list:
+    """Storage SOP classes to request on a C-GET association (SCP role is
+    negotiated per-class via role selection)."""
+    return [cx.abstract_syntax for cx in StoragePresentationContexts] \
+        + list(_EXTRA_STORAGE_UIDS)
+
+
 def get_study(node: RemoteDICOMNode, study_instance_uid: str,
               patient_id: str | None = None) -> dict:
     """C-GET a study — instances arrive as C-STORE sub-ops on the same
@@ -217,19 +275,14 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelGet)
-    for cx in StoragePresentationContexts:
-        ae.add_requested_context(cx.abstract_syntax)
-    roles = [
-        build_role(cx.abstract_syntax, scp_role=True)
-        for cx in StoragePresentationContexts
-    ]
-    assoc = ae.associate(
-        node.host, node.port, ae_title=node.ae_title,
-        ext_neg=roles,
+    storage_uids = _get_storage_uids()
+    for uid in storage_uids:
+        ae.add_requested_context(uid)
+    roles = [build_role(uid, scp_role=True) for uid in storage_uids]
+    assoc = _connect(
+        ae, node, ext_neg=roles,
         evt_handlers=[(evt.EVT_C_STORE, handle_store)],
     )
-    if not assoc.is_established:
-        raise ConnectionError(f'Association to {node} rejected or timed out')
     try:
         q = _study_identifier(study_instance_uid, patient_id)
         stats = _collect_subop_stats(

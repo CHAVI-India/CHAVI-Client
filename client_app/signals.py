@@ -13,10 +13,11 @@ logger = logging.getLogger(__name__)
 def _cache_old_consent(sender, instance, **kwargs):
     instance._old_chavi_consent = None
     if instance.pk:
-        try:
-            instance._old_chavi_consent = Patient.objects.get(pk=instance.pk).chavi_consent
-        except Patient.DoesNotExist:
-            pass
+        instance._old_chavi_consent = (
+            Patient.objects.filter(pk=instance.pk)
+            .values_list('chavi_consent', flat=True)
+            .first()
+        )
 
 
 @receiver(post_save, sender=Patient)

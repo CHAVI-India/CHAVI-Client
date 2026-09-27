@@ -1,15 +1,22 @@
 import re
 import uuid
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.core.cache import cache
+
+
+AE_TITLE_VALIDATOR = RegexValidator(
+    r'^[A-Z0-9_\-]{1,16}$',
+    'AE titles must be 1-16 characters: A-Z, 0-9, underscore or hyphen.',
+)
 
 
 class DICOMServerConfiguration(models.Model):
     """Singleton: local AE / listener configuration. Edited by staff via the
     frontend (or admin). Cached — always read via DICOMServerConfiguration.load()."""
     ae_title = models.CharField(
-        max_length=16, default='CHAVI_CLIENT',
+        max_length=16, default='CHAVI_CLIENT', validators=[AE_TITLE_VALIDATOR],
         help_text="This server's AE Title (max 16 chars). Remote PACS must route "
                   "C-MOVE destinations to this AE title.",
     )
@@ -42,7 +49,7 @@ class DICOMServerConfiguration(models.Model):
         config = cache.get(cls.CACHE_KEY)
         if config is None:
             config, _ = cls.objects.get_or_create(pk=1)
-            cache.set(cls.CACHE_KEY, config, 300)
+            cache.set(cls.CACHE_KEY, config, 30)
         return config
 
     def __str__(self):
@@ -55,7 +62,10 @@ class DICOMServerConfiguration(models.Model):
 class RemoteDICOMNode(models.Model):
     """A remote DICOM peer (PACS/modality) this server can query/retrieve from."""
     name = models.CharField(max_length=100, help_text="Friendly name, e.g. 'Hospital PACS'")
-    ae_title = models.CharField(max_length=16, help_text="Called AE Title of the remote node")
+    ae_title = models.CharField(
+        max_length=16, validators=[AE_TITLE_VALIDATOR],
+        help_text="Called AE Title of the remote node",
+    )
     host = models.CharField(max_length=255)
     port = models.PositiveIntegerField(default=104)
     is_active = models.BooleanField(default=True)
@@ -98,6 +108,7 @@ class RemoteDICOMNode(models.Model):
 
     def clean(self):
         super().clean()
+        self.host = (self.host or '').strip()
         for name, value in [
             ('auto_retrieve_minute', self.auto_retrieve_minute),
             ('auto_retrieve_hour', self.auto_retrieve_hour),

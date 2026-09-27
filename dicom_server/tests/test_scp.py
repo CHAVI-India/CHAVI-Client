@@ -43,7 +43,11 @@ class LoopbackSCPTests(TransactionTestCase):
 
     def setUp(self):
         SiteConfiguration.objects.create(chavi_center_id='TEST', center_name='Test Hospital')
+        # .update() bypasses post_save — avoids an auto-retrieval dispatch
+        # attempt to a broker that isn't running in tests
         self.patient = Patient.objects.create(patient_id='MR/25/004771', gender='Female')
+        Patient.objects.filter(pk=self.patient.pk).update(chavi_consent=True)
+        self.patient.chavi_consent = True
         self.media = Path(self._media)
 
     def _associate(self, *contexts):
@@ -77,6 +81,17 @@ class LoopbackSCPTests(TransactionTestCase):
         self.assertTrue(any(f.name.startswith(ds.SOPInstanceUID) for f in stored.glob('*/*.dcm')))
         self.assertEqual(InboundDICOMInstance.objects.get().status, 'STORED')
 
+    def test_store_non_consented_patient_rejected(self):
+        Patient.objects.create(patient_id='NOCONSENT/1', gender='Male')
+        ds = make_test_dataset(patient_id='NOCONSENT/1')
+        assoc = self._associate(CTImageStorage)
+        try:
+            status = assoc.send_c_store(ds)
+            self.assertEqual(status.Status, 0xA7FD)
+        finally:
+            assoc.release()
+        self.assertFalse(DICOMStudy.objects.exists())
+
     def test_store_unknown_patient_rejected(self):
         ds = make_test_dataset(patient_id='NOPE')
         assoc = self._associate(CTImageStorage)
@@ -97,7 +112,7 @@ class LoopbackSCPTests(TransactionTestCase):
             assoc = self._associate(CTImageStorage)
             try:
                 status = assoc.send_c_store(ds)
-                self.assertEqual(status.Status, 0xA700)
+                self.assertEqual(status.Status, 0xA7FE)
             finally:
                 assoc.release()
             self.assertEqual(DICOMStudy.objects.count(), 0)
@@ -147,6 +162,31 @@ class LoopbackSCPTests(TransactionTestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0].StudyInstanceUID, ds.StudyInstanceUID)
         self.assertEqual(pending[0].ModalitiesInStudy, 'CT')
+        self.assertEqual(responses[-1][0].Status, 0x0000)
+
+    def test_find_with_sequence_return_key(self):
+        # A query asking for a sequence-typed key we can't answer must not fail
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        assoc = self._associate(CTImageStorage)
+        try:
+            assoc.send_c_store(ds)
+        finally:
+            assoc.release()
+
+        assoc = self._associate(StudyRootQueryRetrieveInformationModelFind)
+        try:
+            q = Dataset()
+            q.QueryRetrieveLevel = 'STUDY'
+            q.PatientID = 'MR/25/004771'
+            q.StudyInstanceUID = ''
+            q.RequestAttributesSequence = []  # SQ return key we can't answer
+            responses = list(assoc.send_c_find(q, StudyRootQueryRetrieveInformationModelFind))
+        finally:
+            assoc.release()
+
+        pending = [i for s, i in responses if s and s.Status == 0xFF00]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].StudyInstanceUID, ds.StudyInstanceUID)
         self.assertEqual(responses[-1][0].Status, 0x0000)
 
     def test_find_study_level_no_match(self):

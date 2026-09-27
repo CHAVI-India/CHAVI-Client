@@ -57,9 +57,13 @@ class LiveDicomServerTest(TransactionTestCase):
         self.patient = Patient.objects.create(
             patient_id=SYNTHETIC_PATIENT_ID, gender='Female',
         )
+        # .update() bypasses post_save — no auto-retrieval dispatch
+        Patient.objects.filter(pk=self.patient.pk).update(chavi_consent=True)
+        self.patient.chavi_consent = True
 
     def test_live_echo(self):
-        self.assertTrue(qr_client.echo(self.node))
+        ok, reason = qr_client.echo(self.node)
+        self.assertTrue(ok, reason)
 
     def test_live_find(self):
         """C-FIND for our synthetic patient — pushes a dataset first so the

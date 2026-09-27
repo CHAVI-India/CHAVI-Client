@@ -31,13 +31,9 @@ class RetrieveStudiesForm(forms.Form):
         help_text="Remote PACS/node to query",
     )
     patient = forms.ModelChoiceField(
-        queryset=Patient.objects.all(),
+        queryset=Patient.objects.filter(chavi_consent=True),
         widget=forms.Select(attrs={'class': 'patient-select'}),
-        help_text="Only patients registered in the Patient model can be retrieved",
-    )
-    retrieve_all = forms.BooleanField(
-        required=False, initial=True,
-        help_text="Retrieve all studies found for the patient (leave checked)",
+        help_text="Only consented patients registered in the Patient model can be retrieved",
     )
 
     def __init__(self, *args, **kwargs):

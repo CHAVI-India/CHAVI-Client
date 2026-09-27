@@ -47,6 +47,7 @@ services:
       - chaviclient_app_data:/app
       - ./media:/app/media
       - ./static:/app/static
+      - ./logs:/app/logs
     command: ["./entrypoint.docker.sh"]
     # If a remote DICOM node can't be resolved by DNS, pin it here
     # (e.g. a node with only a static IP):
@@ -71,6 +72,7 @@ services:
       - chaviclient_app_data:/app
       - ./media:/app/media
       - ./static:/app/static
+      - ./logs:/app/logs
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "--concurrency=2"]
     # Pin remote DICOM node hostnames to IPs here if container DNS fails:
     #extra_hosts:
@@ -100,6 +102,7 @@ services:
     volumes:
       - chaviclient_app_data:/app
       - ./media:/app/media
+      - ./logs:/app/logs
     command: ["celery", "-A", "chavi_client", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
   # Inbound DICOM SCP (C-ECHO/C-STORE/C-FIND). The published port must
@@ -119,6 +122,7 @@ services:
     volumes:
       - chaviclient_app_data:/app
       - ./media:/app/media
+      - ./logs:/app/logs
     ports:
       - "11112:11112"
     command: ["python", "-m", "dicom_server"]
@@ -134,6 +138,7 @@ services:
       - ./static:/static:ro
     depends_on:
       - chaviclient-django
+
 volumes:
   chaviclient_postgres_data:
   chaviclient_app_data:

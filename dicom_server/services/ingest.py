@@ -20,8 +20,9 @@ _SANITIZE_RE = re.compile(r'[/\\:*?"<>|]')
 STATUS_SUCCESS = 0x0000
 STATUS_MISSING_ATTRIBUTE = 0xA900   # required attribute missing/invalid
 STATUS_UNKNOWN_PATIENT = 0xA700     # policy rejection: patient not in database
+STATUS_NO_CONSENT = 0xA7FD          # policy rejection: patient has not consented
+STATUS_SERVER_DISABLED = 0xA7FE     # policy rejection: server is_enabled=False
 STATUS_INTERNAL_ERROR = 0xC000      # cannot understand / internal failure
-STATUS_SERVER_DISABLED = 0xA700     # server is_enabled=False
 
 
 def sanitize(value) -> str:
@@ -42,11 +43,13 @@ def find_patient(dicom_patient_id: str):
     canonical_dicom = _make_canonical_id(dicom_patient_id)
     if not canonical_dicom:
         return None
-    for db_patient in Patient.objects.only('patient_id'):
-        canonical_db = _make_canonical_id(db_patient.patient_id)
-        if canonical_db == canonical_dicom or canonical_db.endswith(canonical_dicom):
-            return db_patient
-    return None
+    # Indexed equality covers format variants of the same ID; the suffix rule
+    # (site-prefixed IDs) runs as a single-column LIKE scan in the DB instead
+    # of a Python loop hydrating every Patient row per instance.
+    return (
+        Patient.objects.filter(canonical_patient_id=canonical_dicom).first()
+        or Patient.objects.filter(canonical_patient_id__endswith=canonical_dicom).first()
+    )
 
 
 @dataclass
@@ -96,10 +99,16 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
     patient = find_patient(raw_patient_id)
     if patient is None:
         return reject(STATUS_UNKNOWN_PATIENT, f'Unknown PatientID {raw_patient_id}')
+    if not patient.chavi_consent:
+        return reject(STATUS_NO_CONSENT, f'Patient {raw_patient_id} has not consented')
 
+    dest = None
     try:
-        # Align with existing import services: stored files carry the canonical ID.
+        # Align with existing import services: stored files carry the
+        # database PatientID (manual import also rewrites PatientName).
         ds.PatientID = patient.patient_id
+        if 'PatientName' in ds:
+            ds.PatientName = patient.patient_id
         study_dir = (
             Path(settings.MEDIA_ROOT) / 'processed_dicom'
             / sanitize(patient.patient_id) / sanitize(study_uid)
@@ -122,6 +131,11 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
         return IngestResult(status=STATUS_SUCCESS, file_path=str(dest), patient=patient)
     except Exception:
         logger.exception("Failed to ingest instance %s", sop_uid)
+        if dest is not None:
+            try:
+                dest.unlink(missing_ok=True)  # no orphan .dcm after a DB failure
+            except OSError:
+                logger.warning("Could not remove orphaned file %s", dest)
         InboundDICOMInstance.objects.create(
             status=InboundDICOMInstance.Status.REJECTED,
             reject_reason='Internal storage error', matched_patient=patient, **log_fields,
@@ -131,9 +145,18 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
 
 def _upsert_study(patient: Patient, ds: Dataset, study_dir: Path) -> None:
     """Merge this instance's metadata into the DICOMStudy row (comma-joined sets)."""
-    study, _ = DICOMStudy.objects.get_or_create(
-        patient=patient, study_instance_uid=str(ds.StudyInstanceUID),
-    )
+    uid = str(ds.StudyInstanceUID)
+    study = DICOMStudy.objects.filter(study_instance_uid=uid).first()
+    if study is None:
+        study = DICOMStudy.objects.create(patient=patient, study_instance_uid=uid)
+    elif study.patient_id != patient.patient_id:
+        # Same StudyInstanceUID stored under a different patient (ID alias or
+        # canonical mismatch) — the patient matched from this dataset wins.
+        logger.warning(
+            'Study %s was stored under patient %s; reassigning to %s',
+            uid, study.patient_id, patient.patient_id,
+        )
+        study.patient = patient
 
     def merge(field, new_value):
         if not new_value:

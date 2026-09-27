@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from django.test import TestCase, override_settings
 from pydicom import dcmread
@@ -38,7 +39,11 @@ class FindPatientTests(TestCase):
 class IngestDatasetTests(TestCase):
     def setUp(self):
         SiteConfiguration.objects.create(chavi_center_id='TEST', center_name='Test Hospital')
+        # .update() bypasses post_save — avoids an auto-retrieval dispatch
+        # attempt to a broker that isn't running in tests
         self.patient = Patient.objects.create(patient_id='MR/25/004771', gender='Female')
+        Patient.objects.filter(pk=self.patient.pk).update(chavi_consent=True)
+        self.patient.chavi_consent = True
         from django.conf import settings
         self.media = Path(settings.MEDIA_ROOT)
 
@@ -74,9 +79,20 @@ class IngestDatasetTests(TestCase):
         result = ingest_dataset(ds)
         self.assertEqual(result.status, 0x0000)
         self.assertEqual(ds.PatientID, 'MR/25/004771')
+        self.assertEqual(ds.PatientName, 'MR/25/004771')
         self.assertEqual(
             InboundDICOMInstance.objects.get().dicom_patient_id, '25004771'
         )
+
+    def test_non_consented_patient_rejected(self):
+        Patient.objects.create(patient_id='NOCONSENT/1', gender='Male')
+        ds = make_test_dataset(patient_id='NOCONSENT/1')
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0xA7FD)
+        self.assertFalse(DICOMStudy.objects.exists())
+        entry = InboundDICOMInstance.objects.get()
+        self.assertEqual(entry.status, 'REJECTED')
+        self.assertIn('consent', entry.reject_reason.lower())
 
     def test_unknown_patient_rejected_nothing_stored(self):
         ds = make_test_dataset(patient_id='NOPE')
@@ -95,6 +111,30 @@ class IngestDatasetTests(TestCase):
         del ds.PatientID
         result = ingest_dataset(ds)
         self.assertEqual(result.status, 0xA900)
+
+    def test_study_uid_collision_reassigns_patient(self):
+        other = Patient.objects.create(patient_id='OTHER/1', gender='Male')
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        DICOMStudy.objects.create(patient=other, study_instance_uid=ds.StudyInstanceUID)
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0x0000)
+        study = DICOMStudy.objects.get(study_instance_uid=ds.StudyInstanceUID)
+        self.assertEqual(study.patient, self.patient)
+
+    def test_db_failure_removes_orphan_file(self):
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        with mock.patch(
+            'dicom_server.services.ingest._upsert_study',
+            side_effect=RuntimeError('db down'),
+        ):
+            result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0xC000)
+        dest = (
+            self.media / 'processed_dicom' / 'MR_25_004771'
+            / sanitize(ds.StudyInstanceUID) / f"{sanitize(ds.SOPInstanceUID)}.dcm"
+        )
+        self.assertFalse(dest.exists())
+        self.assertFalse(DICOMStudy.objects.exists())
 
     def test_duplicate_resend_is_idempotent(self):
         ds = make_test_dataset(patient_id='MR/25/004771')

@@ -5,6 +5,7 @@ role of a remote PACS, plus our real Storage SCP as the destination.
 """
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from django.test import TransactionTestCase, override_settings
 from pydicom.dataset import Dataset
@@ -107,7 +108,11 @@ class QRClientTests(TransactionTestCase):
 
     def setUp(self):
         SiteConfiguration.objects.create(chavi_center_id='TEST', center_name='Test Hospital')
+        # .update() bypasses post_save — avoids an auto-retrieval dispatch
+        # attempt to a broker that isn't running in tests
         self.patient = Patient.objects.create(patient_id='MR/25/004771', gender='Female')
+        Patient.objects.filter(pk=self.patient.pk).update(chavi_consent=True)
+        self.patient.chavi_consent = True
         self.media = Path(self._media)
 
     def _node(self, port, **kwargs):
@@ -123,11 +128,14 @@ class QRClientTests(TransactionTestCase):
         )
 
     def test_echo_local(self):
-        self.assertTrue(qr_client.echo(self._own_node()))
+        ok, reason = qr_client.echo(self._own_node())
+        self.assertTrue(ok, reason)
 
     def test_echo_unreachable(self):
         node = self._node(port=1)  # nothing listening
-        self.assertFalse(qr_client.echo(node))
+        ok, reason = qr_client.echo(node)
+        self.assertFalse(ok)
+        self.assertTrue(reason)  # the failure reason is reported, not swallowed
 
     def test_find_studies_local(self):
         # Ingest a study into our SCP's store first
@@ -139,6 +147,24 @@ class QRClientTests(TransactionTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['study_instance_uid'], ds.StudyInstanceUID)
         self.assertEqual(results[0]['modalities'], 'CT')
+
+    def test_find_studies_for_patient_raises_when_all_ids_fail(self):
+        node = self._node(port=1)  # nothing listening
+        with self.assertRaises(ConnectionError):
+            qr_client.find_studies_for_patient(node, self.patient)
+
+    @mock.patch('dicom_server.services.qr_client.find_studies')
+    def test_find_studies_for_patient_partial_failure_returns_results(self, mock_find):
+        def fake(node, pid):
+            if pid == 'MR/25/004771':
+                raise ConnectionError('dead')
+            return [{'study_instance_uid': '1.2.3', 'study_date': '',
+                     'study_description': '', 'modalities': 'CT', 'instances': 1}]
+        mock_find.side_effect = fake
+        results = qr_client.find_studies_for_patient(
+            self._node(port=1), self.patient, aliases=['ALIAS'],
+        )
+        self.assertEqual(len(results), 1)
 
     def test_move_study_end_to_end(self):
         ds = make_test_dataset(patient_id='MR/25/004771')
@@ -200,4 +226,41 @@ class QRClientTests(TransactionTestCase):
         self.assertTrue(
             DICOMStudy.objects.filter(study_instance_uid=ds.StudyInstanceUID).exists()
         )
+        self.assertEqual(result['status'], 'SUCCESS')
+
+    def test_get_study_storage_uids_within_association_limit(self):
+        uids = qr_client._get_storage_uids()
+        # 128 contexts max per association; 1 slot goes to the Q/R-GET model
+        self.assertLessEqual(len(uids), 127)
+        self.assertEqual(len(uids), len(set(uids)))  # no duplicates
+        # newer RT classes are now offered, e.g. Enhanced RT Image
+        self.assertIn('1.2.840.10008.5.1.4.1.1.481.23', uids)
+
+    def test_task_retrieve_studies_unreachable_node_fails_job(self):
+        node = self._node(port=1)
+        job = RetrievalJob.objects.create(node=node, patient=self.patient)
+        with self.assertRaises(ConnectionError):
+            task_retrieve_studies(node.pk, 'MR/25/004771', None, job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'FAILED')
+        self.assertIn('C-FIND', job.error_log)
+
+    def test_task_retrieve_studies_skips_cfind_when_study_uids_set(self):
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        pacs = _StubPACS([ds])
+        try:
+            node = self._node(port=pacs.port, prefer_c_get=True)
+            job = RetrievalJob.objects.create(
+                node=node, patient=self.patient, study_uids=[ds.StudyInstanceUID],
+            )
+            with mock.patch.object(
+                qr_client, 'find_studies_for_patient',
+                side_effect=AssertionError('C-FIND should not run'),
+            ):
+                result = task_retrieve_studies(node.pk, 'MR/25/004771', None, job.pk)
+        finally:
+            pacs.shutdown()
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'SUCCESS')
         self.assertEqual(result['status'], 'SUCCESS')
