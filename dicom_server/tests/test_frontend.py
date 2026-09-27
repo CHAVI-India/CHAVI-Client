@@ -202,6 +202,17 @@ class TestRetrieveView(DicomFrontendTestCase):
         self.assertIn('broker down', job.error_log)
         self.assertRedirects(resp, reverse('dicom_server:job_detail', args=[job.pk]))
 
+    def test_retrieve_form_rejects_non_consented_patient(self):
+        self.client.force_login(self.perm_user)
+        non_consented = Patient.objects.create(patient_id='NOCONSENT/1', gender='Male')
+        response = self.client.post(
+            reverse('dicom_server:retrieve'),
+            {'node': self.node.pk, 'patient': non_consented.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'CHAVI consent')
+        self.assertFalse(RetrievalJob.objects.exists())
+
     def test_retrieve_form_invalid_without_patient(self):
         self.client.force_login(self.perm_user)
         resp = self.client.post(reverse('dicom_server:retrieve'), {'node': self.node.pk})

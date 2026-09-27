@@ -125,10 +125,14 @@ def _auto_retrieve_patient_node(node_id, patient_id, force=False):
     """
     try:
         node = RemoteDICOMNode.objects.get(pk=node_id, is_active=True)
-        patient = Patient.objects.get(patient_id=patient_id, chavi_consent=True)
-    except (RemoteDICOMNode.DoesNotExist, Patient.DoesNotExist) as e:
-        logger.warning('Auto-retrieval prerequisites failed: %s', e)
-        return {'skipped': True, 'reason': str(e)}
+    except RemoteDICOMNode.DoesNotExist:
+        return {'skipped': True, 'reason': f'node {node_id} not found or inactive'}
+    try:
+        patient = Patient.objects.get(patient_id=patient_id)
+    except Patient.DoesNotExist:
+        return {'skipped': True, 'reason': f'patient {patient_id} not found'}
+    if not patient.chavi_consent:
+        return {'skipped': True, 'reason': f'patient {patient_id} has not consented'}
 
     state, _ = AutoRetrievalState.objects.get_or_create(patient=patient, node=node)
 
@@ -236,9 +240,11 @@ def task_auto_retrieve_node(self, node_id):
 def task_auto_retrieve_patient(self, patient_id):
     """Event-driven: immediately retrieve one patient from all active nodes."""
     try:
-        patient = Patient.objects.get(patient_id=patient_id, chavi_consent=True)
+        patient = Patient.objects.get(patient_id=patient_id)
     except Patient.DoesNotExist:
-        return {'skipped': True, 'reason': 'patient not found or no consent'}
+        return {'skipped': True, 'reason': f'patient {patient_id} not found'}
+    if not patient.chavi_consent:
+        return {'skipped': True, 'reason': f'patient {patient_id} has not consented'}
 
     nodes = RemoteDICOMNode.objects.filter(is_active=True, auto_retrieve_enabled=True)
     for node in nodes:

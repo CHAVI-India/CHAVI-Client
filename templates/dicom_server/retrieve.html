@@ -26,10 +26,16 @@
         </p>
         <form method="post">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="text-red-600 text-sm mb-3">{{ form.non_field_errors }}</div>
+            {% endif %}
             {{ form.node|as_crispy_field }}
             <div class="mt-4">
                 <label for="id_patient" class="block text-sm font-medium text-gray-700 mb-1">Patient</label>
                 {{ form.patient }}
+                {% for error in form.patient.errors %}
+                    <p class="text-red-600 text-sm mt-1">{{ error }}</p>
+                {% endfor %}
             </div>
             <div class="mt-6 flex space-x-3">
                 <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">Start Retrieval</button>
@@ -52,7 +58,7 @@ $(document).ready(function () {
             url: '{% url "client_app:api_patient_search" %}',
             dataType: 'json',
             delay: 300,
-            data: function (params) { return { q: params.term }; },
+            data: function (params) { return { q: params.term, consented: 1 }; },
             processResults: function (data) { return { results: data.results }; },
             cache: true
         }

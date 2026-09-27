@@ -652,6 +652,10 @@ class PatientSearchAPIView(LoginRequiredMixin, View):
         search_term = request.GET.get('q', '')
         
         all_patients = Patient.objects.all()
+        # ?consented=1 restricts to consented patients — used by the
+        # DICOM retrieve page; other callers keep the full list.
+        if request.GET.get('consented') in ('1', 'true'):
+            all_patients = all_patients.filter(chavi_consent=True)
         
         if search_term:
             # Use fuzzy matching when a search term is provided

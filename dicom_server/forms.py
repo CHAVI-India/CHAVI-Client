@@ -33,6 +33,9 @@ class RetrieveStudiesForm(forms.Form):
     patient = forms.ModelChoiceField(
         queryset=Patient.objects.filter(chavi_consent=True),
         widget=forms.Select(attrs={'class': 'patient-select'}),
+        error_messages={
+            'invalid_choice': 'This patient cannot be retrieved — CHAVI consent is required.',
+        },
         help_text="Only consented patients registered in the Patient model can be retrieved",
     )
 
