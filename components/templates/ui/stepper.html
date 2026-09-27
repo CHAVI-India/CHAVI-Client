@@ -1,0 +1,16 @@
+{# Stepper — steps: [{label, state}] or labels + current #}
+<div class="flex items-center justify-between {{ extra_class }}">
+    {% for step in computed_steps %}
+        <div class="flex items-center">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+                {% if step.state == 'complete' or step.state == 'active' %}bg-chavi-primary text-white
+                {% else %}bg-gray-300 text-gray-600{% endif %}">
+                {% if step.state == 'complete' %}<i class="fas fa-check"></i>{% else %}{{ forloop.counter }}{% endif %}
+            </div>
+            <span class="ml-2 {% if step.state == 'pending' %}text-gray-600{% else %}font-semibold text-chavi-primary{% endif %}">{{ step.label }}</span>
+        </div>
+        {% if not forloop.last %}
+        <div class="flex-1 h-1 mx-4 {% if step.state == 'complete' %}bg-chavi-primary{% else %}bg-gray-300{% endif %}"></div>
+        {% endif %}
+    {% endfor %}
+</div>

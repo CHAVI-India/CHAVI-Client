@@ -4,44 +4,31 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-robot text-chavi-primary mr-2"></i>
-                    Data Extraction Dashboard
-                </h1>
-                <p class="text-gray-600 mt-2">To start a new extraction run, open a patient and use "Start extraction" on their files</p>
-            </div>
-            <a href="{% url 'extractor:extraction_results_list' %}" 
-               class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                <i class="fas fa-list mr-2"></i>
-                View All Results
-            </a>
-        </div>
+    {% url 'extractor:extraction_results_list' as results_url %}
+    {% url 'extractor:extraction_dashboard' as clear_url %}
+    {% component "page_header" title="Data Extraction Dashboard" icon="fas fa-robot" subtitle='To start a new extraction run, open a patient and use "Start extraction" on their files' %}
+        {% fill "actions" %}
+            {% component "button" style="primary" href=results_url icon="fas fa-list" %}View All Results{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 
-        <!-- Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
-                <p class="text-blue-600 text-sm font-semibold uppercase">Patients with uploads</p>
-                <p class="text-3xl font-bold text-blue-900 mt-2">{{ total_patients }}</p>
-            </div>
-            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
-                <p class="text-purple-600 text-sm font-semibold uppercase">Extraction Models</p>
-                <p class="text-3xl font-bold text-purple-900 mt-2">{{ response_models.count }}</p>
-            </div>
-        </div>
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {% component "stat_card" value=total_patients label="Patients with uploads" icon="fas fa-users" %}{% endcomponent %}
+        {% component "stat_card" value=response_models.count label="Extraction Models" style="accent" icon="fas fa-layer-group" %}{% endcomponent %}
+    </div>
 
-        <!-- Filters -->
-        <form method="get" class="flex flex-wrap items-end gap-3 mb-6 p-4 bg-gray-50 rounded-lg">
+    <!-- Filters -->
+    {% component "filter_bar" method="get" clear_url=clear_url %}
+        {% fill "fields" %}
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Patient ID</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Patient ID</label>
                 <input type="text" name="q" value="{{ filters.q }}" placeholder="Search..."
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-44">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Job status</label>
-                <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Job status</label>
+                <select name="status" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                     <option value="">All</option>
                     {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
@@ -50,8 +37,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">File type</label>
-                <select name="file_type" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 mb-1">File type</label>
+                <select name="file_type" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                     <option value="">All</option>
                     {% for value, label in file_type_choices %}
                     <option value="{{ value }}" {% if filters.file_type == value %}selected{% endif %}>{{ label }}</option>
@@ -59,98 +46,59 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Uploaded from</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Uploaded from</label>
                 <input type="date" name="from" value="{{ filters.from }}"
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">to</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">to</label>
                 <input type="date" name="to" value="{{ filters.to }}"
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
-            <button type="submit"
-                    class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-chavi-secondary transition-colors">
-                Apply
-            </button>
-            <a href="{% url 'extractor:extraction_dashboard' %}" class="text-sm text-gray-500 hover:text-gray-700 pb-2">Reset</a>
-        </form>
+        {% endfill %}
+    {% endcomponent %}
 
-        <!-- Patient table -->
-        {% if page_obj %}
-        <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-gray-100 text-left">
-                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Patient</th>
-                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Files</th>
-                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Processed</th>
-                        <th class="px-4 py-3 text-sm font-semibold text-gray-700">Extraction jobs</th>
-                        <th class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for patient in page_obj %}
-                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                        <td class="px-4 py-3 font-semibold text-gray-900">{{ patient.patient_id }}</td>
-                        <td class="px-4 py-3 text-gray-700">{{ patient.file_count }}</td>
-                        <td class="px-4 py-3 text-gray-700">{{ patient.processed_count }}</td>
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center gap-1 text-xs font-semibold">
-                                {% if patient.jobs_completed %}
-                                <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">{{ patient.jobs_completed }} completed</span>
-                                {% endif %}
-                                {% if patient.jobs_active %}
-                                <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{{ patient.jobs_active }} active</span>
-                                {% endif %}
-                                {% if patient.jobs_failed %}
-                                <span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full">{{ patient.jobs_failed }} failed</span>
-                                {% endif %}
-                                {% if patient.deid_pending_review %}
-                                <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full" title="Deidentified texts awaiting review">
-                                    <i class="fas fa-user-shield mr-1"></i>{{ patient.deid_pending_review }} to review
-                                </span>
-                                {% endif %}
-                                {% if not patient.jobs_completed and not patient.jobs_active and not patient.jobs_failed %}
-                                <span class="text-gray-400">no jobs</span>
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <a href="{% url 'extractor:patient_data' patient.pk %}"
-                               class="bg-chavi-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-chavi-secondary transition-colors">
-                                <i class="fas fa-play mr-1"></i>Extract / Review
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <!-- Patient table -->
+    {% if page_obj %}
+    {% component "table" %}
+        {% fill "head" %}
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Patient</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Files</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Processed</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Extraction Jobs</th>
+            <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Actions</th>
+        {% endfill %}
+        {% fill "body" %}
+            {% for patient in page_obj %}
+            <tr>
+                <td class="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{{ patient.patient_id }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">{{ patient.file_count }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">{{ patient.processed_count }}</td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1 text-xs">
+                        {% if patient.jobs_completed %}{% component "badge" style="success" %}{{ patient.jobs_completed }} completed{% endcomponent %}{% endif %}
+                        {% if patient.jobs_active %}{% component "badge" style="info" %}{{ patient.jobs_active }} active{% endcomponent %}{% endif %}
+                        {% if patient.jobs_failed %}{% component "badge" style="danger" %}{{ patient.jobs_failed }} failed{% endcomponent %}{% endif %}
+                        {% if patient.deid_pending_review %}{% component "badge" style="warning" icon="fas fa-user-shield" %}{{ patient.deid_pending_review }} to review{% endcomponent %}{% endif %}
+                        {% if not patient.jobs_completed and not patient.jobs_active and not patient.jobs_failed %}
+                        <span class="text-gray-400 text-xs">no jobs</span>
+                        {% endif %}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    {% url 'extractor:patient_data' patient.pk as purl %}
+                    {% component "button" style="primary" size="sm" href=purl icon="fas fa-play" %}Extract / Review{% endcomponent %}
+                </td>
+            </tr>
+            {% endfor %}
+        {% endfill %}
+    {% endcomponent %}
 
-        <!-- Pagination -->
-        {% if paginator.num_pages > 1 %}
-        <div class="flex items-center justify-center gap-2 mt-6">
-            {% if page_obj.has_previous %}
-            <a href="?page=1&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
-               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">« First</a>
-            <a href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
-               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">‹ Prev</a>
-            {% endif %}
-            <span class="text-sm text-gray-600">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
-               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">Next ›</a>
-            <a href="?page={{ paginator.num_pages }}&q={{ filters.q }}&status={{ filters.status }}&file_type={{ filters.file_type }}&from={{ filters.from }}&to={{ filters.to }}"
-               class="px-3 py-1.5 border rounded-lg text-sm text-gray-600 hover:bg-gray-100">Last »</a>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="text-center py-12 text-gray-500">
-            <i class="fas fa-inbox text-4xl mb-3"></i>
-            <p>No patients with uploaded files match these filters.</p>
-        </div>
-        {% endif %}
-    </div>
+    {% with qs="q="|add:filters.q|add:"&status="|add:filters.status|add:"&file_type="|add:filters.file_type|add:"&from="|add:filters.from|add:"&to="|add:filters.to %}
+    {% component "pagination" page_obj=page_obj query_string=qs is_paginated=True %}{% endcomponent %}
+    {% endwith %}
+    {% else %}
+    {% component "empty_state" title="No patients with uploaded files match these filters" %}{% endcomponent %}
+    {% endif %}
 </div>
 {% endblock %}

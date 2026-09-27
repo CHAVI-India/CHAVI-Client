@@ -1,0 +1,243 @@
+/**
+ * CHAVI Client shared stylesheet.
+ *
+ * Contains cross-page overrides that were previously duplicated inline in
+ * individual templates (Select2 fixes, reduced-motion rules, base resets).
+ */
+
+/* ------------------------------------------------------------------ *
+ * Base
+ * ------------------------------------------------------------------ */
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — suppress non-essential animation.
+ * ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * Select2 — harmonized with the form-field design token.
+ * Replaces inline overrides that were duplicated across
+ * form_template.html, retrieve.html, node_form.html, config_form.html,
+ * bulk_dicom_matching.html, and extraction_job_detail.html.
+ * ------------------------------------------------------------------ */
+
+.select2-container .select2-selection--single,
+.select2-container .select2-selection--multiple {
+    min-height: 38px;
+    border: 1px solid #d1d5db; /* gray-300 */
+    border-radius: 0.5rem;     /* rounded-lg */
+    padding: 0.25rem 0.75rem;
+    background-color: #fff;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 1.6;
+    padding-left: 0;
+    color: #111827; /* gray-900 */
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    top: 6px;
+    right: 6px;
+}
+
+.select2-container--default.select2-container--focus .select2-selection,
+.select2-container--default.select2-container--open .select2-selection {
+    border-color: #2a9d8f; /* chavi-primary-500 */
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(42, 157, 143, 0.35); /* focus ring */
+}
+
+.select2-dropdown {
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    font-size: 0.875rem;
+}
+
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: #2a9d8f; /* chavi-primary-500 */
+    color: #fff;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #d2f0ec; /* chavi-primary-100 */
+    border: 1px solid #a5e1d9; /* chavi-primary-200 */
+    border-radius: 0.375rem;
+    color: #13554c;            /* chavi-primary-800 */
+    padding: 0.125rem 0.5rem;
+}
+
+.select2-container--default.select2-container--disabled .select2-selection {
+    background-color: #f3f4f6; /* gray-100 */
+}
+
+/* Full-width Select2, matching w-full form fields */
+.select2-container {
+    max-width: 100%;
+}
+
+/* ------------------------------------------------------------------ *
+ * Utility helpers
+ * ------------------------------------------------------------------ */
+
+/* Technical identifiers (UIDs, task IDs) — pairs with font-mono */
+.chavi-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * V6 table scheme — dark charcoal header band, sand zebra, teal hover
+ * Applied via .chavi-table (component wrapper) or .chavi-table-auto
+ * ------------------------------------------------------------------ */
+
+.chavi-table thead {
+    background-color: #152931; /* chavi-charcoal-800 — V6 dark band */
+}
+
+.chavi-table thead th {
+    color: #ffffff;
+    border-color: #264653;
+}
+
+.chavi-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.chavi-table tbody tr:nth-child(even) {
+    background-color: #fef5ec; /* chavi-sand-50 */
+}
+
+.chavi-table tbody tr:hover {
+    background-color: #ecf9f7; /* chavi-primary-50 */
+}
+
+/* Row highlight escapes zebra — for diff/changed rows */
+.chavi-table tbody tr.row-warning {
+    background-color: #fef8e7; /* chavi-sun-50 */
+}
+
+.chavi-table tbody tr.row-info {
+    background-color: #ecf2f4; /* chavi-charcoal-50 */
+}
+
+/* ==========================================================================
+   django-allauth page styling — element overrides render inside .aa-content.
+   .aa-fields styles the form.as_p output from the `fields` element.
+   ========================================================================== */
+.aa-content a {
+    color: #2a9d8f;
+}
+.aa-content a:hover {
+    color: #228578;
+    text-decoration: underline;
+}
+
+.aa-fields p {
+    margin-bottom: 1rem;
+}
+.aa-fields label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+.aa-fields input:not([type="checkbox"]):not([type="radio"]),
+.aa-fields select,
+.aa-fields textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #b3cbd1;
+    border-radius: 0.5rem;
+}
+.aa-fields input:focus,
+.aa-fields select:focus,
+.aa-fields textarea:focus {
+    outline: none;
+    border-color: #2a9d8f;
+    box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.2);
+}
+.aa-fields input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    border-color: #b3cbd1;
+    accent-color: #2a9d8f;
+    flex-shrink: 0;
+}
+/* Checkbox/radio rows: label + input side by side, vertically centered */
+.aa-fields p:has(input[type="checkbox"]),
+.aa-fields p:has(input[type="radio"]) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.aa-fields p:has(input[type="checkbox"]) label,
+.aa-fields p:has(input[type="radio"]) label {
+    display: inline;
+    margin-bottom: 0;
+    font-weight: 400;
+    order: 2;
+}
+.aa-fields .helptext {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+.aa-fields ul.errorlist {
+    margin: 0.25rem 0 0.5rem;
+    font-size: 0.8rem;
+    color: #d95a3a;
+}
+
+/* Native file input button → palette button styling */
+input[type="file"]::file-selector-button {
+    margin-right: 0.75rem;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid #b3cbd1;
+    border-radius: 0.375rem;
+    background: #eef4f5;
+    color: #264653;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover {
+    background: #d9e5e8;
+}
+
+/* De-identification entity highlight tags (extractor processed-text review) */
+.deid-tag { padding: 0 2px; border-radius: 3px; font-weight: 600; }
+.deid-tag-PERSON, .deid-tag-PATIENT_ID { background: #d9e5e8; color: #1b333d; }
+.deid-tag-DATE, .deid-tag-DATE_TIME { background: #faeed4; color: #8f6d28; }
+.deid-tag-IN_AADHAAR, .deid-tag-IN_PAN, .deid-tag-IN_ABHA, .deid-tag-IN_GSTIN,
+.deid-tag-IN_VOTER, .deid-tag-IN_PASSPORT, .deid-tag-IN_VEHICLE_REGISTRATION,
+.deid-tag-IN_DRIVING_LICENSE, .deid-tag-IN_UPI, .deid-tag-IN_PINCODE,
+.deid-tag-IN_RELIGION, .deid-tag-MEDICAL_RECORD_NUMBER { background: #f9ddd3; color: #913a26; }
+.deid-tag-PHONE_NUMBER, .deid-tag-EMAIL_ADDRESS { background: #dcf4f0; color: #13554c; }
+.deid-tag-MANUAL { background: #fce8d3; color: #a05623; }
+.deid-tag-hit { outline: 2px solid #e9c46a; }
+mark.search-hit { background: #e9c46a; padding: 0; }
+mark.search-hit.active { background: #f4a261; }

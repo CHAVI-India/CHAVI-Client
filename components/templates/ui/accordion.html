@@ -1,0 +1,9 @@
+{# Accordion — native <details>/<summary> collapsible panel #}
+<details class="border rounded-lg {% if attention %}border-chavi-sun-300 bg-chavi-sun-50{% else %}border-gray-200{% endif %} {{ extra_class }}"{% if open %} open{% endif %}>
+    <summary class="cursor-pointer select-none px-4 py-2.5 text-sm font-semibold flex items-center justify-between {% if attention %}text-chavi-sun-900{% else %}text-gray-800{% endif %}">
+        {% slot "summary" %}{% endslot %}
+    </summary>
+    <div class="px-4 pb-4">
+        {% slot "default" %}{% endslot %}
+    </div>
+</details>

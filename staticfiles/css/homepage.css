@@ -1,0 +1,30 @@
+.home-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.home-tile {
+    border-radius: 1.2rem;
+    padding: 1.5rem;
+    overflow: hidden;
+    min-height: 180px;
+}
+
+.home-grid-pattern {
+    background-image:
+        linear-gradient(rgba(42, 157, 143, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(42, 157, 143, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+@media (max-width: 768px) {
+    .home-grid {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .home-tile {
+        min-height: auto;
+    }
+}

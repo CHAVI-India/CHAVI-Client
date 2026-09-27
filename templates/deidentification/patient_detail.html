@@ -4,148 +4,110 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-    <div class="mb-6">
-        <a href="{% url 'deidentification:patient_list' %}" class="text-sm text-gray-500 hover:text-gray-700">
-            <i class="fas fa-arrow-left mr-1"></i>Back to Patient List
-        </a>
-        <h1 class="text-2xl font-bold text-gray-900 mt-2">
-            <i class="fas fa-user-shield mr-2 text-chavi-primary"></i>{{ patient.patient_id }}
-        </h1>
-        {% if deid_patient %}
-        <p class="mt-1 text-sm text-green-600">
-            <i class="fas fa-check-circle mr-1"></i>Deidentified
-        </p>
-        {% else %}
-        <p class="mt-1 text-sm text-gray-500">Not yet deidentified.</p>
-        {% endif %}
-    </div>
+    {% url 'deidentification:patient_list' as list_url %}
+    {% component "page_header" title=patient.patient_id icon="fas fa-user-shield" back_url=list_url back_text="Back to Patient List" %}{% endcomponent %}
+    {% if deid_patient %}
+        {% component "badge" style="success" icon="fas fa-check-circle" %}Deidentified{% endcomponent %}
+    {% else %}
+        {% component "badge" style="gray" %}Not yet deidentified{% endcomponent %}
+    {% endif %}
 
-    <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Studies & Deidentification Jobs</h2>
-
-        <div class="mb-4 flex items-center justify-between">
-            <form method="post" action="{% url 'deidentification:trigger_deidentify' patient.patient_id %}" id="deidentify-form">
-                {% csrf_token %}
-                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-chavi-primary hover:bg-chavi-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary">
-                    <i class="fas fa-play mr-2"></i>Deidentify All Studies
-                </button>
-            </form>
-            <div class="flex items-center space-x-3">
-                <a href="{% url 'deidentification:download_clinical' patient.patient_id %}"
-                   onclick="return handleDownloadClick(event, this.href)"
-                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
-                   {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
-                    <i class="fas fa-file-medical mr-2"></i>Download Clinical Data (JSON)
-                </a>
-                <a href="{% url 'deidentification:download' patient.patient_id %}"
-                   onclick="return handleDownloadClick(event, this.href)"
-                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium {% if deid_patient %}text-gray-700 bg-white hover:bg-gray-50{% else %}text-gray-400 bg-gray-100 cursor-not-allowed{% endif %}"
-                   {% if not deid_patient %}aria-disabled="true" onclick="return false"{% endif %}>
-                    <i class="fas fa-download mr-2"></i>Download DICOM (ZIP)
-                </a>
+    {% component "card" title="Studies & Deidentification Jobs" extra_class="mt-6" %}
+        {% fill "actions" %}
+            <div class="flex flex-wrap items-center gap-2">
+                <form method="post" action="{% url 'deidentification:trigger_deidentify' patient.patient_id %}" id="deidentify-form">
+                    {% csrf_token %}
+                    {% component "button" style="primary" type="submit" icon="fas fa-play" %}Deidentify All Studies{% endcomponent %}
+                </form>
+                {% url 'deidentification:download_clinical' patient.patient_id as dc_url %}
+                {% component "button" style="secondary" icon="fas fa-file-medical" href=dc_url disabled=deid_patient|yesno:",True" onclick="return handleDownloadClick(event, this.href)" %}Download Clinical (JSON){% endcomponent %}
+                {% url 'deidentification:download' patient.patient_id as dd_url %}
+                {% component "button" style="secondary" icon="fas fa-download" href=dd_url disabled=deid_patient|yesno:",True" onclick="return handleDownloadClick(event, this.href)" %}Download DICOM (ZIP){% endcomponent %}
             </div>
-        </div>
-
-        <div class="overflow-hidden border border-gray-200 rounded-lg">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Study UID</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modality</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latest Job</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Files</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Download</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for item in study_jobs %}
-                    <tr class="hover:bg-gray-50" {% if item.latest_job and item.latest_job.status == 'PROCESSING' %}data-job-id="{{ item.latest_job.id }}"{% endif %}>
-                        <td class="px-4 py-3 text-sm text-gray-900 font-mono text-xs">{{ item.study.study_instance_uid|truncatechars:40 }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_date|default:"—" }}</td>
-                        <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_modalities|default:"—" }}</td>
-                        <td class="px-4 py-3 text-sm job-status-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
-                            {% if item.latest_job %}
-                                {% with status=item.latest_job.status %}
-                                    {% if status == 'SUCCESS' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800">{{ status }}</span>
-                                    {% elif status == 'FAILURE' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">{{ status }}</span>
-                                    {% elif status == 'PROCESSING' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 animate-pulse">{{ status }}</span>
-                                    {% elif status == 'PARTIAL' %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">{{ status }}</span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ status }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            {% else %}
-                                <span class="text-gray-400 text-xs">No jobs</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-500 job-files-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
-                            {% if item.latest_job %}
-                                {{ item.latest_job.processed_count }}/{{ item.latest_job.total_file_count }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            {% if item.latest_job and item.latest_job.status == 'SUCCESS' %}
-                            <span class="text-green-600"><i class="fas fa-check"></i></span>
-                            {% elif item.latest_job and item.latest_job.status == 'PARTIAL' %}
-                            <span class="text-yellow-600"><i class="fas fa-exclamation-triangle"></i></span>
-                            {% elif item.latest_job and item.latest_job.status == 'FAILURE' %}
-                            <span class="text-red-600"><i class="fas fa-times"></i></span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            {% if item.latest_job and item.latest_job.error_log %}
-                            <button type="button" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.toggle('hidden')"
-                                class="text-red-600 hover:text-red-800 text-xs font-medium">
-                                <i class="fas fa-exclamation-circle mr-1"></i>View Details
-                            </button>
-                            {% else %}
-                            <span class="text-gray-400 text-xs">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            {% if item.latest_job and item.latest_job.status in 'SUCCESS,PARTIAL' %}
-                            <a href="{% url 'deidentification:download' item.latest_job.id %}"
-                               onclick="return handleDownloadClick(event, this.href)"
-                               class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium">
-                                <i class="fas fa-download mr-1"></i>Download
-                            </a>
-                            {% else %}
-                            <span class="text-gray-400 text-xs">—</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">No studies found for this patient.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+        {% endfill %}
+        {% fill "body" %}
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Study UID</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Modality</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Latest Job</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Files</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Error</th>
+                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Download</th>
+            {% endfill %}
+            {% fill "body" %}
+                {% for item in study_jobs %}
+                <tr {% if item.latest_job and item.latest_job.status == 'PROCESSING' %}data-job-id="{{ item.latest_job.id }}"{% endif %}>
+                    <td class="px-4 py-3 text-sm text-gray-900 font-mono text-xs">{{ item.study.study_instance_uid|truncatechars:40 }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_date|default:"—" }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{{ item.study.study_modalities|default:"—" }}</td>
+                    <td class="px-4 py-3 text-sm job-status-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
+                        {% if item.latest_job %}
+                            {% with status=item.latest_job.status %}
+                                {% if status == 'SUCCESS' %}{% component "badge" style="success" %}{{ status }}{% endcomponent %}
+                                {% elif status == 'FAILURE' %}{% component "badge" style="danger" %}{{ status }}{% endcomponent %}
+                                {% elif status == 'PROCESSING' %}{% component "badge" style="info" extra_class="animate-pulse" %}{{ status }}{% endcomponent %}
+                                {% elif status == 'PARTIAL' %}{% component "badge" style="warning" %}{{ status }}{% endcomponent %}
+                                {% else %}{% component "badge" style="gray" %}{{ status }}{% endcomponent %}
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="text-gray-400 text-xs">No jobs</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500 job-files-cell" data-job-id="{{ item.latest_job.id|default:'' }}">
+                        {% if item.latest_job %}{{ item.latest_job.processed_count }}/{{ item.latest_job.total_file_count }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if item.latest_job and item.latest_job.status == 'SUCCESS' %}
+                        <span class="text-chavi-primary-600"><i class="fas fa-check"></i></span>
+                        {% elif item.latest_job and item.latest_job.status == 'PARTIAL' %}
+                        <span class="text-chavi-sun-700"><i class="fas fa-exclamation-triangle"></i></span>
+                        {% elif item.latest_job and item.latest_job.status == 'FAILURE' %}
+                        <span class="text-chavi-peach-600"><i class="fas fa-times"></i></span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if item.latest_job and item.latest_job.error_log %}
+                        {% component "button" style="link" size="sm" icon="fas fa-exclamation-circle" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.toggle('hidden')" %}View Details{% endcomponent %}
+                        {% else %}
+                        <span class="text-gray-400 text-xs">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        {% if item.latest_job and item.latest_job.status in 'SUCCESS,PARTIAL' %}
+                        <a href="{% url 'deidentification:download' item.latest_job.id %}"
+                           onclick="return handleDownloadClick(event, this.href)"
+                           class="inline-flex items-center text-chavi-primary hover:text-chavi-primary-dark font-medium">
+                            <i class="fas fa-download mr-1"></i>Download
+                        </a>
+                        {% else %}
+                        <span class="text-gray-400 text-xs">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">No studies found for this patient.</td>
+                </tr>
+                {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Error detail panels -->
     {% for item in study_jobs %}
         {% if item.latest_job and item.latest_job.error_log %}
-        <div id="error-{{ item.latest_job.id }}" class="hidden mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+        <div id="error-{{ item.latest_job.id }}" class="hidden mt-4 bg-chavi-peach-50 border border-chavi-peach-200 rounded-lg p-4">
             <div class="flex items-center justify-between mb-2">
-                <h3 class="text-sm font-semibold text-red-800">
+                <h3 class="text-sm font-semibold text-chavi-peach-800">
                     <i class="fas fa-exclamation-triangle mr-1"></i>Error Details — Job #{{ item.latest_job.id }}
                     ({% if item.latest_job.status == 'FAILURE' %}Failed{% elif item.latest_job.status == 'PARTIAL' %}Partial Success{% endif %})
                 </h3>
-                <button type="button" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.add('hidden')"
-                    class="text-red-600 hover:text-red-800 text-xs">
-                    <i class="fas fa-times"></i> Close
-                </button>
+                {% component "button" style="link" size="sm" icon="fas fa-times" onclick="document.getElementById('error-{{ item.latest_job.id }}').classList.add('hidden')" %}Close{% endcomponent %}
             </div>
             <div class="mb-2 text-xs text-gray-600">
                 Study: {{ item.study.study_instance_uid|truncatechars:60 }} |
@@ -153,7 +115,7 @@
                 Failed: {{ item.latest_job.failed_count }} |
                 Failed Series: {{ item.latest_job.failed_series_count }}
             </div>
-            <pre class="text-xs text-red-700 whitespace-pre-wrap break-words bg-white rounded p-3 border border-red-100 max-h-96 overflow-y-auto">{{ item.latest_job.error_log }}</pre>
+            {% component "code_block" variant="error" %}{{ item.latest_job.error_log }}{% endcomponent %}
         </div>
         {% endif %}
     {% endfor %}

@@ -8,6 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from unfold.views import UnfoldModelAdminViewMixin
 from .models import *
 from .models import _make_canonical_id, TaskRun, Notification
+from .services.homepage_metrics import build_homepage_metrics
 from django.urls import reverse, reverse_lazy
 from django.http import Http404, JsonResponse
 from django.contrib import admin, messages
@@ -37,6 +38,12 @@ def custom_403_view(request, exception=None):
 class HomePageView(TemplateView):
     """View for the application homepage."""
     template_name = "client_app/homepage.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context['metrics'] = build_homepage_metrics(self.request.user)
+        return context
 
 def documentation_view(request, path=''):
     """Serve the Sphinx documentation."""

@@ -1,39 +1,16 @@
 {% extends "data_import/base_import.html" %}
 
 {% block extra_css %}
+{{ block.super }}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<style>
-    .select2-container--default .select2-selection--single {
-        height: 38px;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 38px;
-        padding-left: 12px;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 36px;
-    }
-</style>
+
 {% endblock %}
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    <strong>Missing Parent Relationships:</strong> The selected models require parent records that are not mapped in your CSV.
-                    For each parent model, you can either link to an existing record in the database or provide default values to create a new record.
-                    Default values will be used for all patients whose data is being imported in this session.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="info" %}
+        {% fill "default" %}<strong>Missing Parent Relationships:</strong> The selected models require parent records that are not mapped in your CSV. For each parent model, you can either link to an existing record in the database or provide default values to create a new record. Default values will be used for all patients whose data is being imported in this session.{% endfill %}
+    {% endcomponent %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -41,25 +18,24 @@
         {% if missing_fk_relations %}
         <div class="space-y-6">
             {% for parent_rel in missing_fk_relations %}
-            <div class="bg-white border-2 border-gray-200 rounded-lg p-6 shadow-sm">
-                <!-- Header -->
-                <div class="flex items-center mb-4">
-                    <i class="fas fa-sitemap text-blue-600 text-xl mr-3"></i>
-                    <div>
-                        <h3 class="font-semibold text-gray-900 text-lg">
-                            {{ parent_rel.parent_model }}
-                        </h3>
-                        <p class="text-sm text-gray-600">
-                            Required by: 
-                            {% for child in parent_rel.children %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-xs font-medium mr-1">
-                                    {{ child.child_model }}
-                                </span>
-                            {% endfor %}
-                        </p>
+            {% component "card" %}
+                {% fill "header" %}
+                    <div class="flex items-center">
+                        <i class="fas fa-sitemap text-chavi-charcoal-600 text-xl mr-3"></i>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 text-lg">
+                                {{ parent_rel.parent_model }}
+                            </h3>
+                            <p class="text-sm text-gray-600">
+                                Required by: 
+                                {% for child in parent_rel.children %}
+                                    {% component "badge" style="info" %}{{ child.child_model }}{% endcomponent %}
+                                {% endfor %}
+                            </p>
+                        </div>
                     </div>
-                </div>
-
+                {% endfill %}
+                {% fill "body" %}
                 <!-- Hidden field for parent model -->
                 <input type="hidden" name="parent_{{ parent_rel.parent_model }}_model" value="{{ parent_rel.parent_model }}">
 
@@ -67,7 +43,7 @@
                 <div class="space-y-4">
                     {% if parent_rel.has_existing_parents %}
                     <!-- Option 1: Link to existing (only show if records exist) -->
-                    <div class="border rounded-lg p-4 hover:bg-gray-50">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                         <label class="flex items-start cursor-pointer">
                             <input type="radio" 
                                    name="parent_{{ parent_rel.parent_model }}_action" 
@@ -82,7 +58,7 @@
                                 <div id="existing_{{ parent_rel.parent_model }}" class="mt-3">
                                     {% if parent_rel.existing_parents %}
                                         <select name="parent_{{ parent_rel.parent_model }}_existing"
-                                                class="parent-select block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                                class="parent-select block w-full border-gray-300 rounded-lg shadow-sm focus:ring-chavi-primary focus:border-chavi-primary">
                                             <option value="">-- Select existing {{ parent_rel.parent_model }} --</option>
                                             {% for parent in parent_rel.existing_parents %}
                                                 <option value="{{ parent.id }}" {% if parent.id == parent_rel.selected_existing_id %}selected{% endif %}>
@@ -104,19 +80,14 @@
                     </div>
                     {% else %}
                     <!-- No existing records - inform user -->
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div class="flex items-start">
-                            <i class="fas fa-info-circle text-amber-600 mt-1 mr-3"></i>
-                            <div>
-                                <p class="font-medium text-amber-900">No Existing {{ parent_rel.parent_model }} Records</p>
-                                <p class="text-sm text-amber-700 mt-1">No {{ parent_rel.parent_model }} records found for the patients in your CSV. A new {{ parent_rel.parent_model }} will be created during import.</p>
-                            </div>
-                        </div>
-                    </div>
+                    {% component "alert" style="warning" %}
+                        {% fill "title" %}No Existing {{ parent_rel.parent_model }} Records{% endfill %}
+                        {% fill "default" %}No {{ parent_rel.parent_model }} records found for the patients in your CSV. A new {{ parent_rel.parent_model }} will be created during import.{% endfill %}
+                    {% endcomponent %}
                     {% endif %}
 
                     <!-- Option 2: Create new (always show) -->
-                    <div class="border rounded-lg p-4 hover:bg-gray-50">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                         <label class="flex items-start cursor-pointer">
                             <input type="radio" 
                                    name="parent_{{ parent_rel.parent_model }}_action" 
@@ -133,11 +104,11 @@
                                         {% for field in parent_rel.parent_required_fields %}
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                                    {{ field.name }} {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+                                                    {{ field.name }} {% if field.required %}<span class="text-chavi-peach-500">*</span>{% endif %}
                                                 </label>
                                                 {% if field.is_lookup %}
                                                     <select name="parent_{{ parent_rel.parent_model }}_new_{{ field.name }}"
-                                                            class="lookup-select block w-full border-gray-300 rounded-md shadow-sm">
+                                                            class="lookup-select block w-full border-gray-300 rounded-lg shadow-sm">
                                                         <option value="">-- Select --</option>
                                                         {% for lookup in field.lookup_values %}
                                                             <option value="{{ lookup.code }}" {% if field.saved_value == lookup.code %}selected{% endif %}>{{ lookup.code }} - {{ lookup.label }}</option>
@@ -147,10 +118,10 @@
                                                     <input type="date" 
                                                            name="parent_{{ parent_rel.parent_model }}_new_{{ field.name }}"
                                                            value="{{ field.saved_value }}"
-                                                           class="block w-full border-gray-300 rounded-md shadow-sm">
+                                                           class="block w-full border-gray-300 rounded-lg shadow-sm">
                                                 {% elif field.type == 'BooleanField' %}
                                                     <select name="parent_{{ parent_rel.parent_model }}_new_{{ field.name }}"
-                                                            class="block w-full border-gray-300 rounded-md shadow-sm">
+                                                            class="block w-full border-gray-300 rounded-lg shadow-sm">
                                                         <option value="">-- Select --</option>
                                                         <option value="true" {% if field.saved_value == 'true' %}selected{% endif %}>Yes</option>
                                                         <option value="false" {% if field.saved_value == 'false' %}selected{% endif %}>No</option>
@@ -159,7 +130,7 @@
                                                     <input type="text" 
                                                            name="parent_{{ parent_rel.parent_model }}_new_{{ field.name }}"
                                                            value="{{ field.saved_value }}"
-                                                           class="block w-full border-gray-300 rounded-md shadow-sm"
+                                                           class="block w-full border-gray-300 rounded-lg shadow-sm"
                                                            placeholder="Enter {{ field.name }}">
                                                 {% endif %}
                                             </div>
@@ -175,25 +146,20 @@
                         </label>
                     </div>
                 </div>
-            </div>
+                {% endfill %}
+            {% endcomponent %}
             {% endfor %}
         </div>
         {% else %}
-        <div class="text-center py-8 bg-gray-50 rounded-lg">
-            <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
-            <p class="text-gray-600">All required relationships are mapped. No missing relationships detected.</p>
-        </div>
+        {% component "empty_state" title="All Relationships Mapped" description="All required relationships are mapped. No missing relationships detected." %}
+            {% fill "icon" %}<i class="fas fa-check-circle text-chavi-primary-500"></i>{% endfill %}
+        {% endcomponent %}
         {% endif %}
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step9' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 9
-            </a>
-            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Continue to Step 11
-                <i class="fas fa-arrow-right ml-2"></i>
-            </button>
+            {% url 'data_import:step9' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 9{% endcomponent %}
+            {% component "button" style="primary" type="submit" %}Continue to Step 11 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
         </div>
     </form>
 </div>

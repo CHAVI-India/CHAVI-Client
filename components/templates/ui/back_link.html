@@ -1,0 +1,4 @@
+{# BackLink — canonical back-navigation link #}
+<a href="{{ href }}" class="text-sm text-gray-600 hover:text-gray-800 inline-flex items-center transition-colors {{ extra_class }}">
+    <i class="fas fa-arrow-left mr-2"></i>{% if component_vars.is_filled.default %}{% slot "default" %}{% endslot %}{% else %}{{ text|default:'Back' }}{% endif %}
+</a>

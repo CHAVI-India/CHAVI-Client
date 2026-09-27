@@ -4,188 +4,134 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                    <i class="fas fa-robot text-chavi-primary mr-2"></i>
-                    {{ configuration.llm_model_name }}
-                </h1>
-                <p class="text-gray-600">{{ configuration.model_provider }}</p>
-            </div>
-            <div class="flex space-x-3">
-                <a href="{% url 'extractor:client_configuration_list' %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors px-4 py-2">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to List
-                </a>
-                <button onclick="testConnection()" 
-                        id="test-connection-btn"
-                        class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
-                    <i class="fas fa-plug mr-2"></i>
-                    Test Connection
-                </button>
-                <a href="{% url 'extractor:client_configuration_edit' configuration.id %}" 
-                   class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
-                    <i class="fas fa-edit mr-2"></i>
-                    Edit
-                </a>
-            </div>
-        </div>
+    {% url 'extractor:client_configuration_list' as list_url %}
+    {% url 'extractor:client_configuration_edit' configuration.id as edit_url %}
+    {% url 'extractor:wizard_start' as wizard_url %}
+    {% component "page_header" title=configuration.llm_model_name icon="fas fa-robot" subtitle=configuration.model_provider back_url=list_url back_text="Back to List" %}
+        {% fill "actions" %}
+            {% component "button" style="primary" icon="fas fa-plug" id="test-connection-btn" onclick="testConnection()" %}Test Connection{% endcomponent %}
+            {% component "button" style="info" href=edit_url icon="fas fa-edit" %}Edit{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-blue-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
+    {% with created_date=configuration.created_at|date:"M d, Y" %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {% component "stat_card" value=response_models.count label="Response Models" icon="fas fa-cogs" %}{% endcomponent %}
+        {% component "stat_card" value="Active" label="Status" icon="fas fa-check-circle" style="success" %}{% endcomponent %}
+        {% component "stat_card" value=created_date label="Created" icon="fas fa-calendar" style="accent" %}{% endcomponent %}
+    </div>
+    {% endwith %}
+
+    <div class="space-y-6">
+        {% component "card" title="Configuration Details" %}
+            {% fill "body" %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <p class="text-sm text-blue-600 font-medium">Response Models</p>
-                        <p class="text-2xl font-bold text-blue-900">{{ response_models.count }}</p>
+                        <p class="text-sm font-medium text-gray-500">Model Name</p>
+                        <p class="text-lg text-gray-800">{{ configuration.llm_model_name }}</p>
                     </div>
-                    <i class="fas fa-cogs text-3xl text-blue-400"></i>
-                </div>
-            </div>
-            
-            <div class="bg-green-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
+
                     <div>
-                        <p class="text-sm text-green-600 font-medium">Status</p>
-                        <p class="text-lg font-bold text-green-900">Active</p>
+                        <p class="text-sm font-medium text-gray-500">Provider</p>
+                        <p class="text-lg text-gray-800">{{ configuration.model_provider }}</p>
                     </div>
-                    <i class="fas fa-check-circle text-3xl text-green-400"></i>
-                </div>
-            </div>
-            
-            <div class="bg-purple-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
+
+                    <div class="md:col-span-2">
+                        <p class="text-sm font-medium text-gray-500">Base URL</p>
+                        <p class="text-lg text-gray-800 break-all">{{ configuration.model_base_url }}</p>
+                    </div>
+
                     <div>
-                        <p class="text-sm text-purple-600 font-medium">Created</p>
-                        <p class="text-lg font-bold text-purple-900">{{ configuration.created_at|date:"M d, Y" }}</p>
+                        <p class="text-sm font-medium text-gray-500">API Key</p>
+                        <p class="text-lg text-gray-800">
+                            <i class="fas fa-lock mr-2"></i>
+                            ••••••••••••••••
+                        </p>
                     </div>
-                    <i class="fas fa-calendar text-3xl text-purple-400"></i>
-                </div>
-            </div>
-        </div>
 
-        <div class="space-y-6">
-            <div>
-                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Configuration Details</h2>
-                
-                <div class="bg-gray-50 rounded-lg p-6 space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Model Name</p>
-                            <p class="text-lg text-gray-800">{{ configuration.llm_model_name }}</p>
-                        </div>
-                        
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Provider</p>
-                            <p class="text-lg text-gray-800">{{ configuration.model_provider }}</p>
-                        </div>
-                        
-                        <div class="md:col-span-2">
-                            <p class="text-sm font-medium text-gray-500">Base URL</p>
-                            <p class="text-lg text-gray-800 break-all">{{ configuration.model_base_url }}</p>
-                        </div>
-                        
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">API Key</p>
-                            <p class="text-lg text-gray-800">
-                                <i class="fas fa-lock mr-2"></i>
-                                ••••••••••••••••
-                            </p>
-                        </div>
-                        
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">API Key Expires</p>
-                            <p class="text-lg text-gray-800">
-                                {% if configuration.model_api_key_expires %}
-                                    <i class="fas fa-check text-green-600 mr-2"></i>
-                                    Yes ({{ configuration.model_api_key_validity|date:"M d, Y" }})
-                                {% else %}
-                                    <i class="fas fa-times text-gray-400 mr-2"></i>
-                                    No
-                                {% endif %}
-                            </p>
-                        </div>
-                        
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Created At</p>
-                            <p class="text-lg text-gray-800">{{ configuration.created_at|date:"M d, Y H:i" }}</p>
-                        </div>
-                        
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Last Updated</p>
-                            <p class="text-lg text-gray-800">{{ configuration.updated_at|date:"M d, Y H:i" }}</p>
-                        </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">API Key Expires</p>
+                        <p class="text-lg text-gray-800">
+                            {% if configuration.model_api_key_expires %}
+                                <i class="fas fa-check text-chavi-primary-600 mr-2"></i>
+                                Yes ({{ configuration.model_api_key_validity|date:"M d, Y" }})
+                            {% else %}
+                                <i class="fas fa-times text-gray-400 mr-2"></i>
+                                No
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Created At</p>
+                        <p class="text-lg text-gray-800">{{ configuration.created_at|date:"M d, Y H:i" }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Last Updated</p>
+                        <p class="text-lg text-gray-800">{{ configuration.updated_at|date:"M d, Y H:i" }}</p>
                     </div>
                 </div>
-            </div>
+            {% endfill %}
+        {% endcomponent %}
 
-            {% if response_models %}
-            <div>
-                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Response Models Using This Configuration</h2>
-                
-                <div class="bg-gray-50 rounded-lg p-6">
-                    <div class="space-y-3">
-                        {% for model in response_models %}
-                        <div class="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
-                            <div>
-                                <p class="font-semibold text-gray-800">{{ model.name }}</p>
-                                <p class="text-sm text-gray-600">Created: {{ model.created_at|date:"M d, Y" }}</p>
-                            </div>
-                            <a href="{% url 'extractor:response_model_detail' model.id %}" 
-                               class="text-chavi-primary hover:text-chavi-secondary transition-colors">
-                                <i class="fas fa-arrow-right"></i>
-                            </a>
+        {% if response_models %}
+        {% component "card" title="Response Models Using This Configuration" %}
+            {% fill "body" %}
+                <div class="space-y-3">
+                    {% for model in response_models %}
+                    <div class="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ model.name }}</p>
+                            <p class="text-sm text-gray-600">Created: {{ model.created_at|date:"M d, Y" }}</p>
                         </div>
-                        {% endfor %}
+                        {% url 'extractor:response_model_detail' model.id as model_url %}
+                        {% component "icon_button" style="primary" href=model_url icon="fas fa-arrow-right" aria_label="View response model" %}{% endcomponent %}
                     </div>
+                    {% endfor %}
                 </div>
-            </div>
-            {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endif %}
 
-            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <form method="post" action="{% url 'extractor:client_configuration_delete' configuration.id %}" 
-                      onsubmit="return confirm('Are you sure you want to delete this configuration? This action cannot be undone.');">
-                    {% csrf_token %}
-                    <button type="submit" 
-                            class="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md"
-                            {% if response_models.count > 0 %}disabled title="Cannot delete: configuration is in use"{% endif %}>
-                        <i class="fas fa-trash mr-2"></i>
-                        Delete Configuration
-                    </button>
-                </form>
-                
-                <a href="{% url 'extractor:wizard_start' %}" 
-                   class="bg-chavi-gradient text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                    <i class="fas fa-magic mr-2"></i>
-                    Create Response Model
-                </a>
+        {% component "card" %}
+            {% fill "body" %}
+            <div class="flex justify-between items-center">
+                <div>
+                    <form method="post" action="{% url 'extractor:client_configuration_delete' configuration.id %}"
+                          onsubmit="return confirm('Are you sure you want to delete this configuration? This action cannot be undone.');">
+                        {% csrf_token %}
+                        {% component "button" style="danger" type="submit" icon="fas fa-trash" disabled=response_models.count %}Delete Configuration{% endcomponent %}
+                    </form>
+                    {% if response_models.count > 0 %}
+                    <p class="text-xs text-gray-500 mt-1">Cannot delete: configuration is in use</p>
+                    {% endif %}
+                </div>
+                {% component "button" style="gradient" href=wizard_url icon="fas fa-magic" %}Create Response Model{% endcomponent %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
     </div>
 </div>
 
 <!-- Test Connection Modal -->
-<div id="test-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">
-            <i class="fas fa-plug text-chavi-primary mr-2"></i>
-            Testing API Connection
-        </h3>
-        <div id="test-content" class="mb-4">
+{% component "modal" modal_id="test-modal" extra_class="flex" %}
+    {% fill "title" %}
+        <i class="fas fa-plug text-chavi-primary mr-2"></i>
+        Testing API Connection
+    {% endfill %}
+    {% fill "body" %}
+        <div id="test-content">
             <div class="flex items-center justify-center py-8">
                 <i class="fas fa-spinner fa-spin text-4xl text-chavi-primary"></i>
             </div>
             <p class="text-center text-gray-600">Testing connection to API...</p>
         </div>
-        <div class="flex justify-end">
-            <button onclick="closeTestModal()" 
-                    class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
-                Close
-            </button>
-        </div>
-    </div>
-</div>
+    {% endfill %}
+    {% fill "footer" %}
+        {% component "button" style="secondary" onclick="closeTestModal()" %}Close{% endcomponent %}
+    {% endfill %}
+{% endcomponent %}
 
 <script>
 function getCookie(name) {
@@ -211,18 +157,18 @@ async function testConnection() {
     const modal = document.getElementById('test-modal');
     const content = document.getElementById('test-content');
     const btn = document.getElementById('test-connection-btn');
-    
+
     modal.classList.remove('hidden');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Testing...';
-    
+
     content.innerHTML = `
         <div class="flex items-center justify-center py-8">
             <i class="fas fa-spinner fa-spin text-4xl text-chavi-primary"></i>
         </div>
         <p class="text-center text-gray-600">Testing connection to API...</p>
     `;
-    
+
     try {
         const response = await fetch('{% url "extractor:client_configuration_test_connection" configuration.id %}', {
             method: 'POST',
@@ -231,7 +177,7 @@ async function testConnection() {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         const data = await response.json();
 
         const el = (tag, cls, text) => {
@@ -242,9 +188,9 @@ async function testConnection() {
         };
 
         const box = (ok) => {
-            const wrap = el('div', `border-l-4 p-4 mb-4 ${ok ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`);
+            const wrap = el('div', `border-l-4 p-4 mb-4 ${ok ? 'bg-chavi-primary-50 border-chavi-primary-500' : 'bg-chavi-peach-50 border-chavi-peach-500'}`);
             const row = el('div', 'flex items-start');
-            const icon = el('i', `fas ${ok ? 'fa-check-circle text-green-500' : 'fa-exclamation-circle text-red-500'} text-2xl mr-3`);
+            const icon = el('i', `fas ${ok ? 'fa-check-circle text-chavi-primary-500' : 'fa-exclamation-circle text-chavi-peach-500'} text-2xl mr-3`);
             const body = el('div', 'flex-1');
             row.append(icon, body);
             wrap.appendChild(row);
@@ -253,8 +199,8 @@ async function testConnection() {
 
         if (data.success) {
             const { wrap, body } = box(true);
-            body.appendChild(el('h4', 'text-green-800 font-semibold mb-2', data.message));
-            const list = el('div', 'text-sm text-green-700 space-y-1');
+            body.appendChild(el('h4', 'text-chavi-primary-800 font-semibold mb-2', data.message));
+            const list = el('div', 'text-sm text-chavi-primary-700 space-y-1');
             for (const [k, v] of [['Model', data.details.model], ['Provider', data.details.provider],
                                   ['Response Time', data.details.response_time], ['Status', data.details.status_code]]) {
                 const p = el('p');
@@ -266,19 +212,19 @@ async function testConnection() {
             content.replaceChildren(wrap);
         } else {
             const { wrap, body } = box(false);
-            body.appendChild(el('h4', 'text-red-800 font-semibold mb-2', data.message));
+            body.appendChild(el('h4', 'text-chavi-peach-800 font-semibold mb-2', data.message));
 
             if (data.details && data.details.endpoint) {
-                const div = el('div', 'mt-2 text-sm text-red-700');
+                const div = el('div', 'mt-2 text-sm text-chavi-peach-700');
                 const p = el('p');
                 p.appendChild(el('strong', null, 'Endpoint: '));
-                p.appendChild(el('code', 'bg-red-100 px-1 rounded', data.details.endpoint));
+                p.appendChild(el('code', 'bg-chavi-peach-100 px-1 rounded', data.details.endpoint));
                 div.appendChild(p);
                 body.appendChild(div);
             }
 
             if (data.details && data.details.troubleshooting) {
-                const div = el('div', 'mt-3 text-sm text-red-700');
+                const div = el('div', 'mt-3 text-sm text-chavi-peach-700');
                 div.appendChild(el('p', 'font-semibold mb-1', '💡 Troubleshooting:'));
                 const ul = el('ul', 'list-disc list-inside space-y-1');
                 for (const hint of data.details.troubleshooting) {
@@ -290,8 +236,8 @@ async function testConnection() {
 
             if (data.details && data.details.error) {
                 const det = el('details', 'mt-3');
-                det.appendChild(el('summary', 'text-sm text-red-700 cursor-pointer font-semibold', 'Technical Details'));
-                det.appendChild(el('pre', 'bg-red-100 p-2 rounded mt-2 text-xs overflow-x-auto', data.details.error));
+                det.appendChild(el('summary', 'text-sm text-chavi-peach-700 cursor-pointer font-semibold', 'Technical Details'));
+                det.appendChild(el('pre', 'bg-chavi-peach-100 p-2 rounded mt-2 text-xs overflow-x-auto', data.details.error));
                 body.appendChild(det);
             }
 
@@ -299,18 +245,18 @@ async function testConnection() {
         }
     } catch (error) {
         const wrap = document.createElement('div');
-        wrap.className = 'bg-red-50 border-l-4 border-red-500 p-4 mb-4';
+        wrap.className = 'bg-chavi-peach-50 border-l-4 border-chavi-peach-500 p-4 mb-4';
         const row = document.createElement('div');
         row.className = 'flex items-start';
         const icon = document.createElement('i');
-        icon.className = 'fas fa-exclamation-circle text-red-500 text-2xl mr-3';
+        icon.className = 'fas fa-exclamation-circle text-chavi-peach-500 text-2xl mr-3';
         const body = document.createElement('div');
         body.className = 'flex-1';
         const h = document.createElement('h4');
-        h.className = 'text-red-800 font-semibold mb-2';
+        h.className = 'text-chavi-peach-800 font-semibold mb-2';
         h.textContent = 'Connection Test Failed';
         const p = document.createElement('p');
-        p.className = 'text-sm text-red-700';
+        p.className = 'text-sm text-chavi-peach-700';
         p.textContent = error.message;
         body.append(h, p);
         row.append(icon, body);

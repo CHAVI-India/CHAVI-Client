@@ -7,7 +7,7 @@
 
     {# Existing client_app rows — collapsible, read-only #}
     {% for ex in node.existing %}
-    <details class="border border-gray-200 rounded-lg mb-2 bg-gray-50">
+    <!-- ui-lint:ok JS-coupled (record ids + data-review-record) --><details class="border border-gray-200 rounded-lg mb-2 bg-gray-50">
         <summary class="cursor-pointer px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
             <i class="fas fa-database mr-1"></i>existing <span title="{{ ex.pk }}">#{{ ex.pk|slice:":8" }}</span> <span class="italic">in database</span>
         </summary>
@@ -25,18 +25,18 @@
     {# Extracted staging records — collapsible cards #}
     <div class="space-y-3">
         {% for rec in node.records %}
-        <details id="record-{{ rec.record.id }}" class="border border-gray-200 rounded-lg bg-white" data-review-record="{{ rec.record.id }}" open>
-            <summary class="cursor-pointer px-4 py-2.5 flex items-center gap-2 flex-wrap text-sm hover:bg-blue-50 rounded-t-lg">
+        <!-- ui-lint:ok JS-coupled --><details id="record-{{ rec.record.id }}" class="border border-gray-200 rounded-lg bg-white" data-review-record="{{ rec.record.id }}" open>
+            <summary class="cursor-pointer px-4 py-2.5 flex items-center gap-2 flex-wrap text-sm hover:bg-chavi-charcoal-50 rounded-t-lg">
                 <span class="font-semibold text-gray-800">
                     <i class="fas fa-file-lines mr-1 text-chavi-primary"></i>rec{{ rec.record.record_index }}
                 </span>
                 <span class="text-gray-400">{{ rec.source|truncatechars:30 }}</span>
                 {% if rec.created_pk %}
-                <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold" title="{{ rec.created_pk }}">created #{{ rec.created_pk|slice:":8" }}</span>
+                <span title="{{ rec.created_pk }}">{% component "badge" style="success" %}created #{{ rec.created_pk|slice:":8" }}{% endcomponent %}</span>
                 {% else %}
-                {% if rec.dup_count %}<span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-semibold">⚠ {{ rec.dup_count }} possible dup{{ rec.dup_count|pluralize }}</span>{% endif %}
-                {% if rec.state.unreviewed %}<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ rec.state.unreviewed }} unreviewed</span>{% endif %}
-                {% if rec.state.unresolved %}<span class="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">{{ rec.state.unresolved }} unresolved</span>{% endif %}
+                {% if rec.dup_count %}{% component "badge" style="accent" icon="fas fa-exclamation-triangle" %}{{ rec.dup_count }} possible dup{{ rec.dup_count|pluralize }}{% endcomponent %}{% endif %}
+                {% if rec.state.unreviewed %}{% component "badge" style="gray" %}{{ rec.state.unreviewed }} unreviewed{% endcomponent %}{% endif %}
+                {% if rec.state.unresolved %}{% component "badge" style="warning" %}{{ rec.state.unresolved }} unresolved{% endcomponent %}{% endif %}
                 {% endif %}
             </summary>
             <div class="px-4 pb-4 border-t border-gray-100 pt-3">

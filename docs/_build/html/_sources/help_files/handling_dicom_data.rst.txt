@@ -1,93 +1,45 @@
 Handling DICOM Data
 ====================
 
-The CHAVI client allows users to handle DICOM data in the following ways:
+The CHAVI client lets you get DICOM data (medical scans) into the system in these ways:
 
-1. Importing DICOM data for a specific Patient
-2. Importing DICOM data for multiple patients at once
+1. Uploading a ZIP file of scans for one or more patients
+2. Fetching scans directly from your hospital's imaging system (see :doc:`dicom_retrieval`)
+3. Receiving scans sent by the imaging system on its own
 
-Single Patient Import
+Uploading a ZIP file
 ---------------------
 
-When to use: This method is to be used when single / multiple studies are to be uploaded for a single patient but the patient ID in these studies are not necessarily same. For example, your institute may have different ID conventions used. Or patients may have had imaging done at different centers. In these situations it is important to ensure that the patient ID is properly matched. The single patient upload system ensures that patient ID in all uploaded DICOM studies matches the patient ID against which the DICOM data is being uploaded.
-
-Caution: Do ensure that the data being uploaded belongs to a single patient.
+This is the usual way to add scans. The ZIP can hold studies for many patients at once.
 
 Steps:
 ^^^^^^
 
-#. Navigate to the link titled - DICOM file uploade (Patient wise) in the Django Admin interface
-#. Click the purple add button at the top right corner to add a new instance. 
-#. Select the patient from the dropdown menu
-#. Upload a ZIP file containing the DICOM studies
-   
-   * Only ZIP files are accepted
-   * All DICOM studies in the ZIP must belong to the same patient
-   * Multiple studies for the same patient can be included
+#. Click **Data Import → DICOM Upload** in the top menu.
+#. Select or drag in your ZIP file and click **Upload and Analyze**. The system reads every study inside and works out which patient each belongs to.
+#. On the **Match Studies** page, review the automatic matches. For any study that could not be matched, pick the right patient from the list yourself. Studies that still have no match are set aside in an unprocessed area — nothing is filed under the wrong patient.
+#. On the **Confirm** page, check everything once more and confirm.
+#. The files are saved under each patient and their study details recorded. The **Complete** page sums up what was done.
 
-#. Save the upload. Once the upload is completed the page will bring you back to the list page.
-#. Select the uploaded file from the list. Processing status will be shown in the table. 
-#. In the bar that appears at the bottom, select the "Extract and Process DICOM File and extract metadata" action.
+You can revisit any past upload under **Data Import → DICOM Sessions**.
 
-Processing Details:
-^^^^^^^^^^^^^^^^^
+.. tip::
+   For a large batch, keep the ZIP to a few GB at most so the upload does not time out.
 
-The system will:
+Fetching and receiving scans
+-----------------------------
 
-* Extract all DICOM files from the ZIP
-* Verify and standardize the Patient ID in DICOM metadata
-* Create a directory structure: ``Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm``
-* Extract and store study information in the database:
-   
-   * Study Instance UID
-   * Study Date
-   * Study Description
-   * Series Descriptions
-   * Folder path
+If your site's DICOM server is set up, you do not need ZIP files at all — the system can pull a patient's scans from the imaging system, and the imaging system can send scans in on its own. See :doc:`dicom_retrieval` and :doc:`dicom_server_setup`.
 
-After that the folder will be zipped. The zipped file is ready for de-identification.
+Uploading through the admin area
+---------------------------------
 
-Bulk DICOM Upload
-----------------
+Staff can also upload through the Django admin interface, which works a little differently:
 
-This method allows uploading DICOM studies for multiple patients simultaneously. This method should be used when you have patient ID in the proper format and can be used to upload imaging data for multiple patients at once. 
+* **Patient DICOM Files** (single patient) — pick the patient, upload the ZIP, save, then run the "Extract and Process DICOM File and extract metadata" action from the list page. The patient's ID inside the scans is standardised to match the record you chose.
+* **Bulk DICOM File Upload** (many patients) — upload the ZIP, save, then run the "Process Bulk DICOM Files" action. Studies whose patient ID does not match anyone in the system are moved to an unprocessed folder rather than rejected outright.
 
-Caution: This method does not check for the patient ID and therefore if a patient ID is not matched it will not be processed. 
-
-Steps:
-^^^^^^
-
-#. Navigate to the link titled - Bulk DICOM File Upload in the Django Admin interface.
-#. Click the purple add button at the top right corner to add a new instance. 
-#. Upload a ZIP file containing the DICOM studies
-   
-   * Only ZIP files are accepted
-   * Multiple studies for the same patient can be included
-   * Multiple studies can be included for multiple patients
-   * Keep the uploaded file size to 1 GB or less to ensure that the system does not give a timeout.
-
-#. Save the upload. Once the upload is completed the page will bring you back to the list page.
-#. Select the uploaded file from the list. Processing status will be shown in the table. 
-#. In the bar that appears at the bottom, select the "Process Bulk DICOM Files" action.
-
-Processing Details:
-^^^^^^^^^^^^^^^^^
-
-The system will:
-
-* Extract all DICOM files from the ZIP
-* Match the patient ID to existing patient IDs in the system. Please note that this will be an exact match and if the match is not found the dicom data will be moved to an unprocessed dicom folder.
-* Create a directory structure: ``Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm``
-* Extract and store study information in the database:
-   
-   * Study Instance UID
-   * Study Date
-   * Study Description
-   * Series Descriptions
-   * Folder path
-
-After that the folder will be zipped. The zipped file is ready for de-identification.   
-
+In both cases the system stores the files as ``Patient_ID/Study/Series`` and records the study details (date, description, series descriptions) in the database.
 
 Associate DICOM studies with Project
 ---------------------------------------
@@ -108,22 +60,20 @@ The DICOM studies associated with a project will now appear in the page titled "
 Adding Study Type information
 -----------------------------
 
-DICOM study may be done for various reasons. This feature allows you to manually specify this for each individual DICOM study. 
-The following study types are avaialble:
+A DICOM study may be done for various reasons — before treatment, for planning, to check the treatment, and so on. Each study has a study type to record this.
 
-#. Pre-treatment Diagnostic image: These will diagnostic images acquired before the start of the treatment.
-#. Planning image: These will be images acquired for the plannning process including simulation CT, simuation x-rays and planning MR or PET.
-#. On treatment verification image: These will be images acquired during the treatment to verify the delivery of the treatment. Examples include portal films, CBCT, EPID, Cine images etc
-#. Planning image for adaptive treatment: These will be images acquired for planning adaptive treatment. Note that in some situations, a image may be an On treatment verification image as well as a planning image for adaptive treatment.
-#. Post-treatment Therapy response image: These will be images acquired after the treatment to evaluate the response to the treatment.
-#. Therapy delivery image: These will be images acquired during the treatment to evaluate the delivery of the treatment. Examples are images acquired after radionuclide treatment or transit dosimetry images.
-#. Therapy QA image: These will be images acquired during the treatment to evaluate the quality of the treatment. These would include images like QA films, portal dosimetry images, 3D array dosimetry images etc.
-#. Post-treatment Diagnostic image: These will be images acquired after the treatment to evaluate the final state of the treatment.
-#. Other: These will be images acquired for other purposes.
+Most studies get their type automatically: the system looks at the scan's details (its modality and descriptions, and when it was taken relative to treatment) and picks the best fit. Administrators manage these rules under "Study type rules" in the admin area — rules are tried in priority order and the first match wins.
 
-You can select the study type from the dropdown and then click on the Save button that appears at the bottom right to save this information. 
+You can always set the type yourself: pick it from the dropdown on the study and save. A type you set by hand is never overwritten by the automatic rules.
 
+The following study types are available:
 
-
-
-
+#. Pre-treatment Diagnostic image: diagnostic images acquired before the start of the treatment.
+#. Planning image: images acquired for the planning process including simulation CT, simulation x-rays and planning MR or PET.
+#. On treatment verification image: images acquired during the treatment to verify the delivery of the treatment. Examples include portal films, CBCT, EPID, Cine images etc.
+#. Planning image for adaptive treatment: images acquired for planning adaptive treatment. Note that in some situations, an image may be an On treatment verification image as well as a planning image for adaptive treatment.
+#. Post-treatment Therapy response image: images acquired after the treatment to evaluate the response to the treatment.
+#. Therapy delivery image: images acquired during the treatment to evaluate the delivery of the treatment. Examples are images acquired after radionuclide treatment or transit dosimetry images.
+#. Therapy QA image: images acquired during the treatment to evaluate the quality of the treatment. These would include images like QA films, portal dosimetry images, 3D array dosimetry images etc.
+#. Post-treatment Diagnostic image: images acquired after the treatment to evaluate the final state of the treatment.
+#. Other: images acquired for other purposes.

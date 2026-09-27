@@ -13,25 +13,23 @@ Please note that the organization of the data may be different from the usual wa
 
 
 
-
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting started
 
    help_files/about
    help_files/installation
    help_files/docker_installation
    help_files/configuration
    help_files/tfa
+   help_files/getting_around
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Entering patient data
+
    help_files/example_data_entry_scenarios
-   help_files/handling_dicom_data
    help_files/suggested_data_entry_flow
-   help_files/database_backup
-   help_files/import_data
-   help_files/clinical_data_import
-   help_files/dicom_data_import
-   help_files/lookup_data
-   help_files/lookup_tables
    help_files/patient_demographics
    help_files/diagnosis
    help_files/lesion
@@ -62,6 +60,29 @@ Please note that the organization of the data may be different from the usual wa
    help_files/gene_expression_data
    help_files/patient_assessment
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Bringing data in
+
+   help_files/csv_import_wizard
+   help_files/import_data
+   help_files/clinical_data_import
+   help_files/handling_dicom_data
+   help_files/dicom_data_import
+   help_files/dicom_retrieval
+   help_files/automatic_data_extraction
+   help_files/lookup_data
+   help_files/lookup_tables
+
+.. toctree::
+   :maxdepth: 2
+   :caption: For administrators
+
+   help_files/dicom_server_setup
+   help_files/deidentification
+   help_files/legacy_mapping_import
+   help_files/extraction_setup
+   help_files/database_backup
 
 Indices and tables
 ==================

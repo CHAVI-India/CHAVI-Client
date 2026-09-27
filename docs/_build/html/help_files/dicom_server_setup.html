@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Setting Up the DICOM Server &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=647ec7c0" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="De-identifying Patient Data" href="deidentification.html" />
+    <link rel="prev" title="Lookup Tables in CHAVI client" href="lookup_tables.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="deidentification.html" title="De-identifying Patient Data"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="lookup_tables.html" title="Lookup Tables in CHAVI client"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Setting Up the DICOM Server</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="setting-up-the-dicom-server">
+<h1>Setting Up the DICOM Server<a class="headerlink" href="#setting-up-the-dicom-server" title="Link to this heading">¶</a></h1>
+<p>The DICOM server lets the CHAVI client receive scans from other imaging systems and fetch scans from them. Everything on this page needs staff access.</p>
+<section id="what-the-server-does">
+<h2>What the server does<a class="headerlink" href="#what-the-server-does" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Accepts scans sent to it by imaging systems — but only for patients who are already registered. Scans for anyone else are turned away.</p></li>
+<li><p>Lets staff pull a patient’s scans in from a remote imaging system (see <a class="reference internal" href="dicom_retrieval.html"><span class="doc">Getting Scans from the Hospital Imaging System</span></a>).</p></li>
+<li><p>Can check remote systems for new scans on a schedule.</p></li>
+</ul>
+</section>
+<section id="server-settings">
+<h2>Server settings<a class="headerlink" href="#server-settings" title="Link to this heading">¶</a></h2>
+<p>On the DICOM Server page, click <strong>Edit configuration</strong> (staff only). You can change:</p>
+<ul class="simple">
+<li><p><strong>AE Title</strong> — the name this server calls itself when talking to other systems (up to 16 characters, letters and numbers)</p></li>
+<li><p><strong>Port</strong> and <strong>Bind address</strong> — where the server listens for incoming scans</p></li>
+<li><p><strong>Max PDU</strong> — the largest message size it will accept (usually leave as-is)</p></li>
+<li><p><strong>Query/retrieve timeout</strong> — how long to wait for a remote system to answer</p></li>
+<li><p><strong>Storage</strong> — switch accepting scans on or off</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Changes to the name, address or port only take effect after the DICOM server is restarted. The port here must match the port the server actually runs on — ask whoever manages the server before changing it.</p>
+</div>
+</section>
+<section id="remote-nodes">
+<h2>Remote nodes<a class="headerlink" href="#remote-nodes" title="Link to this heading">¶</a></h2>
+<p>A remote node is an outside imaging system, for example your hospital’s PACS. Staff manage these under <strong>Manage nodes</strong> on the DICOM Server page.</p>
+<p>For each node you set:</p>
+<ul class="simple">
+<li><p><strong>Name</strong> — a friendly label, like “Hospital PACS”</p></li>
+<li><p><strong>AE Title</strong>, <strong>Host</strong> and <strong>Port</strong> — how to reach it</p></li>
+<li><p><strong>Active</strong> — untick to pause a node without deleting it</p></li>
+<li><p><strong>Prefer C-GET</strong> — tick this when the remote system cannot open a connection back to this server, for example when this server is behind a firewall or NAT. When in doubt, tick it.</p></li>
+</ul>
+<p>The <strong>Echo</strong> button next to each node tests the connection — use it after adding a node to check the details are right.</p>
+</section>
+<section id="fetching-scans-automatically">
+<h2>Fetching scans automatically<a class="headerlink" href="#fetching-scans-automatically" title="Link to this heading">¶</a></h2>
+<p>Each node can be told to check for new scans on its own:</p>
+<ul class="simple">
+<li><p>Tick <strong>automatic retrieval</strong> on the node.</p></li>
+<li><p>Set the schedule using the five time fields (minute, hour, day of week, day of month, month). The default, <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">22</span> <span class="pre">*</span> <span class="pre">*</span> <span class="pre">*</span></code>, means “every night at 10pm”. An asterisk means “every”.</p></li>
+<li><p><strong>Minimum interval</strong> stops the same patient being checked too often.</p></li>
+<li><p><strong>Batch size</strong> controls how many patients are handled in one go — leave it unless the system feels slow.</p></li>
+</ul>
+<p>When a patient’s consent is first recorded, the system also fetches their scans right away from every active, automatic node.</p>
+</section>
+<section id="patient-id-aliases">
+<h2>Patient ID aliases<a class="headerlink" href="#patient-id-aliases" title="Link to this heading">¶</a></h2>
+<p>Hospitals sometimes use a different ID for the same patient on their imaging system. An <strong>alias</strong> tells this server “patient X here is patient Y over there”. Aliases are managed in the admin area, on the remote node or the patient record — the fetch will then also look for the other ID.</p>
+</section>
+<section id="received-scans">
+<h2>Received scans<a class="headerlink" href="#received-scans" title="Link to this heading">¶</a></h2>
+<p>Every scan that arrives is recorded and can be seen in the admin area, including ones that were turned away. This is the place to check if a scan you expected never showed up.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Setting Up the DICOM Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-the-server-does">What the server does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#server-settings">Server settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#remote-nodes">Remote nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fetching-scans-automatically">Fetching scans automatically</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#patient-id-aliases">Patient ID aliases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#received-scans">Received scans</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="lookup_tables.html"
+                          title="previous chapter">Lookup Tables in CHAVI client</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="deidentification.html"
+                          title="next chapter">De-identifying Patient Data</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/dicom_server_setup.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="deidentification.html" title="De-identifying Patient Data"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="lookup_tables.html" title="Lookup Tables in CHAVI client"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Setting Up the DICOM Server</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

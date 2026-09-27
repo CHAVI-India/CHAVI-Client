@@ -1,0 +1,20 @@
+{# Table — slots: head, body (default), empty #}
+<div class="overflow-x-auto{% if not bare %} bg-white rounded-lg shadow-md{% endif %} {{ extra_class }}">
+    <table class="chavi-table {% if width == 'auto' %}w-auto{% else %}min-w-full{% endif %} divide-y divide-gray-200">
+        <thead>
+            <tr>
+                {% slot "head" %}{% endslot %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% slot "body" %}{% endslot %}
+            {% if component_vars.is_filled.empty %}
+            <tr>
+                <td colspan="{{ colspan|default:12 }}" class="{% if compact %}px-4 py-3{% else %}px-6 py-8{% endif %} text-center text-gray-500">
+                    {% slot "empty" %}{% endslot %}
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

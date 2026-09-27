@@ -4,127 +4,85 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
+    {% url 'extractor:response_model_list' as rm_url %}
+    {% url 'extractor:wizard_start' as wizard_url %}
+    {% component "page_header" title="Instructor Messages (Prompts)" icon="fas fa-comment-dots" subtitle="Manage the prompts sent to the LLM for each response model. Messages are sent in order, lowest first." %}
+        {% fill "actions" %}
+            {% component "button" style="secondary" href=rm_url icon="fas fa-project-diagram" %}Response Models{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% if response_models %}
+    <div class="space-y-6">
+        {% for model in response_models %}
+        {% url 'extractor:instructor_message_create' model.id as add_url %}
+        {% component "card" %}
+            {% fill "header" %}
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-comment-dots text-chavi-primary mr-2"></i>
-                    Instructor Messages (Prompts)
-                </h1>
-                <p class="text-gray-600 mt-2">
-                    Manage the prompts sent to the LLM for each response model. Messages are sent in order, lowest first.
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <a href="{% url 'extractor:response_model_detail' model.id %}" class="hover:text-chavi-primary transition-colors">
+                        {{ model.name }}
+                    </a>
+                </h3>
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-robot mr-1"></i>
+                    {{ model.client.llm_model_name }} ({{ model.client.model_provider }})
                 </p>
             </div>
-            <a href="{% url 'extractor:response_model_list' %}"
-               class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors shadow-md">
-                <i class="fas fa-project-diagram mr-2"></i>
-                Response Models
-            </a>
-        </div>
-
-        <!-- Messages -->
-        {% if messages %}
-        <div class="mb-6">
-            {% for message in messages %}
-            <div class="{% if message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} border px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline">{{ message }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if response_models %}
-        <div class="space-y-6">
-            {% for model in response_models %}
-            <div class="border border-gray-200 rounded-lg p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 class="text-xl font-semibold text-gray-800">
-                            <a href="{% url 'extractor:response_model_detail' model.id %}" class="hover:text-chavi-primary transition-colors">
-                                {{ model.name }}
-                            </a>
-                        </h2>
-                        <p class="text-sm text-gray-500">
-                            <i class="fas fa-robot mr-1"></i>
-                            {{ model.client.llm_model_name }} ({{ model.client.model_provider }})
-                        </p>
-                    </div>
-                    <a href="{% url 'extractor:instructor_message_create' model.id %}"
-                       class="bg-chavi-gradient text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm shadow-md">
-                        <i class="fas fa-plus mr-2"></i>
-                        Add Message
-                    </a>
-                </div>
-
+            {% endfill %}
+            {% fill "actions" %}
+                {% component "button" style="primary" size="sm" href=add_url icon="fas fa-plus" %}Add Message{% endcomponent %}
+            {% endfill %}
+            {% fill "body" %}
                 {% if model.instructormessage_set.all %}
                 <div class="space-y-3">
                     {% for message in model.instructormessage_set.all %}
                     <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div class="flex items-start justify-between mb-2">
                             <div class="flex items-center space-x-3">
-                                <span class="px-3 py-1 rounded-full text-xs font-semibold
-                                    {% if message.role == 'system' %}bg-purple-100 text-purple-800
-                                    {% else %}bg-blue-100 text-blue-800{% endif %}">
-                                    <i class="fas fa-{% if message.role == 'system' %}cog{% else %}user{% endif %} mr-1"></i>
-                                    {{ message.get_role_display }}
-                                </span>
-                                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                                    #{{ message.order }}
-                                </span>
+                                {% if message.role == 'system' %}
+                                    {% component "badge" style="accent" icon="fas fa-cog" %}{{ message.get_role_display }}{% endcomponent %}
+                                {% else %}
+                                    {% component "badge" style="info" icon="fas fa-user" %}{{ message.get_role_display }}{% endcomponent %}
+                                {% endif %}
+                                {% component "badge" style="gray" %}#{{ message.order }}{% endcomponent %}
                                 <span class="text-xs text-gray-500">
                                     {{ message.created_at|date:"M d, Y H:i" }}
                                 </span>
                             </div>
                             <div class="flex items-center space-x-3">
-                                <a href="{% url 'extractor:instructor_message_edit' message.id %}"
-                                   class="text-chavi-primary hover:text-chavi-secondary text-sm"
-                                   title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                {% url 'extractor:instructor_message_edit' message.id as edit_url %}
+                                {% component "icon_button" style="primary" size="sm" href=edit_url icon="fas fa-edit" aria_label="Edit" title="Edit" %}{% endcomponent %}
                                 <form method="POST" action="{% url 'extractor:instructor_message_delete' message.id %}"
                                       onsubmit="return confirm('Are you sure you want to delete this instructor message?\n\nThis action cannot be undone.');"
                                       class="inline">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{% url 'extractor:instructor_message_list' %}">
-                                    <button type="submit"
-                                            class="text-red-600 hover:text-red-800 text-sm"
-                                            title="Delete">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    {% component "icon_button" style="danger" size="sm" type="submit" icon="fas fa-trash" aria_label="Delete" title="Delete" %}{% endcomponent %}
                                 </form>
                             </div>
                         </div>
-                        <div class="bg-gray-50 rounded-lg p-3">
-                            <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">{% if message.prompt.content %}{{ message.prompt.content|truncatechars:400 }}{% else %}{{ message.prompt|truncatechars:400 }}{% endif %}</pre>
-                        </div>
+                        {% component "code_block" %}{% if message.prompt.content %}{{ message.prompt.content|truncatechars:400 }}{% else %}{{ message.prompt|truncatechars:400 }}{% endif %}{% endcomponent %}
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                    <p class="text-yellow-800 text-sm">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>
-                        No prompts configured for this response model.
-                    </p>
-                </div>
+                {% component "alert" style="warning" icon="fas fa-exclamation-triangle" %}
+                    {% fill "default" %}No prompts configured for this response model.{% endfill %}
+                {% endcomponent %}
                 {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-600 mb-2">No Response Models Yet</h3>
-            <p class="text-gray-500 mb-6">
-                Instructor messages are attached to response models. Create a response model first.
-            </p>
-            <a href="{% url 'extractor:wizard_start' %}"
-               class="inline-block bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                <i class="fas fa-hat-wizard mr-2"></i>
-                Start Wizard
-            </a>
-        </div>
-        {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endfor %}
     </div>
+    {% else %}
+    {% component "card" %}{% fill "body" %}
+        {% component "empty_state" title="No Response Models Yet" description="Instructor messages are attached to response models. Create a response model first." %}
+            {% fill "action" %}
+                {% component "button" style="primary" href=wizard_url icon="fas fa-hat-wizard" %}Start Wizard{% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
+    {% endfill %}{% endcomponent %}
+    {% endif %}
 </div>
 {% endblock %}

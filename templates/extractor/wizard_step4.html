@@ -4,104 +4,75 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-check-circle text-chavi-primary mr-2"></i>
-                    Step 4: Review & Build
-                </h1>
-                <span class="text-sm text-gray-500">Step 4 of 4</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-chavi-gradient h-2 rounded-full" style="width: 100%"></div>
-            </div>
-            <p class="text-gray-600 mt-4">
-                Response Model: <strong>{{ response_model.name }}</strong>
-            </p>
-        </div>
+    {% url 'extractor:wizard_step3' response_model.id as back_url %}
+    {% with subtitle_text="Step 4 of 4 · Response Model: "|add:response_model.name %}
+    {% component "page_header" title="Step 4: Review & Build" icon="fas fa-check-circle" subtitle=subtitle_text %}{% endcomponent %}
+    {% endwith %}
 
-        {% if validation_result.errors %}
-        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-circle text-red-500"></i>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">Validation Errors</h3>
-                    <div class="mt-2 text-sm text-red-700">
-                        <ul class="list-disc list-inside space-y-1">
-                            {% for error in validation_result.errors %}
-                            <li>{{ error }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+    {% component "stepper" labels="Name & Client,Select Tables,Select Fields,Review & Build" current=3 extra_class="mb-8" %}{% endcomponent %}
 
-        {% if validation_result.warnings %}
-        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-triangle text-yellow-500"></i>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-yellow-800">Warnings</h3>
-                    <div class="mt-2 text-sm text-yellow-700">
-                        <ul class="list-disc list-inside space-y-1">
-                            {% for warning in validation_result.warnings %}
-                            <li>{{ warning }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+    {% if validation_result.errors %}
+    {% component "alert" style="danger" %}
+        {% fill "title" %}Validation Errors{% endfill %}
+        {% fill "default" %}
+        <ul class="list-disc list-inside space-y-1">
+            {% for error in validation_result.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
 
-        {% if validation_result.valid %}
-        <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-check-circle text-green-500"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-green-700">
-                        Configuration is valid and ready to use!
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+    {% if validation_result.warnings %}
+    {% component "alert" style="warning" %}
+        {% fill "title" %}Warnings{% endfill %}
+        {% fill "default" %}
+        <ul class="list-disc list-inside space-y-1">
+            {% for warning in validation_result.warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
 
+    {% if validation_result.valid %}
+    {% component "alert" style="success" %}
+        {% fill "default" %}Configuration is valid and ready to use!{% endfill %}
+    {% endcomponent %}
+    {% endif %}
+
+    {% component "card" %}
+    {% fill "body" %}
         <div class="space-y-6">
             <div>
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">Configuration Summary</h2>
-                
+
                 {% for table_summary in tables_summary %}
+                {% with table_name=table_summary.table.database_table.clientapp_content_type.model|title %}
                 <div class="border border-gray-200 rounded-lg p-4 mb-4">
                     <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
                         <i class="fas fa-table text-chavi-primary mr-2"></i>
-                        {{ table_summary.table.database_table.clientapp_content_type.model|title }}
+                        {{ table_name }}
                     </h3>
-                    
+
                     <div class="bg-gray-50 rounded p-3">
                         <p class="text-sm font-medium text-gray-700 mb-2">Selected Fields ({{ table_summary.fields|length }}):</p>
                         <div class="flex flex-wrap gap-2">
                             {% for field in table_summary.fields %}
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-white border border-gray-300">
+                            {% component "badge" style="gray" extra_class="px-3 py-1 text-sm font-normal bg-white border border-gray-300" %}
                                 {{ field.field.clientapp_field_name }}
                                 <span class="ml-2 text-xs text-gray-500">({{ field.field.get_field_type_display }})</span>
                                 {% if field.field.lookup_field %}
-                                <i class="fas fa-link text-blue-500 text-xs ml-1" title="Lookup field"></i>
+                                <i class="fas fa-link text-chavi-charcoal-500 text-xs ml-1" title="Lookup field"></i>
                                 {% endif %}
-                            </span>
+                            {% endcomponent %}
                             {% endfor %}
                         </div>
                     </div>
                 </div>
+                {% endwith %}
                 {% empty %}
                 <p class="text-gray-500">No tables configured.</p>
                 {% endfor %}
@@ -111,7 +82,7 @@
             <div>
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">Generated Pydantic Model</h2>
                 <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                    <pre class="text-sm text-gray-100"><code>{{ pydantic_code }}</code></pre>
+                    {% component "code_block" variant="dark" max_height="max-h-none" %}<code>{{ pydantic_code }}</code>{% endcomponent %}
                 </div>
                 <p class="text-sm text-gray-600 mt-2">
                     <i class="fas fa-info-circle mr-1"></i>
@@ -122,27 +93,15 @@
 
             <form method="post" class="flex justify-between items-center pt-6 border-t border-gray-200">
                 {% csrf_token %}
-                <a href="{% url 'extractor:wizard_step3' response_model.id %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back
-                </a>
+                {% component "back_link" href=back_url %}Back{% endcomponent %}
                 {% if validation_result.valid %}
-                <button type="submit" 
-                        class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
-                    <i class="fas fa-check mr-2"></i>
-                    Complete Configuration
-                </button>
+                {% component "button" style="primary" type="submit" size="lg" icon="fas fa-check" %}Complete Configuration{% endcomponent %}
                 {% else %}
-                <button type="button" 
-                        disabled
-                        class="bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold cursor-not-allowed shadow-md">
-                    <i class="fas fa-times mr-2"></i>
-                    Fix Errors to Continue
-                </button>
+                {% component "button" style="secondary" size="lg" icon="fas fa-times" disabled=True %}Fix Errors to Continue{% endcomponent %}
                 {% endif %}
             </form>
         </div>
-    </div>
+    {% endfill %}
+    {% endcomponent %}
 </div>
 {% endblock %}

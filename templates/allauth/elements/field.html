@@ -1,0 +1,53 @@
+{% load allauth %}
+{{ attrs.errors }}
+<div class="mb-4 aa-field">
+    {% if attrs.type == "textarea" %}
+        <label for="{{ attrs.id }}" class="block text-sm font-medium text-gray-700 mb-1">
+            {% slot label %}
+            {% endslot %}
+        </label>
+        <textarea class="w-full px-3 py-2 text-sm border border-chavi-charcoal-200 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary"
+                  {% if attrs.required %}required{% endif %}
+                  {% if attrs.rows %}rows="{{ attrs.rows }}"{% endif %}
+                  {% if attrs.disabled %}disabled{% endif %}
+                  {% if attrs.readonly %}readonly{% endif %}
+                  {% if attrs.checked %}checked{% endif %}
+                  {% if attrs.name %}name="{{ attrs.name }}"{% endif %}
+                  {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+                  {% if attrs.placeholder %}placeholder="{{ attrs.placeholder }}"{% endif %}>{% slot value %}{% endslot %}</textarea>
+    {% else %}
+        {% if attrs.type != "checkbox" and attrs.type != "radio" %}
+            <label for="{{ attrs.id }}" class="block text-sm font-medium text-gray-700 mb-1">
+                {% slot label %}
+                {% endslot %}
+            </label>
+        {% endif %}
+        <input {% if attrs.type == "checkbox" or attrs.type == "radio" %}
+                   class="rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary"
+               {% else %}
+                   class="w-full px-3 py-2 text-sm border border-chavi-charcoal-200 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary"
+               {% endif %}
+               {% if attrs.required %}required{% endif %}
+               {% if attrs.disabled %}disabled{% endif %}
+               {% if attrs.readonly %}readonly{% endif %}
+               {% if attrs.checked %}checked{% endif %}
+               {% if attrs.name %}name="{{ attrs.name }}"{% endif %}
+               {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+               {% if attrs.placeholder %}placeholder="{{ attrs.placeholder }}"{% endif %}
+               {% if attrs.autocomplete %}autocomplete="{{ attrs.autocomplete }}"{% endif %}
+               {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}
+               type="{{ attrs.type }}">
+        {% if attrs.type == "checkbox" or attrs.type == "radio" %}
+            <label for="{{ attrs.id }}" class="ml-2 text-sm text-gray-700">
+                {% slot label %}
+                {% endslot %}
+            </label>
+        {% endif %}
+    {% endif %}
+    {% if slots.help_text %}
+        <p class="mt-1 text-xs text-gray-500">
+            {% slot help_text %}
+            {% endslot %}
+        </p>
+    {% endif %}
+</div>

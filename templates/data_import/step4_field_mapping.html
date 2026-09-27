@@ -4,83 +4,47 @@
 {% block extra_css %}
 {{ block.super }}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<style>
-    .select2-container--default .select2-selection--multiple {
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-        min-height: 38px !important;
-        max-height: 120px;
-        overflow-y: auto;
-    }
-    .select2-container--default.select2-container--focus .select2-selection--multiple {
-        border-color: #667eea;
-        box-shadow: 0 0 0 1px #667eea;
-    }
-    .select2-container--default .select2-selection--multiple .select2-selection__choice {
-        background-color: #667eea;
-        border-color: #667eea;
-        color: white;
-        padding: 2px 8px;
-        margin: 2px;
-    }
-    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-        color: white;
-        margin-right: 5px;
-    }
-    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
-        color: #fee;
-    }
-    .select2-dropdown {
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-    }
-    .select2-container--default .select2-results__option--highlighted[aria-selected] {
-        background-color: #667eea;
-    }
-</style>
+
 {% endblock %}
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+    {% component "info_box" style="info" %}
+        {% fill "title" %}How to Map Fields{% endfill %}
+        {% fill "default" %}
+            <p class="mb-3">
+                Connect your CSV columns to the database fields where the data should be stored. You can map multiple CSV columns to a single field for wide-format data.
+            </p>
+            <div class="bg-chavi-charcoal-100 rounded-lg p-3 text-xs text-chavi-charcoal-800">
+                <p class="font-semibold mb-2">Examples:</p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><strong>Simple mapping:</strong> CSV column "PatientID" → Patient.patient_id field</li>
+                    <li><strong>Wide format:</strong> CSV columns "Diabetes", "Hypertension", "Asthma" → Comorbidity.comorbidity_type field (creates 3 separate records)</li>
+                    <li><strong>Date mapping:</strong> CSV column "DOB" → Patient.date_of_birth field</li>
+                </ul>
+                <p class="mt-2 italic">💡 Tip: Use Ctrl+Click (or Cmd+Click on Mac) to select multiple columns</p>
             </div>
-            <div class="ml-3">
-                <h4 class="text-sm font-semibold text-blue-900 mb-2">How to Map Fields</h4>
-                <p class="text-sm text-blue-700 mb-3">
-                    Connect your CSV columns to the database fields where the data should be stored. You can map multiple CSV columns to a single field for wide-format data.
-                </p>
-                <div class="bg-blue-100 rounded p-3 text-xs text-blue-800">
-                    <p class="font-semibold mb-2">Examples:</p>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li><strong>Simple mapping:</strong> CSV column "PatientID" → Patient.patient_id field</li>
-                        <li><strong>Wide format:</strong> CSV columns "Diabetes", "Hypertension", "Asthma" → Comorbidity.comorbidity_type field (creates 3 separate records)</li>
-                        <li><strong>Date mapping:</strong> CSV column "DOB" → Patient.date_of_birth field</li>
-                    </ul>
-                    <p class="mt-2 italic">💡 Tip: Use Ctrl+Click (or Cmd+Click on Mac) to select multiple columns</p>
-                </div>
-            </div>
-        </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
         
         {% for model in models_data %}
-        <div class="border rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-database text-chavi-primary mr-2"></i>
-                {{ model.name }}
-            </h3>
-            
+        {% component "card" %}
+            {% fill "header" %}
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-database text-chavi-primary mr-2"></i>
+                    {{ model.name }}
+                </h3>
+            {% endfill %}
+            {% fill "body" %}
             <div class="space-y-4">
                 {% for field in model.fields %}
                 <div class="bg-gray-50 rounded-lg p-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         {{ field.info.verbose_name }}
-                        {% if field.info.required %}<span class="text-red-500">*</span>{% endif %}
+                        {% if field.info.required %}<span class="text-chavi-peach-500">*</span>{% endif %}
                     </label>
                     <select name="field_{{ model.name }}_{{ field.name }}" multiple 
                             class="field-mapping-select"
@@ -102,18 +66,14 @@
                 </div>
                 {% endfor %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
         {% endfor %}
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step3' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 3
-            </a>
-            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Continue to Step 5
-                <i class="fas fa-arrow-right ml-2"></i>
-            </button>
+            {% url 'data_import:step3' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 3{% endcomponent %}
+            {% component "button" style="primary" type="submit" %}Continue to Step 5 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
         </div>
     </form>
 </div>

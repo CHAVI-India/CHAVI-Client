@@ -1,0 +1,24 @@
+{# Alert — inline message; styles: success|danger|warning|info #}
+<div class="rounded-lg p-4 border mb-4
+    {% if style == 'success' %}bg-chavi-primary-50 border-chavi-primary-200 text-chavi-primary-800
+    {% elif style == 'danger' or style == 'error' %}bg-chavi-peach-50 border-chavi-peach-200 text-chavi-peach-800
+    {% elif style == 'warning' %}bg-chavi-sun-50 border-chavi-sun-300 text-chavi-sun-900
+    {% else %}bg-chavi-charcoal-50 border-chavi-charcoal-200 text-chavi-charcoal-800{% endif %} {{ extra_class }}"
+    role="{% if style == 'danger' or style == 'error' %}alert{% else %}status{% endif %}">
+    <div class="flex items-start">
+        <div class="flex-shrink-0">
+            <i class="{{ icon|default:'' }}{% if not icon %}{% if style == 'success' %}fas fa-check-circle{% elif style == 'danger' or style == 'error' %}fas fa-exclamation-circle{% elif style == 'warning' %}fas fa-exclamation-triangle{% else %}fas fa-info-circle{% endif %}{% endif %} text-xl"></i>
+        </div>
+        <div class="ml-3 flex-1">
+            {% if component_vars.is_filled.title %}
+            <h4 class="font-semibold mb-1">{% slot "title" %}{% endslot %}</h4>
+            {% endif %}
+            <div class="text-sm">{% slot "default" %}{% endslot %}</div>
+        </div>
+        {% if dismissible %}
+        <button type="button" class="ml-3 -mr-1 -mt-1 p-1 rounded hover:bg-black hover:bg-opacity-10 transition-colors" aria-label="Dismiss" onclick="this.closest('[role]').remove()">
+            <i class="fas fa-times"></i>
+        </button>
+        {% endif %}
+    </div>
+</div>

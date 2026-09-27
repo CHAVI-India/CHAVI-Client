@@ -1,0 +1,19 @@
+{# PageHeader — title/subtitle/back link/actions #}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 {{ extra_class }}">
+    <div>
+        {% if back_url %}
+        <a href="{{ back_url }}" class="text-sm text-gray-600 hover:text-gray-800 inline-flex items-center mb-2">
+            <i class="fas fa-arrow-left mr-2"></i>{{ back_text|default:'Back' }}
+        </a>
+        {% endif %}
+        <h1 class="text-3xl font-bold text-gray-900">
+            {% if icon %}<i class="{{ icon }} text-chavi-primary mr-2"></i>{% endif %}{{ title }}
+        </h1>
+        {% if subtitle %}<p class="text-gray-600 mt-2">{{ subtitle }}</p>{% endif %}
+    </div>
+    {% if component_vars.is_filled.actions %}
+    <div class="flex items-center gap-3 flex-shrink-0">
+        {% slot "actions" %}{% endslot %}
+    </div>
+    {% endif %}
+</div>

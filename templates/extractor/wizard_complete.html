@@ -4,12 +4,16 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
+    {% url 'extractor:response_model_detail' response_model.id as detail_url %}
+    {% url 'extractor:response_model_list' as list_url %}
+    {% url 'extractor:wizard_start' as wizard_url %}
+    {% component "card" %}
+        {% fill "body" %}
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-                <i class="fas fa-check-circle text-green-600 text-4xl"></i>
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-chavi-primary-100 rounded-full mb-4">
+                <i class="fas fa-check-circle text-chavi-primary-600 text-4xl"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+            <!-- ui-lint:ok centered success hero --><h1 class="text-3xl font-bold text-gray-800 mb-2">
                 Configuration Complete!
             </h1>
             <p class="text-gray-600">
@@ -17,49 +21,31 @@
             </p>
         </div>
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-info-circle text-blue-500"></i>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-blue-800">Next Steps</h3>
-                    <div class="mt-2 text-sm text-blue-700">
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>Upload files for extraction using the file upload interface</li>
-                            <li>Configure Instructor messages for this response model</li>
-                            <li>Run extraction jobs to parse structured data</li>
-                            <li>Review and verify extracted data</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% component "info_box" style="info" %}
+            {% fill "title" %}Next Steps{% endfill %}
+            {% fill "default" %}
+            <ul class="list-disc list-inside space-y-1">
+                <li>Upload files for extraction using the file upload interface</li>
+                <li>Configure Instructor messages for this response model</li>
+                <li>Run extraction jobs to parse structured data</li>
+                <li>Review and verify extracted data</li>
+            </ul>
+            {% endfill %}
+        {% endcomponent %}
 
         <div class="mb-6">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Generated Pydantic Model</h2>
             <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-                <pre class="text-sm text-gray-100"><code>{{ pydantic_code }}</code></pre>
+                {% component "code_block" variant="dark" max_height="max-h-none" %}<code>{{ pydantic_code }}</code>{% endcomponent %}
             </div>
         </div>
 
-        <div class="flex justify-center space-x-4 pt-6 border-t border-gray-200">
-            <a href="{% url 'extractor:response_model_detail' response_model.id %}" 
-               class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                <i class="fas fa-eye mr-2"></i>
-                View Response Model
-            </a>
-            <a href="{% url 'extractor:response_model_list' %}" 
-               class="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors shadow-md">
-                <i class="fas fa-list mr-2"></i>
-                All Response Models
-            </a>
-            <a href="{% url 'extractor:wizard_start' %}" 
-               class="bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                Create Another
-            </a>
+        <div class="flex justify-center gap-4 pt-6 border-t border-gray-200">
+            {% component "button" style="gradient" size="lg" href=detail_url icon="fas fa-eye" %}View Response Model{% endcomponent %}
+            {% component "button" style="info" size="lg" href=list_url icon="fas fa-list" %}All Response Models{% endcomponent %}
+            {% component "button" style="secondary" size="lg" href=wizard_url icon="fas fa-plus" %}Create Another{% endcomponent %}
         </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 </div>
 {% endblock %}

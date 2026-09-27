@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib import messages
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
@@ -57,7 +57,7 @@ def associate_dicom_files_to_project(modeladmin, request: HttpRequest, queryset)
                 )
             )
             
-            return reverse_lazy('admin:client_app_dicomstudy_changelist')
+            return HttpResponseRedirect(reverse_lazy('admin:client_app_dicomstudy_changelist'))
         else:
             logger.error(f"Form errors: {form.errors}")
             messages.error(request, _('Please correct the errors below.'))

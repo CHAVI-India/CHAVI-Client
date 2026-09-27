@@ -1,0 +1,11 @@
+{% load allauth %}
+<details {% if attrs.open %}open{% endif %} class="text-sm mb-3">
+    <summary class="cursor-pointer font-medium text-chavi-primary hover:text-chavi-primary-dark">
+        {% slot summary %}
+        {% endslot %}
+    </summary>
+    <div class="mt-2 pl-4 border-l-2 border-chavi-charcoal-100 text-gray-600">
+        {% slot body %}
+        {% endslot %}
+    </div>
+</details>

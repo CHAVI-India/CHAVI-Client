@@ -1,37 +1,16 @@
 {% extends "data_import/base_import.html" %}
 
 {% block extra_css %}
+{{ block.super }}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<style>
-    .select2-container--default .select2-selection--single {
-        height: 38px;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 38px;
-        padding-left: 12px;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 36px;
-    }
-</style>
+
 {% endblock %}
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    Map CSV values to lookup table values. This ensures data consistency with predefined codes.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="info" %}
+        {% fill "default" %}Map CSV values to lookup table values. This ensures data consistency with predefined codes.{% endfill %}
+    {% endcomponent %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -39,65 +18,56 @@
         {% if lookup_fields_info %}
         <div class="space-y-6">
             {% for field_info in lookup_fields_info %}
-            <div class="border rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                    <i class="fas fa-list text-chavi-primary mr-2"></i>
-                    {{ field_info.model_name }}.{{ field_info.field_name }}
-                    <span class="text-sm text-gray-500 font-normal ml-2">({{ field_info.lookup_model }})</span>
-                </h3>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CSV Value</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lookup Code</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for csv_item in field_info.csv_values_with_selection %}
-                            <tr>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ csv_item.csv_value }}</td>
-                                <td class="px-4 py-3">
-                                    <select name="lookup_{{ field_info.csv_columns.0 }}_{{ csv_item.csv_value }}" 
-                                            class="lookup-select block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md">
-                                        <option value="">-- Select lookup value --</option>
-                                        {% for lookup in field_info.lookup_values %}
-                                        <option value="{{ lookup.code }}" 
-                                                {% if csv_item.selected_code == lookup.code %}selected{% endif %}>
-                                            {{ lookup.code }} - {{ lookup.label }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            {% component "card" %}
+                {% fill "header" %}
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-list text-chavi-primary mr-2"></i>
+                        {{ field_info.model_name }}.{{ field_info.field_name }}
+                        <span class="text-sm text-gray-500 font-normal ml-2">({{ field_info.lookup_model }})</span>
+                    </h3>
+                {% endfill %}
+                {% fill "body" %}
+                {% component "table" bare=True %}
+                    {% fill "head" %}
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">CSV Value</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Lookup Code</th>
+                    {% endfill %}
+                    {% fill "body" %}
+                        {% for csv_item in field_info.csv_values_with_selection %}
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ csv_item.csv_value }}</td>
+                            <td class="px-4 py-3">
+                                <select name="lookup_{{ field_info.csv_columns.0 }}_{{ csv_item.csv_value }}" 
+                                        class="lookup-select block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-lg">
+                                    <option value="">-- Select lookup value --</option>
+                                    {% for lookup in field_info.lookup_values %}
+                                    <option value="{{ lookup.code }}" 
+                                            {% if csv_item.selected_code == lookup.code %}selected{% endif %}>
+                                        {{ lookup.code }} - {{ lookup.label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfill %}
+                {% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
             {% endfor %}
         </div>
         {% else %}
-        <div class="text-center py-8 bg-gray-50 rounded-lg">
-            <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
-            <p class="text-gray-600">No lookup fields detected in your mappings.</p>
-        </div>
+        {% component "empty_state" title="No Lookup Fields" description="No lookup fields detected in your mappings." %}
+            {% fill "icon" %}<i class="fas fa-check-circle text-chavi-primary-500"></i>{% endfill %}
+        {% endcomponent %}
         {% endif %}
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step7' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 7
-            </a>
+            {% url 'data_import:step7' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 7{% endcomponent %}
             <div class="space-x-3">
-                <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Skip This Step
-                </button>
-                <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                    Continue to Step 9
-                    <i class="fas fa-arrow-right ml-2"></i>
-                </button>
+                {% component "button" style="secondary" type="submit" name="skip_step" %}Skip This Step{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Continue to Step 9 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
             </div>
         </div>
     </form>

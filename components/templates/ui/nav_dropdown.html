@@ -1,0 +1,13 @@
+{# NavDropdown — dark charcoal hover dropdown in the navbar; label gets sun underline when active #}
+{# kwargs: icon, label, active (bool), width (default w-56) #}
+{# slot "items": <a>/<div> rows; use nav_dropdown_section for labels, nav_dropdown_item for links #}
+<div class="relative group {{ extra_class }}">
+    <button type="button" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
+        <i class="fas {{ icon }} mr-1 text-chavi-primary-300"></i><span class="pb-0.5 {% if active %}border-b-2 border-chavi-sun-400{% endif %}">{{ label }}</span><i class="fas fa-chevron-down ml-1 text-xs"></i>
+    </button>
+    <div class="absolute left-0 mt-2 {{ width|default:'w-56' }} bg-chavi-charcoal-700 rounded-md shadow-lg ring-1 ring-black/30 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+        <div class="py-1">
+            {% slot "items" %}{% endslot %}
+        </div>
+    </div>
+</div>

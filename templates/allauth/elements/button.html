@@ -1,0 +1,15 @@
+{% load allauth %}
+{% comment %} djlint:off {% endcomment %}
+{% if attrs.href %}<a href="{{ attrs.href }}"{% else %}<button{% endif %}
+{% if attrs.form %}form="{{ attrs.form }}"{% endif %}
+{% if attrs.id %}id="{{ attrs.id }}"{% endif %}
+{% if attrs.name %}name="{{ attrs.name }}"{% endif %}
+{% if attrs.value %}value="{{ attrs.value }}"{% endif %}
+{% if attrs.type %}type="{{ attrs.type }}"{% endif %}
+class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 w-full
+    {% if 'danger' in attrs.tags %}bg-chavi-peach-600 text-white hover:bg-chavi-peach-700 focus:ring-chavi-peach-500
+    {% elif 'outline' in attrs.tags %}bg-white text-chavi-primary-700 border border-chavi-primary-300 hover:bg-chavi-primary-50 focus:ring-chavi-primary-500
+    {% else %}bg-chavi-primary-600 text-white hover:bg-chavi-primary-700 focus:ring-chavi-primary-500{% endif %}">
+{% slot %}
+{% endslot %}
+</{% if attrs.href %}a{% else %}button{% endif %}>

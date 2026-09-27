@@ -130,6 +130,27 @@ class CrispyFormMixin:
 
 
 # Patient-level forms
+class PatientForm(CrispyFormMixin, Select2WidgetMixin, ModelForm):
+    class Meta:
+        model = Patient
+        fields = [
+            'patient_id', 'gender', 'date_of_birth', 'date_of_registration',
+            'chavi_consent', 'date_chavi_consent', 'patient_project',
+        ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_of_registration': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_chavi_consent': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'chavi_consent': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-chavi-primary focus:ring-chavi-primary border-gray-300 rounded'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('chavi_consent') and not cleaned_data.get('date_chavi_consent'):
+            self.add_error('date_chavi_consent', 'Enter the date when CHAVI consent was provided.')
+        return cleaned_data
+
+
 class ComorbidityForm(CrispyFormMixin, Select2WidgetMixin, ModelForm):
     class Meta:
         model = Comorbidity

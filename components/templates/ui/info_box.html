@@ -1,0 +1,20 @@
+{# InfoBox — persistent callout with left accent border #}
+<div class="rounded-lg p-4 border-l-4 mb-6
+    {% if style == 'success' %}bg-chavi-primary-50 border-chavi-primary-500 text-chavi-primary-800
+    {% elif style == 'danger' %}bg-chavi-peach-50 border-chavi-peach-500 text-chavi-peach-800
+    {% elif style == 'warning' %}bg-chavi-sun-50 border-chavi-sun-500 text-chavi-sun-900
+    {% else %}bg-chavi-charcoal-50 border-chavi-charcoal-500 text-chavi-charcoal-800{% endif %} {{ extra_class }}">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <i class="{% if icon %}{{ icon }}{% elif style == 'success' %}fas fa-check-circle{% elif style == 'danger' %}fas fa-exclamation-circle{% elif style == 'warning' %}fas fa-exclamation-triangle{% else %}fas fa-info-circle{% endif %}"></i>
+        </div>
+        <div class="ml-3">
+            {% if component_vars.is_filled.title %}
+            <h3 class="text-sm font-medium">{% slot "title" %}{% endslot %}</h3>
+            {% endif %}
+            <div class="{% if component_vars.is_filled.title %}mt-2 {% endif %}text-sm">
+                {% slot "default" %}{% endslot %}
+            </div>
+        </div>
+    </div>
+</div>

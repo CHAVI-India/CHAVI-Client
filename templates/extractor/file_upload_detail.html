@@ -5,76 +5,39 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-file-alt text-chavi-primary mr-2"></i>
-                    File Details
-                </h1>
-                <p class="text-gray-600 mt-2">{{ file_upload.original_filename|default:file_upload.file.name }}</p>
-            </div>
-            <div class="flex gap-3">
-                <a href="{% url 'extractor:file_upload_list' %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors px-4 py-2">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to List
-                </a>
-                {% if file_upload.processing_status == 'pending' or file_upload.processing_status == 'failed' %}
-                <form method="post" action="{% url 'extractor:file_upload_process' file_upload.id %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" 
-                            class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
-                        <i class="fas fa-cogs mr-2"></i>
-                        Process File
-                    </button>
-                </form>
-                {% endif %}
-                <button onclick="confirmDelete()" 
-                        class="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
-                    <i class="fas fa-trash mr-2"></i>
-                    Delete
-                </button>
-            </div>
-        </div>
+    {% url 'extractor:file_upload_list' as list_url %}
+    {% with subtitle_text=file_upload.original_filename|default:file_upload.file.name %}
+    {% component "page_header" title="File Details" icon="fas fa-file-alt" subtitle=subtitle_text back_url=list_url back_text="Back to List" %}
+        {% fill "actions" %}
+            {% if file_upload.processing_status == 'pending' or file_upload.processing_status == 'failed' %}
+            <form method="post" action="{% url 'extractor:file_upload_process' file_upload.id %}" class="inline">
+                {% csrf_token %}
+                {% component "button" style="primary" type="submit" icon="fas fa-cogs" %}Process File{% endcomponent %}
+            </form>
+            {% endif %}
+            {% component "button" style="danger" icon="fas fa-trash" onclick="confirmDelete()" %}Delete{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+    {% endwith %}
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-blue-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-blue-600 font-semibold">File Type</p>
-                        <p class="text-2xl font-bold text-blue-800 mt-1">{{ file_upload.file_type }}</p>
-                    </div>
-                    <i class="fas fa-file-{{ file_upload.file_type|lower }} text-4xl text-blue-400"></i>
-                </div>
-            </div>
+    {% with ft_icon="fas fa-file-"|add:file_upload.file_type|lower file_size=file_upload.file.size|filesizeformat %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {% component "stat_card" value=file_upload.file_type label="File Type" icon=ft_icon %}{% endcomponent %}
+        {% component "stat_card" value=file_size label="File Size" icon="fas fa-hdd" style="success" %}{% endcomponent %}
+        {% if file_upload.processing_status == 'completed' %}
+            {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-check-circle" style="accent" %}{% endcomponent %}
+        {% elif file_upload.processing_status == 'failed' %}
+            {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-times-circle" style="accent" %}{% endcomponent %}
+        {% elif file_upload.processing_status == 'processing' %}
+            {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-spinner fa-spin" style="accent" %}{% endcomponent %}
+        {% else %}
+            {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-clock" style="accent" %}{% endcomponent %}
+        {% endif %}
+    </div>
+    {% endwith %}
 
-            <div class="bg-green-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-green-600 font-semibold">File Size</p>
-                        <p class="text-2xl font-bold text-green-800 mt-1">{{ file_upload.file.size|filesizeformat }}</p>
-                    </div>
-                    <i class="fas fa-hdd text-4xl text-green-400"></i>
-                </div>
-            </div>
-
-            <div class="bg-purple-50 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-purple-600 font-semibold">Status</p>
-                        <p class="text-lg font-bold text-purple-800 mt-1">{{ file_upload.get_processing_status_display }}</p>
-                    </div>
-                    <i class="fas fa-{% if file_upload.processing_status == 'completed' %}check-circle{% elif file_upload.processing_status == 'failed' %}times-circle{% elif file_upload.processing_status == 'processing' %}spinner fa-spin{% else %}clock{% endif %} text-4xl text-purple-400"></i>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-gray-50 rounded-lg p-6 mb-8">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-info-circle text-chavi-primary mr-2"></i>
-                File Information
-            </h2>
+    {% component "card" title="File Information" extra_class="mb-8" %}
+        {% fill "body" %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <p class="text-sm text-gray-600">File Name</p>
@@ -88,7 +51,7 @@
                     <p class="text-sm text-gray-600">Patient</p>
                     <p class="text-gray-900 font-medium">
                         {% if file_upload.patient_id %}
-                            <i class="fas fa-user-check text-green-600 mr-1"></i>
+                            <i class="fas fa-user-check text-chavi-primary-600 mr-1"></i>
                             {{ file_upload.patient_id.patient_id }}
                         {% else %}
                             <span class="text-gray-400">Not linked</span>
@@ -100,21 +63,20 @@
                     <p class="text-gray-900 font-medium">{{ file_upload.updated_at|date:"M d, Y H:i" }}</p>
                 </div>
             </div>
-        </div>
+        {% endfill %}
+    {% endcomponent %}
 
-        {% if processed_files %}
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-file-code text-chavi-primary mr-2"></i>
-                Processed Files ({{ processed_files.count }})
-            </h2>
+    {% if processed_files %}
+    {% with pf_title="Processed Files ("|add:processed_files.count|add:")" %}
+    {% component "card" title=pf_title %}
+        {% fill "body" %}
             <div class="space-y-3">
                 {% for processed in processed_files %}
                 <div class="border border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
-                                <i class="fas fa-file-alt text-green-600"></i>
+                                <i class="fas fa-file-alt text-chavi-primary-600"></i>
                                 <span class="font-medium text-gray-900">{{ processed.processed_file_path|basename }}</span>
                             </div>
                             <div class="text-sm text-gray-500 mt-1">
@@ -129,23 +91,21 @@
                                 {{ processed.processed_file_path }}
                                 <span class="ml-2 text-gray-500">v{{ processed.version }}</span>
                                 {% if processed.ocr_applied %}
-                                    <span class="ml-2 bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">OCR</span>
+                                    {% component "badge" style="accent" extra_class="ml-2" %}OCR{% endcomponent %}
                                 {% endif %}
                                 {% if deid_enabled %}
                                     {% if processed.deidentified %}
                                         {% if processed.deid_reviewed %}
-                                            <span class="ml-2 bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID ✓</span>
+                                            {% component "badge" style="success" extra_class="ml-2" %}DEID ✓{% endcomponent %}
                                         {% else %}
-                                            <span class="ml-2 bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-semibold">DEID · pending review</span>
+                                            {% component "badge" style="warning" extra_class="ml-2" %}DEID · pending review{% endcomponent %}
                                         {% endif %}
                                     {% else %}
-                                        <span class="ml-2 bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-semibold">Needs deidentification</span>
+                                        {% component "badge" style="danger" extra_class="ml-2" %}Needs deidentification{% endcomponent %}
                                     {% endif %}
                                 {% endif %}
                                 {% if processed.processing_warning %}
-                                    <span class="ml-2 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs font-semibold">
-                                        ⚠ {{ processed.processing_warning|cut:"_"|title }}
-                                    </span>
+                                    {% component "badge" style="warning" icon="fas fa-exclamation-triangle" extra_class="ml-2" %}{{ processed.processing_warning|cut:"_"|title }}{% endcomponent %}
                                 {% endif %}
                             </div>
                         </div>
@@ -154,100 +114,76 @@
                             <form method="post" action="{% url 'extractor:processed_text_ocr' processed.id %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ request.path }}">
-                                <button type="submit"
-                                        class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
-                                        title="OCR requires tesseract-ocr + poppler-utils on the server">
-                                    <i class="fas fa-scanner-gun mr-2"></i>
-                                    Run OCR
-                                </button>
+                                <span title="OCR requires tesseract-ocr + poppler-utils on the server">
+                                {% component "button" style="accent" type="submit" icon="fas fa-scanner-gun" %}Run OCR{% endcomponent %}
+                                </span>
                             </form>
                             {% endif %}
                             {% if deid_enabled %}
                                 {% if processed.deidentified %}
-                                <a href="{% url 'extractor:processed_text_deid_review' processed.id %}?next={{ request.path|urlencode }}"
-                                   class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors">
-                                    <i class="fas fa-user-shield mr-2"></i>
-                                    Review deid
-                                </a>
+                                {% url 'extractor:processed_text_deid_review' processed.id as deid_review_url %}
+                                {% with enc_path=request.path|urlencode %}
+                                {% with rurl=deid_review_url|add:"?next="|add:enc_path %}
+                                {% component "button" style="primary" href=rurl icon="fas fa-user-shield" %}Review deid{% endcomponent %}
+                                {% endwith %}
+                                {% endwith %}
                                 {% else %}
                                 <form method="post" action="{% url 'extractor:processed_text_deidentify' processed.id %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.path }}">
-                                    <button type="submit"
-                                            class="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition-colors"
-                                            title="Run deidentification on this version">
-                                        <i class="fas fa-user-shield mr-2"></i>
-                                        Run deid
-                                    </button>
+                                    <span title="Run deidentification on this version">
+                                    {% component "button" style="primary" type="submit" icon="fas fa-user-shield" %}Run deid{% endcomponent %}
+                                    </span>
                                 </form>
                                 {% endif %}
                             {% endif %}
-                            <a href="{% url 'extractor:processed_text_view' processed.id %}" 
-                               class="bg-chavi-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-chavi-secondary transition-colors">
-                                <i class="fas fa-eye mr-2"></i>
-                                View
-                            </a>
+                            {% url 'extractor:processed_text_view' processed.id as view_url %}
+                            {% component "button" style="primary" href=view_url icon="fas fa-eye" %}View{% endcomponent %}
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-        </div>
-        {% else %}
-        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-triangle text-yellow-500"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        <strong>No processed files yet.</strong>
-                        {% if file_upload.processing_status == 'pending' %}
-                        Click "Process File" to convert this file to a usable format.
-                        {% elif file_upload.processing_status == 'failed' %}
-                        Processing failed. Click "Process File" to try again.
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-        </div>
+        {% endfill %}
+    {% endcomponent %}
+    {% endwith %}
+    {% else %}
+    {% component "info_box" style="warning" %}
+        {% fill "default" %}
+        <strong>No processed files yet.</strong>
+        {% if file_upload.processing_status == 'pending' %}
+        Click "Process File" to convert this file to a usable format.
+        {% elif file_upload.processing_status == 'failed' %}
+        Processing failed. Click "Process File" to try again.
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="delete-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">
-            <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
-            Confirm Deletion
-        </h3>
-        <p class="text-gray-600 mb-2">
+{% component "modal" modal_id="delete-modal" danger=True extra_class="flex" %}
+    {% fill "title" %}Confirm Deletion{% endfill %}
+    {% fill "body" %}
+        <p class="mb-2">
             Are you sure you want to delete this file and all its processed versions? This action cannot be undone.
         </p>
         {% if dependent_jobs_count or dependent_results_count %}
-        <p class="text-red-600 text-sm mb-6">
+        <p class="text-chavi-peach-600 text-sm">
             This will also delete <strong>{{ dependent_jobs_count }}</strong> extraction job(s)
             and <strong>{{ dependent_results_count }}</strong> extracted result(s), including any
             that have been reviewed.
         </p>
         {% endif %}
-        <div class="flex justify-end gap-3">
-            <button onclick="closeDeleteModal()" 
-                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
-                Cancel
-            </button>
-            <form method="post" action="{% url 'extractor:file_upload_delete' file_upload.id %}" class="inline">
-                {% csrf_token %}
-                <button type="submit" 
-                        class="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors">
-                    <i class="fas fa-trash mr-2"></i>
-                    Delete
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
+    {% endfill %}
+    {% fill "footer" %}
+        {% component "button" style="secondary" onclick="closeDeleteModal()" %}Cancel{% endcomponent %}
+        <form method="post" action="{% url 'extractor:file_upload_delete' file_upload.id %}" class="inline">
+            {% csrf_token %}
+            {% component "button" style="danger" type="submit" icon="fas fa-trash" %}Delete{% endcomponent %}
+        </form>
+    {% endfill %}
+{% endcomponent %}
 
 <script>
 function confirmDelete() {

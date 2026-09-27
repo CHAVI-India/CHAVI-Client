@@ -53,7 +53,7 @@ After the .env file has been edited, you can start the Docker containers by runn
 Updating the Software
 ----------------------
 
-Before any update, please take a backup of the database. To do so please refer to the :ref:`database_backup` page.
+Before any update, please take a backup of the database. To do so please refer to the :doc:`database_backup` page.
 
 Stop all running containers in the Docker Desktop application.
 

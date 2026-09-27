@@ -1,205 +1,156 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CHAVI Client{% endblock %}</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'chavi-primary': '#667eea',
-                        'chavi-secondary': '#764ba2',
-                        'chavi-accent': '#e74c3c',
-                        'chavi-gray': '#2c3e50',
-                        'chavi-light': '#f8f9fa',
-                    },
-                    backgroundImage: {
-                        'chavi-gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    }
-                }
-            }
-        }
-    </script>
-    
+    <script src="{% static 'js/tailwind.config.js' %}"></script>
+
+    <!-- Shared styles: Select2 overrides, reduced-motion, helpers -->
+    <link rel="stylesheet" href="{% static 'css/chavi.css' %}">
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
+    {% component_css_dependencies %}
     {% block extra_css %}{% endblock %}
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-chavi-canvas min-h-screen">
     <!-- Navigation Bar -->
-    <nav class="bg-chavi-gradient shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav class="bg-chavi-charcoal-800 shadow-lg">
+        <div class="px-4 sm:px-6">
             <div class="flex justify-between items-center h-16">
-                <!-- Logo/Brand -->
+                <!-- Brand + Navigation Links (left group) -->
                 <div class="flex items-center">
-                    <a href="{% url 'client_app:homepage' %}" class="text-white text-xl font-bold hover:text-gray-200 transition-colors">
+                    <a href="{% url 'client_app:homepage' %}" class="text-white text-xl font-bold hover:text-gray-200 transition-colors mr-8">
                         CHAVI Client
                     </a>
-                </div>
-                
-                <!-- Navigation Links -->
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-center space-x-2">
-                        <a href="{% url 'client_app:homepage' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-home mr-1"></i>Home
-                        </a>
-                        
+
+                    <div class="hidden md:block">
+                    <div class="flex items-center space-x-2">
+                        {% url 'client_app:homepage' as nav_home %}
+                        {% url 'data_import:session_list' as nav_csv %}
+                        {% url 'client_app:bulk_dicom_upload' as nav_dicom_up %}
+                        {% url 'client_app:bulk_dicom_session_list' as nav_dicom_sessions %}
+                        {% url 'dicom_server:dashboard' as nav_dicom_srv %}
+                        {% url 'extractor:extraction_dashboard' as nav_ex_dash %}
+                        {% url 'extractor:extraction_results_list' as nav_ex_results %}
+                        {% url 'extractor:file_upload_list' as nav_ex_files %}
+                        {% url 'extractor:client_configuration_list' as nav_ex_clients %}
+                        {% url 'extractor:response_model_list' as nav_ex_models %}
+                        {% url 'extractor:instructor_message_list' as nav_ex_msgs %}
+                        {% url 'extractor:semantic_search_settings' as nav_ex_embed %}
+                        {% url 'extractor:wizard_start' as nav_ex_wizard %}
+                        {% url 'deidentification:patient_list' as nav_deid %}
+                        {% url 'deidentification:legacy_import' as nav_deid_legacy %}
+                        {% url 'client_app:patient_search' as nav_search %}
+                        {% url 'client_app:taskrun_list' as nav_tasks %}
+                        {% url 'admin:index' as nav_admin %}
+                        {% url 'documentation-index' as nav_docs %}
+                        {% component "nav_link" href=nav_home icon="fa-home" label="Home" active_on="homepage" %}{% endcomponent %}
+
                         {% if user.is_authenticated %}
                         <!-- Data Import Dropdown -->
-                        <div class="relative group">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-file-import mr-1"></i>Data Import<i class="fas fa-chevron-down ml-1 text-xs"></i>
-                            </button>
-                            <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                <div class="py-1">
-                                    <a href="{% url 'data_import:session_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-csv mr-2"></i>CSV Data Import
-                                    </a>
-                                    <a href="{% url 'client_app:bulk_dicom_upload' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-medical mr-2"></i>DICOM Upload
-                                    </a>
-                                    <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-list mr-2"></i>DICOM Sessions
-                                    </a>
-                                    {% if perms.client_app.add_dicomstudy %}
-                                    <a href="{% url 'dicom_server:dashboard' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-network-wired mr-2"></i>DICOM Server
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        
+                        {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,dicom_server,bulk_dicom" %}
+                            {% fill "items" %}
+                            {% component "nav_dropdown_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_dicom_up icon="fa-file-medical" label="DICOM Upload" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_dicom_sessions icon="fa-list" label="DICOM Sessions" %}{% endcomponent %}
+                            {% if perms.client_app.add_dicomstudy %}
+                            {% component "nav_dropdown_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
+                            {% endif %}
+                            {% endfill %}
+                        {% endcomponent %}
+
                         <!-- LLM Extraction Dropdown -->
-                        <div class="relative group">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-magic mr-1"></i>LLM Extraction<i class="fas fa-chevron-down ml-1 text-xs"></i>
-                            </button>
-                            <div class="absolute left-0 mt-2 w-60 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                <div class="py-1">
-                                    <div class="px-4 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Run</div>
-                                    <a href="{% url 'extractor:extraction_dashboard' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-semibold bg-gradient-to-r from-purple-50 to-blue-50">
-                                        <i class="fas fa-robot mr-2 text-purple-600"></i>Data Extraction
-                                    </a>
-                                    <a href="{% url 'extractor:extraction_results_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-clipboard-list mr-2 text-green-600"></i>Extraction Results
-                                    </a>
-                                    <div class="border-t border-gray-100"></div>
-                                    <div class="px-4 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Files</div>
-                                    <a href="{% url 'extractor:file_upload_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-upload mr-2 text-blue-600"></i>Upload Files
-                                    </a>
-                                    <div class="border-t border-gray-100"></div>
-                                    <div class="px-4 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Configure</div>
-                                    <a href="{% url 'extractor:client_configuration_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-server mr-2 text-purple-600"></i>LLM Clients
-                                    </a>
-                                    <a href="{% url 'extractor:response_model_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-project-diagram mr-2 text-purple-600"></i>Response Models
-                                    </a>
-                                    <a href="{% url 'extractor:instructor_message_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-comment-dots mr-2 text-yellow-600"></i>Instructor Prompts
-                                    </a>
-                                    <a href="{% url 'extractor:semantic_search_settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-brain mr-2 text-indigo-600"></i>Semantic Search
-                                    </a>
-                                    <div class="border-t border-gray-100"></div>
-                                    <a href="{% url 'extractor:wizard_start' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-semibold">
-                                        <i class="fas fa-hat-wizard mr-2 text-green-600"></i>Start Wizard
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Data Export Dropdown -->
-                        <div class="relative group">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-2 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-file-export mr-1"></i>Data Export<i class="fas fa-chevron-down ml-1 text-xs"></i>
-                            </button>
-                            <div class="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                <div class="py-1">
-                                    <a href="{% url 'deidentification:patient_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-users mr-2"></i>Deidentification Patient List
-                                    </a>
-                                    <a href="{% url 'deidentification:legacy_import' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-database mr-2"></i>Legacy Mapping Import
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+                        {% component "nav_dropdown" icon="fa-magic" label="LLM Extraction" active_on="extractor" width="w-60" %}
+                            {% fill "items" %}
+                            {% component "nav_dropdown_item" section="Run" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_dash icon="fa-robot" label="Data Extraction" extra_class="font-semibold bg-chavi-charcoal-600" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_results icon="fa-clipboard-list" label="Extraction Results" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% component "nav_dropdown_item" section="Files" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% component "nav_dropdown_item" section="Configure" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_clients icon="fa-server" label="LLM Clients" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" extra_class="font-semibold" %}{% endcomponent %}
+                            {% endfill %}
+                        {% endcomponent %}
 
-                        <!-- Patient Search -->
-                        <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-search mr-1"></i>Search
-                        </a>
+                        <!-- Deidentification Dropdown -->
+                        {% component "nav_dropdown" icon="fa-file-export" label="Deidentification" active_on="deidentification" %}
+                            {% fill "items" %}
+                            {% component "nav_dropdown_item" href=nav_deid icon="fa-users" label="Deidentification Patient List" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_deid_legacy icon="fa-database" label="Legacy Mapping Import" %}{% endcomponent %}
+                            {% endfill %}
+                        {% endcomponent %}
 
-                        <!-- Task Runs -->
-                        <a href="{% url 'client_app:taskrun_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-tasks mr-1"></i>Tasks
-                        </a>
+                        <!-- Patient Search + Task Runs -->
+                        {% component "nav_link" href=nav_search icon="fa-search" label="Patient Search" active_on="patient_search" %}{% endcomponent %}
+                        {% component "nav_link" href=nav_tasks icon="fa-tasks" label="Task Runs" active_on="taskrun" %}{% endcomponent %}
 
-                        <!-- Notification Bell -->
-                        <div class="relative group" id="notification-bell">
-                            <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all relative">
-                                <i class="fas fa-bell"></i>
-                                <span id="notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden"></span>
-                            </button>
-                            <div class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 max-h-96 overflow-y-auto">
-                                <div class="py-2">
-                                    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                                        <span class="text-sm font-semibold text-gray-700">Notifications</span>
-                                        <button onclick="markAllRead()" class="text-xs text-chavi-primary hover:underline">Mark all read</button>
-                                    </div>
-                                    <div id="notif-list">
-                                        <div class="px-4 py-6 text-center text-gray-400 text-sm">Loading...</div>
-                                    </div>
-                                    <div class="border-t border-gray-100 px-4 py-2 text-center">
-                                        <a href="{% url 'client_app:taskrun_list' %}" class="text-xs text-chavi-primary hover:underline">View all tasks</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% else %}
-                        <a href="{% url 'account_login' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-sign-in-alt mr-1"></i>Login to Access Data
-                        </a>
+                        {% url 'account_login' as nav_login %}
+                        {% component "nav_link" href=nav_login icon="fa-sign-in-alt" label="Login to Access Data" %}{% endcomponent %}
                         {% endif %}
-                        
-                        <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                            <i class="fas fa-cog mr-1"></i>Admin
-                        </a>
-                        <a href="{% url 'documentation-index' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all" target="_blank">
-                            <i class="fas fa-book mr-1"></i>Docs
-                        </a>
+
+                        {% url 'admin:index' as nav_admin %}
+                        {% component "nav_link" href=nav_admin icon="fa-cog" label="Admin" active_on="admin" %}{% endcomponent %}
+                        {% url 'documentation-index' as nav_docs %}
+                        {% component "nav_link" href=nav_docs icon="fa-book" label="Docs" active_on="documentation" target="_blank" %}{% endcomponent %}
+                    </div>
                     </div>
                 </div>
-                
-                <!-- User Menu -->
+
+                <!-- User Menu (right group) -->
                 <div class="hidden md:block">
-                    <div class="ml-4 flex items-center md:ml-6">
+                    <div class="flex items-center">
                         {% if user.is_authenticated %}
+                            <!-- Notification Bell -->
+                            <div class="relative group" id="notification-bell">
+                                <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all relative">
+                                    <i class="fas fa-bell text-chavi-primary-300"></i>
+                                    <!-- ui-lint:ok JS-coupled badge --><span id="notif-badge" class="absolute -top-1 -right-1 bg-chavi-peach-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden"></span>
+                                </button>
+                                <div class="absolute right-0 mt-2 w-80 bg-chavi-charcoal-700 rounded-md shadow-lg ring-1 ring-black/30 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 max-h-96 overflow-y-auto">
+                                    <div class="py-2">
+                                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                                            <span class="text-sm font-semibold text-chavi-charcoal-100">Notifications</span>
+                                            <button onclick="markAllRead()" class="text-xs text-chavi-primary hover:underline">Mark all read</button>
+                                        </div>
+                                        <div id="notif-list">
+                                            <div class="px-4 py-6 text-center text-chavi-charcoal-300 text-sm">Loading...</div>
+                                        </div>
+                                        <div class="border-t border-chavi-charcoal-600 px-4 py-2 text-center">
+                                            <a href="{% url 'client_app:taskrun_list' %}" class="text-xs text-chavi-primary hover:underline">View all tasks</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="relative group">
                                 <button class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                    <i class="fas fa-user-circle mr-2"></i>{{ user.username }}
+                                    <i class="fas fa-user-circle mr-2 text-chavi-primary-300"></i>{{ user.username }}
                                 </button>
-                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                <div class="absolute right-0 mt-2 w-48 bg-chavi-charcoal-700 rounded-md shadow-lg ring-1 ring-black/30 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                                     <div class="py-1">
-                                        <a href="{% url 'account_logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                            <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                                        <a href="{% url 'account_logout' %}" class="block px-4 py-2 text-sm text-chavi-charcoal-100 hover:bg-chavi-charcoal-600">
+                                            <i class="fas fa-sign-out-alt mr-2 text-chavi-primary-300"></i>Logout
                                         </a>
                                     </div>
                                 </div>
                             </div>
                         {% else %}
                             <a href="{% url 'account_login' %}" class="text-white hover:bg-white hover:bg-opacity-20 px-3 py-2 rounded-md text-sm font-medium transition-all">
-                                <i class="fas fa-sign-in-alt mr-2"></i>Login
+                                <i class="fas fa-sign-in-alt mr-2 text-chavi-primary-300"></i>Login
                             </a>
                         {% endif %}
                     </div>
@@ -217,87 +168,40 @@
         <!-- Mobile menu -->
         <div id="mobile-menu" class="md:hidden hidden">
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-black bg-opacity-20">
-                <a href="{% url 'client_app:homepage' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-home mr-2"></i>Home
-                </a>
+                {% component "nav_mobile_item" href=nav_home icon="fa-home" label="Home" active_on="homepage" %}{% endcomponent %}
                 {% if user.is_authenticated %}
-                <!-- Data Import Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70">DATA IMPORT</div>
-                <a href="{% url 'data_import:session_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-csv mr-2"></i>CSV Data Import
-                </a>
-                <a href="{% url 'client_app:bulk_dicom_upload' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-medical mr-2"></i>DICOM Upload
-                </a>
-                <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-list mr-2"></i>DICOM Sessions
-                </a>
+                {% component "nav_mobile_item" section="DATA IMPORT" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_dicom_up icon="fa-file-medical" label="DICOM Upload" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_dicom_sessions icon="fa-list" label="DICOM Sessions" %}{% endcomponent %}
                 {% if perms.client_app.add_dicomstudy %}
-                <a href="{% url 'dicom_server:dashboard' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-network-wired mr-2"></i>DICOM Server
-                </a>
+                {% component "nav_mobile_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
                 {% endif %}
-                <!-- LLM Extraction Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">LLM EXTRACTION</div>
-                <a href="{% url 'extractor:extraction_dashboard' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-robot mr-2"></i>Data Extraction
-                </a>
-                <a href="{% url 'extractor:extraction_results_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-clipboard-list mr-2"></i>Extraction Results
-                </a>
-                <a href="{% url 'extractor:file_upload_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-file-upload mr-2"></i>Upload Files
-                </a>
-                <a href="{% url 'extractor:client_configuration_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-server mr-2"></i>LLM Clients
-                </a>
-                <a href="{% url 'extractor:response_model_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-project-diagram mr-2"></i>Response Models
-                </a>
-                <a href="{% url 'extractor:instructor_message_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-comment-dots mr-2"></i>Instructor Prompts
-                </a>
-                <a href="{% url 'extractor:semantic_search_settings' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-brain mr-2"></i>Semantic Search
-                </a>
-                <a href="{% url 'extractor:wizard_start' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-hat-wizard mr-2"></i>Start Wizard
-                </a>
-                <!-- Data Export Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">DATA EXPORT</div>
-                <a href="{% url 'deidentification:patient_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-users mr-2"></i>Deidentification Patient List
-                </a>
-                <a href="{% url 'deidentification:legacy_import' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-database mr-2"></i>Legacy Mapping Import
-                </a>
-                <!-- Patient Management -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">PATIENT MANAGEMENT</div>
-                <a href="{% url 'client_app:patient_search' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-search mr-2"></i>Patient Search
-                </a>
-                <!-- Tasks -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">MONITORING</div>
-                <a href="{% url 'client_app:taskrun_list' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-tasks mr-2"></i>Task Runs
-                </a>
+                {% component "nav_mobile_item" section="LLM EXTRACTION" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_dash icon="fa-robot" label="Data Extraction" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_results icon="fa-clipboard-list" label="Extraction Results" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_clients icon="fa-server" label="LLM Clients" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" %}{% endcomponent %}
+                {% component "nav_mobile_item" section="DEIDENTIFICATION" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_deid icon="fa-users" label="Deidentification Patient List" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_deid_legacy icon="fa-database" label="Legacy Mapping Import" %}{% endcomponent %}
+                {% component "nav_mobile_item" section="PATIENT MANAGEMENT" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_search icon="fa-search" label="Patient Search" %}{% endcomponent %}
+                {% component "nav_mobile_item" section="MONITORING" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_tasks icon="fa-tasks" label="Task Runs" %}{% endcomponent %}
                 {% endif %}
-                <!-- System Section -->
-                <div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">SYSTEM</div>
-                <a href="{% url 'admin:index' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                    <i class="fas fa-cog mr-2"></i>Admin
-                </a>
-                <a href="{% url 'documentation-index' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium" target="_blank">
-                    <i class="fas fa-book mr-2"></i>Documentation
-                </a>
+                {% component "nav_mobile_item" section="SYSTEM" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_admin icon="fa-cog" label="Admin" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_docs icon="fa-book" label="Documentation" target="_blank" %}{% endcomponent %}
                 {% if user.is_authenticated %}
-                    <a href="{% url 'account_logout' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
-                    </a>
+                    {% url 'account_logout' as nav_logout %}
+                    {% component "nav_mobile_item" href=nav_logout icon="fa-sign-out-alt" label="Logout" %}{% endcomponent %}
                 {% else %}
-                    <a href="{% url 'account_login' %}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Login
-                    </a>
+                    {% component "nav_mobile_item" href=nav_login icon="fa-sign-in-alt" label="Login" %}{% endcomponent %}
                 {% endif %}
             </div>
         </div>
@@ -305,7 +209,10 @@
     
     <!-- Main Content -->
     <main class="flex-1 w-full">
+        {% block flash_messages %}{% component "message" %}{% endcomponent %}{% endblock %}
+        {% block body %}
         {% block content %}{% endblock %}
+        {% endblock body %}
     </main>
     
     <!-- Footer -->
@@ -317,72 +224,9 @@
         </div>
     </footer>
     
-    <script>
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobile-menu');
-            menu.classList.toggle('hidden');
-        }
-
-        // Notification polling
-        {% if user.is_authenticated %}
-        const NOTIF_API = "{% url 'client_app:api_notifications' %}";
-        const NOTIF_MARK_READ = "{% url 'client_app:api_notifications_mark_all_read' %}";
-
-        function fetchNotifications() {
-            fetch(NOTIF_API)
-                .then(r => r.json())
-                .then(data => {
-                    const badge = document.getElementById('notif-badge');
-                    const list = document.getElementById('notif-list');
-                    if (data.unread_count > 0) {
-                        badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
-                    }
-                    if (data.notifications.length === 0) {
-                        list.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 text-sm">No notifications</div>';
-                        return;
-                    }
-                    let html = '';
-                    data.notifications.forEach(n => {
-                        const iconMap = {
-                            'TASK_COMPLETED': 'fa-check-circle text-green-600',
-                            'TASK_FAILED': 'fa-exclamation-circle text-red-600',
-                            'TASK_STALLED': 'fa-pause-circle text-yellow-600',
-                            'TASK_RESUMED': 'fa-play-circle text-blue-600',
-                        };
-                        const icon = iconMap[n.type] || 'fa-bell text-gray-400';
-                        const bg = n.is_read ? '' : 'bg-blue-50';
-                        html += `<div class="px-4 py-3 border-b border-gray-50 ${bg} hover:bg-gray-50">` +
-                            `<div class="flex items-start">` +
-                            `<i class="fas ${icon} mr-2 mt-0.5"></i>` +
-                            `<div class="flex-1 min-w-0">` +
-                            `<p class="text-sm font-medium text-gray-900 truncate">${n.title}</p>` +
-                            `<p class="text-xs text-gray-500 mt-0.5">${n.message}</p>` +
-                            `</div></div></div>`;
-                    });
-                    list.innerHTML = html;
-                })
-                .catch(() => {});
-        }
-
-        function markAllRead() {
-            fetch(NOTIF_MARK_READ, {method: 'POST', headers: {'X-CSRFToken': getCsrfToken()}})
-                .then(r => r.json())
-                .then(() => fetchNotifications());
-        }
-
-        function getCsrfToken() {
-            const cookie = document.cookie.split('; ').find(c => c.startsWith('csrftoken='));
-            return cookie ? cookie.split('=')[1] : '';
-        }
-
-        fetchNotifications();
-        setInterval(fetchNotifications, 30000);
-        {% endif %}
-    </script>
+    <script src="{% static 'js/chavi-base.js' %}"{% if user.is_authenticated %} data-notifications-url="{% url 'client_app:api_notifications' %}" data-mark-read-url="{% url 'client_app:api_notifications_mark_all_read' %}"{% endif %}></script>
     
+    {% component_js_dependencies %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

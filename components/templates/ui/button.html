@@ -1,0 +1,14 @@
+{# Button — styles: primary|secondary|success|danger|warning|info|outline|ghost|link; sizes: sm|md|lg #}
+{% with base="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary disabled:opacity-50 disabled:pointer-events-none" %}
+{% if href %}<a href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}{% if target %} target="{{ target }}"{% endif %}{% if onclick %} onclick="{{ onclick }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}
+{% else %}<button type="{{ type|default:'button' }}"{% if disabled %} disabled{% endif %}{% if onclick %} onclick="{{ onclick }}"{% endif %}{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if value %} value="{{ value }}"{% endif %}{% if form_id %} form="{{ form_id }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}{% if hidden %} hidden{% endif %}
+{% endif %}{% for k, v in data.items %} data-{{ k }}="{{ v }}"{% endfor %}
+class="{{ base }}
+    {% if size == 'sm' %}px-3 py-1.5 text-xs{% elif size == 'lg' %}px-6 py-3 text-base{% else %}px-4 py-2 text-sm{% endif %}
+    {% if style == 'secondary' %}bg-white text-gray-700 border border-gray-300 hover:bg-gray-50{% elif style == 'success' %}bg-chavi-primary-600 text-white hover:bg-chavi-primary-700{% elif style == 'danger' %}bg-chavi-peach-500 text-white hover:bg-chavi-peach-600{% elif style == 'warning' %}bg-chavi-sun-500 text-chavi-charcoal-900 hover:bg-chavi-sun-600{% elif style == 'info' %}bg-chavi-charcoal-600 text-white hover:bg-chavi-charcoal-700{% elif style == 'outline' %}bg-transparent text-chavi-primary border border-chavi-primary hover:bg-chavi-primary hover:text-white{% elif style == 'ghost' %}bg-transparent text-gray-600 hover:bg-gray-100{% elif style == 'link' %}bg-transparent text-chavi-primary hover:text-chavi-primary-dark hover:underline{% elif style == 'gradient' %}bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5{% elif style == 'contrast' %}bg-white text-chavi-charcoal-900 hover:bg-chavi-primary-50{% elif style == 'outline-dark' %}bg-transparent text-white border border-chavi-charcoal-400 hover:bg-chavi-charcoal-700{% elif style == 'accent' %}bg-chavi-sand-600 text-white hover:bg-chavi-sand-700{% else %}bg-chavi-primary-600 text-white hover:bg-chavi-primary-700 hover:shadow-md{% endif %}
+    {{ extra_class }}"
+{% if disabled and href %} aria-disabled="true" tabindex="-1"{% endif %}>
+    {% if icon %}<i class="{{ icon }}{% if not icon_only %} mr-2{% endif %}"></i>{% endif %}
+    {% slot "default" %}{% endslot %}
+{% if href %}</a>{% else %}</button>{% endif %}
+{% endwith %}

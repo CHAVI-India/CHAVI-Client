@@ -5,11 +5,13 @@ and child records. Expects: rec, node, level.
 {% endcomment %}
 {% with rec_errors=review_field_errors|get_item:rec.record.id %}
 {% if rec_errors %}
-<div class="mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+{% component "alert" style="danger" extra_class="mb-2" %}
+    {% fill "default" %}
     {% for name, msgs in rec_errors.items %}
     {% for msg in msgs %}<p>{{ msg }}</p>{% endfor %}
     {% endfor %}
-</div>
+    {% endfill %}
+{% endcomponent %}
 {% endif %}
 {% endwith %}
 <div class="review-record-controls">
@@ -57,7 +59,7 @@ and child records. Expects: rec, node, level.
         <div class="review-field-label">
             <label for="field-{{ rec.record.id }}-{{ d.field.id }}">{{ d.field.clientapp_field_name }}</label>
             {% if d.result %}<span class="review-meta">Last review: {{ d.result.get_data_accuracy_display }}</span>{% endif %}
-            {% if d.needs_unit %}<span class="text-orange-800">Missing unit</span>{% endif %}
+            {% if d.needs_unit %}<span class="text-chavi-sand-800">Missing unit</span>{% endif %}
         </div>
         <div class="review-source">
             <span class="review-meta">LLM extraction</span>
@@ -66,22 +68,22 @@ and child records. Expects: rec, node, level.
             <span class="review-meta">{{ d.result.get_extraction_basis_display }}{% if d.result.extraction_basis == 'clinical_inference' %} — not explicitly reported{% endif %}</span>
             {% endif %}
             {% if d.result.inference_note %}
-            <details class="review-meta">
+            <!-- ui-lint:ok JS-coupled (data-review-record hooks) --><details class="review-meta">
                 <summary>Extraction assessment</summary>
                 <div>Original LLM extraction: {{ d.result.inference_note }}</div>
             </details>
             {% endif %}
-            {% if d.result.result_state == 'unresolved' %}<span class="text-amber-800">No lookup match — select a value to resolve it.</span>{% endif %}
+            {% if d.result.result_state == 'unresolved' %}<span class="text-chavi-sun-800">No lookup match — select a value to resolve it.</span>{% endif %}
             {% if d.result.data_edited %}<span class="review-meta">Last reviewed value: {{ d.cell.text }}</span>{% endif %}
             <span class="review-meta" data-database-wrap hidden>Database: <span data-database-value></span></span>
             {% if d.result and d.result.evidence %}
-            <details class="review-meta">
+            <!-- ui-lint:ok JS-coupled --><details class="review-meta">
                 <summary>Source evidence</summary>
                 <div>{{ d.result.evidence }}</div>
             </details>
             {% endif %}
             {% if d.lookup_detail %}
-            <details class="review-meta">
+            <!-- ui-lint:ok JS-coupled --><details class="review-meta">
                 <summary>Lookup details</summary>
                 {% for name, value in d.lookup_detail %}<div><strong>{{ name }}</strong>: {{ value }}</div>{% endfor %}
             </details>
@@ -120,14 +122,14 @@ and child records. Expects: rec, node, level.
             <input type="hidden" data-field-action="{{ d.field.id }}" value="apply">
             {% with field_errs=review_field_errors|get_item:rec.record.id|get_item:d.field.clientapp_field_name %}
             {% if field_errs %}
-            <span class="review-meta text-red-700" role="alert">{% for msg in field_errs %}{{ msg }} {% endfor %}</span>
+            <span class="review-meta text-chavi-peach-700" role="alert">{% for msg in field_errs %}{{ msg }} {% endfor %}</span>
             {% endif %}
             {% endwith %}
             <span class="review-meta" data-field-status aria-live="polite"></span>
             <div class="review-field-actions">
-                <button type="button" data-clear-field="{{ d.field.id }}">Clear</button>
-                <button type="button" data-restore-field="{{ d.field.id }}">Restore extraction</button>
-                <button type="button" data-preserve-field="{{ d.field.id }}" hidden>Keep database value</button>
+                {% component "button" style="link" size="sm" data__clear_field=d.field.id %}Clear{% endcomponent %}
+                {% component "button" style="link" size="sm" data__restore_field=d.field.id %}Restore extraction{% endcomponent %}
+                {% component "button" type="button" style="link" size="sm" data__preserve_field=d.field.id hidden=True %}Keep database value{% endcomponent %}
             </div>
         </div>
     </div>

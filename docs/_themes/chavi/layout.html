@@ -1,0 +1,15 @@
+{% extends "basic/layout.html" %}
+
+{#- CHAVI top navbar — charcoal band like the application -#}
+{%- block header %}
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="{{ pathto(master_doc) }}">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="{{ pathto(master_doc) }}">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}

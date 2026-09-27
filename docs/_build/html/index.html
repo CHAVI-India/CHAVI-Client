@@ -5,54 +5,53 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Welcome to CHAVI Client Documentation &#8212; CHAVI Client 1.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-      <link rel="stylesheet" type="text/css" href="_static/css/pdj.css?v=12f78f94" />
-
-<link rel="stylesheet" href="_static/css/darker.css" type="text/css"
-      media="(prefers-color-scheme: dark)"/>
-    <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'/>
+    <title>Welcome to CHAVI Client Documentation &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/css/chavi.css?v=647ec7c0" />
     <script src="_static/documentation_options.js?v=f2a433a1"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="_static/js/pdj.js"></script>
-
-    <script type="module" src="_static/js/dark-mode-toggle.js"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="About" href="help_files/about.html" /> 
-  </head>  <body class="wy-body-for-nav" role="document"> 
-
-<section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-  <nav class="wy-nav-top" id="barra-mobile" role="navigation" aria-label="top navigation">
-    <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-    <a href="#">CHAVI Client </a>
-  </nav>
-
-  <div class="wy-nav-content">
-    <div class="fundo-claro">
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="#">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="#">Help home</a>
+      <a href="/">Back to the app</a>
     </div>
-    <div class="fundo-escuro">
-    </div>
+  </div>
+</nav>
 
-    <div class="rst-content">
-      <div role="navigation" aria-label="breadcrumbs navigation">
-      </div>
-      <div role="main" class="">
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="help_files/about.html" title="About"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to CHAVI Client Documentation</a></li> 
+      </ul>
+    </div>  
 
-	<div id="content" class="hfeed entry-container hentry">
-      	  <div id="dark-mode-toggle-container">
-	    <dark-mode-toggle appearance="toggle" class="slider" dark="" light="">
-	    </dark-mode-toggle>
-	  </div>
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
   <section id="welcome-to-chavi-client-documentation">
 <h1>Welcome to CHAVI Client Documentation<a class="headerlink" href="#welcome-to-chavi-client-documentation" title="Link to this heading">¶</a></h1>
 <p>The CHAVI Client is a web application that allows you to enter clinical data for patients to be enrolled in the CHAVI databank. The system allows entry of clinical data and linkage to DICOM and Project information. This information is then deidentified and uploaded into the CHAVI databank.</p>
 <p>This documentation is intended to provide a guide to the CHAVI Client and the data that can be entered into the system. You will find information on the different forms available for entering the data in the application.</p>
 <p>Please note that the organization of the data may be different from the usual way clinical data is captured for projects. For example, there is a key form called Diagnosis which may be implicit in your clinical data collection forms. For example, if you are collecting data for patients with breast cancer, the diagnosis may not be recorded in your case record forms simply because the diagnosis is assumed to be breast cancer. In case of the CHAVI client however for each patient we need to ensure that the diagnosis of Breast cancer is recorded.</p>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="help_files/about.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/installation.html">Installation Guide</a><ul>
@@ -67,6 +66,7 @@
 <li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#installation">Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#updating-the-software">Updating the Software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#dicom-query-retrieve-networking">DICOM Query/Retrieve Networking</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/configuration.html">Configuration Guide</a><ul>
@@ -77,6 +77,18 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/getting_around.html">Finding Your Way Around</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/getting_around.html#home">Home</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/getting_around.html#patient-search">Patient Search</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/getting_around.html#task-runs">Task Runs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/getting_around.html#notifications">Notifications</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="help_files/example_data_entry_scenarios.html">Example Data Entry Scenarios</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-1">Example 1:</a></li>
 <li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-2">Example 2:</a></li>
@@ -85,140 +97,7 @@
 <li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-5">Example 5:</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/handling_dicom_data.html">Handling DICOM Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#single-patient-import">Single Patient Import</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#associate-dicom-studies-with-project">Associate DICOM studies with Project</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#adding-study-type-information">Adding Study Type information</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/database_backup.html">Database Backup and Restore</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#relevant-environment-variables">Relevant Environment Variables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#backup-the-database">Backup the Database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#automating-backups">Automating Backups</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#restore-the-database">Restore the Database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#troubleshooting">Troubleshooting</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/import_data.html">Importing Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#using-the-import-feature">Using the Import Feature</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#special-considerations">Special Considerations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#example-csv-format">Example CSV Format</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_data_import.html">DICOM Data Import</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#single-patient-dicom-upload">Single Patient DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#important-notes">Important Notes</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_data.html">Lookup Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaterality">LookupLaterality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupicdcode">LookupICDCode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupfmacode">LookupFMACode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppresentation">LookupPresentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcometype">LookupOutcomeType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplesiontype">LookupLesionType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupresponsetype">LookupResponseType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupprotein">LookupProtein</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgene">LookupGene</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentintent">LookupTreatmentIntent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentsequence">LookupTreatmentSequence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemicagent">LookupSystemicAgent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupvolumeunits">LookupVolumeUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsizeunits">LookupSizeUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdoseunits">LookupDoseUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplabresultsunits">LookupLabResultsUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmassunits">LookupMassUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdrugroute">LookupDrugRoute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupctcaegrade">LookupCTCAEGrade</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcome">LookupOutcome</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingsystem">LookupStagingSystem</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstageprefix">LookupAJCCStagePrefix</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstagesuffix">LookupAJCCStageSuffix</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajcctstagedescriptor">LookupAJCCTStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccnstagedescriptor">LookupAJCCNStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccmstagedescriptor">LookupAJCCMStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagedescriptor">LookupStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdiagnosticmodality">LookupDiagnosticModality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapytype">LookupSystemicTherapyType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapyvolumetype">LookupRadiotherapyVolumeType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathology">LookupPathology</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgrade">LookupGrade</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathologydescriptors">LookupPathologyDescriptors</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmajorcancercategory">LookupMajorCancerCategory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapymodality">LookupRadiotherapyModality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytype">LookupRadiotherapyType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytechnique">LookupRadiotherapyTechnique</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupclinicalsignificance">LookupClinicalSignificance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcresult">LookupIHCResult</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcstainingintensity">LookupIHCStainingIntensity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmarginstatus">LookupMarginStatus</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmenteffect">LookupTreatmentEffect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingtype">LookupStagingType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapyregimen">LookupSystemicTherapyRegimen</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuprtlocation">LookupRTLocation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaboratorytest">LookupLaboratoryTest</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsymptoms">LookupSymptoms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupseverity">LookupSeverity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcantibody">LookupIHCAntibody</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcomorbidity">LookupComorbidity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupperformancestatus">LookupPerformanceStatus</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupexpressionunits">LookupExpressionUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcytogeneticabnormality">LookupCytogeneticAbnormality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupepigeneticabnormalitytype">LookupEpigeneticAbnormalityType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsurgicalprocedures">LookupSurgicalProcedures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupnodalassessmenttype">LookupNodalAssessmentType</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_tables.html">Lookup Tables in CHAVI client</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#symptoms">Symptoms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anatomical-sites">Anatomical Sites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#histology-types">Histology Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#diagnosis-types">Diagnosis Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laterality">Laterality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#grades">Grades</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#pathology-descriptors">Pathology Descriptors</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#major-cancer-sites">Major Cancer Sites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-modalities">Radiotherapy Modalities</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-treatment-type">Radiotherapy Treatment Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-technqiues">Radiotherapy Technqiues</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#adverse-effect">Adverse Effect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-protein-list">IHC Protein list</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#comorbidity">Comorbidity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-names">Gene Names</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-expression-units">Gene Expression Units</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#presentation">Presentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#disease-outcomes">Disease Outcomes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-response">Lesion Response</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-type">Lesion Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-intent">Treatment Intent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-sequencing">Treatment Sequencing</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#drug-route">Drug Route</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#units-of-measure">Units of Measure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#patient-outcome">Patient Outcome</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging">Staging</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging-system">Staging System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-type">Systemic Therapy Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anticancer-drugs">Anticancer Drugs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#clinical-significance">Clinical Significance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-and-cytogenetics-results-m-values">IHC and Cytogenetics Results M-values</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-staining-intensity">IHC Staining Intensity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#resection-margin-status">Resection Margin Status</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-effect">Treatment Effect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#severity">Severity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#performance-status">Performance status</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#surgery-procedures">Surgery Procedures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#nodal-assessment-type">Nodal Assessment Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-regimen">Systemic Therapy Regimen</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-volumes">Radiotherapy Volumes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laboratory-tests">Laboratory Tests</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#cytogenetic-abnormality">Cytogenetic Abnormality</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/patient_demographics.html">Patient Demographics</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="help_files/patient_demographics.html#data-collection-fields">Data Collection Fields</a></li>
 <li class="toctree-l2"><a class="reference internal" href="help_files/patient_demographics.html#special-considerations">Special Considerations</a></li>
@@ -339,6 +218,199 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/patient_assessment.html">Patient Assessment</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="help_files/patient_assessment.html#data-collection-fields">Data Collection Fields</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="help_files/csv_import_wizard.html">Importing Data with the CSV Wizard</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/csv_import_wizard.html#before-you-start">Before you start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/csv_import_wizard.html#the-steps">The steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/csv_import_wizard.html#tips">Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/import_data.html">Importing Data (Admin)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#using-the-import-feature">Using the Import Feature</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#special-considerations">Special Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#example-csv-format">Example CSV Format</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/handling_dicom_data.html">Handling DICOM Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#uploading-a-zip-file">Uploading a ZIP file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#fetching-and-receiving-scans">Fetching and receiving scans</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#uploading-through-the-admin-area">Uploading through the admin area</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#associate-dicom-studies-with-project">Associate DICOM studies with Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#adding-study-type-information">Adding Study Type information</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_data_import.html">DICOM Data Import (Admin)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#how-files-are-stored">How files are stored</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#important-notes">Important Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_retrieval.html#the-dicom-server-page">The DICOM Server page</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_retrieval.html#fetching-scans-for-a-patient">Fetching scans for a patient</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_retrieval.html#checking-a-retrieval-job">Checking a retrieval job</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_retrieval.html#automatic-fetching">Automatic fetching</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/automatic_data_extraction.html">Pulling Data Out of Documents</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/automatic_data_extraction.html#uploading-a-file">Uploading a file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/automatic_data_extraction.html#removing-personal-details">Removing personal details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/automatic_data_extraction.html#running-the-extraction">Running the extraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/automatic_data_extraction.html#reviewing-and-saving">Reviewing and saving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/automatic_data_extraction.html#setting-it-up">Setting it up</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_data.html">Lookup Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaterality">LookupLaterality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupicdcode">LookupICDCode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupfmacode">LookupFMACode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppresentation">LookupPresentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcometype">LookupOutcomeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplesiontype">LookupLesionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupresponsetype">LookupResponseType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupprotein">LookupProtein</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgene">LookupGene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentintent">LookupTreatmentIntent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentsequence">LookupTreatmentSequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemicagent">LookupSystemicAgent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupvolumeunits">LookupVolumeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsizeunits">LookupSizeUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdoseunits">LookupDoseUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplabresultsunits">LookupLabResultsUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmassunits">LookupMassUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdrugroute">LookupDrugRoute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupctcaegrade">LookupCTCAEGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcome">LookupOutcome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingsystem">LookupStagingSystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstageprefix">LookupAJCCStagePrefix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstagesuffix">LookupAJCCStageSuffix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajcctstagedescriptor">LookupAJCCTStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccnstagedescriptor">LookupAJCCNStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccmstagedescriptor">LookupAJCCMStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagedescriptor">LookupStageDescriptor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdiagnosticmodality">LookupDiagnosticModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapytype">LookupSystemicTherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapyvolumetype">LookupRadiotherapyVolumeType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathology">LookupPathology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgrade">LookupGrade</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathologydescriptors">LookupPathologyDescriptors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmajorcancercategory">LookupMajorCancerCategory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapymodality">LookupRadiotherapyModality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytype">LookupRadiotherapyType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytechnique">LookupRadiotherapyTechnique</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupclinicalsignificance">LookupClinicalSignificance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcresult">LookupIHCResult</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcstainingintensity">LookupIHCStainingIntensity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmarginstatus">LookupMarginStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmenteffect">LookupTreatmentEffect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingtype">LookupStagingType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapyregimen">LookupSystemicTherapyRegimen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuprtlocation">LookupRTLocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaboratorytest">LookupLaboratoryTest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsymptoms">LookupSymptoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupseverity">LookupSeverity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcantibody">LookupIHCAntibody</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcomorbidity">LookupComorbidity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupperformancestatus">LookupPerformanceStatus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupexpressionunits">LookupExpressionUnits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcytogeneticabnormality">LookupCytogeneticAbnormality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupepigeneticabnormalitytype">LookupEpigeneticAbnormalityType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsurgicalprocedures">LookupSurgicalProcedures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupnodalassessmenttype">LookupNodalAssessmentType</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_tables.html">Lookup Tables in CHAVI client</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#symptoms">Symptoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anatomical-sites">Anatomical Sites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#histology-types">Histology Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#diagnosis-types">Diagnosis Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laterality">Laterality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#grades">Grades</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#pathology-descriptors">Pathology Descriptors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#major-cancer-sites">Major Cancer Sites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-modalities">Radiotherapy Modalities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-treatment-type">Radiotherapy Treatment Type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-technqiues">Radiotherapy Technqiues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#adverse-effect">Adverse Effect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-protein-list">IHC Protein list</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#comorbidity">Comorbidity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-names">Gene Names</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-expression-units">Gene Expression Units</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#presentation">Presentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#disease-outcomes">Disease Outcomes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-response">Lesion Response</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-type">Lesion Type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-intent">Treatment Intent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-sequencing">Treatment Sequencing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#drug-route">Drug Route</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#units-of-measure">Units of Measure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#patient-outcome">Patient Outcome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging">Staging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging-system">Staging System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-type">Systemic Therapy Type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anticancer-drugs">Anticancer Drugs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#clinical-significance">Clinical Significance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-and-cytogenetics-results-m-values">IHC and Cytogenetics Results M-values</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-staining-intensity">IHC Staining Intensity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#resection-margin-status">Resection Margin Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-effect">Treatment Effect</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#severity">Severity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#performance-status">Performance status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#surgery-procedures">Surgery Procedures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#nodal-assessment-type">Nodal Assessment Type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-regimen">Systemic Therapy Regimen</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-volumes">Radiotherapy Volumes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laboratory-tests">Laboratory Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#cytogenetic-abnormality">Cytogenetic Abnormality</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_server_setup.html">Setting Up the DICOM Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#what-the-server-does">What the server does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#server-settings">Server settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#remote-nodes">Remote nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#fetching-scans-automatically">Fetching scans automatically</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#patient-id-aliases">Patient ID aliases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_server_setup.html#received-scans">Received scans</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/deidentification.html">De-identifying Patient Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/deidentification.html#the-patient-list">The patient list</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/deidentification.html#one-patient-at-a-time">One patient at a time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/deidentification.html#what-gets-removed">What gets removed</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/legacy_mapping_import.html">Importing Old De-identification Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/legacy_mapping_import.html#what-you-need">What you need</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/legacy_mapping_import.html#running-the-import">Running the import</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/legacy_mapping_import.html#fixing-what-did-not-match">Fixing what did not match</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/extraction_setup.html">Setting Up Automatic Data Extraction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/extraction_setup.html#the-easiest-way-the-wizard">The easiest way: the wizard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/extraction_setup.html#llm-clients">LLM Clients</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/extraction_setup.html#response-models">Response Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/extraction_setup.html#instructor-prompts">Instructor Prompts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/extraction_setup.html#embedding-settings">Embedding Settings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/database_backup.html">Database Backup and Restore</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#relevant-environment-variables">Relevant Environment Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#backup-the-database">Backup the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#automating-backups">Automating Backups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#restore-the-database">Restore the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#troubleshooting">Troubleshooting</a></li>
 </ul>
 </li>
 </ul>
@@ -354,359 +426,118 @@
 </section>
 
 
-	</div>
+            <div class="clearer"></div>
+          </div>
+        </div>
       </div>
-
-      
-      <footer>
-  
-  <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-    
-    <a href="help_files/about.html" class="btn btn-neutral float-right" title="About">Next <span class="fa fa-arrow-circle-right"></span></a>
-    
-    
-  </div>
-  
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>
-      &copy; Copyright 2025, Tata Medical Center.
-    </p>
-  </div>
-
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/jucacrispim/sphinx_pdj_theme">theme</a> provided by <a href="https://poraodojuca.dev">Porão do Juca</a>.
-
-</footer>
-      
-
-      <div class="clearer"></div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
     </div>
-  </div>
-
-</section>
-
-<nav data-toggle="wy-nav-shift" class="wy-nav-side">
-  <div class="wy-side-nav-search">
-    
-    <a href="#" class="fa fa-home"> CHAVI Client </a>
-    
-    
-    <div role="search">
-      
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
-</div>
-      
-    </div>
-  </div>
-
-  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-    
-      
-      
-	  <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="#">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="help_files/about.html">About</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/installation.html">Installation Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/installation.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/installation.html#environment-setup">Environment Setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/installation.html#linux-installation">Linux Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/installation.html#windows-installation">Windows Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/installation.html#accessing-the-application">Accessing the Application</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/docker_installation.html">Docker Installation Method</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/docker_installation.html#updating-the-software">Updating the Software</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/configuration.html">Configuration Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/configuration.html#initial-site-configuration">Initial Site Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/configuration.html#user-groups-and-permissions">User Groups and Permissions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/configuration.html#creating-users">Creating Users</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/configuration.html#security-recommendations">Security Recommendations</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/configuration.html">Configuration Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/tfa.html">Two Factor Authentication</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/example_data_entry_scenarios.html">Example Data Entry Scenarios</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-1">Example 1:</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-2">Example 2:</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-3">Example 3:</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-4">Example 4:</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/example_data_entry_scenarios.html#example-5">Example 5:</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/getting_around.html">Finding Your Way Around</a></li>
 </ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/handling_dicom_data.html">Handling DICOM Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#single-patient-import">Single Patient Import</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#associate-dicom-studies-with-project">Associate DICOM studies with Project</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/handling_dicom_data.html#adding-study-type-information">Adding Study Type information</a></li>
-</ul>
-</li>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="help_files/example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/database_backup.html">Database Backup and Restore</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#relevant-environment-variables">Relevant Environment Variables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#backup-the-database">Backup the Database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#automating-backups">Automating Backups</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#restore-the-database">Restore the Database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/database_backup.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/patient_assessment.html">Patient Assessment</a></li>
 </ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/import_data.html">Importing Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#using-the-import-feature">Using the Import Feature</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#special-considerations">Special Considerations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/import_data.html#example-csv-format">Example CSV Format</a></li>
-</ul>
-</li>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="help_files/csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/import_data.html">Importing Data (Admin)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="help_files/clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_data_import.html">DICOM Data Import</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#single-patient-dicom-upload">Single Patient DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#bulk-dicom-upload">Bulk DICOM Upload</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_data_import.html#important-notes">Important Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_tables.html">Lookup Tables in CHAVI client</a></li>
 </ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_data.html">Lookup Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaterality">LookupLaterality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupicdcode">LookupICDCode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupfmacode">LookupFMACode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppresentation">LookupPresentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcometype">LookupOutcomeType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplesiontype">LookupLesionType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupresponsetype">LookupResponseType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupprotein">LookupProtein</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgene">LookupGene</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentintent">LookupTreatmentIntent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmentsequence">LookupTreatmentSequence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemicagent">LookupSystemicAgent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupvolumeunits">LookupVolumeUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsizeunits">LookupSizeUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdoseunits">LookupDoseUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplabresultsunits">LookupLabResultsUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmassunits">LookupMassUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdrugroute">LookupDrugRoute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupctcaegrade">LookupCTCAEGrade</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupoutcome">LookupOutcome</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingsystem">LookupStagingSystem</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstageprefix">LookupAJCCStagePrefix</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccstagesuffix">LookupAJCCStageSuffix</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajcctstagedescriptor">LookupAJCCTStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccnstagedescriptor">LookupAJCCNStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupajccmstagedescriptor">LookupAJCCMStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagedescriptor">LookupStageDescriptor</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupdiagnosticmodality">LookupDiagnosticModality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapytype">LookupSystemicTherapyType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapyvolumetype">LookupRadiotherapyVolumeType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathology">LookupPathology</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupgrade">LookupGrade</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuppathologydescriptors">LookupPathologyDescriptors</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmajorcancercategory">LookupMajorCancerCategory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapymodality">LookupRadiotherapyModality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytype">LookupRadiotherapyType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupradiotherapytechnique">LookupRadiotherapyTechnique</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupclinicalsignificance">LookupClinicalSignificance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcresult">LookupIHCResult</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcstainingintensity">LookupIHCStainingIntensity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupmarginstatus">LookupMarginStatus</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuptreatmenteffect">LookupTreatmentEffect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupstagingtype">LookupStagingType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsystemictherapyregimen">LookupSystemicTherapyRegimen</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuprtlocation">LookupRTLocation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookuplaboratorytest">LookupLaboratoryTest</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsymptoms">LookupSymptoms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupseverity">LookupSeverity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupihcantibody">LookupIHCAntibody</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcomorbidity">LookupComorbidity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupperformancestatus">LookupPerformanceStatus</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupexpressionunits">LookupExpressionUnits</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupcytogeneticabnormality">LookupCytogeneticAbnormality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupepigeneticabnormalitytype">LookupEpigeneticAbnormalityType</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupsurgicalprocedures">LookupSurgicalProcedures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_data.html#lookupnodalassessmenttype">LookupNodalAssessmentType</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lookup_tables.html">Lookup Tables in CHAVI client</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#symptoms">Symptoms</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anatomical-sites">Anatomical Sites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#histology-types">Histology Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#diagnosis-types">Diagnosis Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laterality">Laterality</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#grades">Grades</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#pathology-descriptors">Pathology Descriptors</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#major-cancer-sites">Major Cancer Sites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-modalities">Radiotherapy Modalities</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-treatment-type">Radiotherapy Treatment Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-technqiues">Radiotherapy Technqiues</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#adverse-effect">Adverse Effect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-protein-list">IHC Protein list</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#comorbidity">Comorbidity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-names">Gene Names</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#gene-expression-units">Gene Expression Units</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#presentation">Presentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#disease-outcomes">Disease Outcomes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-response">Lesion Response</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#lesion-type">Lesion Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-intent">Treatment Intent</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-sequencing">Treatment Sequencing</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#drug-route">Drug Route</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#units-of-measure">Units of Measure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#patient-outcome">Patient Outcome</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging">Staging</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#staging-system">Staging System</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-type">Systemic Therapy Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#anticancer-drugs">Anticancer Drugs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#clinical-significance">Clinical Significance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-and-cytogenetics-results-m-values">IHC and Cytogenetics Results M-values</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#ihc-staining-intensity">IHC Staining Intensity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#resection-margin-status">Resection Margin Status</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#treatment-effect">Treatment Effect</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#severity">Severity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#performance-status">Performance status</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#surgery-procedures">Surgery Procedures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#nodal-assessment-type">Nodal Assessment Type</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#systemic-therapy-regimen">Systemic Therapy Regimen</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#radiotherapy-volumes">Radiotherapy Volumes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#laboratory-tests">Laboratory Tests</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lookup_tables.html#cytogenetic-abnormality">Cytogenetic Abnormality</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/patient_demographics.html">Patient Demographics</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_demographics.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_demographics.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/diagnosis.html">Diagnosis</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/diagnosis.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/diagnosis.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lesion.html">Lesion Characteristics</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lesion.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/lesion_response.html">Lesion Response</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/lesion_response.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/pathology.html">Pathology</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/pathology.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/pathology.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/immunohistochemistry.html">Immunohistochemistry</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/immunohistochemistry.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/cytogenetics.html">Cytogenetics</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/cytogenetics.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/somatic_genomic_alterations.html">Somatic Genomic Alterations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/somatic_genomic_alterations.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/germline_mutation_data.html">Germline Genomic Alterations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/germline_mutation_data.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/adverse_effects.html">Adverse Effects</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/adverse_effects.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/adverse_effects.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/systemic_therapy.html">Systemic Therapy</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/systemic_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/systemic_therapy_drug_schedule.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_therapy.html">Radiation Therapy</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/radiation_therapy.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_volume.html">Radiation Volume</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/radiation_volume.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/radiation_dose_volume.html">Radiation Dose Volume Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/radiation_dose_volume.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/surgery.html">Surgery</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/surgery.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/concomitant_medications.html">Concomitant Medications</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/concomitant_medications.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/other_treatment.html">Other Treatment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/other_treatment.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/cancer_outcomes.html">Cancer Outcomes</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/cancer_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/laboratory_results.html">Laboratory Results</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/laboratory_results.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/symptoms.html">Symptoms</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/symptoms.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/stage_information.html">Stage Information</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/stage_information.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/comorbidities.html">Comorbidities</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/comorbidities.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/patient_outcomes.html">Patient Outcomes</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/patient_reported_outcomes.html">Patient Reported Outcomes</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_reported_outcomes.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_reported_outcomes.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_study.html">DICOM Study Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_study.html#data-collection-fields">Data Collection Fields</a></li>
-<li class="toctree-l2"><a class="reference internal" href="help_files/dicom_study.html#special-considerations">Special Considerations</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/epigenetic_modifications.html">Epigenetic Modifications</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/epigenetic_modifications.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/gene_expression_data.html">Gene Expression Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/gene_expression_data.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="help_files/patient_assessment.html">Patient Assessment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="help_files/patient_assessment.html#data-collection-fields">Data Collection Fields</a></li>
-</ul>
-</li>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="help_files/dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="help_files/database_backup.html">Database Backup and Restore</a></li>
 </ul>
 
-      
-    
-
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="help_files/about.html"
+                          title="next chapter">About</a></p>
   </div>
-  &nbsp;
-</nav>
-
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="help_files/about.html" title="About"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to CHAVI Client Documentation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
   </body>
 </html>

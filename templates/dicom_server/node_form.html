@@ -3,17 +3,17 @@
 {% block title %}{% if object %}Edit{% else %}Add{% endif %} Remote Node - CHAVI Client{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
-    {% include "dicom_server/_messages.html" %}
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">{% if object %}Edit{% else %}Add{% endif %} Remote DICOM Node</h1>
-    <div class="bg-white rounded-lg shadow p-6">
+    {% url 'dicom_server:node_list' as back_url %}
+    {% if object %}{% component "page_header" title="Edit Remote DICOM Node" icon="fas fa-network-wired" back_url=back_url back_text="Back to nodes" %}{% endcomponent %}{% else %}{% component "page_header" title="Add Remote DICOM Node" icon="fas fa-network-wired" back_url=back_url back_text="Back to nodes" %}{% endcomponent %}{% endif %}
+    {% component "card" %}{% fill "body" %}
         <form method="post">
             {% csrf_token %}
             {{ form|crispy }}
             <div class="mt-6 flex space-x-3">
-                <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">Save</button>
-                <a href="{% url 'dicom_server:node_list' %}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Cancel</a>
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Save{% endcomponent %}
+                {% url 'dicom_server:node_list' as cancel_url %}{% component "button" style="secondary" href=cancel_url %}Cancel{% endcomponent %}
             </div>
         </form>
-    </div>
+    {% endfill %}{% endcomponent %}
 </div>
 {% endblock %}

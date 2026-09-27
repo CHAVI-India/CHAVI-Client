@@ -9,53 +9,46 @@
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-yellow-700">
-                    <strong>Important:</strong> Please review the generated JSON data carefully before proceeding with the import.
-                    Once imported, this data will be added to your database.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="warning" %}
+        {% fill "default" %}<strong>Important:</strong> Please review the generated JSON data carefully before proceeding with the import. Once imported, this data will be added to your database.{% endfill %}
+    {% endcomponent %}
 
     <!-- Session Info -->
     {% if session.project_name.all %}
-    <div class="bg-white border rounded-lg p-4">
-        <h3 class="font-semibold text-gray-900 mb-3">
-            <i class="fas fa-project-diagram mr-2 text-indigo-600"></i>Selected Projects
-        </h3>
+    {% component "card" %}
+        {% fill "header" %}
+            <h3 class="font-semibold text-gray-900">
+                <i class="fas fa-project-diagram mr-2 text-chavi-charcoal-600"></i>Selected Projects
+            </h3>
+        {% endfill %}
+        {% fill "body" %}
         <div class="flex flex-wrap gap-2">
             {% for project in session.project_name.all %}
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                <i class="fas fa-folder mr-1.5"></i>{{ project.project_name }}
-            </span>
+            {% component "badge" style="info" icon="fas fa-folder" %}{{ project.project_name }}{% endcomponent %}
             {% endfor %}
         </div>
         <p class="text-xs text-gray-500 mt-2">
             <i class="fas fa-info-circle mr-1"></i>All imported patients will be associated with these projects.
         </p>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     <!-- Mapping Summary -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Field Mappings -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-blue-50 px-4 py-3 border-b">
+        {% component "card" accent="charcoal" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-exchange-alt mr-2 text-blue-600"></i>Field Mappings ({{ mapping_summary|length }})
+                    <i class="fas fa-exchange-alt mr-2 text-chavi-charcoal-600"></i>Field Mappings ({{ mapping_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if mapping_summary %}
                     <div class="space-y-3">
                         {% for mapping in mapping_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ mapping.field }}</div>
                                     <div class="text-gray-500 text-xs mt-1">
@@ -69,20 +62,22 @@
                     <p class="text-gray-500 text-sm">No field mappings configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
 
         <!-- Default Values -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-green-50 px-4 py-3 border-b">
+        {% component "card" accent="primary" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-cog mr-2 text-green-600"></i>Default Values ({{ default_summary|length }})
+                    <i class="fas fa-cog mr-2 text-chavi-primary-600"></i>Default Values ({{ default_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if default_summary %}
                     <div class="space-y-3">
                         {% for default in default_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ default.field }}</div>
                                     <div class="text-gray-600 text-xs mt-1">
@@ -96,29 +91,31 @@
                     <p class="text-gray-500 text-sm">No default values configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
     </div>
 
     <!-- Additional Mappings -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Lookup Mappings -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-purple-50 px-4 py-3 border-b">
+        {% component "card" accent="sand" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-search mr-2 text-purple-600"></i>Lookup Mappings ({{ lookup_summary|length }})
+                    <i class="fas fa-search mr-2 text-chavi-sand-600"></i>Lookup Mappings ({{ lookup_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if lookup_summary %}
                     <div class="space-y-3">
                         {% for lookup in lookup_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ lookup.csv_column }}</div>
                                     <div class="text-gray-600 text-xs mt-1">
                                         <span class="font-mono bg-gray-100 px-2 py-0.5 rounded">{{ lookup.csv_value }}</span>
                                         <i class="fas fa-arrow-right mx-2"></i>
-                                        <span class="font-mono bg-purple-100 px-2 py-0.5 rounded">{{ lookup.lookup_code }}</span>
+                                        <span class="font-mono bg-chavi-sand-100 px-2 py-0.5 rounded">{{ lookup.lookup_code }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -128,20 +125,22 @@
                     <p class="text-gray-500 text-sm">No lookup mappings configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
 
         <!-- Duration Mappings -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-orange-50 px-4 py-3 border-b">
+        {% component "card" accent="sand" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-clock mr-2 text-orange-600"></i>Duration Mappings ({{ duration_summary|length }})
+                    <i class="fas fa-clock mr-2 text-chavi-sand-600"></i>Duration Mappings ({{ duration_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if duration_summary %}
                     <div class="space-y-3">
                         {% for duration in duration_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ duration.target_field }}</div>
                                     <div class="text-gray-600 text-xs mt-1">
@@ -161,21 +160,23 @@
                     <p class="text-gray-500 text-sm">No duration mappings configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
     </div>
 
     <!-- Parent Record Mappings -->
     {% if parent_mapping_summary %}
-    <div class="bg-white border rounded-lg overflow-hidden">
-        <div class="bg-purple-50 px-4 py-3 border-b">
+    {% component "card" accent="sand" %}
+        {% fill "header" %}
             <h3 class="font-semibold text-gray-900">
-                <i class="fas fa-sitemap mr-2 text-purple-600"></i>Parent Record Mappings ({{ parent_mapping_summary|length }})
+                <i class="fas fa-sitemap mr-2 text-chavi-sand-600"></i>Parent Record Mappings ({{ parent_mapping_summary|length }})
             </h3>
-        </div>
-        <div class="p-4 max-h-96 overflow-y-auto">
+        {% endfill %}
+        {% fill "body" %}
+        <div class="max-h-96 overflow-y-auto">
             <div class="space-y-3">
                 {% for pm in parent_mapping_summary %}
-                    <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                    <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                         <div class="flex-1">
                             <div class="font-medium text-gray-900">{{ pm.relationship }}</div>
                             <div class="text-gray-600 text-xs mt-1">
@@ -186,27 +187,29 @@
                 {% endfor %}
             </div>
         </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     <!-- Date Formats and Missing Relations -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Date Formats -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-indigo-50 px-4 py-3 border-b">
+        {% component "card" accent="charcoal" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-calendar mr-2 text-indigo-600"></i>Date Formats ({{ date_format_summary|length }})
+                    <i class="fas fa-calendar mr-2 text-chavi-charcoal-600"></i>Date Formats ({{ date_format_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if date_format_summary %}
                     <div class="space-y-3">
                         {% for df in date_format_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ df.csv_column }}</div>
                                     <div class="text-gray-600 text-xs mt-1">
-                                        <span class="font-mono bg-indigo-100 px-2 py-0.5 rounded">{{ df.date_format }}</span>
+                                        <span class="font-mono bg-chavi-charcoal-100 px-2 py-0.5 rounded">{{ df.date_format }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -216,20 +219,22 @@
                     <p class="text-gray-500 text-sm">No date formats configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
 
         <!-- Missing Relations -->
-        <div class="bg-white border rounded-lg overflow-hidden">
-            <div class="bg-red-50 px-4 py-3 border-b">
+        {% component "card" accent="peach" %}
+            {% fill "header" %}
                 <h3 class="font-semibold text-gray-900">
-                    <i class="fas fa-link mr-2 text-red-600"></i>Missing Relations ({{ missing_summary|length }})
+                    <i class="fas fa-link mr-2 text-chavi-peach-600"></i>Missing Relations ({{ missing_summary|length }})
                 </h3>
-            </div>
-            <div class="p-4 max-h-96 overflow-y-auto">
+            {% endfill %}
+            {% fill "body" %}
+            <div class="max-h-96 overflow-y-auto">
                 {% if missing_summary %}
                     <div class="space-y-3">
                         {% for mr in missing_summary %}
-                            <div class="flex items-start text-sm border-b pb-2 last:border-b-0">
+                            <div class="flex items-start text-sm border-b border-gray-200 pb-2 last:border-b-0">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-900">{{ mr.field }}</div>
                                     <div class="text-gray-600 text-xs mt-1">
@@ -243,12 +248,13 @@
                     <p class="text-gray-500 text-sm">No missing relations configured.</p>
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
     </div>
 
     <!-- JSON Preview -->
-    <div class="border rounded-lg overflow-hidden">
-        <div class="bg-gray-800 px-4 py-3 flex justify-between items-center">
+    <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <div class="bg-chavi-charcoal-800 px-4 py-3 flex justify-between items-center">
             <h3 class="text-white font-medium">
                 <i class="fas fa-code mr-2"></i>Generated JSON Preview
             </h3>
@@ -256,33 +262,33 @@
                 <i class="fas fa-copy mr-1"></i>Copy
             </button>
         </div>
-        <div class="bg-gray-900 p-4 overflow-x-auto max-h-96">
+        <div class="bg-chavi-charcoal-900 p-4 overflow-x-auto max-h-96">
             <pre><code id="json-preview" class="language-json text-sm">{{ json_preview }}</code></pre>
         </div>
     </div>
 
     <!-- Summary Stats -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white border rounded-lg p-4">
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="text-sm text-gray-500">Session</div>
             <div class="text-lg font-semibold text-gray-900">{{ json_data.import_session }}</div>
         </div>
-        <div class="bg-white border rounded-lg p-4">
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="text-sm text-gray-500">Models</div>
             <div class="text-lg font-semibold text-gray-900">{{ json_data.selected_models|length }}</div>
         </div>
-        <div class="bg-white border rounded-lg p-4">
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="text-sm text-gray-500">Patients</div>
             <div class="text-lg font-semibold text-gray-900">{{ json_data.patient_count }}</div>
         </div>
-        <div class="bg-white border rounded-lg p-4">
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="text-sm text-gray-500">Field Mappings</div>
             <div class="text-lg font-semibold text-gray-900">{{ json_data.field_mappings }}</div>
         </div>
     </div>
 
     <!-- Confirmation Form -->
-    <form method="post" class="border-t pt-6">
+    <form method="post" class="border-t border-gray-200 pt-6">
         {% csrf_token %}
         
         <div class="flex items-start mb-6">
@@ -298,20 +304,15 @@
                     {{ form.confirm_import.label }}
                 </label>
                 {% if form.confirm_import.errors %}
-                <p class="mt-1 text-sm text-red-600">{{ form.confirm_import.errors.0 }}</p>
+                <p class="mt-1 text-sm text-chavi-peach-600">{{ form.confirm_import.errors.0 }}</p>
                 {% endif %}
             </div>
         </div>
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step10' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 10
-            </a>
-            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Proceed to Import
-                <i class="fas fa-arrow-right ml-2"></i>
-            </button>
+            {% url 'data_import:step10' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 10{% endcomponent %}
+            {% component "button" style="primary" type="submit" %}Proceed to Import <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
         </div>
     </form>
 </div>

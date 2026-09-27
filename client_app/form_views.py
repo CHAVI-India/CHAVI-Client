@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView, ListView, DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from .models import *
@@ -194,6 +194,16 @@ class BaseFormView(ForeignKeyInitMixin, LoginRequiredMixin, CreateView):
 
 
 # Patient-level form views
+class PatientCreateView(PermissionRequiredMixin, BaseFormView):
+    model = Patient
+    form_class = PatientForm
+    permission_required = 'client_app.add_patient'
+    raise_exception = True
+
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient_id}'
+
+
 class ComorbidityCreateView(BaseFormView):
     model = Comorbidity
     form_class = ComorbidityForm

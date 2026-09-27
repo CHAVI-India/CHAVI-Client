@@ -4,30 +4,24 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            {% if is_edit %}
-            <i class="fas fa-edit text-blue-600 mr-3"></i>Edit Configuration
-            {% else %}
-            <i class="fas fa-plus text-purple-600 mr-3"></i>New Embedding Configuration
-            {% endif %}
-        </h1>
-        <p class="text-gray-600">Configure the embedding model for semantic search</p>
-    </div>
+    {% url 'extractor:semantic_search_settings' as cancel_url %}
+    {% if is_edit %}
+    {% component "page_header" title="Edit Configuration" icon="fas fa-edit" subtitle="Configure the embedding model for semantic search" back_url=cancel_url back_text="Back to settings" %}{% endcomponent %}
+    {% else %}
+    {% component "page_header" title="New Embedding Configuration" icon="fas fa-plus" subtitle="Configure the embedding model for semantic search" back_url=cancel_url back_text="Back to settings" %}{% endcomponent %}
+    {% endif %}
 
-    <div class="bg-white rounded-lg shadow-md p-6">
+    {% component "card" %}
+    {% fill "body" %}
         <form method="post">
             {% csrf_token %}
-            
+
             <!-- Model Selection -->
             {% if not is_edit %}
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Quick Select Model
-                </label>
+            {% component "form_field" label="Quick Select Model" %}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {% for option in model_options %}
-                    <div class="border rounded-lg p-4 cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors model-option"
+                    <div class="border rounded-lg p-4 cursor-pointer hover:border-chavi-sand-500 hover:bg-chavi-sand-50 transition-colors model-option"
                          onclick="selectModel('{{ option.name }}', '{{ option.provider }}', {{ option.dimension }})">
                         <div class="font-semibold text-gray-900">{{ option.name|truncatechars:30 }}</div>
                         <div class="text-sm text-gray-600 mt-1">{{ option.description }}</div>
@@ -37,39 +31,33 @@
                     </div>
                     {% endfor %}
                 </div>
-            </div>
+            {% endcomponent %}
             <div class="border-t border-gray-200 my-6"></div>
             {% endif %}
 
             <!-- Model Name -->
-            <div class="mb-4">
-                <label for="model_name" class="block text-sm font-medium text-gray-700 mb-2">
-                    Model Name <span class="text-red-500">*</span>
-                </label>
-                <input type="text" 
-                       id="model_name" 
-                       name="model_name" 
+            {% component "form_field" label="Model Name" field_id="model_name" required=True extra_class="mb-4" %}
+                <input type="text"
+                       id="model_name"
+                       name="model_name"
                        value="{% if is_edit %}{{ config.model_name }}{% endif %}"
                        required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent"
                        placeholder="e.g., NeuML/pubmedbert-base-embeddings">
                 <p class="text-xs text-gray-500 mt-1">
                     Local models: the Hugging Face repo id (browse
-                    <a href="https://huggingface.co/models?library=sentence-transformers" target="_blank" class="text-purple-600 underline">sentence-transformers models</a>,
+                    <a href="https://huggingface.co/models?library=sentence-transformers" target="_blank" class="text-chavi-sand-600 underline">sentence-transformers models</a>,
                     e.g. <code>NeuML/pubmedbert-base-embeddings</code>).
                     OpenAI: the API model name, e.g. <code>text-embedding-3-small</code>.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Model Provider -->
-            <div class="mb-4">
-                <label for="model_provider" class="block text-sm font-medium text-gray-700 mb-2">
-                    Model Provider <span class="text-red-500">*</span>
-                </label>
-                <select id="model_provider" 
-                        name="model_provider" 
+            {% component "form_field" label="Model Provider" field_id="model_provider" required=True extra_class="mb-4" %}
+                <select id="model_provider"
+                        name="model_provider"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent">
                     <option value="sentence-transformers" {% if is_edit and config.model_provider == 'sentence-transformers' %}selected{% endif %}>
                         sentence-transformers (Local)
                     </option>
@@ -81,63 +69,54 @@
                     <strong>sentence-transformers</strong> — model is downloaded from Hugging Face and runs on this server (clinical text never leaves the machine).
                     <strong>OpenAI</strong> — calls an OpenAI-compatible <code>/embeddings</code> API: api.openai.com by default, or your own endpoint via Base URL below.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Embedding Dimension -->
-            <div class="mb-4">
-                <label for="embedding_dimension" class="block text-sm font-medium text-gray-700 mb-2">
-                    Embedding Dimension <span class="text-red-500">*</span>
-                </label>
-                <input type="number" 
-                       id="embedding_dimension" 
-                       name="embedding_dimension" 
+            {% component "form_field" label="Embedding Dimension" field_id="embedding_dimension" required=True extra_class="mb-4" %}
+                <input type="number"
+                       id="embedding_dimension"
+                       name="embedding_dimension"
                        value="{% if is_edit %}{{ config.embedding_dimension }}{% else %}384{% endif %}"
                        required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent"
                        placeholder="768">
                 <p class="text-xs text-gray-500 mt-1">
                     Must equal the model's real output size — check the model card on Hugging Face
                     (e.g. 768 for pubmedbert-base-embeddings, 1536 for text-embedding-3-small).
                     Any dimension is accepted, but a mismatch fails when embeddings are computed.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- API Key (optional) -->
-            <div class="mb-4">
-                <label for="api_key" class="block text-sm font-medium text-gray-700 mb-2">
-                    API Key (Optional)
-                </label>
+            {% component "form_field" label="API Key (Optional)" field_id="api_key" extra_class="mb-4" %}
                 <input type="password"
                        id="api_key"
                        name="api_key"
                        value=""
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent"
                        placeholder="OpenAI API key or Hugging Face token (hf_...)">
                 <p class="text-xs text-gray-500 mt-1">
                     {% if is_edit %}Leave blank to keep the existing key. {% endif %}
                     <strong>OpenAI provider:</strong> your API key from platform.openai.com.
                     <strong>Local models:</strong> optional Hugging Face read token — create one at
-                    <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-purple-600 underline">huggingface.co/settings/tokens</a>
+                    <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-chavi-sand-600 underline">huggingface.co/settings/tokens</a>
                     (required for gated models; also avoids Hub rate-limit warnings). Stored encrypted.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Base URL (optional) -->
-            <div class="mb-4">
-                <label for="base_url" class="block text-sm font-medium text-gray-700 mb-2">
-                    Base URL (Optional)
-                </label>
+            {% component "form_field" label="Base URL (Optional)" field_id="base_url" extra_class="mb-4" %}
                 <input type="text"
                        id="base_url"
                        name="base_url"
                        value="{% if is_edit and config.base_url %}{{ config.base_url }}{% endif %}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent"
                        placeholder="e.g. http://localhost:11434/v1">
                 <p class="text-xs text-gray-500 mt-1">
                     OpenAI provider only: point at an OpenAI-compatible endpoint — Ollama (<code>:11434/v1</code>), vLLM, or Azure.
                     Leave blank to use api.openai.com. Ignored for local sentence-transformers models.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <div class="border-t border-gray-200 my-6"></div>
 
@@ -145,29 +124,23 @@
             <h3 class="font-semibold text-gray-900 mb-4">Search Settings</h3>
 
             <!-- Similarity Threshold -->
-            <div class="mb-4">
-                <label for="similarity_threshold" class="block text-sm font-medium text-gray-700 mb-2">
-                    Similarity Threshold
-                </label>
-                <input type="number" 
-                       id="similarity_threshold" 
-                       name="similarity_threshold" 
+            {% component "form_field" label="Similarity Threshold" field_id="similarity_threshold" extra_class="mb-4" %}
+                <input type="number"
+                       id="similarity_threshold"
+                       name="similarity_threshold"
                        step="0.1"
                        min="0"
                        max="1"
                        value="{% if is_edit %}{{ config.similarity_threshold }}{% else %}0.7{% endif %}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 mt-1">
                     Minimum cosine similarity (0–1) for a semantic match to be accepted as the final label.
                     Higher = stricter matching; 0.7 is a typical starting point.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Candidate Threshold -->
-            <div class="mb-4">
-                <label for="candidate_threshold" class="block text-sm font-medium text-gray-700 mb-2">
-                    Candidate Threshold
-                </label>
+            {% component "form_field" label="Candidate Threshold" field_id="candidate_threshold" extra_class="mb-4" %}
                 <input type="number"
                        id="candidate_threshold"
                        name="candidate_threshold"
@@ -175,63 +148,54 @@
                        min="0"
                        max="1"
                        value="{% if is_edit %}{{ config.candidate_threshold }}{% else %}0.5{% endif %}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 mt-1">
                     Looser cutoff used when collecting candidate options to show the LLM — should be
                     below the similarity threshold (lower = more candidates, more LLM tokens).
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Top K Results -->
-            <div class="mb-4">
-                <label for="top_k_results" class="block text-sm font-medium text-gray-700 mb-2">
-                    Top K Results
-                </label>
-                <input type="number" 
-                       id="top_k_results" 
-                       name="top_k_results" 
+            {% component "form_field" label="Top K Results" field_id="top_k_results" extra_class="mb-4" %}
+                <input type="number"
+                       id="top_k_results"
+                       name="top_k_results"
                        min="1"
                        max="20"
                        value="{% if is_edit %}{{ config.top_k_results }}{% else %}5{% endif %}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-sand-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 mt-1">
                     How many of the closest lookup entries are offered to the LLM as candidate matches.
                 </p>
-            </div>
+            {% endcomponent %}
 
             <!-- Is Active -->
             <div class="mb-6">
                 <label class="flex items-center">
-                    <input type="checkbox" 
-                           name="is_active" 
+                    <input type="checkbox"
+                           name="is_active"
                            {% if is_edit and config.is_active %}checked{% elif not is_edit %}checked{% endif %}
-                           class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                           class="w-4 h-4 text-chavi-sand-600 border-gray-300 rounded focus:ring-chavi-sand-500">
                     <span class="ml-2 text-sm font-medium text-gray-700">Set as active configuration</span>
                 </label>
                 <p class="text-xs text-gray-500 mt-1 ml-6">
                     Only one configuration can be active at a time — activating this deactivates the others.
-                    After switching the active config, run <em>Compute Embeddings</em> on the Semantic Search
-                    settings page so the index is rebuilt with this model.
+                    Once created and set active, embeddings can be computed from the semantic search settings page.
                 </p>
             </div>
 
             <!-- Buttons -->
             <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <a href="{% url 'extractor:semantic_search_settings' %}" 
-                   class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                    Cancel
-                </a>
-                <button type="submit" 
-                        class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                    {% if is_edit %}
-                    <i class="fas fa-save mr-2"></i>Save Changes
-                    {% else %}
-                    <i class="fas fa-plus mr-2"></i>Create Configuration
-                    {% endif %}
-                </button>
+                {% component "button" style="secondary" href=cancel_url %}Cancel{% endcomponent %}
+                {% if is_edit %}
+                {% component "button" style="accent" type="submit" icon="fas fa-save" %}Save Changes{% endcomponent %}
+                {% else %}
+                {% component "button" style="accent" type="submit" icon="fas fa-plus" %}Create Configuration{% endcomponent %}
+                {% endif %}
             </div>
         </form>
-    </div>
+    {% endfill %}
+    {% endcomponent %}
 </div>
 
 <script>
@@ -239,12 +203,12 @@ function selectModel(name, provider, dimension) {
     document.getElementById('model_name').value = name;
     document.getElementById('model_provider').value = provider;
     document.getElementById('embedding_dimension').value = dimension;
-    
+
     // Highlight selected option
     document.querySelectorAll('.model-option').forEach(el => {
-        el.classList.remove('border-purple-500', 'bg-purple-50');
+        el.classList.remove('border-chavi-sand-500', 'bg-chavi-sand-50');
     });
-    event.currentTarget.classList.add('border-purple-500', 'bg-purple-50');
+    event.currentTarget.classList.add('border-chavi-sand-500', 'bg-chavi-sand-50');
 }
 </script>
 {% endblock %}

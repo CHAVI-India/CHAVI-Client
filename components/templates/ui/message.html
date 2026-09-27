@@ -1,0 +1,23 @@
+{# Message — renders Django messages queue once, in base.html #}
+{% if messages %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 {{ extra_class }}" id="site-messages">
+    {% for message in messages %}
+        <div class="rounded-lg p-4 border mb-3
+            {% if message.tags == 'success' %}bg-chavi-primary-50 border-chavi-primary-200 text-chavi-primary-800
+            {% elif message.tags == 'error' %}bg-chavi-peach-50 border-chavi-peach-200 text-chavi-peach-800
+            {% elif message.tags == 'warning' %}bg-chavi-sun-50 border-chavi-sun-300 text-chavi-sun-900
+            {% else %}bg-chavi-charcoal-50 border-chavi-charcoal-200 text-chavi-charcoal-800{% endif %}"
+            role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="{% if message.tags == 'success' %}fas fa-check-circle{% elif message.tags == 'error' %}fas fa-exclamation-circle{% elif message.tags == 'warning' %}fas fa-exclamation-triangle{% else %}fas fa-info-circle{% endif %} text-xl"></i>
+                </div>
+                <div class="ml-3 flex-1 text-sm">{{ message }}</div>
+                <button type="button" class="ml-3 -mr-1 -mt-1 p-1 rounded hover:bg-black hover:bg-opacity-10 transition-colors" aria-label="Dismiss" onclick="this.closest('[role]').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}

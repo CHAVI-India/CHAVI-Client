@@ -1,0 +1,343 @@
+/* Load the base theme stylesheet first — theme.conf `stylesheet` replaces
+ * the inherited list, so pull basic.css in here to keep base styles. */
+@import url("../basic.css");
+
+/*
+ * CHAVI Client documentation theme.
+ * Palette per docs/ui-styleguide.md:
+ *   charcoal #264653 · primary/verdigris #2a9d8f · sun #e9c46a
+ *   sand #f4a261 · peach #e76f51 · canvas #f5f8f9 · paper #fbf7f0
+ */
+
+:root {
+    --chavi-primary-50: #ecf9f7; --chavi-primary-100: #d2f0ec;
+    --chavi-primary-300: #78d2c6; --chavi-primary-400: #4bb3a3;
+    --chavi-primary-500: #2a9d8f; --chavi-primary-600: #228578;
+    --chavi-primary-700: #1a6d62;
+    --chavi-charcoal-50: #eef4f5; --chavi-charcoal-100: #d9e5e8;
+    --chavi-charcoal-200: #b3cbd1; --chavi-charcoal-300: #8db1ba;
+    --chavi-charcoal-500: #264653; --chavi-charcoal-600: #213d49;
+    --chavi-charcoal-700: #1b333d; --chavi-charcoal-800: #152931;
+    --chavi-charcoal-900: #0f1f25;
+    --chavi-sun-50: #fdf8ec; --chavi-sun-200: #f5dda8;
+    --chavi-sun-400: #eabf6e; --chavi-sun-500: #e9c46a;
+    --chavi-sand-50: #fef5ec; --chavi-sand-200: #f9d1a7;
+    --chavi-sand-500: #f4a261;
+    --chavi-peach-50: #fdf0ec; --chavi-peach-500: #e76f51;
+    --chavi-peach-700: #b8482e;
+    --chavi-canvas: #f5f8f9; --chavi-paper: #fbf7f0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--chavi-charcoal-900);
+    background: var(--chavi-canvas);
+}
+
+/* ---- Top navbar (charcoal chrome like the app) ---- */
+
+.chavi-topnav {
+    background: var(--chavi-charcoal-800);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+}
+
+.chavi-topnav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.chavi-brand {
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.chavi-nav-sub {
+    color: var(--chavi-charcoal-300);
+    font-size: .95rem;
+}
+
+.chavi-nav-links { margin-left: auto; display: flex; gap: 1.25rem; }
+
+.chavi-nav-links a {
+    color: var(--chavi-charcoal-100);
+    font-size: .875rem;
+    font-weight: 500;
+    text-decoration: none;
+    padding-bottom: 2px;
+    border-bottom: 2px solid transparent;
+}
+
+.chavi-nav-links a:hover {
+    color: #fff;
+    border-bottom-color: var(--chavi-sun-400);
+}
+
+/* ---- Relation bars (previous / index / next) ---- */
+
+div.related {
+    background: var(--chavi-charcoal-50);
+    border-bottom: 1px solid var(--chavi-charcoal-100);
+    font-size: .85rem;
+    padding: .4rem 0;
+}
+
+div.related:last-of-type { border-bottom: none; border-top: 1px solid var(--chavi-charcoal-100); }
+
+div.related ul {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+div.related a { color: var(--chavi-primary-600); text-decoration: none; }
+div.related a:hover { color: var(--chavi-primary-700); text-decoration: underline; }
+
+/* ---- Page layout ---- */
+
+div.document {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+div.documentwrapper { flex: 1; min-width: 0; }
+
+div.body {
+    background: #fff;
+    border: 1px solid var(--chavi-charcoal-100);
+    border-radius: .5rem;
+    box-shadow: 0 1px 3px rgba(15, 31, 37, .06);
+    padding: 2rem 2.5rem;
+}
+
+/* ---- Sidebar ---- */
+
+div.sphinxsidebar {
+    order: -1;
+    flex: 0 0 280px;
+    float: none;
+    width: 280px;
+    margin: 0;
+    background: #fff;
+    border: 1px solid var(--chavi-charcoal-100);
+    border-radius: .5rem;
+    padding: 1.25rem;
+    position: sticky;
+    top: 1.5rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+    font-size: .875rem;
+}
+
+div.sphinxsidebar h3, div.sphinxsidebar h4 {
+    color: var(--chavi-charcoal-600);
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 1.25rem 0 .5rem;
+}
+
+div.sphinxsidebar h3:first-child, div.sphinxsidebar h4:first-child { margin-top: 0; }
+
+div.sphinxsidebar ul { list-style: none; margin: 0; padding: 0; }
+div.sphinxsidebar li { margin: 0; padding: 0; }
+div.sphinxsidebar ul ul { margin-left: .9rem; }
+
+div.sphinxsidebar a {
+    color: var(--chavi-charcoal-700);
+    text-decoration: none;
+    display: block;
+    padding: .15rem 0 .15rem .6rem;
+    border-left: 3px solid transparent;
+}
+
+div.sphinxsidebar a:hover { color: var(--chavi-primary-700); }
+
+/* current page + caption headings */
+div.sphinxsidebar a.current, div.sphinxsidebar li.current > a {
+    color: var(--chavi-primary-700);
+    font-weight: 600;
+    border-left-color: var(--chavi-sun-400);
+}
+
+p.caption {
+    color: var(--chavi-charcoal-500);
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 1rem 0 .35rem;
+}
+
+p.caption .caption-text { color: inherit; }
+
+/* search box */
+div.sphinxsidebar input[type="text"] {
+    width: 100%;
+    padding: .4rem .6rem;
+    font-size: .875rem;
+    border: 1px solid var(--chavi-sand-200);
+    border-radius: .375rem;
+    margin: .25rem 0 .5rem;
+}
+
+div.sphinxsidebar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--chavi-primary-400);
+    box-shadow: 0 0 0 2px var(--chavi-primary-100);
+}
+
+div.sphinxsidebar input[type="submit"] {
+    background: var(--chavi-charcoal-500);
+    color: #fff;
+    border: none;
+    border-radius: .375rem;
+    padding: .4rem .9rem;
+    font-size: .875rem;
+    cursor: pointer;
+}
+
+div.sphinxsidebar input[type="submit"]:hover { background: var(--chavi-charcoal-600); }
+
+/* ---- Content typography ---- */
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--chavi-charcoal-800);
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+h1 { font-size: 1.9rem; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--chavi-sand-200); }
+h2 { font-size: 1.4rem; margin: 1.8rem 0 .6rem; }
+h3 { font-size: 1.15rem; margin: 1.4rem 0 .5rem; }
+h4 { font-size: 1rem; margin: 1.2rem 0 .4rem; }
+
+a { color: var(--chavi-primary-600); }
+a:hover { color: var(--chavi-primary-700); }
+a.headerlink { color: var(--chavi-charcoal-300); font-size: .8em; visibility: hidden; text-decoration: none; }
+h1:hover a.headerlink, h2:hover a.headerlink, h3:hover a.headerlink,
+h4:hover a.headerlink, h5:hover a.headerlink, h6:hover a.headerlink { visibility: visible; }
+
+p { margin: .6rem 0; }
+ul, ol { padding-left: 1.6rem; }
+li { margin: .25rem 0; }
+
+/* code */
+code, tt, .pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: .875em;
+    background: var(--chavi-charcoal-50);
+    border: 1px solid var(--chavi-charcoal-100);
+    border-radius: .25rem;
+    padding: .1em .35em;
+    color: var(--chavi-charcoal-800);
+}
+
+pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: .85rem;
+    line-height: 1.5;
+    background: var(--chavi-charcoal-50);
+    border: 1px solid var(--chavi-charcoal-100);
+    border-left: 4px solid var(--chavi-primary-400);
+    border-radius: .375rem;
+    padding: .8rem 1rem;
+    overflow-x: auto;
+}
+
+pre code, pre tt { background: none; border: none; padding: 0; }
+
+/* ---- Tables (charcoal header band, sand zebra) ---- */
+
+table.docutils {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: .9rem;
+    border: 1px solid var(--chavi-charcoal-100);
+    border-radius: .375rem;
+    overflow: hidden;
+}
+
+table.docutils th {
+    background: var(--chavi-charcoal-800);
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    text-align: left;
+    padding: .6rem 1rem;
+    border: none;
+}
+
+table.docutils td { padding: .5rem 1rem; border-top: 1px solid var(--chavi-charcoal-100); }
+table.docutils tr:nth-child(even) td { background: var(--chavi-sand-50); }
+
+/* ---- Admonitions (status → palette mapping) ---- */
+
+div.admonition {
+    background: #fff;
+    border: 1px solid var(--chavi-charcoal-100);
+    border-left: 4px solid var(--chavi-charcoal-400, #4d7a8a);
+    border-radius: .375rem;
+    padding: .8rem 1rem;
+    margin: 1rem 0;
+}
+
+p.admonition-title {
+    font-weight: 700;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin: 0 0 .3rem;
+}
+
+div.admonition.note, div.admonition.seealso { border-left-color: var(--chavi-charcoal-500); background: var(--chavi-charcoal-50); }
+div.admonition.tip, div.admonition.hint { border-left-color: var(--chavi-primary-500); background: var(--chavi-primary-50); }
+div.admonition.warning, div.admonition.caution, div.admonition.attention { border-left-color: var(--chavi-sun-500); background: var(--chavi-sun-50); }
+div.admonition.danger, div.admonition.error, div.admonition.important { border-left-color: var(--chavi-peach-500); background: var(--chavi-peach-50); }
+
+/* ---- Search page ---- */
+
+ul.search li { margin: .8rem 0; }
+span.highlighted { background: var(--chavi-sun-200); padding: 0 .1em; border-radius: .15em; }
+
+/* ---- Footer ---- */
+
+div.footer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    font-size: .8rem;
+    color: var(--chavi-charcoal-300);
+    text-align: center;
+}
+
+div.footer a { color: var(--chavi-primary-600); }
+
+/* ---- Small screens ---- */
+
+@media (max-width: 900px) {
+    div.document { flex-direction: column; }
+    div.sphinxsidebar { order: 0; width: 100%; flex: none; position: static; max-height: none; }
+    div.body { padding: 1.25rem; }
+    .chavi-nav-sub { display: none; }
+}

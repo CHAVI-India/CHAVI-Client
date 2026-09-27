@@ -1,0 +1,6 @@
+{% load allauth %}
+<span {% if attrs.title %}title="{{ attrs.title }}"{% endif %}
+      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-chavi-charcoal-100 text-chavi-charcoal-800">
+    {% slot %}
+    {% endslot %}
+</span>

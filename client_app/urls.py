@@ -8,6 +8,7 @@ app_name = 'client_app'  # This defines the namespace
 urlpatterns = [
     path('', views.HomePageView.as_view(), name='homepage'),
     path('patient-search/', views.PatientSearchView.as_view(), name='patient_search'),
+    path('patient/add/', form_views.PatientCreateView.as_view(), name='patient_add'),
     path('patient-summary/', views.PatientSummaryView.as_view(), name='patient_summary'),
     path('patient-data-export/', views.PatientDataExportView.as_view(), name='patient_data_export'),
     path('dicom-data-export/', views.DICOMDataExportView.as_view(), name='dicom_data_export'),

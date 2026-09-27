@@ -1,0 +1,10 @@
+{# CodeBlock — preformatted code/JSON block #}
+<div class="relative {{ extra_class }}">
+    <pre class="{% if variant == 'error' %}bg-chavi-peach-50 border-chavi-peach-100 text-chavi-peach-700{% elif variant == 'dark' %}bg-chavi-charcoal-800 border-chavi-charcoal-700 text-chavi-charcoal-100{% else %}bg-gray-50 border-gray-200 text-gray-800{% endif %} border rounded p-3 text-xs whitespace-pre-wrap overflow-x-auto {% if max_height %}{{ max_height }}{% else %}max-h-96{% endif %} overflow-y-auto font-mono">{% slot "default" %}{% endslot %}</pre>
+    {% if copyable %}
+    <button type="button" class="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            onclick="var btn=this; navigator.clipboard.writeText(btn.parentElement.querySelector('pre').innerText).then(function(){btn.textContent='Copied'; setTimeout(function(){btn.textContent='Copy'},1500);});">
+        Copy
+    </button>
+    {% endif %}
+</div>

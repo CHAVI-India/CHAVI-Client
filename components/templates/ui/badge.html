@@ -1,0 +1,16 @@
+{# Badge — status pill; styles: success|danger|warning|info|accent|gray #}
+{# count kwarg → fixed-size count circle (verdigris when >0, gray when 0) #}
+{% if count is not None %}
+<span class="inline-flex items-center justify-center {% if size == 'sm' %}w-5 h-5{% else %}w-6 h-6{% endif %} text-xs font-bold text-white rounded-full {% if count > 0 %}bg-chavi-primary{% else %}bg-gray-400{% endif %} {{ extra_class }}">{{ count }}</span>
+{% else %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+    {% if style == 'success' %}bg-chavi-primary-100 text-chavi-primary-800
+    {% elif style == 'danger' %}bg-chavi-peach-100 text-chavi-peach-800
+    {% elif style == 'warning' %}bg-chavi-sun-100 text-chavi-sun-900
+    {% elif style == 'accent' %}bg-chavi-sand-100 text-chavi-sand-900
+    {% elif style == 'gray' %}bg-gray-100 text-gray-800
+    {% else %}bg-chavi-charcoal-100 text-chavi-charcoal-800{% endif %} {{ extra_class }}">
+    {% if icon %}<i class="{{ icon }} mr-1"></i>{% endif %}
+    {% slot "default" %}{% endslot %}
+</span>
+{% endif %}

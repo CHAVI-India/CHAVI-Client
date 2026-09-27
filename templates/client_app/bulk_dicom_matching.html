@@ -3,104 +3,28 @@
 {% block title %}{{ title }} - CHAVI Client{% endblock %}
 
 {% block extra_css %}
-<!-- Select2 CSS -->
+<!-- Select2 CSS (styled via static/css/chavi.css) -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<style>
-    .select2-container--default .select2-selection--single {
-        height: 38px;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 38px;
-        padding-left: 12px;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 36px;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
 <div class="w-full px-4 sm:px-6 lg:px-8 py-8">
     <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Match DICOM Studies to Patients</h1>
-            <p class="text-gray-600">Review automatic matches and manually match remaining studies</p>
-        </div>
+        {% component "page_header" title="Match DICOM Studies to Patients" subtitle="Review automatic matches and manually match remaining studies" %}
+        {% endcomponent %}
 
-        <!-- Progress Bar -->
-        <div class="mb-8 bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">1</div>
-                    <span class="ml-2 font-semibold text-chavi-primary">Upload</span>
-                </div>
-                <div class="flex-1 h-1 bg-chavi-primary mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">2</div>
-                    <span class="ml-2 font-semibold text-chavi-primary">Match Studies</span>
-                </div>
-                <div class="flex-1 h-1 bg-gray-300 mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">3</div>
-                    <span class="ml-2 text-gray-600">Confirm</span>
-                </div>
-                <div class="flex-1 h-1 bg-gray-300 mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">4</div>
-                    <span class="ml-2 text-gray-600">Complete</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Messages -->
-        {% if messages %}
-        <div class="mb-6">
-            {% for message in messages %}
-            <div class="{% if message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} border px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline">{{ message }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        <!-- Progress Stepper -->
+        {% component "card" extra_class="mb-8" %}
+            {% fill "body" %}
+            {% component "stepper" labels="Upload,Match Studies,Confirm,Complete" current=1 %}{% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
 
         <!-- Statistics -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-green-100 text-green-600">
-                        <i class="fas fa-check-circle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Auto-Matched</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ auto_matched.count }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                        <i class="fas fa-exclamation-triangle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Manual Match Required</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ manual_required.count }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <i class="fas fa-clipboard-list text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Total Studies</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ total_studies }}</p>
-                    </div>
-                </div>
-            </div>
+            {% component "stat_card" icon="fas fa-check-circle" style="success" label="Auto-Matched" value=auto_matched.count %}{% endcomponent %}
+            {% component "stat_card" icon="fas fa-exclamation-triangle" style="warning" label="Manual Match Required" value=manual_required.count %}{% endcomponent %}
+            {% component "stat_card" icon="fas fa-clipboard-list" style="info" label="Total Studies" value=total_studies %}{% endcomponent %}
         </div>
 
         <form method="post" id="matchingForm">
@@ -108,101 +32,105 @@
 
             <!-- Auto-Matched Studies -->
             {% if auto_matched %}
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-check-circle text-green-600 mr-2"></i>
+            <div class="mb-6">
+            {% component "card" %}
+                {% fill "header" %}
+                <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-check-circle text-chavi-primary-600 mr-2"></i>
                     Automatically Matched Studies ({{ auto_matched.count }})
                 </h2>
+                {% endfill %}
+                {% fill "body" %}
                 <p class="text-sm text-gray-600 mb-4">These studies were automatically matched to existing patients based on Patient ID</p>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for study in auto_matched %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        {{ study.matched_patient.patient_id }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+
+                {% component "table" %}
+                    {% fill "head" %}
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                    {% endfill %}
+                    {% fill "body" %}
+                        {% for study in auto_matched %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% component "badge" style="success" %}{{ study.matched_patient.patient_id }}{% endcomponent %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfill %}
+                {% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
             </div>
             {% endif %}
 
             <!-- Manually Matched Studies -->
             {% if manually_matched %}
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-user-check text-blue-600 mr-2"></i>
+            <div class="mb-6">
+            {% component "card" %}
+                {% fill "header" %}
+                <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-user-check text-chavi-charcoal-600 mr-2"></i>
                     Manually Matched Studies ({{ manually_matched.count }})
                 </h2>
+                {% endfill %}
+                {% fill "body" %}
                 <p class="text-sm text-gray-600 mb-4">These studies have been manually matched to patients</p>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for study in manually_matched %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        {{ study.matched_patient.patient_id }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+
+                {% component "table" %}
+                    {% fill "head" %}
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                    {% endfill %}
+                    {% fill "body" %}
+                        {% for study in manually_matched %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% component "badge" style="info" %}{{ study.matched_patient.patient_id }}{% endcomponent %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfill %}
+                {% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
             </div>
             {% endif %}
 
             <!-- Manual Match Required -->
             {% if manual_required_with_suggestions %}
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+            <div class="mb-6">
+            {% component "card" %}
+                {% fill "header" %}
+                <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-exclamation-triangle text-chavi-sun-700 mr-2"></i>
                     Studies Requiring Manual Matching ({{ manual_required.count }})
                 </h2>
+                {% endfill %}
+                {% fill "body" %}
                 <p class="text-sm text-gray-600 mb-4">Fuzzy matches are pre-suggested based on similarity to the DICOM Patient ID. <strong>You must confirm each suggested match</strong> before continuing.</p>
 
                 <div class="space-y-4">
                     {% for item in manual_required_with_suggestions %}
                     {% with study=item.study suggestions=item.suggestions top=item.top_suggestion %}
-                    <div class="border-2 {% if top %}border-yellow-300{% else %}border-gray-200{% endif %} rounded-lg p-4 transition-colors" id="card_{{ study.match_id }}">
+                    <div class="border-2 {% if top %}border-chavi-sun-300{% else %}border-gray-200{% endif %} rounded-lg p-4 transition-colors" id="card_{{ study.match_id }}">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- Study info -->
                             <div>
@@ -241,20 +169,17 @@
 
                                 {% if top %}
                                 <!-- Fuzzy suggestion banner -->
-                                <div class="mb-3 flex items-start gap-2 bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2 text-sm" id="suggestion_banner_{{ study.match_id }}">
-                                    <i class="fas fa-magic text-yellow-500 mt-0.5"></i>
+                                <div class="mb-3 flex items-start gap-2 bg-chavi-sun-50 border border-chavi-sun-300 rounded-md px-3 py-2 text-sm" id="suggestion_banner_{{ study.match_id }}">
+                                    <i class="fas fa-magic text-chavi-sun-600 mt-0.5"></i>
                                     <div>
-                                        <span class="font-semibold text-yellow-800">Fuzzy suggestion:</span>
-                                        <span class="text-yellow-700">
+                                        <span class="font-semibold text-chavi-sun-900">Fuzzy suggestion:</span>
+                                        <span class="text-chavi-sun-800">
                                             {% for s in suggestions %}
                                             <span class="inline-flex items-center gap-1 mr-2">
                                                 <span class="font-mono">{{ s.patient_id }}</span>
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
-                                                    {% if s.score >= 80 %}bg-green-100 text-green-800
-                                                    {% elif s.score >= 60 %}bg-yellow-100 text-yellow-800
-                                                    {% else %}bg-red-100 text-red-800{% endif %}">
-                                                    {{ s.score }}%
-                                                </span>
+                                                {% if s.score >= 80 %}{% component "badge" style="success" extra_class="px-1.5 py-0.5" %}{{ s.score }}%{% endcomponent %}
+                                                {% elif s.score >= 60 %}{% component "badge" style="warning" extra_class="px-1.5 py-0.5" %}{{ s.score }}%{% endcomponent %}
+                                                {% else %}{% component "badge" style="danger" extra_class="px-1.5 py-0.5" %}{{ s.score }}%{% endcomponent %}{% endif %}
                                                 {% if not forloop.last %}&bull;{% endif %}
                                             </span>
                                             {% endfor %}
@@ -296,7 +221,7 @@
                                             is the correct patient for DICOM ID <strong class="font-mono">{{ study.dicom_patient_id }}</strong>.
                                         </span>
                                     </label>
-                                    <p class="mt-1 text-xs text-red-600 hidden" id="confirm_error_{{ study.match_id }}">
+                                    <p class="mt-1 text-xs text-chavi-peach-600 hidden" id="confirm_error_{{ study.match_id }}">
                                         Please confirm the suggested match or change the selection before continuing.
                                     </p>
                                 </div>
@@ -307,20 +232,17 @@
                     {% endwith %}
                     {% endfor %}
                 </div>
+                {% endfill %}
+            {% endcomponent %}
             </div>
             {% endif %}
 
             <!-- Action Buttons -->
             <div class="flex items-center justify-between">
-                <a href="{% url 'client_app:bulk_dicom_upload' %}" 
-                   class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>Cancel
-                </a>
+                {% url 'client_app:bulk_dicom_upload' as cancel_url %}
+                {% component "button" style="secondary" href=cancel_url icon="fas fa-arrow-left" %}Cancel{% endcomponent %}
                 {% if manual_required or auto_matched or manually_matched %}
-                <button type="submit"
-                        class="bg-chavi-gradient text-white font-bold py-2 px-6 rounded hover:shadow-lg transition-all">
-                    <i class="fas fa-arrow-right mr-2"></i>Continue to Confirmation
-                </button>
+                {% component "button" style="primary" type="submit" icon="fas fa-arrow-right" %}Continue to Confirmation{% endcomponent %}
                 {% else %}
                 <span class="text-gray-500 text-sm italic">No studies available for matching.</span>
                 {% endif %}
@@ -397,7 +319,7 @@ $(document).ready(function () {
             // "Leave Unmatched" chosen — hide confirm requirement
             $confirmWrapper.addClass('hidden');
             $confirmCheckbox.prop('checked', false).prop('required', false);
-            $card.removeClass('border-yellow-300').addClass('border-gray-200');
+            $card.removeClass('border-chavi-sun-300').addClass('border-gray-200');
         } else {
             // A patient is selected — show confirm box, reset checkbox
             $confirmWrapper.removeClass('hidden');
@@ -406,7 +328,7 @@ $(document).ready(function () {
             // Update the label to reflect the newly chosen patient ID
             var patientIdText = selectedText.split(' - ')[0].trim();
             $confirmLabel.text(patientIdText);
-            $card.removeClass('border-gray-200').addClass('border-yellow-300');
+            $card.removeClass('border-gray-200').addClass('border-chavi-sun-300');
         }
     });
 
@@ -415,9 +337,9 @@ $(document).ready(function () {
         var matchId = $(this).data('match-id');
         if ($(this).is(':checked')) {
             $('#confirm_error_' + matchId).addClass('hidden');
-            $('#card_' + matchId).removeClass('border-yellow-300').addClass('border-green-300');
+            $('#card_' + matchId).removeClass('border-chavi-sun-300').addClass('border-chavi-primary-300');
         } else {
-            $('#card_' + matchId).removeClass('border-green-300').addClass('border-yellow-300');
+            $('#card_' + matchId).removeClass('border-chavi-primary-300').addClass('border-chavi-sun-300');
         }
     });
 

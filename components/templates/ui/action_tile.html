@@ -1,0 +1,17 @@
+{# ActionTile — icon tile + title + description link card #}
+{# kwargs: href (required), icon, icon_style (primary|sand|sun|charcoal|peach), title #}
+{# slot "default": description text #}
+<a href="{{ href }}" class="flex items-center gap-3.5 p-4 rounded-xl border border-chavi-charcoal-200 bg-white transition-all hover:border-chavi-primary-300 hover:shadow-md hover:-translate-y-0.5 {{ extra_class }}">
+    <span class="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center
+        {% if icon_style == 'sand' %}bg-chavi-sand-100 text-chavi-sand-800
+        {% elif icon_style == 'sun' %}bg-chavi-sun-100 text-chavi-sun-800
+        {% elif icon_style == 'peach' %}bg-chavi-peach-100 text-chavi-peach-700
+        {% elif icon_style == 'charcoal' %}bg-chavi-charcoal-100 text-chavi-charcoal-700
+        {% else %}bg-chavi-primary-100 text-chavi-primary-700{% endif %}">
+        <i class="fas {{ icon }}" aria-hidden="true"></i>
+    </span>
+    <span>
+        <b class="block">{{ title }}</b>
+        <span class="block mt-1 text-sm leading-relaxed text-gray-500">{% slot "default" %}{% endslot %}</span>
+    </span>
+</a>

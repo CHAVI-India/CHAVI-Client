@@ -1264,7 +1264,8 @@ class InferenceReviewContractTests(SimpleTestCase):
 
         engine = Engine(dirs=[str(settings.BASE_DIR / 'templates')], loaders=[
             ('django.template.loaders.locmem.Loader', {'base.html': '{% block content %}{% endblock %}'}),
-            'django.template.loaders.filesystem.Loader'])
+            'django.template.loaders.filesystem.Loader'],
+            builtins=['django_components.templatetags.component_tags'])
         rows = [{'name': name, 'before': value, 'after': value} for name, value in (
             ('zero', 0), ('false', False), ('decimal', Decimal('0.00')), ('null', None), ('empty', ''))]
         rows[0]['extraction'] = {'value': '0', 'basis': 'clinical_inference',

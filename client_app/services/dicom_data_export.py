@@ -29,6 +29,21 @@ def export_dicom_data(modeladmin, request, queryset):
 
     logger = logging.getLogger(__name__)
 
+    # Messages queued while the zip is being built cannot be rendered when this
+    # action returns a file download; buffer them and flush to messages only on
+    # paths that re-render the admin changelist, otherwise write them to the log.
+    pending = []
+
+    def flush_to_messages():
+        for level, text in pending:
+            messages.add_message(request, level, text)
+        pending.clear()
+
+    def flush_to_log():
+        for level, text in pending:
+            logger.log(logging.INFO if level == messages.SUCCESS else level, text)
+        pending.clear()
+
     # Create a temporary directory inside media folder
     temp_dir = Path(settings.MEDIA_ROOT) / 'temp_export'
     temp_dir.mkdir(exist_ok=True)
@@ -46,14 +61,14 @@ def export_dicom_data(modeladmin, request, queryset):
             # Process each selected study
             for study in queryset:
                 if not study.folder_path or not os.path.exists(study.folder_path):
-                    messages.warning(request, f"Study {study.study_instance_uid} has no valid folder path. Skipping.")
+                    pending.append((messages.WARNING, f"Study {study.study_instance_uid} has no valid folder path. Skipping."))
                     skipped_studies += 1
                     continue
                 
                 # Get all files in the study folder
                 study_path = Path(study.folder_path)
                 if not study_path.exists():
-                    messages.warning(request, f"Study folder {study.folder_path} does not exist. Skipping.")
+                    pending.append((messages.WARNING, f"Study folder {study.folder_path} does not exist. Skipping."))
                     skipped_studies += 1
                     continue
                 try:
@@ -71,45 +86,51 @@ def export_dicom_data(modeladmin, request, queryset):
                                 total_files += 1
                             except Exception as e:
                                 logger.error(f"Error adding file {file_path} to zip: {str(e)}")
-                                messages.warning(request, f"Error adding file {file_path.name} to zip. Skipping.")
+                                pending.append((messages.WARNING, f"Error adding file {file_path.name} to zip. Skipping."))
                                 continue
                     
                     processed_studies += 1
                 except Exception as e:
                     logger.error(f"Error processing study {study.study_instance_uid}: {str(e)}")
-                    messages.error(request, f"Error processing study {study.study_instance_uid}: {str(e)}")
+                    pending.append((messages.ERROR, f"Error processing study {study.study_instance_uid}: {str(e)}"))
                     continue
-            
+
             # If no studies were processed, return with an error message
             if processed_studies == 0:
+                flush_to_messages()
                 messages.error(request, "No valid DICOM studies were found to export.")
                 return
-            
+
             # Ensure the zip file is properly closed before reading
             zipf.close()
-            
+
             # Verify the zip file exists and is not empty
             if not zip_path.exists() or zip_path.stat().st_size == 0:
+                flush_to_messages()
                 messages.error(request, "Failed to create zip file.")
                 return
-            
+
             # Create the response
             try:
                 with open(zip_path, 'rb') as f:
                     response = HttpResponse(f.read(), content_type='application/zip')
                     response['Content-Disposition'] = 'attachment; filename=dicom_export.zip'
-                    
-                    # Add success message
-                    messages.success(request, f"Successfully exported {processed_studies} studies ({total_files} files). {skipped_studies} studies were skipped.")
-                    
+
+                    # The response is a file download, so nothing rendered can
+                    # display queued messages — record the outcome in the log.
+                    pending.append((messages.SUCCESS, f"Successfully exported {processed_studies} studies ({total_files} files). {skipped_studies} studies were skipped."))
+                    flush_to_log()
+
                     return response
             except Exception as e:
                 logger.error(f"Error creating response: {str(e)}")
+                flush_to_messages()
                 messages.error(request, f"Error creating download response: {str(e)}")
                 return
-                
+
     except Exception as e:
         logger.error(f"Error creating zip file: {str(e)}")
+        flush_to_messages()
         messages.error(request, f"Error creating zip file: {str(e)}")
         return
     finally:

@@ -1,19 +1,21 @@
-Importing Data
-=============
+Importing Data (Admin)
+=========================
 
-The CHAVI system supports data import functionality through the Django admin interface using CSV (Comma Separated Values) files. This feature allows bulk upload of data for various modules.
+The easiest way to import a spreadsheet is the CSV import wizard — see :doc:`csv_import_wizard`. This page describes the simpler import built into the admin area, which staff may still use for small, well-prepared files.
 
 Using the Import Feature
-----------------------
+------------------------
 
 Access and Navigation
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+
 * Navigate to the Django admin interface
 * Select the data type you wish to import (e.g., Patients, Diagnoses, etc.)
 * Look for the "Import" button in the top right corner
 
 File Requirements
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
+
 * **Format**: CSV (Comma Separated Values)
 * **Encoding**: UTF-8
 * **Headers**: First row must contain field names
@@ -21,7 +23,8 @@ File Requirements
 * **Boolean Values**: Use "True"/"False" or "1"/"0"
 
 Import Process
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+
 1. Prepare your CSV file:
    
    #. Ensure all required fields are included
@@ -37,7 +40,7 @@ Import Process
    #. Confirm and process import
 
 Special Considerations
---------------------
+----------------------
 
 1. Data validation:
 
@@ -67,7 +70,7 @@ Special Considerations
    #. Consider import order for related data
 
 Example CSV Format
-----------------
+------------------
 
 Patient import file example::
 

@@ -1,288 +1,132 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Welcome to CHAVI Client{% endblock %}
-
-{# Define URL variables at the top #}
-{% url 'account_login' as login_url %}
-{% url 'client_app:patient_search' as search_url %}
-{% url 'admin:index' as admin_url %}
-{% url 'documentation-index' as docs_url %}
+{% block title %}CHAVI Client{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/homepage.css' %}">{% endblock %}
 
 {% block content %}
-<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Hero Section -->
-    <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold text-chavi-gray mb-4">Welcome to CHAVI Client</h1>
-        <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-            This application is designed to help you collect patient data which can then be de-identified and exported to the CHAVI server.
-        </p>
-    </div>
-    
-    {% if not user.is_authenticated %}
-    <!-- Login Prompt for Non-Authenticated Users -->
-    <div class="bg-gradient-to-r from-chavi-primary to-chavi-secondary rounded-lg p-8 text-white text-center mb-8">
-        <h2 class="text-2xl font-bold mb-4">
-            <i class="fas fa-lock mr-2"></i>Login Required
-        </h2>
-        <p class="text-lg opacity-90 mb-6">
-            Please login to access patient data, DICOM files, and clinical information management features.
-        </p>
-        <a href="{% url 'account_login' %}" class="inline-flex items-center justify-center gap-x-2 py-3 px-6 text-base font-semibold rounded-lg border-2 border-white transition-all duration-200 bg-white text-chavi-primary hover:bg-opacity-90 hover:shadow-lg hover:-translate-y-0.5">
-            <i class="fas fa-sign-in-alt"></i>
-            Login Now
-        </a>
-    </div>
-    {% endif %}
-    
-    <!-- Data Import Section -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
-            <i class="fas fa-file-import mr-3 text-chavi-primary"></i>Data Import
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- CSV Data Import Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">CSV Data Import</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Import patient data from CSV files with intelligent field mapping and validation.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'data_import:session_list' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-file-csv"></i>
-                        Import CSV Data
-                    </a>
-                    {% else %}
-                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- DICOM Upload Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">DICOM Upload</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Upload DICOM studies from multiple patients with automatic and manual patient matching.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'client_app:bulk_dicom_upload' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-file-medical"></i>
-                        Upload DICOM
-                    </a>
-                    {% else %}
-                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
+<section class="max-w-7xl mx-auto px-5 sm:px-8 py-8 lg:py-12">
+{% if not user.is_authenticated %}
+<div class="home-grid">
+    <div class="home-tile col-span-12 lg:col-span-7 lg:row-span-2 bg-chavi-charcoal-800 text-white min-h-[430px] flex flex-col justify-between home-grid-pattern">
+        <div>
+            <span class="inline-flex rounded-full bg-chavi-primary-500 px-3 py-1 text-sm font-bold"><!-- ui-lint:ok hero chip -->Connected oncology research data</span>
+            <h1 class="mt-6 text-4xl sm:text-6xl font-bold leading-tight"><!-- ui-lint:ok hero display heading -->Complex data.<br><span class="text-chavi-sun-400">Clear direction.</span></h1>
+            <p class="mt-5 max-w-2xl text-lg leading-relaxed text-chavi-charcoal-100">The CHAVI Client provides a secure environment for collecting, organizing, and linking clinical and imaging data for oncology research.</p>
+        </div>
+        <div class="mt-8 flex flex-col sm:flex-row gap-3">
+            {% url 'account_login' as login_url %}
+            {% component "button" style="contrast" size="lg" href=login_url %}Sign in to CHAVI{% endcomponent %}
+            {% component "button" style="outline-dark" size="lg" href="#capabilities" %}Explore capabilities{% endcomponent %}
         </div>
     </div>
-    
-    <!-- LLM Extraction Section -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
-            <i class="fas fa-magic mr-3 text-chavi-primary"></i>LLM-Powered Data Extraction
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- Run Extraction Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
-                        <i class="fas fa-robot text-purple-600 mr-2"></i>
-                        Run Extraction
-                    </h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Run extraction jobs on processed files per patient and review extracted results.</p>
-                    {% if user.is_authenticated %}
-                    <div class="space-y-2">
-                        <a href="{% url 'extractor:extraction_dashboard' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                            <i class="fas fa-play mr-2"></i>
-                            Extraction Dashboard
-                        </a>
-                        <a href="{% url 'extractor:extraction_results_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-chavi-primary hover:bg-gray-50 border-chavi-primary">
-                            <i class="fas fa-clipboard-list mr-2"></i>
-                            Extraction Results
-                        </a>
-                    </div>
-                    {% else %}
-                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
 
-            <!-- File Upload Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
-                        <i class="fas fa-file-upload text-blue-600 mr-2"></i>
-                        Upload Files
-                    </h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Upload PDF, CSV, or Excel files for AI-powered data extraction. Files are automatically processed into usable formats.</p>
-                    {% if user.is_authenticated %}
-                    <div class="space-y-2">
-                        <a href="{% url 'extractor:file_upload_create' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                            <i class="fas fa-cloud-upload-alt mr-2"></i>
-                            Upload New File
-                        </a>
-                        <a href="{% url 'extractor:file_upload_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-chavi-primary hover:bg-gray-50 border-chavi-primary">
-                            <i class="fas fa-list mr-2"></i>
-                            View All Files
-                        </a>
-                    </div>
-                    {% else %}
-                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Extraction Configuration Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
-                        <i class="fas fa-cogs text-purple-600 mr-2"></i>
-                        Configure Models
-                    </h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Set up LLM clients and define extraction schemas. Configure response models and field mappings.</p>
-                    {% if user.is_authenticated %}
-                    <div class="space-y-2">
-                        <a href="{% url 'extractor:client_configuration_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                            <i class="fas fa-server mr-2"></i>
-                            LLM Clients
-                        </a>
-                        <a href="{% url 'extractor:response_model_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-purple-600 hover:bg-gray-50 border-purple-600">
-                            <i class="fas fa-project-diagram mr-2"></i>
-                            Response Models
-                        </a>
-                        <a href="{% url 'extractor:instructor_message_list' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-white text-purple-600 hover:bg-gray-50 border-purple-600">
-                            <i class="fas fa-comment-dots mr-2"></i>
-                            Instructor Prompts
-                        </a>
-                    </div>
-                    {% else %}
-                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Extraction Wizard Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray flex items-center">
-                        <i class="fas fa-hat-wizard text-green-600 mr-2"></i>
-                        Extraction Wizard
-                    </h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Step-by-step wizard to create new extraction pipelines. Select tables, fields, and generate Pydantic models.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'extractor:wizard_start' %}" class="block w-full text-center py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-magic mr-2"></i>
-                        Start Wizard
-                    </a>
-                    {% else %}
-                    <button disabled class="w-full py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+    {% component "feature_tile" accent="primary" icon="fa-notes-medical" title="Longitudinal clinical records" span="col-span-12 sm:col-span-6 lg:col-span-5" %}
+        Capture patient, diagnosis, pathology, molecular, treatment and outcome data in one connected model. Review these relationships together through a longitudinal patient summary.
+    {% endcomponent %}
+
+    <div class="home-tile col-span-12 sm:col-span-6 lg:col-span-5 bg-chavi-sand-100 border border-chavi-sand-200 flex items-end justify-between gap-5">
+        <div><span class="text-sm font-bold text-chavi-sand-800">Imaging</span><h2 class="mt-1 text-2xl font-bold">DICOM built in</h2><p class="mt-2 text-sm text-gray-600">Upload, retrieve, classify and link imaging studies to the clinical record. Associate studies with research projects, diagnoses and treatments.</p></div>
+        <i class="fas fa-x-ray text-6xl text-chavi-sand-500" aria-hidden="true"></i>
     </div>
-    
-    <!-- Patient Management Section -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
-            <i class="fas fa-user-injured mr-3 text-chavi-primary"></i>Patient Management
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Patient Search Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 {% if not user.is_authenticated %}opacity-60{% endif %}">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">Patient Search</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Search for patients in the CHAVI database and view their information.</p>
-                    {% if user.is_authenticated %}
-                    <a href="{% url 'client_app:patient_search' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-search"></i>
-                        Search Patients
-                    </a>
-                    {% else %}
-                    <button disabled class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-gray-300 text-gray-500 cursor-not-allowed border-transparent">
-                        <i class="fas fa-lock mr-1"></i>
-                        Login Required
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+
+    {% component "feature_tile" accent="primary" icon="fa-file-csv" title="Structured CSV import" span="col-span-12 md:col-span-3" id="capabilities" %}
+        Map CSV columns, standardize values and import validated records through a guided workflow. Configure dates, lookup values and record relationships before import.
+    {% endcomponent %}
+
+    {% component "feature_tile" accent="sun" icon="fa-wand-magic-sparkles" title="LLM-assisted extraction" span="col-span-12 md:col-span-3" %}
+        Structure unstructured clinical notes and complex CSV data with configurable extraction models. Review evidence and correct extracted records before use.
+    {% endcomponent %}
+
+    {% component "feature_tile" accent="charcoal" icon="fa-diagram-project" title="Research project linkage" span="col-span-12 md:col-span-3" %}
+        Associate clinical and imaging datasets with the projects they support. Keep project membership connected across patients, diagnoses and imaging studies.
+    {% endcomponent %}
+
+    {% component "feature_tile" accent="peach" icon="fa-user-shield" title="Prepare data for CHAVI" span="col-span-12 md:col-span-3" %}
+        De-identify and package linked clinical and imaging data for the CHAVI oncology databank. Review processing results before creating export packages.
+    {% endcomponent %}
+</div>
+{% else %}
+<div class="rounded-2xl bg-chavi-gradient p-6 sm:p-8 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div>
+        <p class="text-chavi-primary-100 font-semibold">Welcome back, {{ user.username }}</p>
+        <h1 class="mt-1 text-3xl font-bold"><!-- ui-lint:ok hero display heading -->Comprehensive Archive of Imaging In Oncology Client</h1>
+        <p class="mt-2 max-w-2xl text-chavi-charcoal-100">Manage linked clinical records, imaging and research workflows from one workspace.</p>
     </div>
-    
-    <!-- System Section -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-chavi-gray mb-4 flex items-center">
-            <i class="fas fa-cog mr-3 text-chavi-primary"></i>System Administration
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Admin Dashboard Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">Admin Dashboard</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">Access the main administrative dashboard to manage the system and user accounts.</p>
-                    <a href="{% url 'admin:index' %}" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-cog"></i>
-                        Admin Panel
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Documentation Card -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-chavi-gray">Documentation</h3>
-                </div>
-                <div class="px-6 py-4">
-                    <p class="text-gray-600 leading-relaxed mb-4">View detailed documentation about the system features and how to use them effectively.</p>
-                    <a href="{% url 'documentation-index' %}" target="_blank" class="inline-flex items-center justify-center gap-x-2 py-2 px-4 text-sm font-semibold rounded-lg border transition-all duration-200 bg-chavi-gradient text-white hover:shadow-lg hover:-translate-y-0.5 border-transparent">
-                        <i class="fas fa-book"></i>
-                        View Docs
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Quick Stats or Additional Info Section -->
-    <div class="bg-gradient-to-r from-chavi-primary to-chavi-secondary rounded-lg p-8 text-white text-center">
-        <h2 class="text-2xl font-bold mb-4">CHAVI Data Collection System</h2>
-        <p class="text-lg opacity-90">
-            Secure, efficient, and compliant patient data management for research purposes.
-        </p>
+    <div class="w-full lg:w-[420px] space-y-3">
+        <form action="{% url 'client_app:patient_search' %}" method="get" class="flex bg-white rounded-xl p-2">
+            <label for="homepage-patient-search" class="sr-only">Search patients</label>
+            <input id="homepage-patient-search" name="search" class="min-w-0 flex-1 px-3 text-chavi-charcoal-900 outline-none" placeholder="Search patient ID">
+            {% component "button" type="submit" icon="fas fa-search" %}Search{% endcomponent %}
+        </form>
+        {% if metrics.permissions.patient_add %}
+        {% url 'client_app:patient_add' as patient_add_url %}
+        {% component "button" style="warning" size="lg" href=patient_add_url icon="fas fa-user-plus" extra_class="w-full justify-center rounded-xl" %}Add patient{% endcomponent %}
+        {% endif %}
     </div>
 </div>
 
+<div class="grid sm:grid-cols-2 {% if metrics.permissions.deidentification %}lg:grid-cols-6{% else %}lg:grid-cols-4{% endif %} gap-4 mt-6">
+    {% component "stat_tile" label="Lifetime patients" value=metrics.totals.patients icon="fa-users" icon_style="primary" %}{% endcomponent %}
+    {% component "stat_tile" label="DICOM studies" value=metrics.totals.dicom_studies icon="fa-x-ray" icon_style="sand" %}{% endcomponent %}
+    {% if metrics.totals.deidentified_patients != None %}{% component "stat_tile" label="Pts de-identified" value=metrics.totals.deidentified_patients icon="fa-user-shield" icon_style="peach" %}{% endcomponent %}{% endif %}
+    {% if metrics.totals.deidentified_dicom_studies != None %}{% component "stat_tile" label="DICOM de-identified" value=metrics.totals.deidentified_dicom_studies icon="fa-shield-halved" icon_style="peach" %}{% endcomponent %}{% endif %}
+    {% component "stat_tile" label="New patients · 30d" value=metrics.activity.new_patients icon="fa-chart-line" icon_style="sun" %}{% endcomponent %}
+    {% component "stat_tile" label="Your active tasks" value=metrics.task_health.active icon="fa-spinner" icon_style="charcoal" %}{% endcomponent %}
+</div>
+
+<div class="grid lg:grid-cols-[1.6fr_1fr] gap-6 mt-6">
+    <section class="bg-white border border-chavi-charcoal-100 rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+            <div><p class="text-xs font-bold uppercase tracking-wider text-chavi-primary-700">Quick access</p><h2 class="text-2xl font-bold mt-1">Start a workflow</h2></div>
+            <span class="text-sm text-gray-500">Only tools available to you are shown</span>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+            {% url 'client_app:patient_search' as ps_url %}
+            {% component "action_tile" href=ps_url icon="fa-user-injured" icon_style="primary" title="Find a patient" %}
+                Search existing patient records and open their complete summaries.{% if metrics.permissions.patient_add %} Create a new patient from the same page when the record does not yet exist.{% endif %}
+            {% endcomponent %}
+            {% url 'data_import:step1' as step1_url %}
+            {% component "action_tile" href=step1_url icon="fa-file-csv" icon_style="primary" title="Structured CSV import" %}
+                Upload structured CSV files and map columns, dates and lookup values through a guided workflow. Review the mapping before records are imported.
+            {% endcomponent %}
+            {% url 'client_app:bulk_dicom_upload' as bulk_url %}
+            {% component "action_tile" href=bulk_url icon="fa-file-medical" icon_style="sand" title="Upload DICOM" %}
+                Upload multi-patient DICOM archives and automatically match studies to known patients. Review uncertain matches before processing the imaging data.
+            {% endcomponent %}
+            {% if metrics.permissions.file_upload %}
+            {% url 'extractor:file_upload_create' as fup_url %}
+            {% component "action_tile" href=fup_url icon="fa-wand-magic-sparkles" icon_style="sun" title="LLM-assisted extraction" %}
+                Extract structured fields from unstructured clinical notes or complex CSV data. Review and correct the extracted records before adding them to the clinical database.
+            {% endcomponent %}
+            {% endif %}
+            {% if metrics.permissions.deidentification %}
+            {% url 'deidentification:patient_list' as deid_url %}
+            {% component "action_tile" href=deid_url icon="fa-user-shield" icon_style="peach" title="Prepare and export data for CHAVI" extra_class="sm:col-span-2" %}
+                De-identify linked clinical records and DICOM studies for selected patients, review processing exceptions, and export the resulting data as downloadable packages for CHAVI.
+            {% endcomponent %}
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="bg-white border border-chavi-charcoal-100 rounded-2xl overflow-hidden">
+        <div class="p-6 border-b border-chavi-charcoal-100"><p class="text-xs font-bold uppercase tracking-wider text-chavi-peach-700">Attention</p><h2 class="text-2xl font-bold mt-1">Needs review</h2></div>
+        <div class="divide-y divide-chavi-charcoal-100">
+            <a href="{% url 'data_import:session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-primary-50"><span><i class="fas fa-file-csv text-chavi-primary-600 w-6" aria-hidden="true"></i>Unfinished CSV imports</span><span class="flex items-center gap-3"><b>{{ metrics.attention.unfinished_csv_imports }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
+            <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-sand-50"><span><i class="fas fa-link text-chavi-sand-600 w-6" aria-hidden="true"></i>DICOM matching</span><span class="flex items-center gap-3"><b>{{ metrics.attention.dicom_matching }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
+            {% if metrics.attention.extraction_waiting != None %}<a href="{% url 'extractor:extraction_results_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-sun-50"><span><i class="fas fa-clipboard-check text-chavi-sun-700 w-6" aria-hidden="true"></i>Extraction review</span><span class="flex items-center gap-3"><b>{{ metrics.attention.extraction_waiting }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
+            <a href="{% url 'client_app:taskrun_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-peach-50"><span><i class="fas fa-triangle-exclamation text-chavi-peach-600 w-6" aria-hidden="true"></i>Failed or stalled tasks</span><span class="flex items-center gap-3"><b>{{ metrics.attention.failed_or_stalled_user_tasks }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
+            {% if metrics.attention.deidentification_exceptions != None %}<a href="{% url 'deidentification:patient_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-peach-50"><span><i class="fas fa-shield text-chavi-peach-600 w-6" aria-hidden="true"></i>De-id exceptions</span><span class="flex items-center gap-3"><b>{{ metrics.attention.deidentification_exceptions }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
+        </div>
+        <p class="p-4 bg-chavi-charcoal-50 text-sm text-gray-600">Live counts of incomplete or exceptional workflow states.</p>
+    </section>
+</div>
+
+<div class="grid md:grid-cols-3 gap-4 mt-6">
+    <div class="home-tile bg-chavi-primary-100 border border-chavi-primary-200 min-h-0"><span class="text-xs font-bold uppercase tracking-wider text-chavi-primary-800">Clinical growth · 30d</span><b class="block mt-3 text-3xl">{{ metrics.activity.new_patients }}</b><p class="mt-1 text-sm text-gray-600">new patient records</p></div>
+    <div class="home-tile bg-chavi-sand-100 border border-chavi-sand-200 min-h-0"><span class="text-xs font-bold uppercase tracking-wider text-chavi-sand-800">Data ingestion · 30d</span><b class="block mt-3 text-3xl">{{ metrics.activity.csv_sessions }} + {{ metrics.activity.dicom_sessions }}</b><p class="mt-1 text-sm text-gray-600">CSV and DICOM sessions</p></div>
+    <div class="home-tile bg-chavi-charcoal-800 text-white min-h-0"><span class="text-xs font-bold uppercase tracking-wider text-chavi-primary-300">Task health · 30d</span><b class="block mt-3 text-3xl">{{ metrics.task_health.successful_30d }}</b><p class="mt-1 text-sm text-chavi-charcoal-200">successful task runs</p></div>
+</div>
+{% endif %}
+</section>
 {% endblock %}

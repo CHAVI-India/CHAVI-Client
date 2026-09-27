@@ -9,7 +9,6 @@
 import os
 import sys
 import django
-import sphinx_pdj_theme
 
 sys.path.insert(0, os.path.abspath('..'))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'chavi_client.settings'
@@ -39,5 +38,15 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_pdj_theme'
-html_static_path = [sphinx_pdj_theme.get_html_theme_path()]
+# Custom CHAVI theme — palette and chrome per docs/ui-styleguide.md
+html_theme = 'chavi'
+html_theme_path = ['_themes']
+html_static_path = ['_static']
+
+# Sidebar: search first, then the full page tree, then prev/next links.
+html_sidebars = {
+    '**': ['searchbox.html', 'globaltoc.html', 'relations.html', 'sourcelink.html'],
+}
+
+html_title = 'CHAVI Client Documentation'
+html_show_sphinx = False

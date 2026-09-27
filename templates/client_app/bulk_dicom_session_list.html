@@ -4,175 +4,112 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">
-            <i class="fas fa-file-medical mr-2 text-chavi-primary"></i> Bulk DICOM Sessions
-        </h1>
-        <a href="{% url 'client_app:bulk_dicom_upload' %}" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
-            <i class="fas fa-upload mr-1"></i> New Upload
-        </a>
-    </div>
+    {% url 'client_app:bulk_dicom_upload' as upload_url %}
+    {% component "page_header" title="Bulk DICOM Sessions" icon="fas fa-file-medical" %}
+        {% fill "actions" %}
+            {% component "button" style="primary" href=upload_url icon="fas fa-upload" %}New Upload{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Filter -->
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <form method="get" class="flex flex-wrap gap-4 items-end">
+    {% component "filter_bar" clear_url="/bulk-dicom-sessions/" %}
+        {% fill "fields" %}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select name="status" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select name="status" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                     <option value="">All</option>
                     {% for value, label in status_choices %}
                         <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
-                <i class="fas fa-filter mr-1"></i> Filter
-            </button>
-            <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="text-gray-600 text-sm hover:text-gray-900">
-                <i class="fas fa-times mr-1"></i> Clear
-            </a>
-        </form>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Table -->
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Studies</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded By</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for session in sessions %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {{ session.session_id|truncatechars:12 }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% with status=session.status %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    {% if status == 'COMPLETED' %}bg-green-100 text-green-800
-                                    {% elif status == 'FAILED' %}bg-red-100 text-red-800
-                                    {% elif status == 'PROCESSING' %}bg-blue-100 text-blue-800
-                                    {% elif status == 'ANALYZED' %}bg-purple-100 text-purple-800
-                                    {% elif status == 'CONFIRMED' %}bg-indigo-100 text-indigo-800
-                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {{ session.get_status_display }}
-                                </span>
-                            {% endwith %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if session.progress_total > 0 %}
-                            <div class="flex items-center">
-                                <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
-                                    <div class="bg-chavi-primary rounded-full h-2" style="width: {% widthratio session.progress_current session.progress_total 100 %}%"></div>
-                                </div>
-                                <span class="text-xs text-gray-600">{{ session.progress_current }}/{{ session.progress_total }}</span>
-                            </div>
-                            {% else %}
-                            <span class="text-xs text-gray-400">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {{ session.total_studies|default:"0" }}
-                            {% if session.manual_match_required %}
-                                <span class="text-xs text-yellow-600">({{ session.manual_match_required }} manual)</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {{ session.uploaded_by.username|default:"—" }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ session.created_at|date:"M d, H:i" }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            {% if session.status == 'ANALYZED' %}
-                                <a href="{% url 'client_app:bulk_dicom_matching' session.session_id %}" class="text-chavi-primary hover:text-chavi-secondary">
-                                    <i class="fas fa-link"></i> Match
-                                </a>
-                            {% elif session.status == 'CONFIRMED' %}
-                                <a href="{% url 'client_app:bulk_dicom_confirmation' session.session_id %}" class="text-chavi-primary hover:text-chavi-secondary">
-                                    <i class="fas fa-check"></i> Confirm
-                                </a>
-                            {% elif session.status == 'COMPLETED' %}
-                                <a href="{% url 'client_app:bulk_dicom_complete' session.session_id %}" class="text-green-600 hover:text-green-800">
-                                    <i class="fas fa-eye"></i> View
-                                </a>
-                            {% elif session.status == 'FAILED' %}
-                                {% if session.celery_task_id %}
-                                <a href="{% url 'client_app:task_progress' session.celery_task_id %}" class="text-red-600 hover:text-red-800">
-                                    <i class="fas fa-exclamation-triangle"></i> Error
-                                </a>
-                                {% endif %}
-                            {% elif session.status == 'PROCESSING' and session.celery_task_id %}
-                                <a href="{% url 'client_app:task_progress' session.celery_task_id %}" class="text-blue-600 hover:text-blue-800">
-                                    <i class="fas fa-spinner"></i> Progress
-                                </a>
-                            {% elif session.celery_task_id %}
-                                <a href="{% url 'client_app:task_progress' session.celery_task_id %}" class="text-gray-500 hover:text-gray-700">
-                                    <i class="fas fa-clock"></i> Pending
-                                </a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-gray-400">
-                            <i class="fas fa-inbox text-4xl mb-3"></i>
-                            <p>No bulk DICOM sessions found.</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    {% component "table" %}
+        {% fill "head" %}
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Studies</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded By</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        {% endfill %}
+        {% fill "body" %}
+            {% for session in sessions %}
+            <tr class="hover:bg-gray-50 transition-colors duration-150">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    {{ session.session_id|truncatechars:12 }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {% with status=session.status %}
+                        {% if status == 'COMPLETED' %}{% component "badge" style="success" %}{{ session.get_status_display }}{% endcomponent %}
+                        {% elif status == 'FAILED' %}{% component "badge" style="danger" %}{{ session.get_status_display }}{% endcomponent %}
+                        {% elif status == 'PROCESSING' %}{% component "badge" style="info" %}{{ session.get_status_display }}{% endcomponent %}
+                        {% elif status == 'ANALYZED' or status == 'CONFIRMED' %}{% component "badge" style="accent" %}{{ session.get_status_display }}{% endcomponent %}
+                        {% else %}{% component "badge" style="gray" %}{{ session.get_status_display }}{% endcomponent %}{% endif %}
+                    {% endwith %}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {% if session.progress_total > 0 %}
+                    {% widthratio session.progress_current session.progress_total 100 as progress_pct %}
+                    <div class="flex items-center">
+                        <div class="w-20 mr-2">
+                            {% component "progress" value=progress_pct size="sm" extra_class="!mb-0" %}{% endcomponent %}
+                        </div>
+                        <span class="text-xs text-gray-600">{{ session.progress_current }}/{{ session.progress_total }}</span>
+                    </div>
+                    {% else %}
+                    <span class="text-xs text-gray-400">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {{ session.total_studies|default:"0" }}
+                    {% if session.manual_match_required %}
+                        <span class="text-xs text-chavi-sun-700">({{ session.manual_match_required }} manual)</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {{ session.uploaded_by.username|default:"—" }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ session.created_at|date:"M d, H:i" }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {% if session.status == 'ANALYZED' %}
+                        {% url 'client_app:bulk_dicom_matching' session.session_id as match_url %}
+                        {% component "icon_button" icon="fas fa-link" aria_label="Match studies" href=match_url %}{% endcomponent %}
+                    {% elif session.status == 'CONFIRMED' %}
+                        {% url 'client_app:bulk_dicom_confirmation' session.session_id as confirm_url %}
+                        {% component "icon_button" icon="fas fa-check" aria_label="Confirm upload" href=confirm_url %}{% endcomponent %}
+                    {% elif session.status == 'COMPLETED' %}
+                        {% url 'client_app:bulk_dicom_complete' session.session_id as view_url %}
+                        {% component "icon_button" icon="fas fa-eye" aria_label="View session" href=view_url %}{% endcomponent %}
+                    {% elif session.status == 'FAILED' %}
+                        {% if session.celery_task_id %}
+                        {% url 'client_app:task_progress' session.celery_task_id as err_url %}
+                        {% component "icon_button" icon="fas fa-exclamation-triangle" style="danger" aria_label="View error" href=err_url %}{% endcomponent %}
+                        {% endif %}
+                    {% elif session.status == 'PROCESSING' and session.celery_task_id %}
+                        {% url 'client_app:task_progress' session.celery_task_id as prog_url %}
+                        {% component "icon_button" icon="fas fa-spinner" style="ghost" aria_label="View progress" href=prog_url %}{% endcomponent %}
+                    {% elif session.celery_task_id %}
+                        {% url 'client_app:task_progress' session.celery_task_id as pend_url %}
+                        {% component "icon_button" icon="fas fa-clock" style="ghost" aria_label="Pending" href=pend_url %}{% endcomponent %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400"><i class="fas fa-inbox text-4xl mb-3"></i><p>No bulk DICOM sessions found.</p></td></tr>
+            {% endfor %}
+        {% endfill %}
+    {% endcomponent %}
 
-        <!-- Pagination -->
-        {% if is_paginated %}
-        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div class="flex-1 flex justify-between sm:hidden">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Previous</a>
-                {% endif %}
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Next</a>
-                {% endif %}
-            </div>
-            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-sm text-gray-700">
-                        Showing <span class="font-medium">{{ page_obj.start_index }}</span> to
-                        <span class="font-medium">{{ page_obj.end_index }}</span> of
-                        <span class="font-medium">{{ paginator.count }}</span> results
-                    </p>
-                </div>
-                <div>
-                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        {% if page_obj.has_previous %}
-                            <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-left"></i>
-                            </a>
-                        {% endif %}
-                        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                            Page {{ page_obj.number }} of {{ paginator.num_pages }}
-                        </span>
-                        {% if page_obj.has_next %}
-                            <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-right"></i>
-                            </a>
-                        {% endif %}
-                    </nav>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-    </div>
+    <!-- Pagination -->
+    {% with qs="status="|add:current_status %}
+    {% component "pagination" page_obj=page_obj is_paginated=is_paginated query_string=qs %}{% endcomponent %}
+    {% endwith %}
 </div>
 {% endblock %}

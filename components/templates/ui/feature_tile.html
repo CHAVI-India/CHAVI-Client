@@ -1,0 +1,19 @@
+{# FeatureTile — tinted capability tile for bento grids #}
+{# kwargs: accent (primary|sand|sun|charcoal|peach), icon, title, span (extra grid classes e.g. "col-span-12 md:col-span-3"), min_height #}
+<div{% if id %} id="{{ id }}"{% endif %} class="rounded-2xl p-6 overflow-hidden min-h-[180px] {{ span }}
+    {% if accent == 'sand' %}bg-chavi-sand-100 border border-chavi-sand-200
+    {% elif accent == 'sun' %}bg-chavi-sun-100 border border-chavi-sun-200
+    {% elif accent == 'peach' %}bg-chavi-peach-100 border border-chavi-peach-200
+    {% elif accent == 'charcoal' %}bg-chavi-charcoal-50 border border-chavi-charcoal-200
+    {% else %}bg-chavi-primary-100 border border-chavi-primary-200{% endif %} {{ extra_class }}">
+    {% if icon %}
+    <i class="fas {{ icon }} text-3xl
+        {% if accent == 'sand' %}text-chavi-sand-600
+        {% elif accent == 'sun' %}text-chavi-sun-800
+        {% elif accent == 'peach' %}text-chavi-peach-700
+        {% elif accent == 'charcoal' %}text-chavi-charcoal-600
+        {% else %}text-chavi-primary-700{% endif %}" aria-hidden="true"></i>
+    {% endif %}
+    <h2 class="mt-6 {% if large %}text-2xl{% else %}text-xl{% endif %} font-bold">{{ title }}</h2>
+    <div class="mt-2 text-sm text-gray-600">{% slot "default" %}{% endslot %}</div>
+</div>

@@ -53,7 +53,7 @@ After the .env file has been edited, you can start the Docker containers by runn
 Updating the Software
 ----------------------
 
-Before any update, please take a backup of the database. To do so please refer to the :ref:`database_backup` page.
+Before any update, please take a backup of the database. To do so please refer to the :doc:`database_backup` page.
 
 Stop all running containers in the Docker Desktop application.
 
@@ -74,6 +74,29 @@ After the image has been pulled, you can start the containers by running the fol
 
    docker-compose up -d
 ..
-   
+
+DICOM Query/Retrieve Networking
+--------------------------------
+
+The ``chaviclient-dicom`` container only runs the **inbound** DICOM service
+(C-ECHO / C-STORE / C-FIND) on published port ``11112``. All **outbound**
+Query/Retrieve connections to remote DICOM nodes are opened by the
+``chaviclient-celery-worker`` container (retrieval jobs) and the
+``chaviclient-django`` container (the C-ECHO test button on the Remote nodes
+page).
+
+* Outbound connections need no compose changes — the worker only needs to
+  reach each remote node's ``host:port`` (LAN IP or public hostname).
+* **C-MOVE** additionally requires the remote PACS to connect back to the
+  Docker host on port ``11112`` — the host firewall must allow it and the
+  PACS-side destination for our AE title must point at the host IP.
+* **C-GET** (``prefer C-GET`` on the remote node) receives instances over the
+  same outbound association, so use it when the Docker host is behind NAT or
+  the remote cannot connect back.
+* The published port must match the listen port configured at
+  ``/dicom-server/config/`` and ``bind_address`` must remain ``0.0.0.0``.
+
+See ``docker_install/README.md`` in the repository for the full networking
+table and verification commands.
 
 

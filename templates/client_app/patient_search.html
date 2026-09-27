@@ -4,52 +4,35 @@
 
 {% block content %}
 <div class="w-full px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-        <div>
-            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Patient Search</h1>
-            <p class="text-gray-600">Search for patients in the CHAVI database</p>
-        </div>
-        <div class="mt-4 sm:mt-0">
-            {% url 'admin:client_app_patient_add' as add_patient_url %}
-            {% include 'components/button.html' with text='Add New Patient' href=add_patient_url icon='fas fa-plus' style='success' %}
-        </div>
-    </div>
-    
+    {% url 'client_app:patient_add' as add_patient_url %}
+
+    {% component "page_header" title="Patient Search" subtitle="Search for patients in the CHAVI database" %}
+        {% fill "actions" %}
+            {% if perms.client_app.add_patient %}{% component "button" style="success" href=add_patient_url icon="fas fa-plus" %}Add New Patient{% endcomponent %}{% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
     <!-- Search Section -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        {% include 'components/custom_form.html' with search_form=True search_placeholder='Enter patient ID to search...' search_value=search_term %}
-        
-        {% if error %}
-        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
-            <div class="flex">
-                <i class="fas fa-exclamation-circle mr-2 mt-0.5"></i>
-                <span>{{ error }}</span>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    
+    {% component "search_bar" name="search" placeholder="Enter patient ID to search..." value=search_term %}
+    {% endcomponent %}
+
+    {% if error %}
+        {% component "alert" style="danger" %}{{ error }}{% endcomponent %}
+    {% endif %}
+
     <!-- Results Section -->
-    <div class="bg-white rounded-lg shadow-md">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-chavi-gray">Patient List</h2>
-        </div>
-        
-        {% if patients %}
-            <!-- Patient Table -->
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Birth</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Registration</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+    {% component "card" title="Patient List" %}
+        {% fill "body" %}
+            {% if patients %}
+                {% component "table" %}
+                    {% fill "head" %}
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Birth</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Registration</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    {% endfill %}
+                    {% fill "body" %}
                         {% for patient in patients %}
                         <tr class="hover:bg-gray-50 transition-colors duration-150">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ patient.patient_id }}</td>
@@ -57,32 +40,23 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ patient.dob|date:"d/m/Y" }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ patient.date_of_registration|date:"d/m/Y" }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <a href="{% url 'client_app:patient_summary' %}?patient_id={{ patient.patient_id }}" 
-                                   class="text-chavi-primary hover:text-chavi-secondary font-medium transition-colors">
-                                    <i class="fas fa-eye mr-1"></i>View Summary
-                                </a>
+                                {% url 'client_app:patient_summary' as summary_url %}
+                                {% component "link_chip" url=summary_url param="patient_id" value=patient.patient_id label="View Summary" icon="fas fa-eye" %}{% endcomponent %}
                             </td>
                         </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Pagination -->
-            {% include 'components/pagination.html' with page_obj=patients search_term=search_term %}
-        {% else %}
-            <div class="px-6 py-8 text-center">
-                <div class="text-gray-400 mb-4">
-                    <i class="fas fa-search text-4xl"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
-                <p class="text-gray-500">Try adjusting your search criteria or add a new patient.</p>
-                <div class="mt-6">
-                    {% include 'components/button.html' with text='Add New Patient' href=add_patient_url icon='fas fa-plus' style='primary' %}
-                </div>
-            </div>
-        {% endif %}
-    </div>
-</div>
+                    {% endfill %}
+                {% endcomponent %}
 
-{% endblock %} 
+                {% component "pagination" page_obj=patients search_term=search_term %}{% endcomponent %}
+            {% else %}
+                {% component "empty_state" icon="fas fa-search" title="No patients found" description="Try adjusting your search criteria or add a new patient." %}
+                    {% fill "action" %}
+                        {% if perms.client_app.add_patient %}{% component "button" style="primary" href=add_patient_url icon="fas fa-plus" %}Add New Patient{% endcomponent %}{% endif %}
+                    {% endfill %}
+                {% endcomponent %}
+            {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+</div>
+{% endblock %}

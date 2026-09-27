@@ -1,0 +1,8 @@
+{# LoadingOverlay — full-area spinner; toggle with hidden/flex like modal #}
+{# kwargs: id (required for JS toggle), label (default "Loading…") #}
+<div{% if id %} id="{{ id }}"{% endif %} class="fixed inset-0 z-50 bg-chavi-charcoal-800 bg-opacity-60 hidden items-center justify-center {{ extra_class }}" role="status" aria-live="polite">
+    <div class="bg-white rounded-lg shadow-xl px-8 py-6 flex flex-col items-center gap-3">
+        <span class="inline-block h-10 w-10 rounded-full border-4 border-chavi-charcoal-200 border-t-chavi-primary-500 animate-spin" aria-hidden="true"></span>
+        <span class="text-sm font-semibold text-chavi-charcoal-800">{{ label|default:"Loading…" }}</span>
+    </div>
+</div>

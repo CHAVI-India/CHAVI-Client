@@ -10,26 +10,26 @@
     #review-form { font-size: 1rem; line-height: 1.45; }
     #review-form [hidden] { display: none !important; }
     #review-form .review-record-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .6rem; margin-bottom: .5rem; }
-    #review-form label { display: block; font-weight: 600; color: #374151; }
-    #review-form input:not([type="hidden"]), #review-form textarea, #review-form select { width: 100%; min-width: 0; padding: .35rem .5rem; border: 1px solid #9ca3af; border-radius: .3rem; font-size: 1rem; background: white; }
-    #review-form input:focus, #review-form textarea:focus { outline: 2px solid #667eea; outline-offset: 1px; }
+    #review-form label { display: block; font-weight: 600; color: #1b333d; }
+    #review-form input:not([type="hidden"]), #review-form textarea, #review-form select { width: 100%; min-width: 0; padding: .35rem .5rem; border: 1px solid #b3cbd1; border-radius: .3rem; font-size: 1rem; background: white; }
+    #review-form input:focus, #review-form textarea:focus { outline: 2px solid #2a9d8f; outline-offset: 1px; }
     #review-form .review-field, #review-form .review-column-headings { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(150px, 1.2fr) minmax(240px, 1.8fr); gap: .75rem; }
-    #review-form .review-field { padding: .55rem 0; border-top: 1px solid #e5e7eb; }
-    #review-form .review-column-headings { font-weight: 600; background: #f3f4f6; padding: .4rem .3rem; }
+    #review-form .review-field { padding: .55rem 0; border-top: 1px solid #d9e5e8; }
+    #review-form .review-column-headings { font-weight: 600; background: #eef4f5; padding: .4rem .3rem; }
     #review-form .review-field > div { min-width: 0; overflow-wrap: anywhere; }
     #review-form .review-source > span, #review-form .review-meta { display: block; }
-    #review-form .review-meta { color: #4b5563; font-size: .875rem; margin-top: .15rem; }
+    #review-form .review-meta { color: #4d7a8a; font-size: .875rem; margin-top: .15rem; }
     #review-form .review-field-actions { display: flex; flex-wrap: wrap; gap: .25rem .7rem; margin-top: .15rem; font-size: .875rem; }
     #review-form .review-field-actions button, #review-form summary { cursor: pointer; }
-    #review-form .review-field-actions button { color: #4338ca; text-decoration: underline; }
-    #review-form .review-field-actions button:disabled { color: #6b7280; cursor: default; }
-    #review-form .review-notice { color: #4b5563; margin-bottom: .4rem; }
+    #review-form .review-field-actions button { color: #2a9d8f; text-decoration: underline; }
+    #review-form .review-field-actions button:disabled { color: #8db1ba; cursor: default; }
+    #review-form .review-notice { color: #4d7a8a; margin-bottom: .4rem; }
     #review-form .review-notice:empty { display: none; }
     #review-form .select2-container { max-width: 100%; font-size: 1rem; }
-    #review-form .select2-selection--single { min-height: 38px; height: auto; border-color: #9ca3af; }
+    #review-form .select2-selection--single { min-height: 38px; height: auto; border-color: #b3cbd1; }
     #review-form .select2-selection__rendered { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; padding: .35rem 1.7rem .35rem .5rem; }
     #review-form .select2-selection__arrow { top: 6px; }
-    #review-form .select2-container--disabled .select2-selection--single { background: #f3f4f6; }
+    #review-form .select2-container--disabled .select2-selection--single { background: #eef4f5; }
     .review-select2-dropdown { font-size: 1rem; }
     .review-select2-dropdown .select2-results__option { padding: .4rem .6rem; overflow-wrap: anywhere; }
     @media (max-width: 800px) {
@@ -42,36 +42,30 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
-        <div class="flex items-center justify-between mb-6">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-clipboard-check text-chavi-primary mr-2"></i>
-                    Extraction Job #{{ extraction_job.id }}
-                </h1>
-                <p class="text-gray-600 mt-2">View and verify extracted data</p>
-            </div>
-            <a href="{% url 'extractor:extraction_results_list' %}" 
-               class="text-chavi-primary hover:text-chavi-secondary font-semibold">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Results
-            </a>
-        </div>
+    {% url 'extractor:extraction_results_list' as results_url %}
+    {% with header_title="Extraction Job #"|add:extraction_job.id %}
+    {% component "page_header" title=header_title icon="fas fa-clipboard-check" subtitle="View and verify extracted data" back_url=results_url back_text="Back to Results" %}{% endcomponent %}
+    {% endwith %}
 
-        <!-- Job Info -->
+    <!-- Job Info -->
+    {% component "card" extra_class="mb-6" %}
+        {% fill "body" %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Status</p>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full
-                    {% if extraction_job.extraction_status == 'pending' %}bg-yellow-100 text-yellow-800
-                    {% elif extraction_job.extraction_status == 'processing' %}bg-blue-100 text-blue-800
-                    {% elif extraction_job.extraction_status == 'awaiting_mining' or extraction_job.extraction_status == 'awaiting_extraction' %}bg-amber-100 text-amber-800
-                    {% elif extraction_job.extraction_status == 'completed' %}bg-green-100 text-green-800
-                    {% elif extraction_job.extraction_status == 'failed' %}bg-red-100 text-red-800
-                    {% endif %}">
-                    {{ extraction_job.get_extraction_status_display }}
-                </span>
+                {% if extraction_job.extraction_status == 'pending' %}
+                    {% component "badge" style="warning" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% elif extraction_job.extraction_status == 'processing' %}
+                    {% component "badge" style="info" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% elif extraction_job.extraction_status == 'awaiting_mining' or extraction_job.extraction_status == 'awaiting_extraction' %}
+                    {% component "badge" style="warning" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% elif extraction_job.extraction_status == 'completed' %}
+                    {% component "badge" style="success" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% elif extraction_job.extraction_status == 'failed' %}
+                    {% component "badge" style="danger" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% else %}
+                    {% component "badge" style="gray" %}{{ extraction_job.get_extraction_status_display }}{% endcomponent %}
+                {% endif %}
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-xs font-semibold text-gray-500 uppercase mb-1">Patient</p>
@@ -119,114 +113,104 @@
             {% endif %}
         </div>
         {% endif %}
+        {% endfill %}
+    {% endcomponent %}
 
-        <!-- Error Message -->
-        {% if extraction_job.extraction_error %}
-        <div class="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p class="text-red-800 font-semibold mb-2">
-                <i class="fas fa-exclamation-circle mr-2"></i>Extraction Error
-            </p>
-            <p class="text-red-700 text-sm">{{ extraction_job.extraction_error }}</p>
-        </div>
-        {% endif %}
-    </div>
+    <!-- Error Message -->
+    {% if extraction_job.extraction_error %}
+    {% component "alert" style="danger" %}
+        {% fill "title" %}Extraction Error{% endfill %}
+        {% fill "default" %}{{ extraction_job.extraction_error }}{% endfill %}
+    {% endcomponent %}
+    {% endif %}
 
     <!-- Pipeline — stage prompts & results, gated on approval -->
-    <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">
-            <i class="fas fa-stream mr-2"></i>Pipeline
-        </h2>
-
+    {% component "card" extra_class="mb-6" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900"><i class="fas fa-stream mr-2"></i>Pipeline</h3>
+        {% endfill %}
+        {% fill "body" %}
         {% if stage_running %}
-        <p class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4">
-            <i class="fas fa-spinner fa-spin mr-1"></i>
-            A stage is running — this page refreshes automatically.
-        </p>
+        {% component "alert" style="info" icon="fas fa-spinner fa-spin" %}
+            {% fill "default" %}A stage is running — this page refreshes automatically.{% endfill %}
+        {% endcomponent %}
         {% endif %}
 
         {% if stage_entries %}
         <div class="space-y-3">
             {% for entry in stage_entries %}
-            <details class="border rounded-lg {% if entry.pending %}border-amber-300 bg-amber-50{% else %}border-gray-200{% endif %}"
-                     {% if entry.pending %}open{% endif %}>
-                <summary class="cursor-pointer select-none px-4 py-2.5 text-sm font-semibold {% if entry.pending %}text-amber-900{% else %}text-gray-800{% endif %}">
+            {% component "accordion" open=entry.pending attention=entry.pending %}
+                {% fill "summary" %}
                     Stage {{ entry.number }} — {{ entry.label }} — {{ entry.kind }}{% if entry.kind == 'prompt' %} (sent to the LLM){% endif %}
                     {% if entry.pending %}
-                    <span class="ml-2 bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full text-xs font-semibold">awaiting approval</span>
+                    {% component "badge" style="warning" extra_class="ml-2" %}awaiting approval{% endcomponent %}
                     {% endif %}
-                </summary>
-                <div class="px-4 pb-4">
+                {% endfill %}
+                {% fill "default" %}
                     {% if entry.note %}
                     <p class="text-sm text-gray-500">{{ entry.note }}</p>
                     {% endif %}
 
                     {% for msg in entry.messages %}
                     <div class="mt-2">
-                        <span class="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-gray-200 text-gray-700">{{ msg.role }}</span>
-                        <pre class="mt-1 bg-gray-50 border border-gray-200 rounded p-3 text-xs whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">{{ msg.content }}</pre>
+                        {% component "badge" style="gray" %}{{ msg.role }}{% endcomponent %}
+                        {% component "code_block" extra_class="mt-1" %}{{ msg.content }}{% endcomponent %}
                     </div>
                     {% endfor %}
 
                     {% if entry.kind == 'result' %}
-                    <pre class="mt-2 bg-gray-50 border border-gray-200 rounded p-3 text-xs whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">{{ entry.result_json }}</pre>
+                    {% component "code_block" extra_class="mt-2" %}{{ entry.result_json }}{% endcomponent %}
                     {% endif %}
 
                     {% if entry.pending %}
                     <div class="mt-4 flex items-center gap-4">
                         <form method="post" action="{% url 'extractor:extraction_job_continue' extraction_job.id %}">
                             {% csrf_token %}
-                            <button type="submit"
-                                    class="bg-chavi-gradient text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">
-                                <i class="fas fa-paper-plane mr-1"></i>Approve &amp; send to LLM
-                            </button>
+                            {% component "button" style="primary" type="submit" size="sm" icon="fas fa-paper-plane" %}Approve &amp; send to LLM{% endcomponent %}
                         </form>
                         <form method="post" action="{% url 'extractor:extraction_job_continue' extraction_job.id %}">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="cancel">
-                            <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-semibold">
-                                Cancel job
-                            </button>
+                            {% component "button" style="danger" type="submit" size="sm" %}Cancel job{% endcomponent %}
                         </form>
-                        <span class="text-xs text-amber-800">Nothing has been sent to the LLM for this stage yet.</span>
+                        <span class="text-xs text-chavi-sun-800">Nothing has been sent to the LLM for this stage yet.</span>
                     </div>
                     {% endif %}
-                </div>
-            </details>
+                {% endfill %}
+            {% endcomponent %}
             {% endfor %}
         </div>
         {% elif not stage_running %}
         <p class="text-sm text-gray-500">No stages recorded for this job.</p>
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Extracted Data — canonical review/edit/write-back surface -->
     {% if data_tree %}
-    <div class="bg-white rounded-lg shadow-lg p-4">
-        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 class="text-2xl font-bold text-gray-800">
-                <i class="fas fa-database mr-2"></i>Extracted Data
-            </h2>
+    {% component "card" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900"><i class="fas fa-database mr-2"></i>Extracted Data</h3>
+        {% endfill %}
+        {% fill "actions" %}
             {% if coverage %}
             <div class="flex gap-2 text-xs font-semibold">
-                <span class="px-2.5 py-1 rounded-full bg-green-100 text-green-800">
-                    {{ coverage.extracted|default:0 }} extracted
-                </span>
-                <span class="px-2.5 py-1 rounded-full bg-gray-200 text-gray-700">
-                    {{ coverage.not_found|default:0 }} not found
-                </span>
-                <span class="px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800">
-                    {{ coverage.unresolved|default:0 }} unresolved
-                </span>
+                {% component "badge" style="success" %}{{ coverage.extracted|default:0 }} extracted{% endcomponent %}
+                {% component "badge" style="gray" %}{{ coverage.not_found|default:0 }} not found{% endcomponent %}
+                {% component "badge" style="warning" %}{{ coverage.unresolved|default:0 }} unresolved{% endcomponent %}
             </div>
             {% endif %}
-        </div>
+        {% endfill %}
+        {% fill "body" %}
         {% if review_errors %}
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            <p class="font-semibold">The review could not be saved.</p>
+        {% component "alert" style="danger" %}
+            {% fill "title" %}The review could not be saved.{% endfill %}
+            {% fill "default" %}
             {% for key, errors in review_errors.items %}
             <p><span class="font-semibold">{{ key|capfirst }}:</span> {{ errors|join:" " }}</p>
             {% endfor %}
-        </div>
+            {% endfill %}
+        {% endcomponent %}
         {% endif %}
         {% if can_review %}
         <form id="review-form" method="post" action="{% url 'extractor:extraction_review_preview' extraction_job.id %}"
@@ -237,44 +221,47 @@
             <input type="hidden" name="job_revision" id="review-job-revision" value="{{ review.job_revision }}">
             <input type="hidden" name="source_token" id="review-source-token" value="{{ review.source_token }}">
             <p class="mb-2 text-gray-700">Extracted answers are shown separately. Leave corrections empty to keep them, or choose a value to correct them. Selecting the same value counts as accurate.</p>
-            <p class="mb-2 text-red-800" id="review-load-error" role="alert" hidden></p>
-            <noscript><p class="mb-2 rounded bg-yellow-100 p-3 text-yellow-900">JavaScript is required to review all records together.</p></noscript>
-            <div class="mb-2 flex gap-4"><button type="button" data-expand-records>Expand all</button><button type="button" data-collapse-records>Collapse all</button></div>
+            <p class="mb-2 text-chavi-peach-800" id="review-load-error" role="alert" hidden></p>
+            <noscript><p class="mb-2 rounded bg-chavi-sun-100 p-3 text-chavi-sun-900">JavaScript is required to review all records together.</p></noscript>
+            <div class="mb-2 flex gap-2">
+                {% component "button" style="ghost" size="sm" data__expand_records="" %}Expand all{% endcomponent %}
+                {% component "button" style="ghost" size="sm" data__collapse_records="" %}Collapse all{% endcomponent %}
+            </div>
             {% for node in data_tree %}
                 {% include 'extractor/record_grid_node.html' with node=node level=0 %}
             {% endfor %}
             <div class="sticky bottom-0 mt-6 flex items-center justify-between border-t bg-white py-4">
                 <span class="text-sm text-gray-600" id="review-counts">Review the values, then preview the save.</span>
-                <button type="submit" class="bg-chavi-gradient rounded-lg px-5 py-2 font-semibold text-white disabled:opacity-50" data-review-submit disabled>
-                    Review &amp; Save
-                </button>
+                {% component "button" style="gradient" type="submit" extra_class="px-5" data__review_submit="" disabled=True %}Review &amp; Save{% endcomponent %}
             </div>
         </form>
         {% else %}
         <p class="text-sm text-gray-500">You can view the extracted records but do not have permission to prepare or approve a save.</p>
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% else %}
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="text-center py-12">
-            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-600 mb-2">No extraction results</h3>
-            <p class="text-gray-500">This job hasn't produced any results yet</p>
-        </div>
-    </div>
+    {% component "card" %}{% fill "body" %}
+        {% component "empty_state" title="No extraction results" description="This job hasn't produced any results yet" %}{% endcomponent %}
+    {% endfill %}{% endcomponent %}
     {% endif %}
 
-    <div class="bg-white rounded-lg shadow-lg p-8 mt-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">
-            <i class="fas fa-clock-rotate-left mr-2"></i>Review history
-        </h2>
+    {% component "card" title="Review history" extra_class="mt-6" %}
+        {% fill "body" %}
         {% if approval_history %}
         <div class="space-y-2">
             {% for batch in approval_history %}
-            <a href="{% url 'extractor:extraction_review_detail' extraction_job.id batch.id %}"
+            {% url 'extractor:extraction_review_detail' extraction_job.id batch.id as batch_url %}
+            <a href="{{ batch_url }}"
                class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50">
                 <span class="font-mono text-xs text-gray-500">{{ batch.id }}</span>
-                <span class="rounded-full px-2 py-0.5 text-xs font-semibold {% if batch.status == 'approved' %}bg-green-100 text-green-800{% elif batch.status == 'pending' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ batch.get_status_display }}</span>
+                {% if batch.status == 'approved' %}
+                    {% component "badge" style="success" %}{{ batch.get_status_display }}{% endcomponent %}
+                {% elif batch.status == 'pending' %}
+                    {% component "badge" style="info" %}{{ batch.get_status_display }}{% endcomponent %}
+                {% else %}
+                    {% component "badge" style="gray" %}{{ batch.get_status_display }}{% endcomponent %}
+                {% endif %}
                 <span class="text-sm text-gray-600">prepared by {{ batch.prepared_by|default:"a deleted user" }} on {{ batch.created_at|date:"M d, Y H:i" }}</span>
                 {% if batch.approved_at %}<span class="text-sm text-gray-600">approved by {{ batch.approved_by|default:"a deleted user" }} on {{ batch.approved_at|date:"M d, Y H:i" }}</span>{% endif %}
             </a>
@@ -283,30 +270,33 @@
         {% else %}
         <p class="text-sm text-gray-500">No reviews have been prepared for this job.</p>
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Source Document — the original (non-deidentified) text -->
-    <div class="bg-white rounded-lg shadow-lg p-8 mt-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+    {% component "card" extra_class="mt-6" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900">
             <i class="fas fa-file-alt mr-2"></i>Source Document
             {% if deid_content %}
             <span class="text-sm font-normal text-gray-500">original, before deidentification</span>
             {% endif %}
-        </h2>
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 max-h-96 overflow-y-auto">
-            <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">{{ processed_content }}</pre>
-        </div>
+        </h3>
+        {% endfill %}
+        {% fill "body" %}
+        {% component "code_block" max_height="max-h-96" %}{{ processed_content }}{% endcomponent %}
         {% if deid_content %}
-        <details class="mt-4">
-            <summary class="cursor-pointer text-sm font-semibold text-gray-600">
+        {% component "accordion" extra_class="mt-4" %}
+            {% fill "summary" %}
                 <i class="fas fa-user-shield mr-1"></i>Deidentified text sent to the LLM
-            </summary>
-            <div class="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-6 max-h-96 overflow-y-auto">
-                <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">{{ deid_content }}</pre>
-            </div>
-        </details>
+            {% endfill %}
+            {% fill "default" %}
+            {% component "code_block" max_height="max-h-96" extra_class="mt-2" %}{{ deid_content }}{% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 </div>
 
 {% if posted_payload %}{{ posted_payload|json_script:"posted-payload" }}{% endif %}

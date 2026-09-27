@@ -1,0 +1,11 @@
+{# BulkActionToolbar — grouped bulk actions; slots: primary, secondary #}
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4 {{ extra_class }}">
+    <div class="flex items-center space-x-3 p-3 rounded-lg border bg-chavi-primary-50 border-chavi-primary-200">
+        {% slot "primary" %}{% endslot %}
+    </div>
+    {% if component_vars.is_filled.secondary %}
+    <div class="flex items-center space-x-3 p-3 rounded-lg border bg-gray-50 border-gray-200">
+        {% slot "secondary" %}{% endslot %}
+    </div>
+    {% endif %}
+</div>

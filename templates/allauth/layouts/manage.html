@@ -1,0 +1,26 @@
+{% extends "allauth/layouts/base.html" %}
+{% load i18n %}
+{% block body %}
+<div class="w-full flex justify-center py-8 px-4">
+    <div class="w-full max-w-3xl bg-white rounded-lg shadow-md border border-chavi-charcoal-100 overflow-hidden aa-content">
+        <div class="h-1 bg-chavi-charcoal-500"></div>
+        <div class="px-6 py-4 bg-chavi-charcoal-50 border-b border-chavi-charcoal-100 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {% url 'account_email' as email_url_ %}
+            {% if email_url_ %}<a href="{{ email_url_ }}" class="text-chavi-primary hover:text-chavi-primary-dark font-medium">{% trans "Change Email" %}</a>{% endif %}
+            {% url 'account_change_password' as change_password_url_ %}
+            {% if change_password_url_ %}<a href="{{ change_password_url_ }}" class="text-chavi-primary hover:text-chavi-primary-dark font-medium">{% trans "Change Password" %}</a>{% endif %}
+            {% url 'socialaccount_connections' as connections_url_ %}
+            {% if connections_url_ %}<a href="{{ connections_url_ }}" class="text-chavi-primary hover:text-chavi-primary-dark font-medium">{% trans "Connections" %}</a>{% endif %}
+            {% url 'mfa_index' as mfa_url_ %}
+            {% if mfa_url_ %}<a href="{{ mfa_url_ }}" class="text-chavi-primary hover:text-chavi-primary-dark font-medium">{% trans "Two-Factor Auth" %}</a>{% endif %}
+            {% url 'usersessions_list' as usersessions_url_ %}
+            {% if usersessions_url_ %}<a href="{{ usersessions_url_ }}" class="text-chavi-primary hover:text-chavi-primary-dark font-medium">{% trans "Sessions" %}</a>{% endif %}
+            {% url 'account_logout' as logout_url_ %}
+            {% if logout_url_ %}<a href="{{ logout_url_ }}" class="text-chavi-peach-600 hover:text-chavi-peach-800 font-medium ml-auto">{% trans "Sign Out" %}</a>{% endif %}
+        </div>
+        <div class="px-8 py-6">
+            {% block content %}{% endblock content %}
+        </div>
+    </div>
+</div>
+{% endblock body %}

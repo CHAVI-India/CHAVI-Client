@@ -1,0 +1,12 @@
+{# LogFeed — scrolling log entries; entries: [{timestamp, type, message}] #}
+<div class="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm {{ extra_class }}" role="log" aria-live="polite">
+    {% for entry in entries %}
+    <div class="mb-2 flex items-start">
+        <span class="text-gray-400 mr-2">{{ entry.timestamp }}</span>
+        <i class="fas {% if entry.type == 'success' %}fa-check-circle text-chavi-primary-500{% elif entry.type == 'error' %}fa-exclamation-circle text-chavi-peach-500{% elif entry.type == 'processing' %}fa-cog fa-spin text-chavi-primary{% else %}fa-info-circle text-chavi-charcoal-500{% endif %} mr-2 mt-0.5"></i>
+        <span class="flex-1">{{ entry.message }}</span>
+    </div>
+    {% empty %}
+    <div class="text-gray-500">Waiting to start…</div>
+    {% endfor %}
+</div>

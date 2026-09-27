@@ -3,21 +3,18 @@
 {% block title %}DICOM Server Configuration - CHAVI Client{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
-    {% include "dicom_server/_messages.html" %}
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">DICOM Server Configuration</h1>
-    <div class="bg-white rounded-lg shadow p-6">
+    {% url 'dicom_server:dashboard' as dash_url %}
+    {% component "page_header" title="DICOM Server Configuration" icon="fas fa-server" back_url=dash_url back_text="Back to dashboard" %}{% endcomponent %}
+    {% component "card" %}{% fill "body" %}
         <form method="post">
             {% csrf_token %}
             {{ form|crispy }}
             <div class="mt-6 flex space-x-3">
-                <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded hover:opacity-90">Save</button>
-                <a href="{% url 'dicom_server:dashboard' %}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Cancel</a>
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Save{% endcomponent %}
+                {% url 'dicom_server:dashboard' as cancel_url %}{% component "button" style="secondary" href=cancel_url %}Cancel{% endcomponent %}
             </div>
         </form>
-        <p class="text-xs text-gray-500 mt-4">
-            Note: changes to AE title, bind address or port take effect when the
-            DICOM server process is restarted.
-        </p>
-    </div>
+        {% component "info_box" style="info" %}{% fill "default" %}Changes to AE title, bind address or port take effect when the DICOM server process is restarted.{% endfill %}{% endcomponent %}
+    {% endfill %}{% endcomponent %}
 </div>
 {% endblock %}

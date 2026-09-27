@@ -4,18 +4,15 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">
-            <i class="fas fa-tasks mr-2 text-chavi-primary"></i> Task Runs
-        </h1>
-    </div>
+    {% component "page_header" title="Task Runs" icon="fas fa-tasks" %}
+    {% endcomponent %}
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <form method="get" class="flex flex-wrap gap-4 items-end">
+    {% component "filter_bar" clear_url="/tasks/" %}
+        {% fill "fields" %}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select name="status" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select name="status" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                     <option value="">All</option>
                     {% for value, label in status_choices %}
                         <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
@@ -23,8 +20,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select name="type" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                <select name="type" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                     <option value="">All</option>
                     {% for value, label in type_choices %}
                         <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>{{ label }}</option>
@@ -32,29 +29,24 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">From Date</label>
                 <input type="date" name="date_from" value="{{ current_date_from }}"
-                       class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">To Date</label>
                 <input type="date" name="date_to" value="{{ current_date_to }}"
-                       class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
             </div>
-            <button type="submit" class="bg-chavi-primary text-white px-4 py-2 rounded-md text-sm hover:bg-chavi-secondary">
-                <i class="fas fa-filter mr-1"></i> Filter
-            </button>
-            <a href="{% url 'client_app:taskrun_list' %}" class="text-gray-600 text-sm hover:text-gray-900">
-                <i class="fas fa-times mr-1"></i> Clear
-            </a>
-        </form>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Card Grid -->
     {% if task_runs %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {% for task in task_runs %}
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col">
+        {% component "card" extra_class="flex flex-col" body_class="flex-1 flex flex-col" %}
+            {% fill "body" %}
             <!-- Header: Task name + status badge -->
             <div class="flex items-start justify-between mb-3">
                 <div class="min-w-0 flex-1 mr-3">
@@ -62,15 +54,11 @@
                     <div class="text-xs text-gray-400 font-mono">{{ task.task_id|truncatechars:16 }}</div>
                 </div>
                 {% with status=task.status %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0
-                        {% if status == 'SUCCESS' %}bg-green-100 text-green-800
-                        {% elif status == 'FAILURE' %}bg-red-100 text-red-800
-                        {% elif status == 'STALLED' %}bg-yellow-100 text-yellow-800
-                        {% elif status == 'PROGRESS' or status == 'STARTED' %}bg-blue-100 text-blue-800
-                        {% elif status == 'PENDING' %}bg-gray-100 text-gray-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {{ task.get_status_display }}
-                    </span>
+                    {% if status == 'SUCCESS' %}{% component "badge" style="success" %}{{ task.get_status_display }}{% endcomponent %}
+                    {% elif status == 'FAILURE' %}{% component "badge" style="danger" %}{{ task.get_status_display }}{% endcomponent %}
+                    {% elif status == 'STALLED' %}{% component "badge" style="warning" %}{{ task.get_status_display }}{% endcomponent %}
+                    {% elif status == 'PROGRESS' or status == 'STARTED' %}{% component "badge" style="info" %}{{ task.get_status_display }}{% endcomponent %}
+                    {% else %}{% component "badge" style="gray" %}{{ task.get_status_display }}{% endcomponent %}{% endif %}
                 {% endwith %}
             </div>
 
@@ -82,13 +70,11 @@
             {% endif %}
 
             <!-- Progress bar -->
-            <div class="mb-3">
-                <div class="flex items-center mb-1">
-                    <div class="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                        <div class="bg-chavi-primary rounded-full h-2 transition-all duration-300" style="width: {{ task.progress_percent }}%"></div>
-                    </div>
-                    <span class="text-xs text-gray-600 whitespace-nowrap">{{ task.progress_current }}/{{ task.progress_total }}</span>
+            <div class="flex items-center mb-3">
+                <div class="flex-1 mr-2">
+                    {% component "progress" value=task.progress_percent size="sm" extra_class="!mb-0" %}{% endcomponent %}
                 </div>
+                <span class="text-xs text-gray-600 whitespace-nowrap">{{ task.progress_current }}/{{ task.progress_total }}</span>
             </div>
 
             <!-- Metadata grid -->
@@ -108,27 +94,22 @@
             </div>
 
             <!-- Actions -->
-            <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
-                <a href="{% url 'client_app:taskrun_detail' task.pk %}" class="text-chavi-primary hover:text-chavi-secondary text-sm font-medium">
-                    <i class="fas fa-eye"></i> View
-                </a>
+            <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100">
+                {% url 'client_app:taskrun_detail' task.pk as detail_url %}
+                {% component "button" style="link" size="sm" href=detail_url icon="fas fa-eye" %}View{% endcomponent %}
                 {% if task.status == 'SUCCESS' and task.task_name == 'import_legacy_mapping' %}
-                    <a href="{% url 'deidentification:legacy_import_results' task.pk %}" class="text-green-600 hover:text-green-800 text-sm font-medium">
-                        <i class="fas fa-clipboard-check"></i> Results
-                    </a>
+                    {% url 'deidentification:legacy_import_results' task.pk as results_url %}
+                    {% component "button" style="link" size="sm" href=results_url icon="fas fa-clipboard-check" %}Results{% endcomponent %}
                 {% endif %}
                 {% if task.status == 'SUCCESS' and task.task_name in 'build_dicom_download_zip,build_clinical_download_zip' %}
-                    <a href="{% url 'deidentification:download_result' task.pk %}" class="text-green-600 hover:text-green-800 text-sm font-medium">
-                        <i class="fas fa-download"></i> Download
-                    </a>
+                    {% url 'deidentification:download_result' task.pk as download_url %}
+                    {% component "button" style="link" size="sm" href=download_url icon="fas fa-download" %}Download{% endcomponent %}
                 {% endif %}
                 {% if task.status == 'FAILURE' or task.status == 'STALLED' %}
                     {% if task.task_args %}
                     <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">
                         {% csrf_token %}
-                        <button type="submit" class="text-green-600 hover:text-green-800 text-sm font-medium" title="Resume">
-                            <i class="fas fa-play"></i> Resume
-                        </button>
+                        {% component "button" style="link" size="sm" type="submit" icon="fas fa-play" %}Resume{% endcomponent %}
                     </form>
                     {% else %}
                     <span class="text-gray-300 text-sm" title="Resume unavailable: this task predates automatic resume support (no stored arguments)">
@@ -137,54 +118,17 @@
                     {% endif %}
                 {% endif %}
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
         {% endfor %}
     </div>
     {% else %}
-    <div class="bg-white rounded-lg shadow-sm p-12 text-center text-gray-400 mb-6">
-        <i class="fas fa-inbox text-4xl mb-3"></i>
-        <p>No task runs found.</p>
-    </div>
+        {% component "empty_state" title="No task runs found." %}{% endcomponent %}
     {% endif %}
 
     <!-- Pagination -->
-    {% if is_paginated %}
-    <div class="bg-white rounded-lg shadow-sm px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-        <div class="flex-1 flex justify-between sm:hidden">
-            {% if page_obj.has_previous %}
-                <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_type %}type={{ current_type }}&{% endif %}{% if current_date_from %}date_from={{ current_date_from }}&{% endif %}{% if current_date_to %}date_to={{ current_date_to }}&{% endif %}page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Previous</a>
-            {% endif %}
-            {% if page_obj.has_next %}
-                <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_type %}type={{ current_type }}&{% endif %}{% if current_date_from %}date_from={{ current_date_from }}&{% endif %}{% if current_date_to %}date_to={{ current_date_to }}&{% endif %}page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Next</a>
-            {% endif %}
-        </div>
-        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-                <p class="text-sm text-gray-700">
-                    Showing <span class="font-medium">{{ page_obj.start_index }}</span> to
-                    <span class="font-medium">{{ page_obj.end_index }}</span> of
-                    <span class="font-medium">{{ paginator.count }}</span> results
-                </p>
-            </div>
-            <div>
-                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                    {% if page_obj.has_previous %}
-                        <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_type %}type={{ current_type }}&{% endif %}{% if current_date_from %}date_from={{ current_date_from }}&{% endif %}{% if current_date_to %}date_to={{ current_date_to }}&{% endif %}page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <i class="fas fa-chevron-left"></i>
-                        </a>
-                    {% endif %}
-                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                        Page {{ page_obj.number }} of {{ paginator.num_pages }}
-                    </span>
-                    {% if page_obj.has_next %}
-                        <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_type %}type={{ current_type }}&{% endif %}{% if current_date_from %}date_from={{ current_date_from }}&{% endif %}{% if current_date_to %}date_to={{ current_date_to }}&{% endif %}page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <i class="fas fa-chevron-right"></i>
-                        </a>
-                    {% endif %}
-                </nav>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+    {% with qs="status="|add:current_status|add:"&type="|add:current_type|add:"&date_from="|add:current_date_from|add:"&date_to="|add:current_date_to %}
+    {% component "pagination" page_obj=page_obj is_paginated=is_paginated query_string=qs %}{% endcomponent %}
+    {% endwith %}
 </div>
 {% endblock %}

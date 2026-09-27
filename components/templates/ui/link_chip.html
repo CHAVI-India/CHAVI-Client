@@ -1,0 +1,8 @@
+{# LinkChip — small inline action link (View/Add pairs on record rows). #}
+{# kwargs: url, param, value (builds url?param=value), label, icon, style (primary|charcoal), extra_class #}
+<a href="{{ url }}{% if param %}?{{ param }}={{ value }}{% endif %}"
+   class="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-colors
+   {% if style == 'primary' %}bg-chavi-primary-100 text-chavi-primary-800 hover:bg-chavi-primary-200
+   {% else %}bg-chavi-charcoal-100 text-chavi-charcoal-700 hover:bg-chavi-charcoal-200{% endif %} {{ extra_class }}">
+    {% if icon %}<i class="{{ icon }} mr-1"></i>{% endif %}{{ label }}{% slot "default" %}{% endslot %}
+</a>

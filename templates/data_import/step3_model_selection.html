@@ -2,76 +2,43 @@
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    Select the models you want to import data into. All selected models must be at the same hierarchy level.
-                    <strong>Parent models will be automatically included</strong> to maintain data relationships.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="info" %}
+        {% fill "default" %}Select the models you want to import data into. All selected models must be at the same hierarchy level. <strong>Parent models will be automatically included</strong> to maintain data relationships.{% endfill %}
+    {% endcomponent %}
     
-    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-check-circle text-green-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-green-700">
-                    <strong>Note:</strong> The <strong>Patient</strong> model is always included automatically as it is the root of all data relationships.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="success" %}
+        {% fill "default" %}<strong>Note:</strong> The <strong>Patient</strong> model is always included automatically as it is the root of all data relationships.{% endfill %}
+    {% endcomponent %}
     
     {% if auto_included_models %}
-    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-link text-green-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-green-700">
-                    <strong>Auto-included parent models:</strong> {{ auto_included_models|join:", " }}
-                </p>
-                <p class="text-xs text-green-600 mt-1">
-                    These models are required to maintain the hierarchy chain for your selected models.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="success" icon="fas fa-link" %}
+        {% fill "default" %}
+            <p><strong>Auto-included parent models:</strong> {{ auto_included_models|join:", " }}</p>
+            <p class="text-xs mt-1">These models are required to maintain the hierarchy chain for your selected models.</p>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
     
     {% if csv_headers %}
-    <div class="bg-white border-2 border-gray-200 rounded-lg shadow-sm mb-6">
-        <details class="group">
-            <summary class="cursor-pointer p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-table text-indigo-600"></i>
-                    <span class="font-semibold text-gray-900">CSV Columns Available</span>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {{ csv_headers|length }} column{{ csv_headers|length|pluralize }}
-                    </span>
-                </div>
-                <i class="fas fa-chevron-down group-open:rotate-180 transition-transform text-gray-400"></i>
-            </summary>
-            <div class="p-4 pt-0 border-t border-gray-200">
+    {% component "accordion" extra_class="group bg-white shadow-sm" %}
+        {% fill "summary" %}
+            <div class="flex items-center gap-2">
+                <i class="fas fa-table text-chavi-charcoal-600"></i>
+                <span class="font-semibold text-gray-900">CSV Columns Available</span>
+                {% component "badge" style="info" %}{{ csv_headers|length }} column{{ csv_headers|length|pluralize }}{% endcomponent %}
+            </div>
+            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform text-gray-400"></i>
+        {% endfill %}
+        {% fill "default" %}
+            <div class="pt-3 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2 mt-3">
                     {% for header in csv_headers %}
-                    <span class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        <i class="fas fa-columns text-indigo-500 mr-1.5 text-xs"></i>
-                        {{ header }}
-                    </span>
+                    {% component "badge" style="info" icon="fas fa-columns" %}{{ header }}{% endcomponent %}
                     {% endfor %}
                 </div>
             </div>
-        </details>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     <form method="post" class="space-y-8">
@@ -97,8 +64,8 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {% for model in models %}
                 <div class="border-2 rounded-lg overflow-hidden transition-all model-card
-                     {% if model.name == 'Patient' %}border-green-500 bg-green-50
-                     {% elif model.name in selected_models %}border-chavi-primary bg-blue-50
+                     {% if model.name == 'Patient' %}border-chavi-primary-500 bg-chavi-primary-50
+                     {% elif model.name in selected_models %}border-chavi-primary bg-chavi-charcoal-50
                      {% else %}border-gray-200 hover:border-gray-300{% endif %}"
                      data-model-name="{{ model.name }}"
                      data-model-level="{{ model.level }}"
@@ -112,7 +79,7 @@
                                            {% elif model.name in selected_models %}checked
                                            {% endif %}
                                            class="model-checkbox focus:ring-chavi-primary h-5 w-5 border-gray-300 rounded
-                                                  {% if model.name == 'Patient' %}text-green-600
+                                                  {% if model.name == 'Patient' %}text-chavi-primary-600
                                                   {% else %}text-chavi-primary{% endif %}"
                                            data-model-name="{{ model.name }}"
                                            data-model-level="{{ model.level }}">
@@ -125,14 +92,10 @@
                                         <div class="flex items-center gap-2">
                                             <h4 class="text-base font-semibold text-gray-900">{{ model.verbose_name }}</h4>
                                             {% if model.name == 'Patient' %}
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                <i class="fas fa-lock mr-1"></i>Always Selected
-                                            </span>
+                                            {% component "badge" style="success" icon="fas fa-lock" %}Always Selected{% endcomponent %}
                                             {% endif %}
                                         </div>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                            <i class="fas fa-list mr-1"></i>{{ model.field_count }} fields
-                                        </span>
+                                        {% component "badge" style="gray" icon="fas fa-list" %}{{ model.field_count }} fields{% endcomponent %}
                                     </div>
                                     
                                     <p class="text-xs text-gray-600 mt-1 mb-3">
@@ -147,13 +110,11 @@
                                     {% if model.parent_models %}
                                     <div class="mb-2">
                                         <p class="text-xs font-medium text-gray-700 mb-1">
-                                            <i class="fas fa-arrow-up text-green-600 mr-1"></i>Parent Relationships:
+                                            <i class="fas fa-arrow-up text-chavi-primary-600 mr-1"></i>Parent Relationships:
                                         </p>
                                         <div class="flex flex-wrap gap-1">
                                             {% for parent_field, parent_model in model.parent_models.items %}
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">
-                                                <i class="fas fa-link mr-1"></i>{{ parent_model }}
-                                            </span>
+                                            {% component "badge" style="success" icon="fas fa-link" %}{{ parent_model }}{% endcomponent %}
                                             {% endfor %}
                                         </div>
                                     </div>
@@ -162,25 +123,24 @@
                                     <!-- All Fields - Expandable -->
                                     {% if model.fields %}
                                     <div class="mt-2 pt-2 border-t border-gray-200">
-                                        <details class="group">
-                                            <summary class="cursor-pointer text-xs font-medium text-gray-700 mb-1 flex items-center justify-between hover:text-chavi-primary">
+                                        {% component "accordion" extra_class="group" %}
+                                            {% fill "summary" %}
                                                 <span>
-                                                    <i class="fas fa-database text-blue-600 mr-1"></i>
+                                                    <i class="fas fa-database text-chavi-charcoal-600 mr-1"></i>
                                                     All Fields ({{ model.field_count }})
                                                 </span>
                                                 <i class="fas fa-chevron-down group-open:rotate-180 transition-transform text-gray-400"></i>
-                                            </summary>
+                                            {% endfill %}
+                                            {% fill "default" %}
                                             <div class="mt-2 space-y-1 max-h-64 overflow-y-auto">
                                                 {% for field_name, field_info in model.fields.items %}
-                                                <div class="bg-white border border-gray-200 rounded p-2 hover:border-chavi-primary transition-colors">
+                                                <div class="bg-white border border-gray-200 rounded-lg p-2 hover:border-chavi-primary transition-colors">
                                                     <div class="flex items-start justify-between">
                                                         <div class="flex-1">
                                                             <div class="flex items-center gap-2">
                                                                 <span class="text-xs font-medium text-gray-900">{{ field_info.verbose_name }}</span>
                                                                 {% if field_info.required %}
-                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                                                                    Required
-                                                                </span>
+                                                                {% component "badge" style="danger" %}Required{% endcomponent %}
                                                                 {% endif %}
                                                             </div>
                                                             <code class="text-xs text-gray-500">{{ field_name }}</code>
@@ -188,14 +148,13 @@
                                                             <p class="text-xs text-gray-600 mt-1">{{ field_info.help_text }}</p>
                                                             {% endif %}
                                                         </div>
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600 ml-2">
-                                                            {{ field_info.type }}
-                                                        </span>
+                                                        {% component "badge" style="gray" %}{{ field_info.type }}{% endcomponent %}
                                                     </div>
                                                 </div>
                                                 {% endfor %}
                                             </div>
-                                        </details>
+                                            {% endfill %}
+                                        {% endcomponent %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -209,14 +168,9 @@
         {% endfor %}
 
         <div class="flex justify-between mt-8">
-            <a href="{% url 'data_import:step2' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 2
-            </a>
-            <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                Continue to Step 4
-                <i class="fas fa-arrow-right ml-2"></i>
-            </button>
+            {% url 'data_import:step2' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 2{% endcomponent %}
+            {% component "button" style="primary" type="submit" %}Continue to Step 4 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
         </div>
     </form>
 </div>
@@ -298,11 +252,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 cb.disabled = false;
                 
                 // Reset card styling
-                modelInfo.card.classList.remove('opacity-50', 'border-green-500', 'bg-green-50', 'border-chavi-primary', 'bg-blue-50');
+                modelInfo.card.classList.remove('opacity-50', 'border-chavi-primary-500', 'bg-chavi-primary-50', 'border-chavi-primary', 'bg-chavi-charcoal-50');
                 modelInfo.card.classList.add('border-gray-200');
                 
                 // Reset checkbox color
-                cb.classList.remove('text-green-600', 'text-chavi-primary');
+                cb.classList.remove('text-chavi-primary-600', 'text-chavi-primary');
                 cb.classList.add('text-chavi-primary');
                 
                 // Remove auto-included badge if exists
@@ -341,9 +295,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // User-selected model
                 cb.checked = true;
                 cb.disabled = false;
-                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-green-500', 'bg-green-50');
-                modelInfo.card.classList.add('border-chavi-primary', 'bg-blue-50');
-                cb.classList.remove('text-green-600');
+                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-chavi-primary-500', 'bg-chavi-primary-50');
+                modelInfo.card.classList.add('border-chavi-primary', 'bg-chavi-charcoal-50');
+                cb.classList.remove('text-chavi-primary-600');
                 cb.classList.add('text-chavi-primary');
                 
                 // Update label cursor
@@ -361,10 +315,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Auto-included parent model
                 cb.checked = true;
                 cb.disabled = true;
-                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-chavi-primary', 'bg-blue-50');
-                modelInfo.card.classList.add('border-green-500', 'bg-green-50');
+                modelInfo.card.classList.remove('opacity-50', 'border-gray-200', 'border-chavi-primary', 'bg-chavi-charcoal-50');
+                modelInfo.card.classList.add('border-chavi-primary-500', 'bg-chavi-primary-50');
                 cb.classList.remove('text-chavi-primary');
-                cb.classList.add('text-green-600');
+                cb.classList.add('text-chavi-primary-600');
                 
                 // Update label cursor
                 const label = modelInfo.card.querySelector('label');
@@ -378,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const titleDiv = modelInfo.card.querySelector('.flex.items-center.gap-2');
                     if (titleDiv) {
                         const badge = document.createElement('span');
-                        badge.className = 'auto-included-badge inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800';
+                        badge.className = 'auto-included-badge inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-chavi-primary-100 text-chavi-primary-800';
                         badge.innerHTML = '<i class="fas fa-link mr-1"></i>Auto-included';
                         titleDiv.appendChild(badge);
                     }
@@ -388,9 +342,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Same level but not selected - keep enabled
                 cb.checked = false;
                 cb.disabled = false;
-                modelInfo.card.classList.remove('opacity-50', 'border-chavi-primary', 'bg-blue-50', 'border-green-500', 'bg-green-50');
+                modelInfo.card.classList.remove('opacity-50', 'border-chavi-primary', 'bg-chavi-charcoal-50', 'border-chavi-primary-500', 'bg-chavi-primary-50');
                 modelInfo.card.classList.add('border-gray-200');
-                cb.classList.remove('text-green-600');
+                cb.classList.remove('text-chavi-primary-600');
                 cb.classList.add('text-chavi-primary');
                 
                 // Update label cursor
@@ -409,7 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cb.checked = false;
                 cb.disabled = true;
                 modelInfo.card.classList.add('opacity-50');
-                modelInfo.card.classList.remove('border-chavi-primary', 'bg-blue-50', 'border-green-500', 'bg-green-50');
+                modelInfo.card.classList.remove('border-chavi-primary', 'bg-chavi-charcoal-50', 'border-chavi-primary-500', 'bg-chavi-primary-50');
                 
                 // Remove auto-included badge if exists
                 const badge = modelInfo.card.querySelector('.auto-included-badge');

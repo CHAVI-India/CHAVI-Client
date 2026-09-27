@@ -1,0 +1,9 @@
+{# Tag — small chip/pill #}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium {% if style == 'primary' %}bg-chavi-primary-100 text-chavi-primary-800{% else %}bg-gray-100 text-gray-800{% endif %} {{ extra_class }}">
+    {% slot "default" %}{% endslot %}{{ text }}
+    {% if removable %}
+    <button type="button" class="ml-1 text-gray-500 hover:text-chavi-peach-600 transition-colors" aria-label="Remove {{ text }}" onclick="this.parentElement.remove()">
+        <i class="fas fa-times text-xs"></i>
+    </button>
+    {% endif %}
+</span>

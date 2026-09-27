@@ -4,94 +4,75 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-table text-chavi-primary mr-2"></i>
-                    Step 2: Select Database Tables
-                </h1>
-                <span class="text-sm text-gray-500">Step 2 of 4</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-chavi-gradient h-2 rounded-full" style="width: 50%"></div>
-            </div>
-            <p class="text-gray-600 mt-4">
-                Response Model: <strong>{{ response_model.name }}</strong>
-            </p>
-        </div>
+    {% url 'extractor:wizard_step1' as back_url %}
+    {% with subtitle_text="Step 2 of 4 · Response Model: "|add:response_model.name %}
+    {% component "page_header" title="Step 2: Select Database Tables" icon="fas fa-table" subtitle=subtitle_text %}{% endcomponent %}
+    {% endwith %}
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <p class="text-sm text-blue-700">
-                <i class="fas fa-info-circle mr-2"></i>
-                Select the database tables from which you want to extract data. Tables with direct patient relationships are shown first.
-                Required parent tables (e.g. <em>diagnosis</em> for <em>pathology</em>) are automatically included so extracted records can be written back.
-            </p>
-        </div>
+    {% component "stepper" labels="Name & Client,Select Tables,Select Fields,Review & Build" current=1 extra_class="mb-8" %}{% endcomponent %}
 
+    {% component "info_box" style="info" %}
+        {% fill "default" %}
+        Select the database tables from which you want to extract data. Tables with direct patient relationships are shown first.
+        Required parent tables (e.g. <em>diagnosis</em> for <em>pathology</em>) are automatically included so extracted records can be written back.
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+    {% fill "body" %}
         <form method="post" class="space-y-6">
             {% csrf_token %}
-            
+
             <div class="space-y-2">
                 {% for table in tables %}
                 <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors
-                            {% if table.depth == 0 %}border-blue-300 bg-blue-50{% endif %}">
+                            {% if table.depth == 0 %}border-chavi-charcoal-300 bg-chavi-charcoal-50{% endif %}">
                     <label class="flex items-start cursor-pointer">
-                        <input type="checkbox" 
-                               name="tables" 
+                        <input type="checkbox"
+                               name="tables"
                                value="{{ table.id }}"
                                {% if table.id in selected_tables %}checked{% endif %}
                                class="mt-1 h-5 w-5 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
-                        
+
                         <div class="ml-3 flex-1" style="{% if table.depth and table.depth > 0 %}padding-left: {{ table.depth }}rem;{% endif %}">
                             <div class="flex items-center gap-2 mb-2">
                                 {% if table.depth == 0 %}
-                                    <i class="fas fa-user text-blue-600"></i>
+                                    <i class="fas fa-user text-chavi-charcoal-600"></i>
                                 {% elif table.depth == 1 %}
-                                    <i class="fas fa-level-down-alt text-green-600"></i>
+                                    <i class="fas fa-level-down-alt text-chavi-primary-600"></i>
                                 {% elif table.depth == 2 %}
-                                    <i class="fas fa-level-down-alt text-yellow-600"></i>
-                                    <i class="fas fa-level-down-alt text-yellow-600"></i>
+                                    <i class="fas fa-level-down-alt text-chavi-sun-600"></i>
+                                    <i class="fas fa-level-down-alt text-chavi-sun-600"></i>
                                 {% elif table.depth %}
-                                    <span class="text-orange-600 text-xs">{{ "→ " | safe }}{{ table.depth }}</span>
+                                    <span class="text-chavi-sand-600 text-xs">{{ "→ " | safe }}{{ table.depth }}</span>
                                 {% else %}
                                     <i class="fas fa-circle text-gray-400 text-xs"></i>
                                 {% endif %}
-                                
+
                                 <span class="font-semibold text-gray-800">{{ table.display_name }}</span>
-                                
+
                                 <div class="flex gap-1 ml-auto">
                                     {% if table.id in auto_added_ids %}
-                                        <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                                            <i class="fas fa-magic mr-1"></i>Auto-included parent
-                                        </span>
+                                        {% component "badge" style="accent" icon="fas fa-magic" %}Auto-included parent{% endcomponent %}
                                     {% endif %}
                                     {% if table.depth == 0 %}
-                                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                            <i class="fas fa-star mr-1"></i>Root
-                                        </span>
+                                        {% component "badge" style="info" icon="fas fa-star" %}Root{% endcomponent %}
                                     {% elif table.depth == 1 %}
-                                        <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                            <i class="fas fa-link mr-1"></i>Direct
-                                        </span>
+                                        {% component "badge" style="success" icon="fas fa-link" %}Direct{% endcomponent %}
                                     {% elif table.depth %}
-                                        <span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                            <i class="fas fa-sitemap mr-1"></i>Level {{ table.depth }}
-                                        </span>
+                                        {% component "badge" style="accent" icon="fas fa-sitemap" %}Level {{ table.depth }}{% endcomponent %}
                                     {% else %}
-                                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                                            <i class="fas fa-unlink mr-1"></i>Unlinked
-                                        </span>
+                                        {% component "badge" style="gray" icon="fas fa-unlink" %}Unlinked{% endcomponent %}
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <p class="text-sm text-gray-600">
                                 Model: <code class="bg-gray-100 px-1 rounded">{{ table.name }}</code>
                             </p>
-                            
+
                             {% if table.patient_path %}
-                            <div class="mt-2 text-xs text-gray-500 bg-purple-50 p-2 rounded">
+                            <div class="mt-2 text-xs text-gray-500 bg-chavi-sand-50 p-2 rounded">
                                 <i class="fas fa-route mr-1"></i>
                                 <strong>Path to Patient:</strong>
                                 {% for step in table.patient_path %}
@@ -113,18 +94,11 @@
             </div>
 
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <a href="{% url 'extractor:wizard_step1' %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back
-                </a>
-                <button type="submit" 
-                        class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                    Next: Select Fields
-                    <i class="fas fa-arrow-right ml-2"></i>
-                </button>
+                {% component "back_link" href=back_url %}Back{% endcomponent %}
+                {% component "button" style="primary" type="submit" size="lg" icon="fas fa-arrow-right" %}Next: Select Fields{% endcomponent %}
             </div>
         </form>
-    </div>
+    {% endfill %}
+    {% endcomponent %}
 </div>
 {% endblock %}

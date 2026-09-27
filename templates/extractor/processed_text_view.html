@@ -5,49 +5,52 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-file-code text-chavi-primary mr-2"></i>
-                    Processed File
-                </h1>
-                <p class="text-gray-600 mt-2">{{ processed_text.processed_file_path|basename }}</p>
-            </div>
-            <div class="flex gap-3">
-                <a href="{% url 'extractor:file_upload_detail' processed_text.file_upload.id %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors px-4 py-2">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to File
-                </a>
-                <button onclick="copyContent()" 
-                        class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md">
-                    <i class="fas fa-copy mr-2"></i>
-                    Copy Content
-                </button>
-            </div>
-        </div>
+    {% url 'extractor:file_upload_detail' processed_text.file_upload.id as file_url %}
+    {% with subtitle_text=processed_text.processed_file_path|basename %}
+    {% component "page_header" title="Processed File" icon="fas fa-file-code" subtitle=subtitle_text back_url=file_url back_text="Back to File" %}
+        {% fill "actions" %}
+            {% component "button" style="info" icon="fas fa-copy" onclick="copyContent()" %}Copy Content{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+    {% endwith %}
 
-        {% if processed_text.deidentified %}
-        <div class="{% if processed_text.deid_reviewed %}bg-green-50 border-green-500{% else %}bg-amber-50 border-amber-400{% endif %} border-l-4 p-4 mb-6 flex items-center justify-between">
-            <p class="text-sm {% if processed_text.deid_reviewed %}text-green-800{% else %}text-amber-800{% endif %}">
-                <i class="fas fa-user-shield mr-1"></i>
-                <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }})
-                — PHI shown as &lt;TAGS&gt;, dates shifted.
-                {% if processed_text.deid_reviewed %}Reviewed — eligible for extraction.{% else %}Not yet reviewed.{% endif %}
-            </p>
-            <a href="{% url 'extractor:processed_text_deid_review' processed_text.id %}?next={{ request.path|urlencode }}"
-               class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors text-sm">
-                <i class="fas fa-user-shield mr-1"></i>Review deidentified text
-            </a>
-        </div>
+    {% if processed_text.deidentified %}
+        {% url 'extractor:processed_text_deid_review' processed_text.id as deid_url %}
+        {% with enc_path=request.path|urlencode %}
+        {% with rurl=deid_url|add:"?next="|add:enc_path %}
+        {% if processed_text.deid_reviewed %}
+        {% component "info_box" style="success" icon="fas fa-user-shield" %}
+            {% fill "default" %}
+            <div class="flex items-center justify-between">
+                <p>
+                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }})
+                    — PHI shown as &lt;TAGS&gt;, dates shifted.
+                    Reviewed — eligible for extraction.
+                </p>
+                {% component "button" style="primary" size="sm" href=rurl icon="fas fa-user-shield" %}Review deidentified text{% endcomponent %}
+            </div>
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        {% component "info_box" style="warning" icon="fas fa-user-shield" %}
+            {% fill "default" %}
+            <div class="flex items-center justify-between">
+                <p>
+                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }})
+                    — PHI shown as &lt;TAGS&gt;, dates shifted.
+                    Not yet reviewed.
+                </p>
+                {% component "button" style="primary" size="sm" href=rurl icon="fas fa-user-shield" %}Review deidentified text{% endcomponent %}
+            </div>
+            {% endfill %}
+        {% endcomponent %}
         {% endif %}
+        {% endwith %}
+        {% endwith %}
+    {% endif %}
 
-        <div class="bg-gray-50 rounded-lg p-6 mb-6">
-            <h2 class="text-lg font-bold text-gray-800 mb-4">
-                <i class="fas fa-info-circle text-chavi-primary mr-2"></i>
-                File Information
-            </h2>
+    {% component "card" title="File Information" extra_class="mb-6" %}
+        {% fill "body" %}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <p class="text-sm text-gray-600">Original File</p>
@@ -68,70 +71,64 @@
                     </p>
                 </div>
             </div>
-        </div>
+        {% endfill %}
+    {% endcomponent %}
 
-        <div class="bg-white rounded-lg border border-gray-200">
-            <div class="bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between">
-                <h2 class="text-lg font-bold text-gray-800">
-                    <i class="fas fa-file-alt mr-2"></i>
-                    Content
-                </h2>
-                <div class="flex items-center gap-2 text-sm text-gray-600">
-                    <i class="fas fa-align-left mr-1"></i>
-                    {{ content|length }} characters
-                </div>
+    {% component "card" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-file-alt mr-2"></i>
+            Content
+        </h3>
+        {% endfill %}
+        {% fill "actions" %}
+            <span class="text-sm text-gray-600">
+                <i class="fas fa-align-left mr-1"></i>
+                {{ content|length }} characters
+            </span>
+        {% endfill %}
+        {% fill "body" %}
+            {% if content %}
+            {# Keep the id + pre>code markup: copyContent() queries '#content-display pre code' #}
+            <div id="content-display" class="prose max-w-none">
+                {% component "code_block" max_height="max-h-none" %}<code>{{ content }}</code>{% endcomponent %}
             </div>
-            <div class="p-6">
-                {% if content %}
-                <div id="content-display" class="prose max-w-none">
-                    <pre class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-sm border border-gray-200"><code>{{ content }}</code></pre>
-                </div>
-                {% else %}
-                <div class="text-center py-12 text-gray-500">
-                    <i class="fas fa-file-excel text-6xl text-gray-300 mb-4"></i>
-                    <p class="text-lg font-semibold">No content to display</p>
-                    <p class="text-sm">The processed file may be empty or could not be read</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+            {% else %}
+            {% component "empty_state" icon="fas fa-file-excel" title="No content to display" description="The processed file may be empty or could not be read" %}{% endcomponent %}
+            {% endif %}
+        {% endfill %}
+    {% endcomponent %}
 
-        {% if processed_text.file_upload.patient_id %}
-        <div class="mt-6 bg-green-50 border-l-4 border-green-500 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-user-check text-green-500"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-green-700">
-                        <strong>Linked to Patient:</strong> {{ processed_text.file_upload.patient_id.patient_id }}
-                    </p>
-                    <p class="text-xs text-green-600 mt-1">
-                        This file is ready for extraction and will be associated with the patient's record
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-    </div>
+    {% if processed_text.file_upload.patient_id %}
+    {% component "info_box" style="success" icon="fas fa-user-check" %}
+        {% fill "default" %}
+        <p>
+            <strong>Linked to Patient:</strong> {{ processed_text.file_upload.patient_id.patient_id }}
+        </p>
+        <p class="text-xs mt-1">
+            This file is ready for extraction and will be associated with the patient's record
+        </p>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
 </div>
 
 <script>
 function copyContent() {
     const content = document.querySelector('#content-display pre code').textContent;
-    
+
     navigator.clipboard.writeText(content).then(() => {
         // Show success message
         const btn = event.target.closest('button');
         const originalHTML = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-check mr-2"></i>Copied!';
-        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-        btn.classList.add('bg-green-600');
-        
+        btn.classList.remove('bg-chavi-charcoal-600', 'hover:bg-chavi-charcoal-700');
+        btn.classList.add('bg-chavi-primary-600');
+
         setTimeout(() => {
             btn.innerHTML = originalHTML;
-            btn.classList.remove('bg-green-600');
-            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            btn.classList.remove('bg-chavi-primary-600');
+            btn.classList.add('bg-chavi-charcoal-600', 'hover:bg-chavi-charcoal-700');
         }, 2000);
     }).catch(err => {
         console.error('Failed to copy:', err);

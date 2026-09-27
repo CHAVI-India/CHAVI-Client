@@ -2,23 +2,18 @@
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+    {% component "info_box" style="info" %}
+        {% fill "title" %}Calculate Dates from Duration Fields{% endfill %}
+        {% fill "default" %}
+            <p class="mb-2">
+                Transform duration values (like "Age at diagnosis") into actual dates by adding them to a reference date.
+            </p>
+            <div class="bg-chavi-charcoal-100 rounded-lg p-2 text-xs text-chavi-charcoal-800">
+                <p class="font-semibold mb-1">Example:</p>
+                <p>"Age at diagnosis" (45 years) + "Date of birth" (1978-05-20) = "Diagnosis date" (2023-05-20)</p>
             </div>
-            <div class="ml-3">
-                <h4 class="text-sm font-semibold text-blue-900 mb-2">Calculate Dates from Duration Fields</h4>
-                <p class="text-sm text-blue-700 mb-2">
-                    Transform duration values (like "Age at diagnosis") into actual dates by adding them to a reference date.
-                </p>
-                <div class="bg-blue-100 rounded p-2 text-xs text-blue-800">
-                    <p class="font-semibold mb-1">Example:</p>
-                    <p>"Age at diagnosis" (45 years) + "Date of birth" (1978-05-20) = "Diagnosis date" (2023-05-20)</p>
-                </div>
-            </div>
-        </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -39,25 +34,15 @@
         </div>
         
         <div>
-            <button type="button" onclick="addDurationMapping()" class="inline-flex items-center px-4 py-2 border-2 border-chavi-primary text-chavi-primary rounded-md hover:bg-chavi-primary hover:text-white transition-colors font-medium">
-                <i class="fas fa-plus mr-2"></i>
-                Add Duration Calculation
-            </button>
+            {% component "button" style="outline" type="button" icon="fas fa-plus" onclick="addDurationMapping()" %}Add Duration Calculation{% endcomponent %}
         </div>
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step6' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 6
-            </a>
+            {% url 'data_import:step6' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 6{% endcomponent %}
             <div class="space-x-3">
-                <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Skip This Step
-                </button>
-                <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                    Continue to Step 8
-                    <i class="fas fa-arrow-right ml-2"></i>
-                </button>
+                {% component "button" style="secondary" type="submit" name="skip_step" %}Skip This Step{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Continue to Step 8 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
             </div>
         </div>
     </form>
@@ -85,7 +70,7 @@ function addDurationMapping(existingData = null) {
                 <i class="fas fa-calculator text-chavi-primary mr-2"></i>
                 Duration Calculation #${index + 1}
             </h3>
-            <button type="button" onclick="removeDurationMapping(this)" class="text-red-600 hover:text-red-800 text-sm font-medium">
+            <button type="button" onclick="removeDurationMapping(this)" class="text-chavi-peach-600 hover:text-chavi-peach-800 text-sm font-medium">
                 <i class="fas fa-trash mr-1"></i>Remove
             </button>
         </div>
@@ -94,7 +79,7 @@ function addDurationMapping(existingData = null) {
             <!-- Duration Field -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Duration Field (CSV Column) <span class="text-red-500">*</span>
+                    Duration Field (CSV Column) <span class="text-chavi-peach-500">*</span>
                 </label>
                 <select name="duration_${index}_csv_field" required
                         class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
@@ -106,7 +91,7 @@ function addDurationMapping(existingData = null) {
             <!-- Duration Unit -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Duration Unit <span class="text-red-500">*</span>
+                    Duration Unit <span class="text-chavi-peach-500">*</span>
                 </label>
                 <select name="duration_${index}_unit" required
                         class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
@@ -117,7 +102,7 @@ function addDurationMapping(existingData = null) {
             <!-- Reference Date Type -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Reference Date Type <span class="text-red-500">*</span>
+                    Reference Date Type <span class="text-chavi-peach-500">*</span>
                 </label>
                 <select name="duration_${index}_ref_type" required onchange="updateReferenceInput(${index}, this.value)"
                         class="ref-type-select block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
@@ -128,7 +113,7 @@ function addDurationMapping(existingData = null) {
             <!-- Reference Date Value -->
             <div id="ref_value_container_${index}">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Reference Date <span class="text-red-500">*</span>
+                    Reference Date <span class="text-chavi-peach-500">*</span>
                 </label>
                 <select name="duration_${index}_ref_value" required
                         class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
@@ -153,7 +138,7 @@ function addDurationMapping(existingData = null) {
             <!-- Target Date Field -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Target Date Field (Model) <span class="text-red-500">*</span>
+                    Target Date Field (Model) <span class="text-chavi-peach-500">*</span>
                 </label>
                 <select name="duration_${index}_target_field" required
                         class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">
@@ -191,7 +176,7 @@ function updateReferenceInput(index, refType, existingValue = '') {
         // Show date picker
         container.innerHTML = `
             <label class="block text-sm font-medium text-gray-700 mb-2">
-                Reference Date (Custom) <span class="text-red-500">*</span>
+                Reference Date (Custom) <span class="text-chavi-peach-500">*</span>
             </label>
             <input type="date" name="duration_${index}_ref_value" required
                    value="${existingValue}"
@@ -202,7 +187,7 @@ function updateReferenceInput(index, refType, existingValue = '') {
         // Show CSV column selector
         container.innerHTML = `
             <label class="block text-sm font-medium text-gray-700 mb-2">
-                Reference Date (CSV Column) <span class="text-red-500">*</span>
+                Reference Date (CSV Column) <span class="text-chavi-peach-500">*</span>
             </label>
             <select name="duration_${index}_ref_value" required
                     class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm">

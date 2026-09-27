@@ -1,0 +1,29 @@
+{# Tabs — horizontal tab navigation; tabs: [{id, label, active, href|onclick|target}] #}
+{# - href set     -> renders <a> (page navigation) #}
+{# - onclick set  -> renders <button> calling the function (JS tab switching) #}
+{# - target set   -> renders <button> calling chaviSwitchTab(target) (tabs.js) #}
+<div class="border-b border-gray-200 mb-6 {{ extra_class }}">
+    <nav class="flex -mb-px" role="tablist" aria-label="Tabs">
+        {% for tab in tabs %}
+            {% if tab.onclick or tab.target %}
+            <button type="button" role="tab" id="tab-{{ tab.id|default:forloop.counter }}"
+               data-tab-target="{{ tab.target }}"
+               onclick="{% if tab.onclick %}{{ tab.onclick }}{% else %}chaviSwitchTab('{{ tab.target }}'){% endif %}"
+               aria-selected="{% if tab.active %}true{% else %}false{% endif %}"
+               class="px-4 py-2 text-sm font-medium border-b-2 transition-colors
+               {% if tab.active %}border-chavi-primary text-chavi-primary
+               {% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                {{ tab.label }}
+            </button>
+            {% else %}
+            <a href="{{ tab.href|default:'#' }}" role="tab" id="tab-{{ tab.id|default:forloop.counter }}"
+               aria-selected="{% if tab.active %}true{% else %}false{% endif %}"
+               class="px-4 py-2 text-sm font-medium border-b-2 transition-colors
+               {% if tab.active %}border-chavi-primary text-chavi-primary
+               {% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                {{ tab.label }}
+            </a>
+            {% endif %}
+        {% endfor %}
+    </nav>
+</div>

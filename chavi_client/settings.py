@@ -76,13 +76,13 @@ INSTALLED_APPS = [
     'import_export',
     'crispy_forms',
     'crispy_tailwind',
-    'allauth_ui',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.mfa',
     'widget_tweaks',
-    'slippers',
+    'django_components',
+    'styleguide',
     'django_select2',
     'encrypted_model_fields',
     'django_celery_results',
@@ -109,7 +109,10 @@ ROOT_URLCONF = 'chavi_client.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'templates'),
+            os.path.join(BASE_DIR, 'components', 'templates'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -118,12 +121,19 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
-            'builtins': ['slippers.templatetags.slippers',],
+            'builtins': [
+                'django_components.templatetags.component_tags',
+            ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'chavi_client.wsgi.application'
+
+# django-components: component library directory
+COMPONENTS = {
+    'dirs': [BASE_DIR / 'components'],
+}
 
 # Authentication backends for Django AllAuth
 AUTHENTICATION_BACKENDS = [
@@ -350,6 +360,8 @@ ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_PRESERVE_USERNAME_CASING = False
 ACCOUNT_USERNAME_MIN_LENGTH = 5
 ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']
+# Self-service signup disabled — accounts are created by an admin via /admin/
+ACCOUNT_ADAPTER = 'client_app.adapters.AccountAdapter'
 
 # Custom error handlers (works in both DEBUG and production modes)
 HANDLER403 = 'client_app.views.custom_403_view'
@@ -362,6 +374,14 @@ UNFOLD = {
     "SITE_SUBHEADER": "Application for harmonization of data",
     "SITE_TITLE": "CHAVI Client Application",
     "SITE_BRAND": "CHAVI Client Application",
+
+    # Harmonize admin theme with the app palette (RGB space-separated):
+    # primary = Verdigris #2a9d8f scale, base = cool gray, warning = Tuscan Sun
+    # danger = Burnt Peach, accent = Sandy Brown
+    "COLORS": {
+        "primary": {"50": "240 250 248", "100": "220 244 240", "200": "183 233 225", "300": "120 210 198", "400": "75 179 163", "500": "42 157 143", "600": "34 133 120", "700": "26 109 98", "800": "19 85 76", "900": "12 61 54", "950": "6 36 32"},
+        "base": {"50": "248 250 252", "100": "241 245 249", "200": "226 232 240", "300": "203 213 225", "400": "148 163 184", "500": "100 116 139", "600": "71 85 105", "700": "51 65 85", "800": "30 41 59", "900": "15 23 42", "950": "2 6 23"},
+    },
 
     "SITE_DROPDOWN": [
         {

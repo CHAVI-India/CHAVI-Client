@@ -28,7 +28,12 @@ urlpatterns = [
     # path('admin/doc/', include('django.contrib.admindocs.urls')), 
     # path('grappelli/', include('grappelli.urls')), # grappelli URLS    
     path('admin/', admin.site.urls),
+    # django-components JS/CSS media endpoint
+    path('', include('django_components.urls')),
     path('accounts/', include('allauth.urls')),
+    # Friendly aliases → allauth
+    path('register/', lambda request: redirect('account_signup'), name='register'),
+    path('login/', lambda request: redirect('account_login'), name='login'),
     # API endpoints
     path('api/lookup/', include('lookup.urls')),
     # Select2 URLs for autocomplete
@@ -41,6 +46,8 @@ urlpatterns = [
     path('deidentification/', include('deidentification.urls')),
     # DICOM server URLs
     path('dicom-server/', include('dicom_server.urls')),
+    # UI styleguide (living component reference)
+    path('styleguide/', include('styleguide.urls')),
     # Include client_app URLs with namespace
     path('', include('client_app.urls')),
     # Celery progress endpoint for task progress bars

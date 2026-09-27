@@ -4,90 +4,48 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">
-                <i class="fas fa-cloud-upload-alt text-chavi-primary mr-2"></i>
-                Upload File
-            </h1>
-            <p class="text-gray-600 mt-2">Upload a PDF, CSV, or Excel file for data extraction</p>
-        </div>
+    {% url 'extractor:file_upload_list' as list_url %}
+    {% component "page_header" title="Upload File" icon="fas fa-cloud-upload-alt" subtitle="Upload a PDF, CSV, or Excel file for data extraction" back_url=list_url back_text="Back to Files" %}{% endcomponent %}
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-info-circle text-blue-500"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-blue-700">
-                        <strong>Supported formats:</strong>
-                    </p>
-                    <ul class="list-disc list-inside text-sm text-blue-700 mt-2">
-                        <li><strong>PDF</strong> - Will be converted to Markdown using markitdown</li>
-                        <li><strong>CSV</strong> - Used directly without conversion</li>
-                        <li><strong>Excel (.xlsx)</strong> - Each sheet will be converted to a separate CSV file</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+    {% component "info_box" style="info" %}
+        {% fill "title" %}Supported formats:{% endfill %}
+        {% fill "default" %}
+        <ul class="list-disc list-inside mt-1">
+            <li><strong>PDF</strong> - Will be converted to Markdown using markitdown</li>
+            <li><strong>CSV</strong> - Used directly without conversion</li>
+            <li><strong>Excel (.xlsx)</strong> - Each sheet will be converted to a separate CSV file</li>
+        </ul>
+        {% endfill %}
+    {% endcomponent %}
 
+    {% component "card" %}
+    {% fill "body" %}
         <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-file mr-1"></i>
-                    Select File *
-                </label>
-                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-chavi-primary transition-colors">
-                    <div class="space-y-1 text-center">
-                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
-                        <div class="flex text-sm text-gray-600">
-                            <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-chavi-primary hover:text-chavi-secondary focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-chavi-primary">
-                                <span>Upload a file</span>
-                                <input id="file-upload" name="file" type="file" class="sr-only" accept=".pdf,.csv,.xlsx" required onchange="updateFileName(this)">
-                            </label>
-                            <p class="pl-1">or drag and drop</p>
-                        </div>
-                        <p class="text-xs text-gray-500">
-                            PDF, CSV, or XLSX up to 50MB
-                        </p>
-                        <p id="file-name" class="text-sm font-medium text-gray-900 mt-2"></p>
-                    </div>
-                </div>
-            </div>
 
-            <div>
-                <label for="patient_id" class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-user mr-1"></i>
-                    Link to Patient (Optional)
-                </label>
-                <select id="patient_id" name="patient_id" 
+            {% component "form_field" label="Select File" required=True %}
+                {% component "dropzone" input_id="file-upload" name="file" accept=".pdf,.csv,.xlsx" required=True help_text="PDF, CSV, or XLSX up to 50MB" icon="fas fa-cloud-upload-alt" %}{% endcomponent %}
+                {# legacy sink for updateFileName() in the script below #}
+                <p id="file-name" class="hidden"></p>
+            {% endcomponent %}
+
+            {% component "form_field" label="Link to Patient (Optional)" field_id="patient_id" help_text="Optionally link this file to a specific patient for organized data extraction" %}
+                <select id="patient_id" name="patient_id"
                         class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary rounded-md">
                     <option value="">-- No patient selected --</option>
                     {% for patient in patients %}
                     <option value="{{ patient.patient_id }}">{{ patient.patient_id }}</option>
                     {% endfor %}
                 </select>
-                <p class="mt-2 text-sm text-gray-500">
-                    Optionally link this file to a specific patient for organized data extraction
-                </p>
-            </div>
+            {% endcomponent %}
 
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <a href="{% url 'extractor:file_upload_list' %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Files
-                </a>
-                <button type="submit" 
-                        class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                    <i class="fas fa-upload mr-2"></i>
-                    Upload File
-                </button>
+                {% component "back_link" href=list_url %}Back to Files{% endcomponent %}
+                {% component "button" style="primary" type="submit" size="lg" icon="fas fa-upload" %}Upload File{% endcomponent %}
             </div>
         </form>
-    </div>
+    {% endfill %}
+    {% endcomponent %}
 </div>
 
 <script>
@@ -124,11 +82,11 @@ function preventDefaults(e) {
 });
 
 function highlight(e) {
-    dropZone.classList.add('border-chavi-primary', 'bg-blue-50');
+    dropZone.classList.add('border-chavi-primary', 'bg-chavi-charcoal-50');
 }
 
 function unhighlight(e) {
-    dropZone.classList.remove('border-chavi-primary', 'bg-blue-50');
+    dropZone.classList.remove('border-chavi-primary', 'bg-chavi-charcoal-50');
 }
 
 dropZone.addEventListener('drop', handleDrop, false);
@@ -136,7 +94,7 @@ dropZone.addEventListener('drop', handleDrop, false);
 function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
-    
+
     if (files.length > 0) {
         fileInput.files = files;
         updateFileName(fileInput);

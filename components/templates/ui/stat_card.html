@@ -1,0 +1,19 @@
+{# StatCard — icon circle + value + label #}
+<div class="bg-white rounded-lg shadow-md p-6 {{ extra_class }}">
+    <div class="flex items-center">
+        <div class="p-3 rounded-full
+            {% if style == 'success' %}bg-chavi-primary-100 text-chavi-primary-600
+            {% elif style == 'danger' %}bg-chavi-peach-100 text-chavi-peach-600
+            {% elif style == 'warning' %}bg-chavi-sun-100 text-chavi-sun-700
+            {% elif style == 'accent' %}bg-chavi-sand-100 text-chavi-sand-700
+            {% elif style == 'gray' %}bg-gray-100 text-gray-600
+            {% else %}bg-chavi-charcoal-100 text-chavi-charcoal-600{% endif %}">
+            <i class="{{ icon|default:'fas fa-chart-bar' }} text-2xl"></i>
+        </div>
+        <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">{{ label }}</p>
+            <p class="text-2xl font-bold text-gray-900">{{ value }}</p>
+            {% if sublabel %}<p class="text-xs text-gray-500 mt-1">{{ sublabel }}</p>{% endif %}
+        </div>
+    </div>
+</div>

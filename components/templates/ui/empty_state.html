@@ -1,0 +1,17 @@
+{# EmptyState — no-data placeholder #}
+<div class="text-center py-12 {{ extra_class }}">
+    <div class="text-6xl text-gray-300 mb-4">
+        {% if component_vars.is_filled.icon %}{% slot "icon" %}{% endslot %}{% else %}<i class="{{ icon|default:'fas fa-inbox' }}"></i>{% endif %}
+    </div>
+    {% if title %}<h3 class="text-xl font-semibold text-gray-900 mb-2">{{ title }}</h3>{% endif %}
+    {% if component_vars.is_filled.default %}
+        {% slot "default" %}{% endslot %}
+    {% elif description %}
+        <p class="text-gray-500 mb-6">{{ description }}</p>
+    {% endif %}
+    {% if component_vars.is_filled.action %}
+    <div class="mt-6">
+        {% slot "action" %}{% endslot %}
+    </div>
+    {% endif %}
+</div>

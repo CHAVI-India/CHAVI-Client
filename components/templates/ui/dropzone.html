@@ -1,0 +1,19 @@
+{# Dropzone — drag-and-drop file upload backed by real file input #}
+<div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-chavi-primary transition-colors dropzone {{ extra_class }}"
+     data-dropzone data-input="{{ input_id|default:'file-upload' }}">
+    <i class="{{ icon|default:'fas fa-cloud-upload-alt' }} text-5xl text-gray-400 mb-4"></i>
+    <div class="text-sm text-gray-600 mb-2">
+        {% if component_vars.is_filled.default %}
+            {% slot "default" %}{% endslot %}
+        {% else %}
+            <label for="{{ input_id|default:'file-upload' }}" class="relative cursor-pointer bg-white rounded-md font-medium text-chavi-primary hover:text-chavi-primary-dark focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-chavi-primary">
+                <span>Upload a file</span>
+            </label>
+            <span> or drag and drop</span>
+        {% endif %}
+    </div>
+    <p class="text-sm text-gray-500">{{ help_text }}</p>
+    <p class="text-sm font-medium text-gray-900 mt-2" data-dropzone-filename></p>
+    <input id="{{ input_id|default:'file-upload' }}" name="{{ name|default:'file' }}" type="file" class="sr-only"
+           {% if accept %}accept="{{ accept }}"{% endif %}{% if multiple %} multiple{% endif %}{% if required %} required{% endif %}>
+</div>

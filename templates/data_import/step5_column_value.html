@@ -2,33 +2,28 @@
 
 {% block step_content %}
 <div class="space-y-6">
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <h4 class="text-sm font-semibold text-blue-900 mb-2">Column Name as Data (Wide Format)</h4>
-                <p class="text-sm text-blue-700 mb-3">
-                    This step handles "wide format" data where the <strong>column name itself represents a value</strong>, not just a label. The column contains presence/absence or other indicators.
-                </p>
-                <div class="bg-blue-100 rounded p-3 text-xs text-blue-800">
-                    <p class="font-semibold mb-2">Example - Comorbidities in Wide Format:</p>
-                    <div class="mb-2">
-                        <p class="font-mono bg-white p-2 rounded mb-1">CSV: PatientID | Diabetes | Hypertension | Asthma</p>
-                        <p class="font-mono bg-white p-2 rounded">     P001      |    Yes    |     No       |  Yes</p>
-                    </div>
-                    <p class="mb-1"><strong>Mapping:</strong></p>
-                    <ul class="list-disc list-inside space-y-1 ml-2">
-                        <li>Column "Diabetes" → Field: Comorbidity.comorbidity_type, Value: "Diabetes"</li>
-                        <li>Column "Hypertension" → Field: Comorbidity.comorbidity_type, Value: "Hypertension"</li>
-                        <li>Column "Asthma" → Field: Comorbidity.comorbidity_type, Value: "Asthma"</li>
-                    </ul>
-                    <p class="mt-2 italic">💡 Result: Creates 2 Comorbidity records for P001 (Diabetes and Asthma)</p>
+    {% component "info_box" style="info" %}
+        {% fill "title" %}Column Name as Data (Wide Format){% endfill %}
+        {% fill "default" %}
+            <p class="mb-3">
+                This step handles "wide format" data where the <strong>column name itself represents a value</strong>, not just a label. The column contains presence/absence or other indicators.
+            </p>
+            <div class="bg-chavi-charcoal-100 rounded-lg p-3 text-xs text-chavi-charcoal-800">
+                <p class="font-semibold mb-2">Example - Comorbidities in Wide Format:</p>
+                <div class="mb-2">
+                    <p class="font-mono bg-white p-2 rounded mb-1">CSV: PatientID | Diabetes | Hypertension | Asthma</p>
+                    <p class="font-mono bg-white p-2 rounded">     P001      |    Yes    |     No       |  Yes</p>
                 </div>
+                <p class="mb-1"><strong>Mapping:</strong></p>
+                <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li>Column "Diabetes" → Field: Comorbidity.comorbidity_type, Value: "Diabetes"</li>
+                    <li>Column "Hypertension" → Field: Comorbidity.comorbidity_type, Value: "Hypertension"</li>
+                    <li>Column "Asthma" → Field: Comorbidity.comorbidity_type, Value: "Asthma"</li>
+                </ul>
+                <p class="mt-2 italic">💡 Result: Creates 2 Comorbidity records for P001 (Diabetes and Asthma)</p>
             </div>
-        </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -36,17 +31,19 @@
         {% if available_columns %}
         <div class="space-y-4">
             {% for column in available_columns %}
-            <div class="border rounded-lg p-4">
-                <h4 class="font-medium text-gray-900 mb-3">
-                    <i class="fas fa-columns text-chavi-primary mr-2"></i>
-                    Column: {{ column }}
-                </h4>
-                
+            {% component "card" %}
+                {% fill "header" %}
+                    <h4 class="font-medium text-gray-900">
+                        <i class="fas fa-columns text-chavi-primary mr-2"></i>
+                        Column: {{ column }}
+                    </h4>
+                {% endfill %}
+                {% fill "body" %}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Target Field</label>
                         <select name="column_{{ column }}_field" 
-                                class="field-selector mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-md"
+                                class="field-selector mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm rounded-lg"
                                 data-column="{{ column }}"
                                 onchange="updateValueWidget(this)">
                             <option value="">-- Select field --</option>
@@ -69,33 +66,26 @@
                     <div id="value_container_{{ column }}" class="value-container">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Field Value</label>
                         <input type="text" name="column_{{ column }}_value" 
-                               class="value-input mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm"
+                               class="value-input mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-chavi-primary focus:border-chavi-primary sm:text-sm"
                                placeholder="Enter value or select field first">
                     </div>
                 </div>
-            </div>
+                {% endfill %}
+            {% endcomponent %}
             {% endfor %}
         </div>
         {% else %}
-        <div class="text-center py-8 bg-gray-50 rounded-lg">
-            <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
-            <p class="text-gray-600">All columns have been mapped in Step 4. No additional column value mapping needed.</p>
-        </div>
+        {% component "empty_state" title="All Columns Mapped" description="All columns have been mapped in Step 4. No additional column value mapping needed." %}
+            {% fill "icon" %}<i class="fas fa-check-circle text-chavi-primary-500"></i>{% endfill %}
+        {% endcomponent %}
         {% endif %}
 
         <div class="flex justify-between">
-            <a href="{% url 'data_import:step4' session.id %}" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Step 4
-            </a>
+            {% url 'data_import:step4' session.id as back_url %}
+            {% component "button" style="secondary" href=back_url icon="fas fa-arrow-left" %}Back to Step 4{% endcomponent %}
             <div class="space-x-3">
-                <button type="submit" name="skip_step" class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Skip This Step
-                </button>
-                <button type="submit" class="inline-flex items-center px-6 py-3 bg-chavi-gradient text-white font-medium rounded-md hover:opacity-90 transition-all shadow-lg">
-                    Continue to Step 6
-                    <i class="fas fa-arrow-right ml-2"></i>
-                </button>
+                {% component "button" style="secondary" type="submit" name="skip_step" %}Skip This Step{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Continue to Step 6 <i class="fas fa-arrow-right ml-2"></i>{% endcomponent %}
             </div>
         </div>
     </form>

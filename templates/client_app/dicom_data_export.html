@@ -4,45 +4,24 @@
 
 {% block content %}
 <div class="w-full px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-        <div>
-            <h1 class="text-3xl font-bold text-chavi-gray mb-2">DICOM Data Export</h1>
-            <p class="text-gray-600">Filter and export DICOM imaging studies as a ZIP archive</p>
-        </div>
-    </div>
-    
+    {% component "page_header" title="DICOM Data Export" subtitle="Filter and export DICOM imaging studies as a ZIP archive" %}
+    {% endcomponent %}
+
     <!-- Filter Section -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-xl font-semibold text-chavi-gray mb-4">
-            <i class="fas fa-filter mr-2"></i>Filter DICOM Studies
-        </h2>
-        
+    {% component "card" title="Filter DICOM Studies" extra_class="mb-8" %}
+        {% fill "body" %}
         <form method="get" action="{% url 'client_app:dicom_data_export' %}" class="space-y-4">
             <div class="space-y-4">
                 <!-- Patient ID and Project Row -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Patient ID Search -->
-                    <div>
-                        <label for="patient_id" class="block text-sm font-medium text-gray-700 mb-1">
-                            Patient ID
-                        </label>
-                        <input type="text" 
-                               id="patient_id" 
-                               name="patient_id" 
-                               value="{{ patient_id_search }}"
+                    {% component "form_field" label="Patient ID" field_id="patient_id" extra_class="!mb-0" %}
+                        <input type="text" id="patient_id" name="patient_id" value="{{ patient_id_search }}"
                                placeholder="Search by Patient ID"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-                    </div>
-                    
-                    <!-- Project Filter -->
-                    <div>
-                        <label for="project" class="block text-sm font-medium text-gray-700 mb-1">
-                            Project
-                        </label>
-                        <select id="project" 
-                                name="project"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                    {% endcomponent %}
+                    {% component "form_field" label="Project" field_id="project" extra_class="!mb-0" %}
+                        <select id="project" name="project"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                             <option value="">All Projects</option>
                             {% for project in projects %}
                             <option value="{{ project.chavi_project_id }}" {% if project_filter == project.chavi_project_id %}selected{% endif %}>
@@ -50,131 +29,82 @@
                             </option>
                             {% endfor %}
                         </select>
-                    </div>
+                    {% endcomponent %}
                 </div>
-                
+
                 <!-- Created Date Range -->
                 <div class="border-t pt-4">
                     <h3 class="text-sm font-semibold text-gray-700 mb-3">Created Date Range</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Created From -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                        {% component "form_field" label="From" extra_class="!mb-0" %}
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="date" 
-                                       id="created_from_date" 
-                                       name="created_from_date" 
-                                       value="{{ created_from_date }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-                                <input type="time" 
-                                       id="created_from_time" 
-                                       name="created_from_time" 
-                                       value="{{ created_from_time|default:'00:00' }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="date" id="created_from_date" name="created_from_date" value="{{ created_from_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                                <input type="time" id="created_from_time" name="created_from_time" value="{{ created_from_time|default:'00:00' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                             </div>
-                        </div>
-                        
-                        <!-- Created To -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                        {% endcomponent %}
+                        {% component "form_field" label="To" extra_class="!mb-0" %}
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="date" 
-                                       id="created_to_date" 
-                                       name="created_to_date" 
-                                       value="{{ created_to_date }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-                                <input type="time" 
-                                       id="created_to_time" 
-                                       name="created_to_time" 
-                                       value="{{ created_to_time|default:'23:59' }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="date" id="created_to_date" name="created_to_date" value="{{ created_to_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                                <input type="time" id="created_to_time" name="created_to_time" value="{{ created_to_time|default:'23:59' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                             </div>
-                        </div>
+                        {% endcomponent %}
                     </div>
                 </div>
-                
+
                 <!-- Updated Date Range -->
                 <div class="border-t pt-4">
                     <h3 class="text-sm font-semibold text-gray-700 mb-3">Updated Date Range</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Updated From -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                        {% component "form_field" label="From" extra_class="!mb-0" %}
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="date" 
-                                       id="updated_from_date" 
-                                       name="updated_from_date" 
-                                       value="{{ updated_from_date }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-                                <input type="time" 
-                                       id="updated_from_time" 
-                                       name="updated_from_time" 
-                                       value="{{ updated_from_time|default:'00:00' }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="date" id="updated_from_date" name="updated_from_date" value="{{ updated_from_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                                <input type="time" id="updated_from_time" name="updated_from_time" value="{{ updated_from_time|default:'00:00' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                             </div>
-                        </div>
-                        
-                        <!-- Updated To -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                        {% endcomponent %}
+                        {% component "form_field" label="To" extra_class="!mb-0" %}
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="date" 
-                                       id="updated_to_date" 
-                                       name="updated_to_date" 
-                                       value="{{ updated_to_date }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-                                <input type="time" 
-                                       id="updated_to_time" 
-                                       name="updated_to_time" 
-                                       value="{{ updated_to_time|default:'23:59' }}"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
+                                <input type="date" id="updated_to_date" name="updated_to_date" value="{{ updated_to_date }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                                <input type="time" id="updated_to_time" name="updated_to_time" value="{{ updated_to_time|default:'23:59' }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
                             </div>
-                        </div>
+                        {% endcomponent %}
                     </div>
                 </div>
             </div>
-            
+
             <!-- Filter Buttons -->
             <div class="flex flex-wrap gap-3">
-                <button type="submit" 
-                        class="bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-2 px-6 rounded-md transition-colors duration-200">
-                    <i class="fas fa-search mr-2"></i>Apply Filters
-                </button>
-                <a href="{% url 'client_app:dicom_data_export' %}" 
-                   class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-md transition-colors duration-200">
-                    <i class="fas fa-times mr-2"></i>Clear Filters
-                </a>
+                {% component "button" style="primary" type="submit" icon="fas fa-search" %}Apply Filters{% endcomponent %}
+                {% url 'client_app:dicom_data_export' as clear_url %}
+                {% component "button" style="secondary" href=clear_url icon="fas fa-times" %}Clear Filters{% endcomponent %}
             </div>
         </form>
-    </div>
-    
+        {% endfill %}
+    {% endcomponent %}
+
     <!-- Results Section -->
-    <div class="bg-white rounded-lg shadow-md">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+    {% component "card" %}
+        {% fill "header" %}
+        <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-semibold text-chavi-gray">DICOM Studies</h2>
+                <h2 class="text-xl font-semibold text-gray-900">DICOM Studies</h2>
                 <p class="text-sm text-gray-600 mt-1">{{ total_studies }} study/studies found</p>
             </div>
             <div class="flex gap-2">
-                <button type="button" 
-                        onclick="selectAll()"
-                        class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm">
-                    <i class="fas fa-check-double mr-1"></i>Select Page
-                </button>
-                <button type="button" 
-                        onclick="selectAllAcrossPages()"
-                        class="bg-chavi-primary hover:bg-chavi-secondary text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
-                        id="selectAllPagesBtn">
-                    <i class="fas fa-check-double mr-1"></i>Select All {{ total_studies }}
-                </button>
-                <button type="button" 
-                        onclick="deselectAll()"
-                        class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm">
-                    <i class="fas fa-times mr-1"></i>Deselect All
-                </button>
+                {% component "button" style="secondary" size="sm" icon="fas fa-check-double" onclick="selectAll()" %}Select Page{% endcomponent %}
+                {% component "button" style="primary" size="sm" icon="fas fa-check-double" onclick="selectAllAcrossPages()" id="selectAllPagesBtn" %}Select All {{ total_studies }}{% endcomponent %}
+                {% component "button" style="secondary" size="sm" icon="fas fa-times" onclick="deselectAll()" %}Deselect All{% endcomponent %}
             </div>
         </div>
-        
+        {% endfill %}
+        {% fill "body" %}
         {% if studies %}
             <form method="post" action="{% url 'client_app:dicom_data_export' %}" id="exportForm">
                 {% csrf_token %}
@@ -189,106 +119,62 @@
                 <input type="hidden" name="filter_updated_to_date" value="{{ updated_to_date }}">
                 <input type="hidden" name="filter_updated_to_time" value="{{ updated_to_time }}">
                 <input type="hidden" name="filter_project" value="{{ project_filter }}">
-                
+
                 <!-- Studies Table -->
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left">
-                                    <input type="checkbox" 
-                                           id="selectAllCheckbox"
-                                           onchange="toggleAll(this)"
-                                           class="w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study UID</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Files</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for study in studies %}
-                            <tr class="hover:bg-gray-50 transition-colors duration-150">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <input type="checkbox" 
-                                           name="selected_studies" 
-                                           value="{{ study.study_instance_uid }}"
-                                           class="study-checkbox w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {{ study.patient.patient_id }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900">
-                                    <span class="truncate block max-w-xs" title="{{ study.study_instance_uid }}">
-                                        {{ study.study_instance_uid }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ study.study_date|date:"d/m/Y"|default:"N/A" }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900">
-                                    {{ study.study_description|default:"N/A" }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ study.study_modalities|default:"N/A" }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ study.created_at|date:"d/m/Y H:i" }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    {% if study.folder_path %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            <i class="fas fa-check mr-1"></i>Yes
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                            <i class="fas fa-times mr-1"></i>No
-                                        </span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
+                {% component "table" %}
+                    {% fill "head" %}
+                        <th scope="col" class="px-6 py-3 text-left">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleAll(this)"
+                                   class="w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study UID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Files</th>
+                    {% endfill %}
+                    {% fill "body" %}
+                        {% for study in studies %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <input type="checkbox" name="selected_studies" value="{{ study.study_instance_uid }}"
+                                       class="study-checkbox w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.patient.patient_id }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">
+                                <span class="truncate block max-w-xs" title="{{ study.study_instance_uid }}">{{ study.study_instance_uid }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ study.study_date|date:"d/m/Y"|default:"N/A" }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ study.study_modalities|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ study.created_at|date:"d/m/Y H:i" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if study.folder_path %}
+                                    {% component "badge" style="success" icon="fas fa-check" %}Yes{% endcomponent %}
+                                {% else %}
+                                    {% component "badge" style="danger" icon="fas fa-times" %}No{% endcomponent %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfill %}
+                {% endcomponent %}
+
                 <!-- Pagination -->
                 {% if studies.has_other_pages %}
                 <div class="px-6 py-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-700">
-                            Showing page {{ studies.number }} of {{ studies.paginator.num_pages }}
-                        </div>
-                        <div class="flex gap-2">
-                            {% if studies.has_previous %}
-                                <a href="?page={{ studies.previous_page_number }}{% if patient_id_search %}&patient_id={{ patient_id_search }}{% endif %}{% if created_from_date %}&created_from_date={{ created_from_date }}{% endif %}{% if created_from_time %}&created_from_time={{ created_from_time }}{% endif %}{% if created_to_date %}&created_to_date={{ created_to_date }}{% endif %}{% if created_to_time %}&created_to_time={{ created_to_time }}{% endif %}{% if updated_from_date %}&updated_from_date={{ updated_from_date }}{% endif %}{% if updated_from_time %}&updated_from_time={{ updated_from_time }}{% endif %}{% if updated_to_date %}&updated_to_date={{ updated_to_date }}{% endif %}{% if updated_to_time %}&updated_to_time={{ updated_to_time }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" 
-                                   class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium transition-colors">
-                                    <i class="fas fa-chevron-left"></i> Previous
-                                </a>
-                            {% endif %}
-                            
-                            {% if studies.has_next %}
-                                <a href="?page={{ studies.next_page_number }}{% if patient_id_search %}&patient_id={{ patient_id_search }}{% endif %}{% if created_from_date %}&created_from_date={{ created_from_date }}{% endif %}{% if created_from_time %}&created_from_time={{ created_from_time }}{% endif %}{% if created_to_date %}&created_to_date={{ created_to_date }}{% endif %}{% if created_to_time %}&created_to_time={{ created_to_time }}{% endif %}{% if updated_from_date %}&updated_from_date={{ updated_from_date }}{% endif %}{% if updated_from_time %}&updated_from_time={{ updated_from_time }}{% endif %}{% if updated_to_date %}&updated_to_date={{ updated_to_date }}{% endif %}{% if updated_to_time %}&updated_to_time={{ updated_to_time }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}" 
-                                   class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium transition-colors">
-                                    Next <i class="fas fa-chevron-right"></i>
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {% with qs="patient_id="|add:patient_id_search|add:"&created_from_date="|add:created_from_date|add:"&created_from_time="|add:created_from_time|add:"&created_to_date="|add:created_to_date|add:"&created_to_time="|add:created_to_time|add:"&updated_from_date="|add:updated_from_date|add:"&updated_from_time="|add:updated_from_time|add:"&updated_to_date="|add:updated_to_date|add:"&updated_to_time="|add:updated_to_time|add:"&project="|add:project_filter %}
+                    {% component "pagination" page_obj=studies query_string=qs %}{% endcomponent %}
+                    {% endwith %}
                 </div>
                 {% endif %}
-                
+
                 <!-- Export Options -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 -mx-6">
                     <div class="flex items-center mb-4">
-                        <input type="checkbox" 
-                               id="include_patient_data" 
-                               name="include_patient_data" 
-                               value="true"
+                        <input type="checkbox" id="include_patient_data" name="include_patient_data" value="true"
                                class="w-4 h-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
                         <label for="include_patient_data" class="ml-2 text-sm font-medium text-gray-700">
                             <i class="fas fa-file-medical mr-1 text-chavi-primary"></i>
@@ -299,39 +185,28 @@
                         When enabled, a second ZIP file containing patient clinical data (diagnoses, treatments, outcomes, etc.) will also be generated.
                     </p>
                 </div>
-                
+
                 <!-- Export Button -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 -mx-6 -mb-6 rounded-b-lg">
                     <div class="flex items-center justify-between">
                         <div class="text-sm text-gray-600">
                             <span id="selectedCount">0</span> study/studies selected
                         </div>
-                        <button type="submit" 
-                                class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-8 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                id="exportButton"
-                                disabled>
-                            <i class="fas fa-download mr-2"></i>Export Selected Studies
-                        </button>
+                        {% component "button" style="success" type="submit" icon="fas fa-download" id="exportButton" disabled=True extra_class="px-6 py-3" %}Export Selected Studies{% endcomponent %}
                     </div>
                 </div>
             </form>
         {% else %}
-            <div class="px-6 py-8 text-center">
-                <div class="text-gray-400 mb-4">
-                    <i class="fas fa-inbox text-4xl"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No DICOM studies found</h3>
-                <p class="text-gray-500">Try adjusting your filter criteria.</p>
-            </div>
+            {% component "empty_state" title="No DICOM studies found" description="Try adjusting your filter criteria." %}{% endcomponent %}
         {% endif %}
-    </div>
-    
+        {% endfill %}
+    {% endcomponent %}
+
     <!-- Information Box -->
-    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-blue-900 mb-3">
-            <i class="fas fa-info-circle mr-2"></i>Export Information
-        </h3>
-        <ul class="space-y-2 text-sm text-blue-800">
+    {% component "info_box" style="info" extra_class="mt-8" %}
+        {% fill "title" %}Export Information{% endfill %}
+        {% fill "default" %}
+        <ul class="space-y-2 text-sm">
             <li><i class="fas fa-check mr-2"></i>DICOM studies will be exported as a ZIP archive containing all DICOM files</li>
             <li><i class="fas fa-check mr-2"></i>Files are organized by Patient ID and Study UID within the ZIP</li>
             <li><i class="fas fa-check mr-2"></i>Only studies with valid folder paths will be included in the export</li>
@@ -340,7 +215,8 @@
             <li><i class="fas fa-file-medical mr-2"></i>Enable "Include patient clinical data" to also export JSON files with diagnoses, treatments, outcomes, and more</li>
             <li><i class="fas fa-exclamation-triangle mr-2"></i>Large exports may take some time to process</li>
         </ul>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 </div>
 
 <script>
@@ -359,7 +235,7 @@
             document.getElementById('exportButton').disabled = count === 0;
         }
     }
-    
+
     // Toggle all checkboxes on current page
     function toggleAll(source) {
         clearSelectAllAcross();
@@ -369,7 +245,7 @@
         });
         updateSelectedCount();
     }
-    
+
     // Select all studies on current page
     function selectAll() {
         clearSelectAllAcross();
@@ -400,7 +276,7 @@
         document.getElementById('exportAllField').value = '';
         document.getElementById('selectAllPagesBtn').classList.remove('ring-2', 'ring-offset-2', 'ring-chavi-primary');
     }
-    
+
     // Deselect all studies
     function deselectAll() {
         clearSelectAllAcross();
@@ -411,7 +287,7 @@
         document.getElementById('selectAllCheckbox').checked = false;
         updateSelectedCount();
     }
-    
+
     // Add event listeners to all checkboxes
     document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = document.querySelectorAll('.study-checkbox');

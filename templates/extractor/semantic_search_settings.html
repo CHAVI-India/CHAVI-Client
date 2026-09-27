@@ -4,82 +4,51 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            <i class="fas fa-brain text-purple-600 mr-3"></i>Semantic Search Settings
-        </h1>
-        <p class="text-gray-600">
-            Configure embedding models and manage pre-computed embeddings for intelligent lookup matching
-        </p>
-    </div>
+    {% url 'extractor:embedding_config_create' as create_url %}
+    {% component "page_header" title="Semantic Search Settings" icon="fas fa-brain" subtitle="Configure embedding models and manage pre-computed embeddings for intelligent lookup matching" %}{% endcomponent %}
 
     <!-- Status Banner -->
     {% if not active_config %}
-    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-yellow-700">
-                    <strong>No active configuration!</strong> Create and activate an embedding configuration to enable semantic search.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="warning" %}
+        {% fill "default" %}
+        <strong>No active configuration!</strong> Create and activate an embedding configuration to enable semantic search.
+        {% endfill %}
+    {% endcomponent %}
     {% elif embedding_stats and embedding_stats.total == 0 %}
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                    <strong>Configuration active but no embeddings computed.</strong> Click "Compute Embeddings" below to start.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="info" %}
+        {% fill "default" %}
+        <strong>Configuration active but no embeddings computed.</strong> Click "Compute Embeddings" below to start.
+        {% endfill %}
+    {% endcomponent %}
     {% elif embedding_stats %}
-    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-check-circle text-green-400"></i>
-            </div>
-            <div class="ml-3">
-                <p class="text-sm text-green-700">
-                    <strong>Semantic search is active!</strong> {{ embedding_stats.total }} embeddings computed and ready.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% component "info_box" style="success" %}
+        {% fill "default" %}
+        <strong>Semantic search is active!</strong> {{ embedding_stats.total }} embeddings computed and ready.
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     <!-- Embedding Configurations -->
-    <div class="bg-white rounded-lg shadow-md mb-8">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 class="text-xl font-semibold text-gray-900">
-                <i class="fas fa-cog text-gray-600 mr-2"></i>Embedding Configurations
-            </h2>
-            <a href="{% url 'extractor:embedding_config_create' %}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                <i class="fas fa-plus mr-2"></i>New Configuration
-            </a>
-        </div>
-        
-        <div class="p-6">
+    {% component "card" extra_class="mb-8" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-cog text-gray-600 mr-2"></i>Embedding Configurations
+        </h3>
+        {% endfill %}
+        {% fill "actions" %}
+            {% component "button" style="accent" href=create_url icon="fas fa-plus" %}New Configuration{% endcomponent %}
+        {% endfill %}
+        {% fill "body" %}
             {% if configs %}
             <div class="space-y-4">
                 {% for config in configs %}
-                <div class="border rounded-lg p-4 {% if config.is_active %}border-green-500 bg-green-50{% else %}border-gray-200{% endif %}">
+                <div class="border rounded-lg p-4 {% if config.is_active %}border-chavi-primary-500 bg-chavi-primary-50{% else %}border-gray-200{% endif %}">
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
                             <div class="flex items-center mb-2">
-                                <h3 class="text-lg font-semibold text-gray-900">{{ config.model_name }}</h3>
+                                <h4 class="text-lg font-semibold text-gray-900">{{ config.model_name }}</h4>
                                 {% if config.is_active %}
-                                <span class="ml-3 px-2 py-1 bg-green-500 text-white text-xs rounded-full">
-                                    <i class="fas fa-check mr-1"></i>Active
-                                </span>
+                                {% component "badge" style="success" icon="fas fa-check" extra_class="ml-3" %}Active{% endcomponent %}
                                 {% endif %}
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
@@ -101,19 +70,14 @@
                             {% if not config.is_active %}
                             <form method="post" action="{% url 'extractor:embedding_config_activate' config.id %}" class="inline">
                                 {% csrf_token %}
-                                <button type="submit" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                                    <i class="fas fa-power-off mr-1"></i>Activate
-                                </button>
+                                {% component "button" style="primary" size="sm" type="submit" icon="fas fa-power-off" %}Activate{% endcomponent %}
                             </form>
                             {% endif %}
-                            <a href="{% url 'extractor:embedding_config_edit' config.id %}" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                                <i class="fas fa-edit"></i>
-                            </a>
+                            {% url 'extractor:embedding_config_edit' config.id as edit_url %}
+                            {% component "icon_button" style="primary" size="sm" href=edit_url icon="fas fa-edit" aria_label="Edit configuration" %}{% endcomponent %}
                             <form method="post" action="{% url 'extractor:embedding_config_delete' config.id %}" class="inline" onsubmit="return confirm('Delete this configuration and all its embeddings?');">
                                 {% csrf_token %}
-                                <button type="submit" class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                {% component "icon_button" style="danger" size="sm" type="submit" icon="fas fa-trash" aria_label="Delete configuration" %}{% endcomponent %}
                             </form>
                         </div>
                     </div>
@@ -125,34 +89,29 @@
                 No configurations found. Create one to get started.
             </p>
             {% endif %}
-        </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Embedding Statistics -->
     {% if active_config %}
-    <div class="bg-white rounded-lg shadow-md mb-8">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 class="text-xl font-semibold text-gray-900">
-                <i class="fas fa-database text-gray-600 mr-2"></i>Computed Embeddings
-            </h2>
-            <div class="space-x-2">
-                <button onclick="computeEmbeddings(false)" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    <i class="fas fa-sync mr-2"></i>Compute New
-                </button>
-                <button onclick="computeEmbeddings(true)" class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                    <i class="fas fa-redo mr-2"></i>Refresh All
-                </button>
-            </div>
-        </div>
-        
-        <div class="p-6">
+    {% component "card" extra_class="mb-8" %}
+        {% fill "header" %}
+        <h3 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-database text-gray-600 mr-2"></i>Computed Embeddings
+        </h3>
+        {% endfill %}
+        {% fill "actions" %}
+            {% component "button" style="info" onclick="computeEmbeddings(false)" icon="fas fa-sync" %}Compute New{% endcomponent %}
+            {% component "button" style="accent" onclick="computeEmbeddings(true)" icon="fas fa-redo" %}Refresh All{% endcomponent %}
+        {% endfill %}
+        {% fill "body" %}
             {% if embedding_stats and embedding_stats.total > 0 %}
             <div class="mb-4">
-                <div class="text-3xl font-bold text-purple-600">{{ embedding_stats.total }}</div>
+                <div class="text-3xl font-bold text-chavi-sand-600">{{ embedding_stats.total }}</div>
                 <div class="text-gray-600">Total Embeddings</div>
             </div>
-            
-            <h3 class="font-semibold text-gray-900 mb-3">By Lookup Table & Field:</h3>
+
+            <h4 class="font-semibold text-gray-900 mb-3">By Lookup Table &amp; Field:</h4>
             <div class="space-y-4">
                 {% for table_name, table_data in embedding_stats.by_table.items %}
                 <div class="border border-gray-200 rounded-lg overflow-hidden">
@@ -165,11 +124,11 @@
                     <div class="p-3 bg-white">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                             {% for field in table_data.fields %}
-                            <div class="flex justify-between items-center p-2 bg-blue-50 rounded text-sm">
+                            <div class="flex justify-between items-center p-2 bg-chavi-charcoal-50 rounded text-sm">
                                 <span class="text-gray-700">
-                                    <i class="fas fa-arrow-right text-blue-500 mr-1 text-xs"></i>{{ field.name }}
+                                    <i class="fas fa-arrow-right text-chavi-charcoal-500 mr-1 text-xs"></i>{{ field.name }}
                                 </span>
-                                <span class="text-blue-700 font-semibold">{{ field.count }}</span>
+                                <span class="text-chavi-charcoal-700 font-semibold">{{ field.count }}</span>
                             </div>
                             {% endfor %}
                         </div>
@@ -178,58 +137,53 @@
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-8">
-                <i class="fas fa-database text-gray-300 text-5xl mb-4"></i>
-                <p class="text-gray-500 mb-4">No embeddings computed yet</p>
-                <button onclick="computeEmbeddings(false)" class="inline-flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                    <i class="fas fa-play mr-2"></i>Compute Embeddings Now
-                </button>
-            </div>
+            {% component "empty_state" icon="fas fa-database" description="No embeddings computed yet" %}
+                {% fill "action" %}
+                    {% component "button" style="accent" onclick="computeEmbeddings(false)" icon="fas fa-play" %}Compute Embeddings Now{% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
             {% endif %}
-        </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     <!-- Help Section -->
-    <div class="bg-blue-50 rounded-lg p-6">
-        <h3 class="font-semibold text-blue-900 mb-3">
-            <i class="fas fa-question-circle mr-2"></i>How Semantic Search Works
-        </h3>
-        <div class="text-sm text-blue-800 space-y-2">
+    {% component "card" accent="charcoal" title="How Semantic Search Works" %}
+        {% fill "body" %}
+        <div class="text-sm text-chavi-charcoal-800 space-y-2">
             <p><strong>1. Configuration:</strong> Set up an embedding model (e.g., all-MiniLM-L6-v2) to convert text into vectors.</p>
             <p><strong>2. Pre-computation:</strong> All lookup table entries are converted to embeddings and stored.</p>
             <p><strong>3. During Extraction:</strong> Document text is embedded and compared to lookup embeddings to find the most similar matches.</p>
             <p><strong>4. LLM Receives:</strong> Only the top-K most relevant options, improving accuracy and reducing token usage.</p>
         </div>
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 </div>
 
 <!-- Progress Modal -->
-<div id="progressModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-gray-900 mb-4">
-            <i class="fas fa-cog fa-spin text-purple-600 mr-2"></i>Computing Embeddings
-        </h3>
-        
+{% component "modal" modal_id="progressModal" %}
+    {% fill "title" %}
+        <i class="fas fa-cog fa-spin text-chavi-sand-600 mr-2"></i>Computing Embeddings
+    {% endfill %}
+    {% fill "body" %}
         <div class="mb-4">
             <div class="flex justify-between text-sm text-gray-600 mb-2">
                 <span id="progressStatus">Starting...</span>
                 <span id="progressPercent">0%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-4">
-                <div id="progressBar" class="bg-purple-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="progressBar" class="bg-chavi-sand-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
         </div>
-        
-        <div id="progressMessage" class="text-sm text-gray-600 mb-4 min-h-[60px]">
+
+        <div id="progressMessage" class="text-sm text-gray-600 min-h-[60px]">
             Initializing...
         </div>
-        
-        <button onclick="closeProgressModal()" class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors" id="closeButton" disabled>
-            Close
-        </button>
-    </div>
-</div>
+    {% endfill %}
+    {% fill "footer" %}
+        {% component "button" style="secondary" id="closeButton" onclick="closeProgressModal()" disabled=True extra_class="w-full" %}Close{% endcomponent %}
+    {% endfill %}
+{% endcomponent %}
 
 <script>
 let progressInterval = null;
@@ -239,12 +193,12 @@ function computeEmbeddings(refresh) {
     if (refresh && !confirm('This will delete and recompute all embeddings. Continue?')) {
         return;
     }
-    
+
     // Show progress modal
     document.getElementById('progressModal').classList.remove('hidden');
     document.getElementById('progressModal').classList.add('flex');
     document.getElementById('closeButton').disabled = true;
-    
+
     fetch('{% url "extractor:compute_embeddings" %}', {
         method: 'POST',
         headers: {
@@ -272,7 +226,7 @@ function startProgressPolling(taskId) {
     progressInterval = setInterval(() => {
         checkProgress(taskId);
     }, 2000);
-    
+
     // Check immediately
     checkProgress(taskId);
 }
@@ -282,11 +236,11 @@ function checkProgress(taskId) {
         .then(response => response.json())
         .then(data => {
             updateProgressUI(data);
-            
+
             if (data.status === 'complete' || data.status === 'failed' || data.status === 'error') {
                 stopProgressPolling();
                 document.getElementById('closeButton').disabled = false;
-                
+
                 if (data.status === 'complete') {
                     setTimeout(() => {
                         location.reload();
@@ -304,13 +258,13 @@ function updateProgressUI(data) {
     const percentEl = document.getElementById('progressPercent');
     const progressBar = document.getElementById('progressBar');
     const messageEl = document.getElementById('progressMessage');
-    
+
     if (data.status === 'running') {
         statusEl.textContent = 'Running...';
         const percent = data.progress_percent || 0;
         percentEl.textContent = percent + '%';
         progressBar.style.width = percent + '%';
-        
+
         let message = data.current_step || 'Computing embeddings...';
         if (data.total_items > 0) {
             message += `\n\nProcessing: ${data.processed_items} / ${data.total_items} tables`;
@@ -321,9 +275,9 @@ function updateProgressUI(data) {
         statusEl.textContent = 'Complete!';
         percentEl.textContent = '100%';
         progressBar.style.width = '100%';
-        progressBar.classList.remove('bg-purple-600');
-        progressBar.classList.add('bg-green-600');
-        
+        progressBar.classList.remove('bg-chavi-sand-600');
+        progressBar.classList.add('bg-chavi-primary-600');
+
         const result = data.result || {};
         let message = `✓ Successfully processed ${result.total_processed || 0} embeddings`;
         if (result.results && result.results.length > 0) {
@@ -337,8 +291,8 @@ function updateProgressUI(data) {
     } else if (data.status === 'failed' || data.status === 'error') {
         statusEl.textContent = 'Failed';
         percentEl.textContent = '0%';
-        progressBar.classList.remove('bg-purple-600');
-        progressBar.classList.add('bg-red-600');
+        progressBar.classList.remove('bg-chavi-sand-600');
+        progressBar.classList.add('bg-chavi-peach-600');
         messageEl.textContent = '✗ Error: ' + (data.error || 'Task failed');
     } else {
         statusEl.textContent = 'Pending...';
@@ -365,7 +319,7 @@ function closeProgressModal() {
 function showError(message) {
     document.getElementById('progressStatus').textContent = 'Error';
     document.getElementById('progressMessage').textContent = message;
-    document.getElementById('progressBar').classList.add('bg-red-600');
+    document.getElementById('progressBar').classList.add('bg-chavi-peach-600');
     document.getElementById('closeButton').disabled = false;
 }
 </script>

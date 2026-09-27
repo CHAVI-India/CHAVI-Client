@@ -3,12 +3,22 @@
 {% block extra_head %}{% if job.status == 'PENDING' or job.status == 'RUNNING' %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 py-8">
-    {% include "dicom_server/_messages.html" %}
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">Retrieval Job #{{ job.pk }}</h1>
+    {% url 'dicom_server:job_list' as job_list_url %}
+    {% with "Retrieval Job #"|add:job.pk as job_title %}
+    {% component "page_header" icon="fas fa-download" back_url=job_list_url back_text="All jobs" title=job_title %}{% endcomponent %}
+    {% endwith %}
 
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    {% component "card" accent="charcoal" extra_class="mb-6" %}
+        {% fill "body" %}
         <dl class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div><dt class="text-gray-500">Status</dt><dd class="font-semibold">{{ job.get_status_display }}</dd></div>
+            <div><dt class="text-gray-500">Status</dt><dd>
+                {% if job.status == 'SUCCESS' %}{% component "badge" style="success" icon="fas fa-check" %}{{ job.get_status_display }}{% endcomponent %}
+                {% elif job.status == 'FAILED' %}{% component "badge" style="danger" icon="fas fa-times" %}{{ job.get_status_display }}{% endcomponent %}
+                {% elif job.status == 'PARTIAL' %}{% component "badge" style="warning" icon="fas fa-exclamation-triangle" %}{{ job.get_status_display }}{% endcomponent %}
+                {% elif job.status == 'RUNNING' %}{% component "badge" style="info" icon="fas fa-spinner" extra_class="animate-pulse" %}{{ job.get_status_display }}{% endcomponent %}
+                {% else %}{% component "badge" style="gray" icon="fas fa-clock" %}{{ job.get_status_display }}{% endcomponent %}
+                {% endif %}
+            </dd></div>
             <div><dt class="text-gray-500">Patient</dt><dd>{{ job.patient_id }}</dd></div>
             <div><dt class="text-gray-500">Node</dt><dd>{{ job.node }}</dd></div>
             <div><dt class="text-gray-500">Retrieval method</dt><dd>{% if job.node.prefer_c_get %}C-GET{% else %}C-MOVE{% endif %}</dd></div>
@@ -16,53 +26,67 @@
             <div><dt class="text-gray-500">Created</dt><dd>{{ job.created_at|date:"Y-m-d H:i:s" }} by {{ job.created_by|default:"-" }}</dd></div>
         </dl>
         {% if job.error_log %}
-        <div class="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded whitespace-pre-wrap">{{ job.error_log }}</div>
+        <div class="mt-4">
+            {% component "alert" style="danger" %}
+                {% fill "default" %}{% component "code_block" variant="error" copyable=True %}{{ job.error_log }}{% endcomponent %}{% endfill %}
+            {% endcomponent %}
+        </div>
         {% endif %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
 
     {% if job.studies_found %}
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-semibold mb-3">Studies ({{ job.studies_found|length }})</h2>
-        <table class="min-w-full text-sm">
-            <thead><tr class="text-left text-gray-500 border-b">
-                <th class="py-2 pr-4">Study Instance UID</th><th class="py-2 pr-4">Date</th>
-                <th class="py-2 pr-4">Description</th><th class="py-2">Modalities</th>
-            </tr></thead>
-            <tbody>
+    {% component "card" extra_class="mb-6" %}
+        {% fill "header" %}<h3 class="text-lg font-semibold text-gray-900">Studies ({{ job.studies_found|length }})</h3>{% endfill %}
+        {% fill "body" %}
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Study Instance UID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Description</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Modalities</th>
+            {% endfill %}
+            {% fill "body" %}
                 {% for s in job.studies_found %}
-                <tr class="border-b">
-                    <td class="py-2 pr-4 font-mono text-xs">{{ s.study_instance_uid|truncatechars:45 }}</td>
-                    <td class="py-2 pr-4">{{ s.study_date }}</td>
-                    <td class="py-2 pr-4">{{ s.study_description }}</td>
-                    <td class="py-2">{{ s.modalities }}</td>
+                <tr>
+                    <td class="px-6 py-4 text-sm font-mono text-xs">{{ s.study_instance_uid|truncatechars:45 }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.study_date }}</td>
+                    <td class="px-6 py-4 text-sm">{{ s.study_description }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.modalities }}</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+            {% endfill %}
+        {% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 
     {% if instances %}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-3">Received Instances ({{ instances|length }})</h2>
-        <table class="min-w-full text-sm">
-            <thead><tr class="text-left text-gray-500 border-b">
-                <th class="py-2 pr-4">Received</th><th class="py-2 pr-4">Status</th><th class="py-2 pr-4">SOP Instance UID</th><th class="py-2">Modality</th>
-            </tr></thead>
-            <tbody>
+    {% component "card" %}
+        {% fill "header" %}<h3 class="text-lg font-semibold text-gray-900">Received Instances ({{ instances|length }})</h3>{% endfill %}
+        {% fill "body" %}
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Received</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">SOP Instance UID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Modality</th>
+            {% endfill %}
+            {% fill "body" %}
                 {% for inst in instances %}
-                <tr class="border-b">
-                    <td class="py-2 pr-4">{{ inst.received_at|date:"H:i:s" }}</td>
-                    <td class="py-2 pr-4">{% if inst.status == 'STORED' %}<span class="text-green-600">Stored</span>{% else %}<span class="text-red-600">Rejected</span>{% endif %}</td>
-                    <td class="py-2 pr-4 font-mono text-xs">{{ inst.sop_instance_uid|truncatechars:40 }}</td>
-                    <td class="py-2">{{ inst.modality }}</td>
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ inst.received_at|date:"H:i:s" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if inst.status == 'STORED' %}{% component "badge" style="success" %}Stored{% endcomponent %}{% else %}{% component "badge" style="danger" %}Rejected{% endcomponent %}{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-mono text-xs">{{ inst.sop_instance_uid|truncatechars:40 }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ inst.modality }}</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+            {% endfill %}
+        {% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
-
-    <a href="{% url 'dicom_server:job_list' %}" class="text-chavi-primary text-sm hover:underline mt-4 inline-block">&larr; All jobs</a>
 </div>
 {% endblock %}

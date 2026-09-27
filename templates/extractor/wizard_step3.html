@@ -4,138 +4,116 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-list text-chavi-primary mr-2"></i>
-                    Step 3: Select Fields
-                </h1>
-                <span class="text-sm text-gray-500">Step 3 of 4</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-chavi-gradient h-2 rounded-full" style="width: 75%"></div>
-            </div>
-            <p class="text-gray-600 mt-4">
-                Response Model: <strong>{{ response_model.name }}</strong>
-            </p>
-        </div>
+    {% url 'extractor:wizard_step2' response_model.id as back_url %}
+    {% with subtitle_text="Step 3 of 4 · Response Model: "|add:response_model.name %}
+    {% component "page_header" title="Step 3: Select Fields" icon="fas fa-list" subtitle=subtitle_text %}{% endcomponent %}
+    {% endwith %}
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <p class="text-sm text-blue-700">
-                <i class="fas fa-info-circle mr-2"></i>
-                Select the specific fields you want to extract from each table. Fields marked with a blue link icon are lookup fields. Fields marked with an orange sitemap icon are internal record links and are usually not extractable from text.
-            </p>
-        </div>
+    {% component "stepper" labels="Name & Client,Select Tables,Select Fields,Review & Build" current=2 extra_class="mb-8" %}{% endcomponent %}
 
-        <form method="post" class="space-y-8">
-            {% csrf_token %}
-            
-            {% for table_data in tables_with_fields %}
-            <div class="border border-gray-300 rounded-lg p-6 bg-gray-50">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-table text-chavi-primary mr-2"></i>
-                    {{ table_data.model_table.database_table.clientapp_content_type.model|title }}
-                    {% if table_data.auto_added %}
-                    <span class="ml-3 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded font-normal">
-                        <i class="fas fa-magic mr-1"></i>Auto-included parent — identity fields pre-selected
+    {% component "info_box" style="info" %}
+        {% fill "default" %}
+        Select the specific fields you want to extract from each table. Fields marked with a link icon are lookup fields. Fields marked with a sitemap icon are internal record links and are usually not extractable from text.
+        {% endfill %}
+    {% endcomponent %}
+
+    <form method="post" class="space-y-8">
+        {% csrf_token %}
+
+        {% for table_data in tables_with_fields %}
+        {% with table_name=table_data.model_table.database_table.clientapp_content_type.model|title %}
+        {% component "card" flat=True %}
+            {% fill "header" %}
+            <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                <i class="fas fa-table text-chavi-primary mr-2"></i>
+                {{ table_name }}
+                {% if table_data.auto_added %}
+                {% component "badge" style="accent" icon="fas fa-magic" extra_class="ml-3" %}Auto-included parent — identity fields pre-selected{% endcomponent %}
+                {% endif %}
+            </h3>
+            {% endfill %}
+            {% fill "body" %}
+                <div class="mb-3 flex items-center justify-between">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox"
+                               class="select-all-fields h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary"
+                               data-table="{{ table_data.model_table.id }}">
+                        <span class="ml-2 text-sm font-medium text-gray-700">Select All</span>
+                    </label>
+                    <span class="text-sm text-gray-500">
+                        <span class="selected-count-{{ table_data.model_table.id }}">{{ table_data.selected_fields|length }}</span>
+                        of {{ table_data.fields|length }} selected
                     </span>
-                    {% endif %}
-                </h2>
-                
-                <div class="bg-white rounded-lg p-4">
-                    <div class="mb-3 flex items-center justify-between">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" 
-                                   class="select-all-fields h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary"
-                                   data-table="{{ table_data.model_table.id }}">
-                            <span class="ml-2 text-sm font-medium text-gray-700">Select All</span>
-                        </label>
-                        <span class="text-sm text-gray-500">
-                            <span class="selected-count-{{ table_data.model_table.id }}">{{ table_data.selected_fields|length }}</span> 
-                            of {{ table_data.fields|length }} selected
-                        </span>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {% for field in table_data.fields %}
-                        <label class="flex items-start p-3 border border-gray-200 rounded hover:border-chavi-primary transition-colors cursor-pointer field-checkbox">
-                            <input type="checkbox" 
-                                   name="fields_{{ table_data.model_table.id }}" 
-                                   value="{{ field.id }}"
-                                   {% if field.id in table_data.selected_fields %}checked{% endif %}
-                                   class="mt-1 h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary table-field"
-                                   data-table="{{ table_data.model_table.id }}">
-                            <div class="ml-2 flex-1">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-sm font-medium text-gray-800">
-                                        {{ field.clientapp_field_name }}
-                                    </span>
-                                    {% if field.lookup_field %}
-                                    <i class="fas fa-link text-blue-500 text-xs" title="Lookup field"></i>
-                                    {% endif %}
-                                    {% if field.field_validation.is_relationship %}
-                                    <i class="fas fa-sitemap text-orange-500 text-xs" title="Internal record link (foreign key) — usually not extractable from text"></i>
-                                    {% endif %}
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Type: {{ field.get_field_type_display }}
-                                </p>
-                                {% if field.lookup_field and field.lookup_content_type %}
-                                <p class="text-xs text-blue-600 mt-1">
-                                    <i class="fas fa-database mr-1"></i>{{ field.lookup_content_type.model }}
-                                </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for field in table_data.fields %}
+                    <label class="flex items-start p-3 border border-gray-200 rounded hover:border-chavi-primary transition-colors cursor-pointer field-checkbox">
+                        <input type="checkbox"
+                               name="fields_{{ table_data.model_table.id }}"
+                               value="{{ field.id }}"
+                               {% if field.id in table_data.selected_fields %}checked{% endif %}
+                               class="mt-1 h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary table-field"
+                               data-table="{{ table_data.model_table.id }}">
+                        <div class="ml-2 flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-800">
+                                    {{ field.clientapp_field_name }}
+                                </span>
+                                {% if field.lookup_field %}
+                                <i class="fas fa-link text-chavi-charcoal-500 text-xs" title="Lookup field"></i>
+                                {% endif %}
+                                {% if field.field_validation.is_relationship %}
+                                <i class="fas fa-sitemap text-chavi-sand-500 text-xs" title="Internal record link (foreign key) — usually not extractable from text"></i>
                                 {% endif %}
                             </div>
-                        </label>
-                        {% empty %}
-                        <div class="col-span-3 text-center py-4 text-gray-500">
-                            No fields available for this table
+                            <p class="text-xs text-gray-500 mt-1">
+                                Type: {{ field.get_field_type_display }}
+                            </p>
+                            {% if field.lookup_field and field.lookup_content_type %}
+                            <p class="text-xs text-chavi-charcoal-600 mt-1">
+                                <i class="fas fa-database mr-1"></i>{{ field.lookup_content_type.model }}
+                            </p>
+                            {% endif %}
                         </div>
-                        {% endfor %}
+                    </label>
+                    {% empty %}
+                    <div class="col-span-3 text-center py-4 text-gray-500">
+                        No fields available for this table
                     </div>
+                    {% endfor %}
                 </div>
-            </div>
-            {% empty %}
-            <div class="text-center py-8 text-gray-500">
-                <i class="fas fa-exclamation-circle text-4xl mb-4"></i>
-                <p>No tables selected. Please go back to step 2.</p>
-            </div>
-            {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endwith %}
+        {% empty %}
+        {% component "empty_state" icon="fas fa-exclamation-circle" title="No tables selected. Please go back to step 2." %}{% endcomponent %}
+        {% endfor %}
 
-            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                <a href="{% url 'extractor:wizard_step2' response_model.id %}" 
-                   class="text-gray-600 hover:text-gray-800 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back
-                </a>
-                <button type="submit" 
-                        class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                    Next: Review & Build
-                    <i class="fas fa-arrow-right ml-2"></i>
-                </button>
-            </div>
-        </form>
-    </div>
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+            {% component "back_link" href=back_url %}Back{% endcomponent %}
+            {% component "button" style="primary" type="submit" size="lg" icon="fas fa-arrow-right" %}Next: Review &amp; Build{% endcomponent %}
+        </div>
+    </form>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckboxes = document.querySelectorAll('.select-all-fields');
-    
+
     selectAllCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             const tableId = this.dataset.table;
             const fieldCheckboxes = document.querySelectorAll(`.table-field[data-table="${tableId}"]`);
-            
+
             fieldCheckboxes.forEach(fieldCheckbox => {
                 fieldCheckbox.checked = this.checked;
             });
-            
+
             updateCount(tableId);
         });
     });
-    
+
     const fieldCheckboxes = document.querySelectorAll('.table-field');
     fieldCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
@@ -143,12 +121,12 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCount(tableId);
         });
     });
-    
+
     function updateCount(tableId) {
         const fieldCheckboxes = document.querySelectorAll(`.table-field[data-table="${tableId}"]`);
         const checkedCount = document.querySelectorAll(`.table-field[data-table="${tableId}"]:checked`).length;
         const countElement = document.querySelector(`.selected-count-${tableId}`);
-        
+
         if (countElement) {
             countElement.textContent = checkedCount;
         }

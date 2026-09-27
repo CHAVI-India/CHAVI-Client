@@ -4,50 +4,43 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-    <div class="mb-6">
-        <a href="{% url 'deidentification:legacy_import' %}" class="text-sm text-gray-500 hover:text-gray-700">
-            <i class="fas fa-arrow-left mr-1"></i>Back to Legacy Import
-        </a>
-        <h1 class="text-2xl font-bold text-gray-900 mt-2">
-            <i class="fas fa-clipboard-check mr-2 text-chavi-primary"></i>Legacy Import Results
-        </h1>
-    </div>
+    {% url 'deidentification:legacy_import' as li_url %}
+    {% component "page_header" title="Legacy Import Results" icon="fas fa-clipboard-check" back_url=li_url back_text="Back to Legacy Import" %}{% endcomponent %}
 
     <!-- Summary stats -->
-    <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
+    {% component "card" title="Summary" extra_class="mb-6" %}{% fill "body" %}
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.patients|default:0 }}</div>
+                <div class="text-2xl font-bold text-chavi-primary-600">{{ stats.patients|default:0 }}</div>
                 <div class="text-xs text-gray-500">Patients Imported</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.studies|default:0 }}</div>
+                <div class="text-2xl font-bold text-chavi-primary-600">{{ stats.studies|default:0 }}</div>
                 <div class="text-xs text-gray-500">Studies Imported</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.series|default:0 }}</div>
+                <div class="text-2xl font-bold text-chavi-primary-600">{{ stats.series|default:0 }}</div>
                 <div class="text-xs text-gray-500">Series Imported</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-green-600">{{ stats.instances|default:0 }}</div>
+                <div class="text-2xl font-bold text-chavi-primary-600">{{ stats.instances|default:0 }}</div>
                 <div class="text-xs text-gray-500">Instances Imported</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-red-600">{{ stats.unmatched|default:0 }}</div>
+                <div class="text-2xl font-bold text-chavi-peach-600">{{ stats.unmatched|default:0 }}</div>
                 <div class="text-xs text-gray-500">Unmatched Rows</div>
             </div>
         </div>
-    </div>
+    {% endfill %}{% endcomponent %}
 
     <!-- Unmatched rows -->
     {% if unmatched_rows %}
-    <div class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
+    {% component "card" %}
+        {% fill "header" %}
             <div class="flex items-center justify-between">
                 <div class="flex-1">
                     <h2 class="text-lg font-semibold text-gray-900">Unmatched Records — Manual Reconciliation</h2>
-                    <div class="mt-2 bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800">
+                    <div class="mt-2 bg-chavi-charcoal-50 border border-chavi-charcoal-200 rounded-md p-3 text-sm text-chavi-charcoal-800">
                         <p class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>How to resolve unmatched records:</p>
                         <ol class="list-decimal list-inside space-y-1 ml-2">
                             <li>Click <strong>Create All Missing Records</strong> above to dispatch a background task that creates every unmatched record. You will be redirected to the task list to monitor progress.</li>
@@ -58,9 +51,7 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-3 ml-4">
-                    <button type="button" id="create-all-btn" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 shadow-sm">
-                        <i class="fas fa-magic mr-2"></i>Create All Missing Records
-                    </button>
+                    {% component "button" style="primary" icon="fas fa-magic" id="create-all-btn" %}Create All Missing Records{% endcomponent %}
                     <form method="get" class="flex items-center space-x-2">
                         <label class="text-sm font-medium text-gray-600 whitespace-nowrap">Filter:</label>
                         <select name="type" onchange="this.form.submit()" class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-chavi-primary focus:border-chavi-primary">
@@ -73,8 +64,8 @@
                 </form>
                 </div>
             </div>
-        </div>
-
+        {% endfill %}
+        {% fill "body" %}
         <!-- Hierarchical accordion list -->
         <div class="divide-y divide-gray-200">
             {% for patient_id, patient_data in hierarchy.items %}
@@ -83,31 +74,17 @@
                 <div class="flex items-center px-6 py-3 hover:bg-gray-50 cursor-pointer" onclick="toggleAccordion(this, 'patient-{{ forloop.counter }}')">
                     <i class="fas fa-chevron-right text-gray-400 mr-3 transition-transform accordion-arrow"></i>
                     {% if patient_data.patient_row %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-3">patient</span>
+                    {% component "badge" style="info" extra_class="mr-3" %}patient{% endcomponent %}
                     <span class="text-sm font-mono text-xs text-gray-900 flex-1">{{ patient_data.patient_row.original_id|truncatechars:60 }}</span>
                     <span class="text-xs text-gray-500 mr-4">DOB: {{ patient_data.patient_row.date_of_birth|default:"—" }} | Shift: {{ patient_data.patient_row.date_shift|default:"—" }}</span>
-                    <button type="button"
-                        data-action="create-patient"
-                        data-patient-id="{{ patient_data.patient_row.original_id }}"
-                        data-dob="{{ patient_data.patient_row.date_of_birth|default:'' }}"
-                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-sm create-btn mr-2"
-                        onclick="event.stopPropagation()">
-                        <i class="fas fa-user-plus mr-1"></i>Create
-                    </button>
+                    {% component "button" style="link" size="sm" icon="fas fa-user-plus" extra_class="create-btn mr-2" onclick="event.stopPropagation()" data__action="create-patient" data__patient_id=patient_data.patient_row.original_id data__dob="{{ patient_data.patient_row.date_of_birth|default:'' }}" %}Create{% endcomponent %}
                     {% elif patient_id != '__orphan__' %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-3">patient</span>
+                    {% component "badge" style="info" extra_class="mr-3" %}patient{% endcomponent %}
                     <span class="text-sm font-mono text-xs text-gray-900 flex-1">{{ patient_id|truncatechars:60 }}</span>
                     <span class="text-xs text-gray-500 mr-4">No legacy patient row — create from study reference</span>
-                    <button type="button"
-                        data-action="create-patient"
-                        data-patient-id="{{ patient_id }}"
-                        data-dob=""
-                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-sm create-btn mr-2"
-                        onclick="event.stopPropagation()">
-                        <i class="fas fa-user-plus mr-1"></i>Create
-                    </button>
+                    {% component "button" style="link" size="sm" icon="fas fa-user-plus" extra_class="create-btn mr-2" onclick="event.stopPropagation()" data__action="create-patient" data__patient_id=patient_id data__dob="" %}Create{% endcomponent %}
                     {% else %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-3">orphan</span>
+                    {% component "badge" style="gray" extra_class="mr-3" %}orphan{% endcomponent %}
                     <span class="text-sm text-gray-500 flex-1 italic">Unmatched records with no parent patient</span>
                     {% endif %}
                     {% if patient_data.studies|length > 0 %}
@@ -116,27 +93,19 @@
                 </div>
 
                 <!-- Nested studies -->
-                <div class="hidden bg-gray-50 border-l-4 border-blue-200 ml-6" id="patient-{{ forloop.counter }}">
+                <div class="hidden bg-gray-50 border-l-4 border-chavi-charcoal-200 ml-6" id="patient-{{ forloop.counter }}">
                     {% for study in patient_data.studies %}
                     <div class="study-block">
                         <div class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200" onclick="toggleAccordion(this, 'study-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
                             <i class="fas fa-chevron-right text-gray-400 mr-2 text-xs transition-transform accordion-arrow"></i>
                             {% if study.study_row %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800 mr-2">study</span>
+                            {% component "badge" style="accent" extra_class="mr-2" %}study{% endcomponent %}
                             <span class="text-xs font-mono text-gray-900 flex-1">{{ study.study_row.original_id|truncatechars:55 }}</span>
                             <span class="text-xs text-gray-500 mr-3">Date: {{ study.study_row.deidentified_date|default:"—" }}</span>
-                            {% if study.study_row.reason %}<span class="text-xs text-red-500 mr-2">{{ study.study_row.reason }}</span>{% endif %}
-                            <button type="button"
-                                data-action="create-study"
-                                data-study-uid="{{ study.study_row.original_id }}"
-                                data-study-date="{{ study.study_row.deidentified_date|default:'' }}"
-                                data-patient-id="{{ patient_id|default:'' }}"
-                                class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn mr-2"
-                                onclick="event.stopPropagation()">
-                                <i class="fas fa-folder-plus mr-1"></i>Create
-                            </button>
+                            {% if study.study_row.reason %}<span class="text-xs text-chavi-peach-500 mr-2">{{ study.study_row.reason }}</span>{% endif %}
+                            {% component "button" style="link" size="sm" icon="fas fa-folder-plus" extra_class="create-btn mr-2" onclick="event.stopPropagation()" data__action="create-study" data__study_uid=study.study_row.original_id data__study_date="{{ study.study_row.deidentified_date|default:'' }}" data__patient_id="{{ patient_id|default:'' }}" %}Create{% endcomponent %}
                             {% else %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-2">orphan</span>
+                            {% component "badge" style="gray" extra_class="mr-2" %}orphan{% endcomponent %}
                             <span class="text-xs text-gray-500 flex-1 italic">Series/instances with no parent study</span>
                             {% endif %}
                             {% if study.series|length > 0 %}
@@ -145,29 +114,19 @@
                         </div>
 
                         <!-- Nested series -->
-                        <div class="hidden bg-white border-l-4 border-purple-200 ml-6" id="study-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                        <div class="hidden bg-white border-l-4 border-chavi-sand-200 ml-6" id="study-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
                             {% for series_item in study.series %}
                             <div class="series-block">
                                 <div class="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100" onclick="toggleAccordion(this, 'series-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}')">
                                     <i class="fas fa-chevron-right text-gray-400 mr-2 text-xs transition-transform accordion-arrow"></i>
                                     {% if series_item.series_row %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 mr-2">series</span>
+                                    {% component "badge" style="warning" extra_class="mr-2" %}series{% endcomponent %}
                                     <span class="text-xs font-mono text-gray-900 flex-1">{{ series_item.series_row.original_id|truncatechars:55 }}</span>
                                     <span class="text-xs text-gray-500 mr-3">Date: {{ series_item.series_row.deidentified_series_date|default:"—" }}</span>
-                                    {% if series_item.series_row.reason %}<span class="text-xs text-red-500 mr-2">{{ series_item.series_row.reason }}</span>{% endif %}
-                                    <button type="button"
-                                        data-action="create-series"
-                                        data-series-uid="{{ series_item.series_row.original_id }}"
-                                        data-series-date="{{ series_item.series_row.deidentified_series_date|default:'' }}"
-                                        data-frame-uid="{{ series_item.series_row.deidentified_frame_of_reference_uid|default:'' }}"
-                                        data-deid-series-uid="{{ series_item.series_row.deidentified_id|default:'' }}"
-                                        data-study-uid="{{ study.original_id|default:'' }}"
-                                        class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn mr-2"
-                                        onclick="event.stopPropagation()">
-                                        <i class="fas fa-layer-group mr-1"></i>Create
-                                    </button>
+                                    {% if series_item.series_row.reason %}<span class="text-xs text-chavi-peach-500 mr-2">{{ series_item.series_row.reason }}</span>{% endif %}
+                                    {% component "button" style="link" size="sm" icon="fas fa-layer-group" extra_class="create-btn mr-2" onclick="event.stopPropagation()" data__action="create-series" data__series_uid=series_item.series_row.original_id data__series_date="{{ series_item.series_row.deidentified_series_date|default:'' }}" data__frame_uid="{{ series_item.series_row.deidentified_frame_of_reference_uid|default:'' }}" data__deid_series_uid="{{ series_item.series_row.deidentified_id|default:'' }}" data__study_uid="{{ study.original_id|default:'' }}" %}Create{% endcomponent %}
                                     {% else %}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 mr-2">orphan</span>
+                                    {% component "badge" style="gray" extra_class="mr-2" %}orphan{% endcomponent %}
                                     <span class="text-xs text-gray-500 flex-1 italic">Instances with no parent series</span>
                                     {% endif %}
                                     {% if series_item.instances|length > 0 %}
@@ -176,22 +135,14 @@
                                 </div>
 
                                 <!-- Nested instances -->
-                                <div class="hidden bg-gray-50 border-l-4 border-amber-200 ml-6" id="series-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                                <div class="hidden bg-gray-50 border-l-4 border-chavi-sun-200 ml-6" id="series-{{ forloop.parentloop.parentloop.counter }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
                                     {% for instance in series_item.instances %}
                                     <div class="flex items-center px-4 py-1.5 hover:bg-gray-100 border-b border-gray-100">
                                         <i class="fas fa-file-medical text-gray-300 mr-2 text-xs"></i>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-800 mr-2">instance</span>
+                                        {% component "badge" style="success" extra_class="mr-2" %}instance{% endcomponent %}
                                         <span class="text-xs font-mono text-gray-900 flex-1">{{ instance.instance_row.original_id|truncatechars:55 }}</span>
-                                        {% if instance.instance_row.reason %}<span class="text-xs text-red-500 mr-2">{{ instance.instance_row.reason }}</span>{% endif %}
-                                        <button type="button"
-                                            data-action="create-instance"
-                                            data-sop-uid="{{ instance.instance_row.original_id }}"
-                                            data-deid-sop-uid="{{ instance.instance_row.deidentified_id|default:'' }}"
-                                            data-series-uid="{{ series_item.original_id|default:'' }}"
-                                            class="inline-flex items-center text-chavi-primary hover:text-chavi-secondary font-medium text-xs create-btn"
-                                            onclick="event.stopPropagation()">
-                                            <i class="fas fa-plus mr-1"></i>Create
-                                        </button>
+                                        {% if instance.instance_row.reason %}<span class="text-xs text-chavi-peach-500 mr-2">{{ instance.instance_row.reason }}</span>{% endif %}
+                                        {% component "button" style="link" size="sm" icon="fas fa-plus" extra_class="create-btn" onclick="event.stopPropagation()" data__action="create-instance" data__sop_uid=instance.instance_row.original_id data__deid_sop_uid="{{ instance.instance_row.deidentified_id|default:'' }}" data__series_uid="{{ series_item.original_id|default:'' }}" %}Create{% endcomponent %}
                                     </div>
                                     {% endfor %}
                                 </div>
@@ -203,185 +154,151 @@
 
                     <!-- Bulk create button for this patient -->
                     {% if patient_id != '__orphan__' %}
-                    <div class="px-4 py-3 border-t border-gray-200 bg-blue-50">
-                        <button type="button"
-                            class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-chavi-primary rounded-md hover:bg-chavi-secondary bulk-create-btn"
-                            data-patient-id="{{ patient_id }}">
-                            <i class="fas fa-layer-group mr-2"></i>Bulk Create All Missing Records for {{ patient_id|truncatechars:20 }}
-                        </button>
+                    <div class="px-4 py-3 border-t border-gray-200 bg-chavi-charcoal-50">
+                        {% component "button" style="primary" size="sm" icon="fas fa-layer-group" extra_class="bulk-create-btn" data__patient_id=patient_id %}Bulk Create All Missing Records for {{ patient_id|truncatechars:20 }}{% endcomponent %}
                     </div>
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
-    </div>
-
-    <!-- Pagination -->
-    {% if page_obj.has_other_pages %}
-    <div class="mt-4 flex items-center justify-between bg-white shadow rounded-lg px-6 py-3">
-        <div class="text-sm text-gray-600">
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-            ({{ page_obj.paginator.count }} patients total)
-        </div>
-        <div class="flex items-center space-x-2">
-            {% if page_obj.has_previous %}
-            <a href="?type={{ filter_type }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                <i class="fas fa-chevron-left mr-1"></i>Previous
-            </a>
-            {% endif %}
-            {% if page_obj.has_next %}
-            <a href="?type={{ filter_type }}&page={{ page_obj.next_page_number }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                Next<i class="fas fa-chevron-right ml-1"></i>
-            </a>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+        {% endfill %}
+        {% fill "footer" %}
+            {% with qs="type="|add:filter_type %}
+            {% component "pagination" page_obj=page_obj query_string=qs is_paginated=True %}{% endcomponent %}
+            {% endwith %}
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Create Patient modal -->
-    <div id="create-patient-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 class="text-lg font-semibold mb-4">Create Missing Patient</h3>
-            <form id="patient-create-form" method="post" action="{% url 'deidentification:create_patient' %}">
-                {% csrf_token %}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Patient ID</label>
-                    <input type="text" name="patient_id" id="patient_id_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth (optional)</label>
-                    <input type="date" name="date_of_birth" id="patient_dob_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeForm('create-patient-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
-                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% component "modal" modal_id="create-patient-form" extra_class="flex" %}
+        {% fill "title" %}Create Missing Patient{% endfill %}
+        {% fill "body" %}
+        <form id="patient-create-form" method="post" action="{% url 'deidentification:create_patient' %}">
+            {% csrf_token %}
+            {% component "form_field" label="Patient ID" field_id="patient_id_input" %}
+                <input type="text" name="patient_id" id="patient_id_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Date of Birth (optional)" field_id="patient_dob_input" %}
+                <input type="date" name="date_of_birth" id="patient_dob_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {% endcomponent %}
+            <div class="flex justify-end space-x-3">
+                {% component "button" style="ghost" onclick="closeForm('create-patient-form')" %}Cancel{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Create{% endcomponent %}
+            </div>
+        </form>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Create Study modal -->
-    <div id="create-study-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 class="text-lg font-semibold mb-4">Create Missing Study</h3>
-            <form id="study-create-form" method="post" action="{% url 'deidentification:create_study' %}">
-                {% csrf_token %}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Study Instance UID</label>
-                    <input type="text" name="study_instance_uid" id="study_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Patient ID (owner)</label>
-                    <input type="text" name="patient_id" id="study_patient_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Study Date (optional)</label>
-                    <input type="date" name="study_date" id="study_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeForm('create-study-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
-                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% component "modal" modal_id="create-study-form" extra_class="flex" %}
+        {% fill "title" %}Create Missing Study{% endfill %}
+        {% fill "body" %}
+        <form id="study-create-form" method="post" action="{% url 'deidentification:create_study' %}">
+            {% csrf_token %}
+            {% component "form_field" label="Study Instance UID" field_id="study_uid_input" %}
+                <input type="text" name="study_instance_uid" id="study_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Patient ID (owner)" field_id="study_patient_input" %}
+                <input type="text" name="patient_id" id="study_patient_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Study Date (optional)" field_id="study_date_input" %}
+                <input type="date" name="study_date" id="study_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {% endcomponent %}
+            <div class="flex justify-end space-x-3">
+                {% component "button" style="ghost" onclick="closeForm('create-study-form')" %}Cancel{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Create{% endcomponent %}
+            </div>
+        </form>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Create Series modal -->
-    <div id="create-series-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 class="text-lg font-semibold mb-4">Create Missing Series</h3>
-            <form id="series-create-form" method="post" action="{% url 'deidentification:create_series' %}">
-                {% csrf_token %}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Instance UID</label>
-                    <input type="text" name="series_instance_uid" id="series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Study Instance UID (parent)</label>
-                    <input type="text" name="study_instance_uid" id="series_study_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Modality</label>
-                    <input type="text" name="modality" id="series_modality_input" value="CT" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Date (optional)</label>
-                    <input type="date" name="series_date" id="series_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Frame of Reference UID (optional)</label>
-                    <input type="text" name="frame_of_reference_uid" id="series_frame_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                </div>
-                <input type="hidden" name="deidentified_series_instance_uid" id="series_deid_uid_input">
-                <input type="hidden" name="deidentified_series_date" id="series_deid_date_input">
-                <input type="hidden" name="deidentified_frame_of_reference_uid" id="series_deid_frame_uid_input">
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeForm('create-series-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
-                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% component "modal" modal_id="create-series-form" extra_class="flex" %}
+        {% fill "title" %}Create Missing Series{% endfill %}
+        {% fill "body" %}
+        <form id="series-create-form" method="post" action="{% url 'deidentification:create_series' %}">
+            {% csrf_token %}
+            {% component "form_field" label="Series Instance UID" field_id="series_uid_input" %}
+                <input type="text" name="series_instance_uid" id="series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Study Instance UID (parent)" field_id="series_study_uid_input" %}
+                <input type="text" name="study_instance_uid" id="series_study_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Modality" field_id="series_modality_input" %}
+                <input type="text" name="modality" id="series_modality_input" value="CT" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {% endcomponent %}
+            {% component "form_field" label="Series Date (optional)" field_id="series_date_input" %}
+                <input type="date" name="series_date" id="series_date_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {% endcomponent %}
+            {% component "form_field" label="Frame of Reference UID (optional)" field_id="series_frame_uid_input" %}
+                <input type="text" name="frame_of_reference_uid" id="series_frame_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            {% endcomponent %}
+            <input type="hidden" name="deidentified_series_instance_uid" id="series_deid_uid_input">
+            <input type="hidden" name="deidentified_series_date" id="series_deid_date_input">
+            <input type="hidden" name="deidentified_frame_of_reference_uid" id="series_deid_frame_uid_input">
+            <div class="flex justify-end space-x-3">
+                {% component "button" style="ghost" onclick="closeForm('create-series-form')" %}Cancel{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Create{% endcomponent %}
+            </div>
+        </form>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Create Instance modal -->
-    <div id="create-instance-form" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 class="text-lg font-semibold mb-4">Create Missing Instance</h3>
-            <form id="instance-create-form" method="post" action="{% url 'deidentification:create_instance' %}">
-                {% csrf_token %}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">SOP Instance UID</label>
-                    <input type="text" name="sop_instance_uid" id="instance_sop_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Series Instance UID (parent)</label>
-                    <input type="text" name="series_instance_uid" id="instance_series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
-                </div>
-                <input type="hidden" name="deidentified_sop_instance_uid" id="instance_deid_sop_uid_input">
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeForm('create-instance-form')" class="px-4 py-2 text-sm text-gray-700 hover:text-gray-900">Cancel</button>
-                    <button type="submit" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% component "modal" modal_id="create-instance-form" extra_class="flex" %}
+        {% fill "title" %}Create Missing Instance{% endfill %}
+        {% fill "body" %}
+        <form id="instance-create-form" method="post" action="{% url 'deidentification:create_instance' %}">
+            {% csrf_token %}
+            {% component "form_field" label="SOP Instance UID" field_id="instance_sop_uid_input" %}
+                <input type="text" name="sop_instance_uid" id="instance_sop_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            {% component "form_field" label="Series Instance UID (parent)" field_id="instance_series_uid_input" %}
+                <input type="text" name="series_instance_uid" id="instance_series_uid_input" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" required>
+            {% endcomponent %}
+            <input type="hidden" name="deidentified_sop_instance_uid" id="instance_deid_sop_uid_input">
+            <div class="flex justify-end space-x-3">
+                {% component "button" style="ghost" onclick="closeForm('create-instance-form')" %}Cancel{% endcomponent %}
+                {% component "button" style="primary" type="submit" %}Create{% endcomponent %}
+            </div>
+        </form>
+        {% endfill %}
+    {% endcomponent %}
 
     <!-- Bulk create progress modal -->
-    <div id="bulk-create-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 class="text-lg font-semibold mb-2">Bulk Creating Records...</h3>
-            <div class="w-full bg-gray-200 rounded-full h-4 mb-3">
-                <div id="bulk-progress-bar" class="bg-chavi-primary h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <p id="bulk-progress-text" class="text-sm text-gray-600">Preparing...</p>
-            <div id="bulk-results" class="hidden mt-4 text-sm">
-                <p id="bulk-success-count" class="text-green-600 font-medium"></p>
-                <p id="bulk-skipped-count" class="text-gray-500 font-medium"></p>
-                <p id="bulk-error-count" class="text-red-600 font-medium"></p>
-                <div id="bulk-error-list" class="mt-2 max-h-32 overflow-y-auto text-xs text-red-500"></div>
-            </div>
-            <div id="bulk-close-btn" class="hidden flex justify-end mt-4">
-                <button type="button" onclick="closeForm('bulk-create-modal'); window.location.href='{% url 'deidentification:legacy_import' %}';" class="px-4 py-2 text-sm bg-chavi-primary text-white rounded-md hover:bg-chavi-secondary">Continue</button>
-            </div>
+    {% component "modal" modal_id="bulk-create-modal" extra_class="flex" %}
+        {% fill "title" %}Bulk Creating Records...{% endfill %}
+        {% fill "body" %}
+        {% component "progress" bar_id="bulk-progress-bar" label="Preparing..." label_id="bulk-progress-text" value=0 %}{% endcomponent %}
+        <div id="bulk-results" class="hidden mt-4 text-sm">
+            <p id="bulk-success-count" class="text-chavi-primary-600 font-medium"></p>
+            <p id="bulk-skipped-count" class="text-gray-500 font-medium"></p>
+            <p id="bulk-error-count" class="text-chavi-peach-600 font-medium"></p>
+            <div id="bulk-error-list" class="mt-2 max-h-32 overflow-y-auto text-xs text-chavi-peach-500"></div>
         </div>
-    </div>
+        {% endfill %}
+        {% fill "footer" %}
+        <div id="bulk-close-btn" class="hidden flex justify-end mt-4">
+            {% with "closeForm('bulk-create-modal'); window.location.href='"|add:li_url|add:"';" as oc %}
+            {% component "button" style="primary" onclick=oc %}Continue{% endcomponent %}
+            {% endwith %}
+        </div>
+        {% endfill %}
+    {% endcomponent %}
     {% else %}
-    <div class="bg-green-50 border border-green-200 rounded-md p-4">
-        <p class="text-sm text-green-700">
-            <i class="fas fa-check-circle mr-1"></i>
-            All legacy records were successfully matched. No manual reconciliation needed.
-        </p>
-    </div>
+    {% component "alert" style="success" %}
+        {% fill "default" %}All legacy records were successfully matched. No manual reconciliation needed.{% endfill %}
+    {% endcomponent %}
     {% endif %}
 
-    <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h3 class="text-sm font-semibold text-yellow-800 mb-2"><i class="fas fa-exclamation-triangle mr-1"></i>Next Step: Re-run the Legacy Import</h3>
-        <p class="text-sm text-yellow-700 mb-3">After creating all missing records above, you must re-upload the legacy database and encryption key to link the deidentified mappings.</p>
-        <a href="{% url 'deidentification:legacy_import' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-chavi-primary hover:bg-chavi-secondary">
-            <i class="fas fa-upload mr-2"></i>Re-upload Legacy Files
-        </a>
-    </div>
+    {% component "alert" style="warning" extra_class="mt-6" %}
+        {% fill "title" %}Next Step: Re-run the Legacy Import{% endfill %}
+        {% fill "default" %}
+        <p class="mb-3">After creating all missing records above, you must re-upload the legacy database and encryption key to link the deidentified mappings.</p>
+        {% component "button" style="primary" href=li_url icon="fas fa-upload" %}Re-upload Legacy Files{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 </div>
 
 <script>

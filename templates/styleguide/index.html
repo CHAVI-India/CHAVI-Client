@@ -1,0 +1,1064 @@
+{% extends "base.html" %}
+
+{% block title %}UI Styleguide - CHAVI Client{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-10">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">CHAVI Client UI Styleguide</h1>
+        <p class="text-gray-600">Living reference for the design system. Every token and component is rendered below with real markup.</p>
+    </div>
+
+    {# ============ BRAND COLORS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Brand Colors</h2>
+        <p class="text-sm text-gray-600 mb-4">Five base colors, each with a full shade scale registered in the Tailwind config.</p>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div>
+                <div class="h-20 rounded-lg bg-chavi-primary-500 mb-2"></div>
+                <p class="text-sm font-semibold">Verdigris / chavi-primary</p><p class="text-xs text-gray-500 font-mono">#2a9d8f</p>
+            </div>
+            <div>
+                <div class="h-20 rounded-lg bg-chavi-charcoal-500 mb-2"></div>
+                <p class="text-sm font-semibold">Charcoal Blue / chavi-charcoal</p><p class="text-xs text-gray-500 font-mono">#264653</p>
+            </div>
+            <div>
+                <div class="h-20 rounded-lg bg-chavi-sun-500 mb-2"></div>
+                <p class="text-sm font-semibold">Tuscan Sun / chavi-sun</p><p class="text-xs text-gray-500 font-mono">#e9c46a</p>
+            </div>
+            <div>
+                <div class="h-20 rounded-lg bg-chavi-sand-500 mb-2"></div>
+                <p class="text-sm font-semibold">Sandy Brown / chavi-sand</p><p class="text-xs text-gray-500 font-mono">#f4a261</p>
+            </div>
+            <div>
+                <div class="h-20 rounded-lg bg-chavi-peach-500 mb-2"></div>
+                <p class="text-sm font-semibold">Burnt Peach / chavi-peach</p><p class="text-xs text-gray-500 font-mono">#e76f51</p>
+            </div>
+        </div>
+
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">Derivative Shades</h3>
+        <table class="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm mb-6">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Family</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">50</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">100</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">200</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">300</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">400</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">500</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">600</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">700</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">800</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">900</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100">
+                <tr><td class="px-4 py-2 text-sm font-mono">chavi-primary</td>
+                    <td class="h-8 bg-chavi-primary-50"></td><td class="h-8 bg-chavi-primary-100"></td><td class="h-8 bg-chavi-primary-200"></td><td class="h-8 bg-chavi-primary-300"></td><td class="h-8 bg-chavi-primary-400"></td><td class="h-8 bg-chavi-primary-500"></td><td class="h-8 bg-chavi-primary-600"></td><td class="h-8 bg-chavi-primary-700"></td><td class="h-8 bg-chavi-primary-800"></td><td class="h-8 bg-chavi-primary-900"></td></tr>
+                <tr><td class="px-4 py-2 text-sm font-mono">chavi-charcoal</td>
+                    <td class="h-8 bg-chavi-charcoal-50"></td><td class="h-8 bg-chavi-charcoal-100"></td><td class="h-8 bg-chavi-charcoal-200"></td><td class="h-8 bg-chavi-charcoal-300"></td><td class="h-8 bg-chavi-charcoal-400"></td><td class="h-8 bg-chavi-charcoal-500"></td><td class="h-8 bg-chavi-charcoal-600"></td><td class="h-8 bg-chavi-charcoal-700"></td><td class="h-8 bg-chavi-charcoal-800"></td><td class="h-8 bg-chavi-charcoal-900"></td></tr>
+                <tr><td class="px-4 py-2 text-sm font-mono">chavi-sun</td>
+                    <td class="h-8 bg-chavi-sun-50"></td><td class="h-8 bg-chavi-sun-100"></td><td class="h-8 bg-chavi-sun-200"></td><td class="h-8 bg-chavi-sun-300"></td><td class="h-8 bg-chavi-sun-400"></td><td class="h-8 bg-chavi-sun-500"></td><td class="h-8 bg-chavi-sun-600"></td><td class="h-8 bg-chavi-sun-700"></td><td class="h-8 bg-chavi-sun-800"></td><td class="h-8 bg-chavi-sun-900"></td></tr>
+                <tr><td class="px-4 py-2 text-sm font-mono">chavi-sand</td>
+                    <td class="h-8 bg-chavi-sand-50"></td><td class="h-8 bg-chavi-sand-100"></td><td class="h-8 bg-chavi-sand-200"></td><td class="h-8 bg-chavi-sand-300"></td><td class="h-8 bg-chavi-sand-400"></td><td class="h-8 bg-chavi-sand-500"></td><td class="h-8 bg-chavi-sand-600"></td><td class="h-8 bg-chavi-sand-700"></td><td class="h-8 bg-chavi-sand-800"></td><td class="h-8 bg-chavi-sand-900"></td></tr>
+                <tr><td class="px-4 py-2 text-sm font-mono">chavi-peach</td>
+                    <td class="h-8 bg-chavi-peach-50"></td><td class="h-8 bg-chavi-peach-100"></td><td class="h-8 bg-chavi-peach-200"></td><td class="h-8 bg-chavi-peach-300"></td><td class="h-8 bg-chavi-peach-400"></td><td class="h-8 bg-chavi-peach-500"></td><td class="h-8 bg-chavi-peach-600"></td><td class="h-8 bg-chavi-peach-700"></td><td class="h-8 bg-chavi-peach-800"></td><td class="h-8 bg-chavi-peach-900"></td></tr>
+            </tbody>
+        </table>
+
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">Gradients</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="h-20 rounded-lg bg-chavi-gradient flex items-center justify-center text-white font-semibold">chavi-gradient</div>
+            <div class="h-20 rounded-lg bg-chavi-gradient-soft flex items-center justify-center text-chavi-charcoal-800 font-semibold">chavi-gradient-soft</div>
+        </div>
+    </section>
+
+    {# ============ SURFACES & PAGE BACKGROUNDS (scheme preview) ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Surfaces & Page Backgrounds — Scheme Options</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Design rule: each palette color owns a <em>role</em>, not just a spot. Navbar is the darkest
+            element (frame), surfaces stay light (content needs contrast), one saturated hue marks
+            <em>clickable</em> things, and warm colors are reserved for status meaning.
+        </p>
+
+        <!-- Role assignment table -->
+        <table class="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm mb-8 text-xs">
+            <thead class="bg-chavi-charcoal-100"><tr>
+                <th class="px-3 py-2 text-left font-semibold text-chavi-charcoal-800">Role</th>
+                <th class="px-3 py-2 text-left font-semibold text-chavi-charcoal-800">Scheme 1 · Executive</th>
+                <th class="px-3 py-2 text-left font-semibold text-chavi-charcoal-800">Scheme 2 · Warm Paper</th>
+                <th class="px-3 py-2 text-left font-semibold text-chavi-charcoal-800">Scheme 3 · Banded</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 font-mono">
+                <tr><td class="px-3 py-2 font-sans font-medium">Navbar</td>
+                    <td class="px-3 py-2">charcoal-800</td><td class="px-3 py-2">charcoal-800</td><td class="px-3 py-2">primary-800</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Page background</td>
+                    <td class="px-3 py-2">gray-50</td><td class="px-3 py-2">paper (#fbf7f0)</td><td class="px-3 py-2">charcoal-50</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Card headers</td>
+                    <td class="px-3 py-2">white + border</td><td class="px-3 py-2">white + accent bar</td><td class="px-3 py-2">charcoal-800 + sun line</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Table headers</td>
+                    <td class="px-3 py-2">charcoal-100</td><td class="px-3 py-2">sand-100</td><td class="px-3 py-2">charcoal-100</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Primary button</td>
+                    <td class="px-3 py-2">primary-600</td><td class="px-3 py-2">primary-600</td><td class="px-3 py-2">primary-600</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Accent button</td>
+                    <td class="px-3 py-2">charcoal-600</td><td class="px-3 py-2">sand-600</td><td class="px-3 py-2">sun-500 (dark text)</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Highlights/notifs</td>
+                    <td class="px-3 py-2">sun-*</td><td class="px-3 py-2">sun-*</td><td class="px-3 py-2">sun-*</td></tr>
+                <tr><td class="px-3 py-2 font-sans font-medium">Danger</td>
+                    <td class="px-3 py-2">peach-*</td><td class="px-3 py-2">peach-*</td><td class="px-3 py-2">peach-*</td></tr>
+            </tbody>
+        </table>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- SCHEME 1: Executive -->
+            <div>
+                <h3 class="text-sm font-bold text-gray-900 mb-2">1 — Executive</h3>
+                <p class="text-xs text-gray-500 mb-3">Dark charcoal frame, clean white cards, teal actions. Most professional.</p>
+                <div class="rounded-lg overflow-hidden border border-gray-300 shadow-md">
+                    <div class="bg-chavi-charcoal-800 px-3 py-1.5 flex items-center justify-between">
+                        <span class="text-white text-xs font-semibold">CHAVI</span>
+                        <span class="text-chavi-charcoal-200 text-[9px]">Import · Tasks · Admin</span>
+                    </div>
+                    <div class="bg-gray-50 p-3">
+                        <div class="bg-white rounded-md shadow-sm mb-2">
+                            <div class="px-3 py-1.5 text-xs font-semibold text-gray-900 border-b border-gray-200 rounded-t-md">Card header (white)</div>
+                            <div class="p-2">
+                                <table class="w-full text-[10px]"><thead class="bg-chavi-charcoal-100"><tr><th class="px-2 py-1 text-left text-chavi-charcoal-800">Header</th><th class="px-2 py-1 text-left text-chavi-charcoal-800">Status</th></tr></thead>
+                                <tbody><tr class="border-t border-gray-100"><td class="px-2 py-1">Row</td><td class="px-2 py-1"><span class="px-1.5 rounded bg-chavi-primary-100 text-chavi-primary-800 text-[9px] font-semibold">Done</span></td></tr></tbody></table>
+                                <div class="mt-2 flex gap-1">
+                                    <span class="px-2 py-0.5 rounded bg-chavi-primary-600 text-white text-[9px] font-semibold">Primary</span>
+                                    <span class="px-2 py-0.5 rounded bg-chavi-charcoal-600 text-white text-[9px] font-semibold">Secondary</span>
+                                    <span class="px-2 py-0.5 rounded bg-chavi-peach-500 text-white text-[9px] font-semibold">Delete</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-chavi-sun-100 border border-chavi-sun-300 rounded-md px-2 py-1 text-[9px] text-chavi-sun-900">Notification: 3 items need review</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCHEME 2: Warm paper (light canvas) -->
+            <div class="lg:col-span-2">
+                <h3 class="text-sm font-bold text-gray-900 mb-2">2 — Warm Paper <span class="text-chavi-primary-600 font-semibold">(selected)</span></h3>
+                <p class="text-xs text-gray-500 mb-3">Nearly-white warm canvas so cards pop. All 5 palette colors carry a role: charcoal chrome, sand structure accents, verdigris actions, sun highlights, peach destructive.</p>
+                <div class="rounded-lg overflow-hidden border border-gray-300 shadow-md">
+                    <div class="bg-chavi-charcoal-800 px-3 py-1.5 flex items-center justify-between">
+                        <span class="text-white text-xs font-semibold">CHAVI</span>
+                        <span class="text-chavi-charcoal-200 text-[9px]">Import · Tasks · Admin</span>
+                    </div>
+                    <div class="bg-chavi-canvas p-3">
+                        <div class="bg-white rounded-md shadow-sm mb-2 border-t-4 border-chavi-sand-500">
+                            <div class="px-3 py-1.5 text-xs font-semibold text-gray-900 border-b border-gray-200 rounded-t-md flex justify-between items-center">
+                                <span>Tasks</span>
+                                <span class="text-chavi-charcoal-500 text-[9px] font-normal">142 total</span>
+                            </div>
+                            <div class="p-0">
+                                <table class="w-full text-[10px]">
+                                    <thead class="bg-chavi-sand-100"><tr>
+                                        <th class="px-2 py-1 text-left text-chavi-sand-900">Task</th>
+                                        <th class="px-2 py-1 text-left text-chavi-sand-900">Owner</th>
+                                        <th class="px-2 py-1 text-left text-chavi-sand-900">Status</th>
+                                        <th class="px-2 py-1 text-right text-chavi-sand-900">Actions</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        <tr class="border-t border-gray-100 hover:bg-chavi-primary-50 transition-colors">
+                                            <td class="px-2 py-1 font-medium">CSV Import</td><td class="px-2 py-1">clinic-a</td>
+                                            <td class="px-2 py-1"><span class="px-1.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 text-[9px] font-semibold">Completed</span></td>
+                                            <td class="px-2 py-1 text-right text-chavi-primary-600">view</td>
+                                        </tr>
+                                        <tr class="border-t border-gray-100 bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors">
+                                            <td class="px-2 py-1 font-medium">DICOM Sync</td><td class="px-2 py-1">clinic-b</td>
+                                            <td class="px-2 py-1"><span class="px-1.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 text-[9px] font-semibold">Processing</span></td>
+                                            <td class="px-2 py-1 text-right text-chavi-primary-600">view</td>
+                                        </tr>
+                                        <tr class="border-t border-gray-100 hover:bg-chavi-primary-50 transition-colors">
+                                            <td class="px-2 py-1 font-medium">De-id Job</td><td class="px-2 py-1">clinic-a</td>
+                                            <td class="px-2 py-1"><span class="px-1.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 text-[9px] font-semibold">Pending</span></td>
+                                            <td class="px-2 py-1 text-right text-chavi-primary-600">view</td>
+                                        </tr>
+                                        <tr class="border-t border-gray-100 bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors">
+                                            <td class="px-2 py-1 font-medium">Extraction</td><td class="px-2 py-1">clinic-c</td>
+                                            <td class="px-2 py-1"><span class="px-1.5 rounded-full bg-chavi-sand-200 text-chavi-sand-900 text-[9px] font-semibold">Review</span></td>
+                                            <td class="px-2 py-1 text-right text-chavi-primary-600">view</td>
+                                        </tr>
+                                        <tr class="border-t border-gray-100 hover:bg-chavi-primary-50 transition-colors">
+                                            <td class="px-2 py-1 font-medium">Upload</td><td class="px-2 py-1">clinic-b</td>
+                                            <td class="px-2 py-1"><span class="px-1.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 text-[9px] font-semibold">Failed</span></td>
+                                            <td class="px-2 py-1 text-right"><span class="text-chavi-primary-600">retry</span> <span class="text-chavi-peach-600">delete</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="flex items-center justify-between px-2 py-1.5 border-t border-gray-100 text-[9px]">
+                                    <span class="text-gray-500">Showing 1–5 of 142</span>
+                                    <span class="flex gap-1">
+                                        <span class="px-1.5 py-0.5 rounded border border-gray-200 text-gray-400">‹</span>
+                                        <span class="px-1.5 py-0.5 rounded bg-chavi-primary-600 text-white font-semibold">1</span>
+                                        <span class="px-1.5 py-0.5 rounded border border-gray-200 text-gray-600">2</span>
+                                        <span class="px-1.5 py-0.5 rounded border border-gray-200 text-gray-600">3</span>
+                                        <span class="px-1.5 py-0.5 rounded border border-gray-200 text-gray-600">›</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="px-3 py-2 border-t border-gray-200 bg-chavi-sand-50 rounded-b-md flex gap-1">
+                                <span class="px-2 py-0.5 rounded bg-chavi-primary-600 text-white text-[9px] font-semibold">New Task</span>
+                                <span class="px-2 py-0.5 rounded bg-chavi-sand-600 text-white text-[9px] font-semibold">Export</span>
+                                <span class="px-2 py-0.5 rounded bg-chavi-peach-500 text-white text-[9px] font-semibold">Delete</span>
+                            </div>
+                        </div>
+                        <div class="bg-chavi-sun-100 border border-chavi-sun-300 rounded-md px-2 py-1 text-[9px] text-chavi-sun-900 mb-1">Notification: 3 items need review</div>
+                        <div class="flex gap-1">
+                            <span class="px-2 py-0.5 rounded bg-chavi-charcoal-800 text-white text-[9px] font-semibold">Charcoal CTA</span>
+                            <span class="px-2 py-0.5 rounded bg-chavi-primary-50 text-chavi-primary-800 border border-chavi-primary-200 text-[9px] font-semibold">Info chip</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCHEME 3: Banded -->
+            <div>
+                <h3 class="text-sm font-bold text-gray-900 mb-2">3 — Banded</h3>
+                <p class="text-xs text-gray-500 mb-3">Deep teal nav, dark card bands with sun underline. Bold, colorful.</p>
+                <div class="rounded-lg overflow-hidden border border-gray-300 shadow-md">
+                    <div class="bg-chavi-primary-800 px-3 py-1.5 flex items-center justify-between">
+                        <span class="text-white text-xs font-semibold">CHAVI</span>
+                        <span class="text-chavi-primary-200 text-[9px]">Import · Tasks · Admin</span>
+                    </div>
+                    <div class="bg-chavi-canvas p-3">
+                        <div class="bg-white rounded-md shadow-sm mb-2">
+                            <div class="bg-chavi-charcoal-800 px-3 py-1.5 text-xs font-semibold text-white border-b-2 border-chavi-sun-400 rounded-t-md">Card header band + sun line</div>
+                            <div class="p-2">
+                                <table class="w-full text-[10px]"><thead class="bg-chavi-charcoal-100"><tr><th class="px-2 py-1 text-left text-chavi-charcoal-800">Header</th><th class="px-2 py-1 text-left text-chavi-charcoal-800">Status</th></tr></thead>
+                                <tbody><tr class="border-t border-gray-100"><td class="px-2 py-1">Row</td><td class="px-2 py-1"><span class="px-1.5 rounded bg-chavi-sun-200 text-chavi-sun-900 text-[9px] font-semibold">Pending</span></td></tr></tbody></table>
+                                <div class="mt-2 flex gap-1">
+                                    <span class="px-2 py-0.5 rounded bg-chavi-primary-600 text-white text-[9px] font-semibold">Primary</span>
+                                    <span class="px-2 py-0.5 rounded bg-chavi-sun-500 text-chavi-charcoal-900 text-[9px] font-semibold">Accent</span>
+                                    <span class="px-2 py-0.5 rounded bg-chavi-peach-500 text-white text-[9px] font-semibold">Delete</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-chavi-sun-100 border border-chavi-sun-300 rounded-md px-2 py-1 text-[9px] text-chavi-sun-900">Notification: 3 items need review</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSEMBLED MOCKUP: Warm Paper + V6 -->
+        <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-1">Assembled Mockup — Cool Canvas + V6 Tables</h3>
+        <p class="text-xs text-gray-500 mb-4">Full-page composition at ~real scale: charcoal chrome + light charcoal canvas, sand accents, verdigris actions, sun highlights, peach destructive.</p>
+        <div class="rounded-xl overflow-hidden border border-gray-300 shadow-lg">
+
+            <!-- navbar -->
+            <div class="bg-chavi-charcoal-800 px-5 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <span class="text-white font-bold text-sm"><i class="fas fa-hospital-user mr-1 text-chavi-sun-400"></i>CHAVI</span>
+                    <span class="text-chavi-charcoal-200 text-xs">Home</span>
+                    <span class="text-chavi-charcoal-200 text-xs">Import</span>
+                    <span class="text-chavi-charcoal-200 text-xs border-b-2 border-chavi-sun-400 pb-0.5">Tasks</span>
+                    <span class="text-chavi-charcoal-200 text-xs">Admin</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="relative text-chavi-charcoal-200"><i class="fas fa-bell"></i><span class="absolute -top-1 -right-1 bg-chavi-peach-500 text-white text-[8px] rounded-full h-3.5 w-3.5 flex items-center justify-center">3</span></span>
+                    <span class="text-chavi-charcoal-200 text-xs"><i class="fas fa-user-circle"></i> admin</span>
+                </div>
+            </div>
+
+            <!-- page -->
+            <div class="bg-chavi-charcoal-50 p-5">
+
+                <!-- page header -->
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <div class="text-sm font-bold text-gray-900"><i class="fas fa-tasks text-chavi-primary-600 mr-1"></i>Task Runs</div>
+                        <div class="text-[10px] text-gray-500">Monitor background processing tasks</div>
+                    </div>
+                    <span class="px-3 py-1.5 rounded-md bg-chavi-primary-600 text-white text-xs font-semibold">+ New Task</span>
+                </div>
+
+                <!-- filter bar -->
+                <div class="bg-white border border-chavi-sand-200 rounded-md shadow-sm p-2.5 mb-4 flex items-center gap-2">
+                    <span class="px-2 py-1 rounded border border-gray-300 text-[10px] text-gray-500 w-40">Search tasks…</span>
+                    <span class="px-2 py-1 rounded border border-gray-300 text-[10px] text-gray-500 w-24">Status ▾</span>
+                    <span class="px-2 py-1 rounded border border-gray-300 text-[10px] text-gray-500 w-24">Date ▾</span>
+                    <span class="px-2.5 py-1 rounded bg-chavi-charcoal-600 text-white text-[10px] font-semibold">Apply</span>
+                    <span class="px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-600 text-[10px] font-semibold">Clear</span>
+                </div>
+
+                <!-- alert -->
+                <div class="bg-chavi-sun-100 border-l-4 border-chavi-sun-500 rounded-md px-3 py-2 mb-4 flex items-start gap-2">
+                    <i class="fas fa-exclamation-triangle text-chavi-sun-700 text-xs mt-0.5"></i>
+                    <span class="text-[11px] text-chavi-sun-900"><strong>2 tasks stalled</strong> — automatic retry in progress.</span>
+                </div>
+
+                <!-- table card -->
+                <div class="bg-chavi-sand-50 rounded-lg shadow-sm overflow-hidden border border-chavi-sand-200">
+                    <div class="h-1 bg-chavi-sand-500"></div>
+                    <div class="px-4 py-3 flex justify-between items-center border-b border-chavi-sand-200 bg-chavi-sand-100">
+                        <div class="text-xs font-bold text-chavi-sand-900">Recent Tasks</div>
+                        <div class="text-[10px] text-chavi-sand-800">142 total</div>
+                    </div>
+                    <div class="bg-white"><table class="w-full text-xs">
+                        <thead class="bg-chavi-charcoal-800">
+                            <tr>
+                                <th class="px-4 py-2.5 text-left text-white font-semibold">Task</th>
+                                <th class="px-4 py-2.5 text-left text-white font-semibold">Type</th>
+                                <th class="px-4 py-2.5 text-left text-white font-semibold">Progress</th>
+                                <th class="px-4 py-2.5 text-left text-white font-semibold">Status</th>
+                                <th class="px-4 py-2.5 text-right text-white font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors">
+                                <td class="px-4 py-2.5 font-medium text-gray-900">CSV import — clinic_a.csv</td>
+                                <td class="px-4 py-2.5 text-gray-600">Data Import</td>
+                                <td class="px-4 py-2.5"><div class="bg-gray-100 rounded-full h-1.5 w-24"><div class="bg-chavi-gradient h-1.5 rounded-full" style="width:100%"></div></div></td>
+                                <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 text-[10px] font-semibold">Completed</span></td>
+                                <td class="px-4 py-2.5 text-right"><span class="text-chavi-primary-600">view</span></td>
+                            </tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors">
+                                <td class="px-4 py-2.5 font-medium text-gray-900">DICOM sync — node EAST</td>
+                                <td class="px-4 py-2.5 text-gray-600">DICOM</td>
+                                <td class="px-4 py-2.5"><div class="bg-gray-100 rounded-full h-1.5 w-24"><div class="bg-chavi-gradient h-1.5 rounded-full" style="width:62%"></div></div></td>
+                                <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 text-[10px] font-semibold">Processing</span></td>
+                                <td class="px-4 py-2.5 text-right"><span class="text-chavi-primary-600">view</span></td>
+                            </tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors">
+                                <td class="px-4 py-2.5 font-medium text-gray-900">De-identification batch</td>
+                                <td class="px-4 py-2.5 text-gray-600">De-ID</td>
+                                <td class="px-4 py-2.5"><div class="bg-gray-100 rounded-full h-1.5 w-24"><div class="bg-chavi-gradient h-1.5 rounded-full" style="width:10%"></div></div></td>
+                                <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 text-[10px] font-semibold">Pending</span></td>
+                                <td class="px-4 py-2.5 text-right"><span class="text-chavi-primary-600">view</span></td>
+                            </tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors">
+                                <td class="px-4 py-2.5 font-medium text-gray-900">Extraction — reports set B</td>
+                                <td class="px-4 py-2.5 text-gray-600">Extraction</td>
+                                <td class="px-4 py-2.5"><div class="bg-gray-100 rounded-full h-1.5 w-24"><div class="bg-chavi-gradient h-1.5 rounded-full" style="width:0%"></div></div></td>
+                                <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full bg-chavi-sand-200 text-chavi-sand-900 text-[10px] font-semibold">Awaiting review</span></td>
+                                <td class="px-4 py-2.5 text-right"><span class="text-chavi-primary-600">review</span></td>
+                            </tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors">
+                                <td class="px-4 py-2.5 font-medium text-gray-900">Bulk upload — studies.zip</td>
+                                <td class="px-4 py-2.5 text-gray-600">Upload</td>
+                                <td class="px-4 py-2.5"><div class="bg-gray-100 rounded-full h-1.5 w-24"><div class="bg-chavi-peach-500 h-1.5 rounded-full" style="width:34%"></div></div></td>
+                                <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 text-[10px] font-semibold">Failed</span></td>
+                                <td class="px-4 py-2.5 text-right"><span class="text-chavi-primary-600">retry</span> <span class="text-chavi-peach-600 ml-1">delete</span></td>
+                            </tr>
+                        </tbody>
+                    </table></div>
+                    <!-- pagination -->
+                    <div class="px-4 py-2.5 border-t border-chavi-sand-200 flex items-center justify-between bg-chavi-sand-100">
+                        <span class="text-[10px] text-gray-500">Showing 1–5 of 142 · 25 per page ▾</span>
+                        <span class="flex gap-1">
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-400 text-[10px]">‹</span>
+                            <span class="px-2 py-1 rounded bg-chavi-primary-600 text-white text-[10px] font-semibold">1</span>
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 text-[10px]">2</span>
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 text-[10px]">3</span>
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-400 text-[10px]">…</span>
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 text-[10px]">6</span>
+                            <span class="px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 text-[10px]">›</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- secondary row: stat cards -->
+                <div class="grid grid-cols-4 gap-3 mt-4">
+                    <div class="bg-chavi-primary-50 border border-chavi-primary-200 rounded-lg shadow-sm overflow-hidden">
+                        <div class="h-1 bg-chavi-primary-500"></div>
+                        <div class="p-3"><div class="text-lg font-bold text-gray-900">98</div><div class="text-[10px] text-chavi-primary-700">Completed</div></div>
+                    </div>
+                    <div class="bg-chavi-charcoal-50 border border-chavi-charcoal-200 rounded-lg shadow-sm overflow-hidden">
+                        <div class="h-1 bg-chavi-charcoal-500"></div>
+                        <div class="p-3"><div class="text-lg font-bold text-gray-900">31</div><div class="text-[10px] text-chavi-charcoal-600">Processing</div></div>
+                    </div>
+                    <div class="bg-chavi-sun-50 border border-chavi-sun-200 rounded-lg shadow-sm overflow-hidden">
+                        <div class="h-1 bg-chavi-sun-500"></div>
+                        <div class="p-3"><div class="text-lg font-bold text-gray-900">11</div><div class="text-[10px] text-chavi-sun-800">Pending</div></div>
+                    </div>
+                    <div class="bg-chavi-peach-50 border border-chavi-peach-200 rounded-lg shadow-sm overflow-hidden">
+                        <div class="h-1 bg-chavi-peach-500"></div>
+                        <div class="p-3"><div class="text-lg font-bold text-gray-900">2</div><div class="text-[10px] text-chavi-peach-700">Failed</div></div>
+                    </div>
+                </div>
+
+                <!-- footer band -->
+                <div class="mt-4 rounded-md bg-chavi-charcoal-800 px-4 py-2 flex justify-between items-center">
+                    <span class="text-chavi-charcoal-200 text-[10px]">CHAVI Client · v1.0</span>
+                    <span class="text-[10px]"><span class="text-chavi-sun-400">Documentation</span> · <span class="text-chavi-charcoal-200">Support</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table styling variations -->
+        <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Table Styling — 6 Variations on chavi-charcoal-50</h3>
+        <p class="text-xs text-gray-500 mb-4">Hover is always primary-50 (verdigris = interactive). Badges always use semantic colors. Only the structural accent changes.</p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V1 · Sand</p>
+                <p class="text-[11px] text-gray-500 mb-2">Warm sand header band + sand zebra (Warm Paper default)</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-sand-100"><tr>
+                            <th class="px-4 py-2 text-left text-chavi-sand-900 font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-chavi-sand-900 font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-chavi-sand-900 font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V2 · Verdigris</p>
+                <p class="text-[11px] text-gray-500 mb-2">Brand-forward: teal header + teal zebra</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-primary-100"><tr>
+                            <th class="px-4 py-2 text-left text-chavi-primary-900 font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-chavi-primary-900 font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-chavi-primary-900 font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-primary-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-primary-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V3 · Charcoal</p>
+                <p class="text-[11px] text-gray-500 mb-2">Cool neutral: charcoal header + charcoal zebra</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-charcoal-100"><tr>
+                            <th class="px-4 py-2 text-left text-chavi-charcoal-900 font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-chavi-charcoal-900 font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-chavi-charcoal-900 font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-charcoal-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-charcoal-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V4 · Sun</p>
+                <p class="text-[11px] text-gray-500 mb-2">Brightest: sun header + sun zebra</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-sun-100"><tr>
+                            <th class="px-4 py-2 text-left text-chavi-sun-900 font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-chavi-sun-900 font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-chavi-sun-900 font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-sun-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-sun-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V5 · Peach</p>
+                <p class="text-[11px] text-gray-500 mb-2">Warm red tint: peach header + peach zebra</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-peach-100"><tr>
+                            <th class="px-4 py-2 text-left text-chavi-peach-900 font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-chavi-peach-900 font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-chavi-peach-900 font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-peach-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-peach-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-chavi-canvas p-4 rounded-lg border border-gray-200">
+                <p class="text-xs font-semibold text-gray-700 mb-1">V6 · Dark band</p>
+                <p class="text-[11px] text-gray-500 mb-2">Charcoal-800 solid header + paper zebra, highest contrast</p>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-xs">
+                        <thead class="bg-chavi-charcoal-800"><tr>
+                            <th class="px-4 py-2 text-left text-white font-semibold">Patient</th>
+                            <th class="px-4 py-2 text-left text-white font-semibold">Study</th>
+                            <th class="px-4 py-2 text-left text-white font-semibold">Status</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1021</td><td class="px-4 py-2">CT Chest</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-primary-100 text-chavi-primary-800 font-semibold">Linked</span></td></tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1022</td><td class="px-4 py-2">MRI Brain</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-charcoal-100 text-chavi-charcoal-800 font-semibold">Processing</span></td></tr>
+                            <tr class="hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1023</td><td class="px-4 py-2">XR Wrist</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-sun-200 text-chavi-sun-900 font-semibold">Pending</span></td></tr>
+                            <tr class="bg-chavi-sand-50 hover:bg-chavi-primary-50 transition-colors"><td class="px-4 py-2">PT-1024</td><td class="px-4 py-2">CT Abd</td><td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full bg-chavi-peach-100 text-chavi-peach-800 font-semibold">Unlinked</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Element-level background options -->
+        <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Element Background Options</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-3 py-2 text-xs font-semibold border-b border-gray-200 bg-chavi-charcoal-50">Card: default (white)</div>
+                <div class="p-3 text-xs text-gray-500">No accent — plain white card</div>
+            </div>
+            <div class="bg-chavi-primary-50 border border-chavi-primary-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="h-1 bg-chavi-primary-500"></div>
+                <div class="px-3 py-2 text-xs font-semibold bg-chavi-primary-100 border-b border-chavi-primary-200 text-chavi-primary-900">accent="primary"</div>
+                <div class="p-3 text-xs text-chavi-primary-800">Tinted bg + matching band</div>
+            </div>
+            <div class="bg-chavi-charcoal-50 border border-chavi-charcoal-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="h-1 bg-chavi-charcoal-500"></div>
+                <div class="px-3 py-2 text-xs font-semibold bg-chavi-charcoal-100 border-b border-chavi-charcoal-200 text-chavi-charcoal-900">accent="charcoal"</div>
+                <div class="p-3 text-xs text-chavi-charcoal-800">Tinted bg + matching band</div>
+            </div>
+            <div class="bg-chavi-sun-50 border border-chavi-sun-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="h-1 bg-chavi-sun-500"></div>
+                <div class="px-3 py-2 text-xs font-semibold bg-chavi-sun-100 border-b border-chavi-sun-200 text-chavi-sun-900">accent="sun"</div>
+                <div class="p-3 text-xs text-chavi-sun-900">Tinted bg + matching band</div>
+            </div>
+            <div class="bg-chavi-sand-50 border border-chavi-sand-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="h-1 bg-chavi-sand-500"></div>
+                <div class="px-3 py-2 text-xs font-semibold bg-chavi-sand-100 border-b border-chavi-sand-200 text-chavi-sand-900">accent="sand"</div>
+                <div class="p-3 text-xs text-chavi-sand-800">Tinted bg + matching band</div>
+            </div>
+            <div class="bg-chavi-peach-50 border border-chavi-peach-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="h-1 bg-chavi-peach-500"></div>
+                <div class="px-3 py-2 text-xs font-semibold bg-chavi-peach-100 border-b border-chavi-peach-200 text-chavi-peach-900">accent="peach"</div>
+                <div class="p-3 text-xs text-chavi-peach-800">Tinted bg + matching band</div>
+            </div>
+        </div>
+    </section>
+
+    {# ============ SEMANTIC / STATUS COLORS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Semantic & Status Colors</h2>
+        <table class="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm mb-6">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Semantic</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Light bg</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Text</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solid</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Meaning</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100 text-sm">
+                <tr><td class="px-4 py-2 font-medium">Success</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-primary-100 text-chavi-primary-800 text-xs font-mono">100/800</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">primary-800 on primary-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-primary-600 text-white text-xs font-mono">600</span></td>
+                    <td class="px-4 py-2">Completed, success, linked</td></tr>
+                <tr><td class="px-4 py-2 font-medium">Danger</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-peach-100 text-chavi-peach-800 text-xs font-mono">100/800</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">peach-800 on peach-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-peach-600 text-white text-xs font-mono">600</span></td>
+                    <td class="px-4 py-2">Failed, error, destructive</td></tr>
+                <tr><td class="px-4 py-2 font-medium">Warning</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-sun-100 text-chavi-sun-900 text-xs font-mono">100/900</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">sun-900 on sun-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-sun-500 text-chavi-charcoal-900 text-xs font-mono">500 + charcoal-900</span></td>
+                    <td class="px-4 py-2">Pending, stalled, awaiting</td></tr>
+                <tr><td class="px-4 py-2 font-medium">Info</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-charcoal-100 text-chavi-charcoal-800 text-xs font-mono">100/800</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">charcoal-800 on charcoal-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-charcoal-600 text-white text-xs font-mono">600</span></td>
+                    <td class="px-4 py-2">Processing, info, running</td></tr>
+                <tr><td class="px-4 py-2 font-medium">Accent</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-sand-100 text-chavi-sand-900 text-xs font-mono">100/900</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">sand-900 on sand-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-chavi-sand-500 text-chavi-charcoal-900 text-xs font-mono">500 + charcoal-900</span></td>
+                    <td class="px-4 py-2">Analyzed, confirmed, intermediate</td></tr>
+                <tr><td class="px-4 py-2 font-medium">Neutral</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs font-mono">100/800</span></td>
+                    <td class="px-4 py-2 font-mono text-xs">gray-800 on gray-100</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 rounded bg-gray-500 text-white text-xs font-mono">500</span></td>
+                    <td class="px-4 py-2">Neutral, inactive, not linked</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    {# ============ NEUTRALS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Neutrals</h2>
+        <div class="grid grid-cols-10 gap-1 mb-4">
+            <div class="h-12 rounded bg-gray-50 border border-gray-200"></div><div class="h-12 rounded bg-gray-100"></div><div class="h-12 rounded bg-gray-200"></div><div class="h-12 rounded bg-gray-300"></div><div class="h-12 rounded bg-gray-400"></div><div class="h-12 rounded bg-gray-500"></div><div class="h-12 rounded bg-gray-600"></div><div class="h-12 rounded bg-gray-700"></div><div class="h-12 rounded bg-gray-800"></div><div class="h-12 rounded bg-gray-900"></div>
+        </div>
+        <div class="grid grid-cols-10 gap-1 text-center text-xs font-mono text-gray-500">
+            <div>50</div><div>100</div><div>200</div><div>300</div><div>400</div><div>500</div><div>600</div><div>700</div><div>800</div><div>900</div>
+        </div>
+        <p class="text-sm text-gray-600 mt-4">Page bg <code class="font-mono">bg-gray-50</code> · Cards <code class="font-mono">bg-white</code> · Primary text <code class="font-mono">text-gray-900</code> · Secondary <code class="font-mono">text-gray-600</code> · Muted <code class="font-mono">text-gray-500</code> · Borders <code class="font-mono">border-gray-200</code> (default) / <code class="font-mono">border-gray-300</code> (inputs)</p>
+    </section>
+
+    {# ============ TYPOGRAPHY ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Typography</h2>
+        <div class="bg-white rounded-lg shadow-md p-6 space-y-4">
+            <div><p class="text-3xl font-bold text-gray-900">Page title (text-3xl bold)</p><p class="text-xs font-mono text-gray-400">text-3xl font-bold text-gray-900</p></div>
+            <div><p class="text-xl text-gray-600">Page subtitle (text-xl)</p><p class="text-xs font-mono text-gray-400">text-xl text-gray-600</p></div>
+            <div><p class="text-2xl font-bold text-gray-900">Section title (text-2xl bold)</p><p class="text-xs font-mono text-gray-400">text-2xl font-bold text-gray-900</p></div>
+            <div><p class="text-lg font-semibold text-gray-900">Card title (text-lg semibold)</p><p class="text-xs font-mono text-gray-400">text-lg font-semibold text-gray-900</p></div>
+            <div><p class="text-base text-gray-600">Body text — the quick brown fox jumps over the lazy dog.</p><p class="text-xs font-mono text-gray-400">text-base text-gray-600</p></div>
+            <div><p class="text-sm text-gray-600">Body small — used in table cells and form labels.</p><p class="text-xs font-mono text-gray-400">text-sm text-gray-600</p></div>
+            <div><p class="text-sm font-medium text-gray-700">Form label</p><p class="text-xs font-mono text-gray-400">text-sm font-medium text-gray-700</p></div>
+            <div><p class="text-sm text-gray-500">Help text — explains a field.</p><p class="text-xs font-mono text-gray-400">text-sm text-gray-500</p></div>
+            <div><p class="text-sm font-medium text-chavi-peach-600">Error text — this field is required.</p><p class="text-xs font-mono text-gray-400">text-sm font-medium text-chavi-peach-600</p></div>
+            <div><p class="text-xs font-medium text-gray-500 uppercase">Caption / meta</p><p class="text-xs font-mono text-gray-400">text-xs font-medium text-gray-500</p></div>
+            <div><p class="text-3xl font-bold text-gray-900">42</p><p class="text-sm font-medium text-gray-600">Stat value + label</p></div>
+            <div><p class="font-mono text-sm text-gray-800">1.2.840.113619.2.55.3 — monospace for UIDs/IDs</p><p class="text-xs font-mono text-gray-400">font-mono</p></div>
+        </div>
+    </section>
+
+    {# ============ SPACING / SHADOWS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Spacing, Radius & Shadows</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-4 text-sm">
+                <p class="font-semibold mb-2">Radii</p>
+                <div class="space-y-2">
+                    <div class="h-8 bg-chavi-primary-100 rounded-md flex items-center justify-center text-xs font-mono">rounded-md</div>
+                    <div class="h-8 bg-chavi-primary-100 rounded-lg flex items-center justify-center text-xs font-mono">rounded-lg</div>
+                    <div class="h-8 bg-chavi-primary-100 rounded-full flex items-center justify-center text-xs font-mono">rounded-full</div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-4 text-sm">
+                <p class="font-semibold mb-2">Shadows</p>
+                <div class="space-y-3">
+                    <div class="p-3 bg-gray-50 rounded shadow-sm text-xs font-mono">shadow-sm</div>
+                    <div class="p-3 bg-gray-50 rounded shadow-md text-xs font-mono">shadow-md</div>
+                    <div class="p-3 bg-gray-50 rounded shadow-lg text-xs font-mono">shadow-lg</div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-4 text-sm">
+                <p class="font-semibold mb-2">Containers</p>
+                <p class="font-mono text-xs text-gray-600">max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 (pages)</p>
+                <p class="font-mono text-xs text-gray-600 mt-2">max-w-3xl mx-auto (forms/wizards)</p>
+                <p class="font-mono text-xs text-gray-600 mt-2">gap-6 / space-y-6 (sections)</p>
+            </div>
+        </div>
+    </section>
+
+    {# ============ BUTTONS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Buttons</h2>
+        <div class="bg-white rounded-lg shadow-md p-6 space-y-6">
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">Styles</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    {% component "button" style="primary" %}Primary{% endcomponent %}
+                    {% component "button" style="secondary" %}Secondary{% endcomponent %}
+                    {% component "button" style="success" %}Success{% endcomponent %}
+                    {% component "button" style="danger" %}Danger{% endcomponent %}
+                    {% component "button" style="warning" %}Warning{% endcomponent %}
+                    {% component "button" style="info" %}Info{% endcomponent %}
+                    {% component "button" style="outline" %}Outline{% endcomponent %}
+                    {% component "button" style="ghost" %}Ghost{% endcomponent %}
+                    {% component "button" style="link" %}Link{% endcomponent %}
+                </div>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">Sizes</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    {% component "button" style="primary" size="sm" %}Small{% endcomponent %}
+                    {% component "button" style="primary" size="md" %}Medium{% endcomponent %}
+                    {% component "button" style="primary" size="lg" %}Large{% endcomponent %}
+                </div>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">With icons / disabled / link</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    {% component "button" style="primary" icon="fas fa-save" %}Save{% endcomponent %}
+                    {% component "button" style="danger" icon="fas fa-trash" %}Delete{% endcomponent %}
+                    {% component "button" style="primary" disabled=True %}Disabled{% endcomponent %}
+                    {% component "button" style="secondary" href="#" icon="fas fa-download" %}Link as button{% endcomponent %}
+                </div>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">IconButtons (table actions)</p>
+                <div class="flex items-center gap-2">
+                    {% component "icon_button" icon="fas fa-eye" aria_label="View" %}{% endcomponent %}
+                    {% component "icon_button" icon="fas fa-edit" aria_label="Edit" %}{% endcomponent %}
+                    {% component "icon_button" icon="fas fa-trash" style="danger" aria_label="Delete" %}{% endcomponent %}
+                    {% component "icon_button" icon="fas fa-download" style="ghost" aria_label="Download" %}{% endcomponent %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ============ CARDS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Cards</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {% component "card" title="Card with title" %}
+                {% fill "body" %}<p class="text-gray-600">Standard card body. Uses <code class="font-mono">title</code> kwarg for the header.</p>{% endfill %}
+                {% fill "actions" %}{% component "button" style="ghost" size="sm" %}Action{% endcomponent %}{% endfill %}
+                {% fill "footer" %}<p class="text-sm text-gray-500">Footer content</p>{% endfill %}
+            {% endcomponent %}
+            {% component "card" flat=True %}
+                {% fill "body" %}<p class="text-gray-600">Flat variant — <code class="font-mono">flat=True</code>, border instead of shadow.</p>{% endfill %}
+            {% endcomponent %}
+            {% component "card" hoverable=True %}
+                {% fill "body" %}<p class="text-gray-600">Hoverable variant — shadow lifts on hover.</p>{% endfill %}
+            {% endcomponent %}
+            <div class="grid grid-cols-1 gap-4">
+                {% component "stat_card" icon="fas fa-check-circle" style="success" label="Processed" value="128" %}{% endcomponent %}
+                {% component "stat_card" icon="fas fa-exclamation-triangle" style="warning" label="Pending review" value="12" %}{% endcomponent %}
+            </div>
+        </div>
+    </section>
+
+    {# ============ TABLES ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Tables</h2>
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            {% endfill %}
+            {% fill "body" %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">PAT-0001</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{% component "badge" style="success" %}Completed{% endcomponent %}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">24</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                        {% component "icon_button" icon="fas fa-eye" aria_label="View" %}{% endcomponent %}
+                        {% component "icon_button" icon="fas fa-trash" style="danger" aria_label="Delete" %}{% endcomponent %}
+                    </td>
+                </tr>
+                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">PAT-0002</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{% component "badge" style="warning" %}Pending{% endcomponent %}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">7</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                        {% component "icon_button" icon="fas fa-eye" aria_label="View" %}{% endcomponent %}
+                        {% component "icon_button" icon="fas fa-trash" style="danger" aria_label="Delete" %}{% endcomponent %}
+                    </td>
+                </tr>
+            {% endfill %}
+        {% endcomponent %}
+
+        <div class="mt-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">Empty state inside table</p>
+            {% component "table" %}
+                {% fill "head" %}<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>{% endfill %}
+                {% fill "body" %}{% endfill %}
+                {% fill "empty" %}No records found.{% endfill %}
+            {% endcomponent %}
+        </div>
+    </section>
+
+    {# ============ FORM FIELDS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Form Fields</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% component "form_field" label="Text input" field_id="demo-text" required=True help_text="Standard text input." %}
+                    <input id="demo-text" type="text" placeholder="Enter value" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary transition-colors">
+                {% endcomponent %}
+                {% component "form_field" label="Select" field_id="demo-select" %}
+                    <select id="demo-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary transition-colors">
+                        <option>Option A</option><option>Option B</option>
+                    </select>
+                {% endcomponent %}
+                {% component "form_field" label="Textarea" field_id="demo-ta" %}
+                    <textarea id="demo-ta" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary transition-colors"></textarea>
+                {% endcomponent %}
+                {% component "form_field" label="Error state" field_id="demo-err" %}
+                    <input id="demo-err" type="text" value="bad value" class="w-full px-3 py-2 border border-chavi-peach-500 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-peach-500 focus:border-chavi-peach-500 transition-colors">
+                    <p class="mt-1 text-sm text-chavi-peach-600">This field is required.</p>
+                {% endcomponent %}
+                {% component "form_field" label="Checkbox" %}
+                    <label class="inline-flex items-center gap-2"><input type="checkbox" class="h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary"> <span class="text-sm text-gray-700">Enable option</span></label>
+                {% endcomponent %}
+            </div>
+        </div>
+    </section>
+
+    {# ============ BADGES / ALERTS / INFOBOX ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Badges, Alerts & Callouts</h2>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">Badges</p>
+            <div class="flex flex-wrap items-center gap-3 mb-6">
+                {% component "badge" style="success" %}Completed{% endcomponent %}
+                {% component "badge" style="danger" %}Failed{% endcomponent %}
+                {% component "badge" style="warning" %}Pending{% endcomponent %}
+                {% component "badge" style="info" %}Processing{% endcomponent %}
+                {% component "badge" style="accent" %}Confirmed{% endcomponent %}
+                {% component "badge" style="gray" %}Inactive{% endcomponent %}
+                {% component "badge" style="success" icon="fas fa-check" %}With icon{% endcomponent %}
+            </div>
+            <p class="text-sm font-semibold text-gray-700 mb-3">Alerts</p>
+            {% component "alert" style="success" %}{% fill "title" %}Success{% endfill %}{% fill "default" %}Operation completed successfully.{% endfill %}{% endcomponent %}
+            {% component "alert" style="danger" %}{% fill "title" %}Error{% endfill %}{% fill "default" %}Something went wrong.{% endfill %}{% endcomponent %}
+            {% component "alert" style="warning" dismissible=True %}{% fill "title" %}Warning{% endfill %}{% fill "default" %}Please review before proceeding. (dismissible){% endfill %}{% endcomponent %}
+            {% component "alert" style="info" %}Informational message without a title.{% endcomponent %}
+            <p class="text-sm font-semibold text-gray-700 mb-3 mt-6">InfoBoxes (persistent callouts)</p>
+            {% component "info_box" style="info" %}{% fill "title" %}Before you begin{% endfill %}
+                {% fill "default" %}<ul class="list-disc list-inside space-y-1"><li>Supported formats: PDF, CSV, XLSX</li><li>Maximum size: 50MB</li></ul>{% endfill %}
+            {% endcomponent %}
+            {% component "info_box" style="warning" %}{% fill "title" %}Please verify{% endfill %}{% fill "default" %}These records were manually matched.{% endfill %}{% endcomponent %}
+        </div>
+    </section>
+
+    {# ============ SEARCH / FILTER / PAGINATION ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Search, Filter & Pagination</h2>
+        {% component "search_bar" placeholder="Search patients…" %}{% endcomponent %}
+        {% component "filter_bar" clear_url="#" %}
+            {% fill "fields" %}
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                    <select class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary"><option>All</option></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">From date</label>
+                    <input type="date" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary">
+                </div>
+            {% endfill %}
+        {% endcomponent %}
+    </section>
+
+    {# ============ STEPPER / PROGRESS / ACCORDION / DATALIST ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Workflow Components</h2>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-4">Stepper</p>
+            {% component "stepper" steps=stepper_demo %}{% endcomponent %}
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-4">Progress</p>
+            {% component "progress" value=0 label="Not started" show_percent=True %}{% endcomponent %}
+            {% component "progress" value=55 label="Processing…" show_percent=True %}{% endcomponent %}
+            {% component "progress" value=100 label="Complete" show_percent=True style="success" %}{% endcomponent %}
+        </div>
+        <div class="mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">Accordion</p>
+            <div class="space-y-3">
+                {% component "accordion" open=True %}{% fill "summary" %}Stage 1 — prompt sent to the LLM{% endfill %}{% fill "default" %}<pre class="bg-gray-50 border border-gray-200 rounded p-3 text-xs font-mono">{"prompt": "Extract diagnosis"}</pre>{% endfill %}{% endcomponent %}
+                {% component "accordion" attention=True open=True %}{% fill "summary" %}Stage 2 — awaiting approval{% endfill %}{% fill "default" %}<p class="text-sm">Nothing sent to the LLM yet.</p>{% endfill %}{% endcomponent %}
+                {% component "accordion" %}{% fill "summary" %}Collapsed panel{% endfill %}{% fill "default" %}<p class="text-sm text-gray-600">Hidden content.</p>{% endfill %}{% endcomponent %}
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-4">DataList</p>
+            {% component "data_list" items=datalist_demo %}{% endcomponent %}
+        </div>
+        <div class="mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">BulkActionToolbar</p>
+            {% component "bulk_action_toolbar" %}
+                {% fill "primary" %}
+                    {% component "button" style="primary" size="sm" icon="fas fa-play" %}Deidentify selected{% endcomponent %}
+                    {% component "button" style="secondary" size="sm" %}Select all{% endcomponent %}
+                {% endfill %}
+                {% fill "secondary" %}
+                    {% component "button" style="danger" size="sm" icon="fas fa-trash" %}Delete{% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <p class="text-sm font-semibold text-gray-700 mb-4">Tabs</p>
+            {% component "tabs" tabs=tabs_demo %}{% endcomponent %}
+            <p class="text-sm text-gray-600">Content for the active tab renders here.</p>
+        </div>
+    </section>
+
+    {# ============ MODAL / DROPZONE / CODE / LOG ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Interactive Components</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Modal</p>
+                {% component "button" style="danger" extra_class="demo-modal-open" %}Open delete modal{% endcomponent %}
+                {% component "modal" modal_id="demo-modal" danger=True %}
+                    {% fill "title" %}Confirm Deletion{% endfill %}
+                    {% fill "body" %}Are you sure you want to delete this record? This action cannot be undone.{% endfill %}
+                    {% fill "footer" %}
+                        {% component "button" style="secondary" extra_class="demo-modal-close" %}Cancel{% endcomponent %}
+                        {% component "button" style="danger" icon="fas fa-trash" %}Delete{% endcomponent %}
+                    {% endfill %}
+                {% endcomponent %}
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Dropzone</p>
+                {% component "dropzone" input_id="demo-file" name="file" accept=".pdf,.csv" help_text="PDF or CSV up to 50MB" %}{% endcomponent %}
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">CodeBlock</p>
+                {% component "code_block" copyable=True %}{"status": "ok", "count": 42}{% endcomponent %}
+                <div class="mt-4">
+                    {% component "code_block" variant="error" %}Traceback: ValueError: missing study UID{% endcomponent %}
+                </div>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-700 mb-3">LogFeed</p>
+                {% component "log_feed" entries=log_demo %}{% endcomponent %}
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">EmptyState</p>
+                {% component "empty_state" title="No studies found" description="Upload DICOM files to get started." %}
+                    {% fill "action" %}{% component "button" style="primary" icon="fas fa-upload" %}Upload{% endcomponent %}{% endfill %}
+                {% endcomponent %}
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">FileTypeBadge</p>
+                <div class="space-y-2">
+                    {% component "file_type_badge" filename="report.pdf" %}{% endcomponent %}<br>
+                    {% component "file_type_badge" filename="data.csv" %}{% endcomponent %}<br>
+                    {% component "file_type_badge" filename="images.zip" %}{% endcomponent %}<br>
+                    {% component "file_type_badge" filename="notes.txt" %}{% endcomponent %}
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Tag / BackLink</p>
+                {% component "tag" text="Oncology" removable=True %}{% endcomponent %}
+                {% component "tag" text="PAT-0042" style="primary" %}{% endcomponent %}
+                <div class="mt-4">{% component "back_link" href="#" text="Back to list" %}{% endcomponent %}</div>
+            </div>
+        </div>
+    </section>
+
+    {# ============ NAVIGATION ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Navigation Components</h2>
+        <p class="text-sm text-gray-600 mb-4">Navbar primitives — all nav icons render <code class="chavi-code">text-chavi-primary-300</code> on the charcoal chrome; the active item carries a tight <code class="chavi-code">border-chavi-sun-400</code> underline under its label.</p>
+        <div class="bg-chavi-charcoal-800 rounded-lg p-4 mb-6">
+            <div class="flex items-center gap-2 mb-4">
+                {% component "nav_link" href="#" icon="fa-home" label="Active link" active=True %}{% endcomponent %}
+                {% component "nav_link" href="#" icon="fa-search" label="Inactive link" %}{% endcomponent %}
+                {% component "nav_dropdown" icon="fa-magic" label="Dropdown (hover)" active_on="never-matches" %}
+                    {% fill "items" %}
+                    {% component "nav_dropdown_item" section="Section label" %}{% endcomponent %}
+                    {% component "nav_dropdown_item" href="#" icon="fa-robot" label="Menu item" %}{% endcomponent %}
+                    {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                    {% component "nav_dropdown_item" href="#" icon="fa-server" label="Another item" %}{% endcomponent %}
+                    {% endfill %}
+                {% endcomponent %}
+            </div>
+            <div class="w-56 space-y-1 bg-black bg-opacity-20 rounded p-2">
+                {% component "nav_mobile_item" href="#" icon="fa-home" label="Mobile item" active=True %}{% endcomponent %}
+                {% component "nav_mobile_item" section="SECTION LABEL" %}{% endcomponent %}
+                {% component "nav_mobile_item" href="#" icon="fa-search" label="Mobile item" %}{% endcomponent %}
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">LinkChip — inline record actions (builds <code class="chavi-code">url?param=value</code>)</p>
+            <div class="flex items-center gap-2">
+                {% component "link_chip" url=link_chip_demo_url param="patient_id__exact" value="PAT-0001" label="View" %}{% endcomponent %}
+                {% component "link_chip" url=link_chip_demo_url param="patient" value="42" label="Add" style="primary" %}{% endcomponent %}
+            </div>
+        </div>
+    </section>
+
+    {# ============ TILES ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Tile Components</h2>
+        <p class="text-sm text-gray-600 mb-4">Dashboard/landing tiles — used on the homepage workspace.</p>
+        <div class="grid sm:grid-cols-3 gap-4 mb-6">
+            {% component "stat_tile" label="Lifetime patients" value="1,204" icon="fa-users" icon_style="primary" %}{% endcomponent %}
+            {% component "stat_tile" label="DICOM studies" value="87" icon="fa-x-ray" icon_style="sand" %}{% endcomponent %}
+            {% component "stat_tile" label="Active tasks" value="3" icon="fa-spinner" icon_style="charcoal" %}{% endcomponent %}
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4 mb-6">
+            {% component "action_tile" href="#" icon="fa-file-medical" icon_style="sand" title="Upload DICOM" %}
+                Upload multi-patient DICOM archives and automatically match studies to known patients.
+            {% endcomponent %}
+            {% component "action_tile" href="#" icon="fa-user-shield" icon_style="peach" title="Prepare data for CHAVI" %}
+                De-identify linked clinical records and DICOM studies for selected patients.
+            {% endcomponent %}
+        </div>
+        <div class="grid sm:grid-cols-3 gap-4">
+            {% component "feature_tile" accent="primary" icon="fa-notes-medical" title="Feature tile" %}
+                Tinted capability tile for bento grids — supports accent tints and grid spans.
+            {% endcomponent %}
+            {% component "feature_tile" accent="sun" icon="fa-wand-magic-sparkles" title="Sun accent" %}
+                Pass <code class="chavi-code">accent="sun|sand|peach|charcoal|primary"</code> and <code class="chavi-code">span</code> grid classes.
+            {% endcomponent %}
+            {% component "feature_tile" accent="peach" icon="fa-user-shield" title="Peach accent" %}
+                Body copy goes in the default slot.
+            {% endcomponent %}
+        </div>
+    </section>
+
+    {# ============ OVERLAY / BADGE VARIANTS ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Overlays &amp; Badge Variants</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">LoadingOverlay — full-area spinner, toggled like a modal</p>
+                <button type="button" class="px-4 py-2 bg-chavi-primary-600 text-white rounded-lg text-sm font-semibold" onclick="document.getElementById('demo-loading').classList.remove('hidden');document.getElementById('demo-loading').classList.add('flex');setTimeout(function(){var d=document.getElementById('demo-loading');d.classList.add('hidden');d.classList.remove('flex');},1500)">Show for 1.5s</button>
+                {% component "loading_overlay" id="demo-loading" label="Processing…" %}{% endcomponent %}
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <p class="text-sm font-semibold text-gray-700 mb-3">Badge — count variant</p>
+                <div class="flex items-center gap-3">
+                    {% component "badge" count=12 %}{% endcomponent %}
+                    {% component "badge" count=0 %}{% endcomponent %}
+                    {% component "badge" count=5 size="sm" %}{% endcomponent %}
+                </div>
+                <p class="text-xs text-gray-500 mt-3"><code class="chavi-code">count</code> renders a fixed-size circle: verdigris when &gt;0, gray when 0.</p>
+            </div>
+        </div>
+    </section>
+
+    {# ============ ICONOGRAPHY ============ #}
+    <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Iconography</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><i class="fas fa-check-circle text-chavi-primary-500 mr-2"></i>success — fa-check-circle</div>
+                <div><i class="fas fa-exclamation-circle text-chavi-peach-500 mr-2"></i>error — fa-exclamation-circle</div>
+                <div><i class="fas fa-exclamation-triangle text-chavi-sun-700 mr-2"></i>warning — fa-exclamation-triangle</div>
+                <div><i class="fas fa-info-circle text-chavi-charcoal-500 mr-2"></i>info — fa-info-circle</div>
+                <div><i class="fas fa-spinner fa-spin text-chavi-primary mr-2"></i>loading — fa-spinner</div>
+                <div><i class="fas fa-inbox text-gray-300 mr-2"></i>empty — fa-inbox</div>
+                <div><i class="fas fa-search text-chavi-primary mr-2"></i>search — fa-search</div>
+                <div><i class="fas fa-filter text-chavi-primary mr-2"></i>filter — fa-filter</div>
+                <div><i class="fas fa-times text-gray-500 mr-2"></i>clear — fa-times</div>
+                <div><i class="fas fa-plus text-chavi-primary mr-2"></i>add — fa-plus</div>
+                <div><i class="fas fa-edit text-chavi-primary mr-2"></i>edit — fa-edit</div>
+                <div><i class="fas fa-trash text-chavi-peach-600 mr-2"></i>delete — fa-trash</div>
+                <div><i class="fas fa-download text-chavi-primary mr-2"></i>download — fa-download</div>
+                <div><i class="fas fa-upload text-chavi-primary mr-2"></i>upload — fa-upload</div>
+                <div><i class="fas fa-eye text-chavi-primary mr-2"></i>view — fa-eye</div>
+                <div><i class="fas fa-arrow-left text-gray-600 mr-2"></i>back — fa-arrow-left</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="border-t border-gray-200 pt-6 text-sm text-gray-500">
+        <p>Source of truth: <code class="font-mono">components/ui.py</code> + <code class="font-mono">components/templates/ui/</code>. Docs: <code class="font-mono">docs/ui-styleguide.md</code>.</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelector('.demo-modal-open').addEventListener('click', function () {
+        window.openModal('demo-modal');
+    });
+    document.querySelector('.demo-modal-close').addEventListener('click', function () {
+        window.closeModal('demo-modal');
+    });
+    document.querySelector('[data-notification-trigger]') && document.querySelector('[data-notification-trigger]').addEventListener('click', function () {
+        this.parentElement.querySelector('[data-notification-menu]').classList.toggle('hidden');
+    });
+});
+</script>
+{% endblock %}

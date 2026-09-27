@@ -5,257 +5,174 @@
 {% block content %}
 <div class="w-full px-4 sm:px-6 lg:px-8 py-8">
     <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-chavi-gray mb-2">Confirm Patient Matches</h1>
-            <p class="text-gray-600">Review all matches before final processing</p>
-        </div>
+        {% component "page_header" title="Confirm Patient Matches" subtitle="Review all matches before final processing" %}
+        {% endcomponent %}
 
-        <!-- Progress Bar -->
-        <div class="mb-8 bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">✓</div>
-                    <span class="ml-2 font-semibold text-chavi-primary">Upload</span>
-                </div>
-                <div class="flex-1 h-1 bg-chavi-primary mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">✓</div>
-                    <span class="ml-2 font-semibold text-chavi-primary">Match Studies</span>
-                </div>
-                <div class="flex-1 h-1 bg-chavi-primary mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-chavi-primary text-white rounded-full flex items-center justify-center font-bold">3</div>
-                    <span class="ml-2 font-semibold text-chavi-primary">Confirm</span>
-                </div>
-                <div class="flex-1 h-1 bg-gray-300 mx-4"></div>
-                <div class="flex items-center">
-                    <div class="w-8 h-8 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">4</div>
-                    <span class="ml-2 text-gray-600">Complete</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Messages -->
-        {% if messages %}
-        <div class="mb-6">
-            {% for message in messages %}
-            <div class="{% if message.tags == 'error' %}bg-red-100 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border-green-400 text-green-700{% else %}bg-blue-100 border-blue-400 text-blue-700{% endif %} border px-4 py-3 rounded relative mb-4" role="alert">
-                <span class="block sm:inline">{{ message }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        <!-- Progress Stepper -->
+        {% component "card" extra_class="mb-8" %}
+            {% fill "body" %}
+            {% component "stepper" labels="Upload,Match Studies,Confirm,Complete" current=2 %}{% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
 
         <!-- Summary Statistics -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-green-100 text-green-600">
-                        <i class="fas fa-check-circle text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Will Be Processed</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ auto_matched.count|add:manually_matched.count }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                        <i class="fas fa-folder text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Will Be Unprocessed</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ unmatched.count }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <i class="fas fa-clipboard-list text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm text-gray-600">Total Studies</p>
-                        <p class="text-2xl font-bold text-gray-800">{{ total_studies }}</p>
-                    </div>
-                </div>
-            </div>
+            {% component "stat_card" icon="fas fa-check-circle" style="success" label="Will Be Processed" value=auto_matched.count|add:manually_matched.count %}{% endcomponent %}
+            {% component "stat_card" icon="fas fa-folder" style="warning" label="Will Be Unprocessed" value=unmatched.count %}{% endcomponent %}
+            {% component "stat_card" icon="fas fa-clipboard-list" style="info" label="Total Studies" value=total_studies %}{% endcomponent %}
         </div>
 
         <!-- Auto-Matched Studies -->
         {% if auto_matched %}
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-check-circle text-green-600 mr-2"></i>
+        <div class="mb-6">
+        {% component "card" %}
+            {% fill "header" %}
+            <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-check-circle text-chavi-primary-600 mr-2"></i>
                 Automatically Matched Studies ({{ auto_matched.count }})
             </h2>
+            {% endfill %}
+            {% fill "body" %}
             <p class="text-sm text-gray-600 mb-4">These studies will be processed and added to patient records</p>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for study in auto_matched %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    {{ study.matched_patient.patient_id }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+            {% component "table" %}
+                {% fill "head" %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                {% endfill %}
+                {% fill "body" %}
+                    {% for study in auto_matched %}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% component "badge" style="success" %}{{ study.matched_patient.patient_id }}{% endcomponent %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfill %}
+            {% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
         </div>
         {% endif %}
 
         <!-- Manually Matched Studies -->
         {% if manually_matched %}
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-user-check text-blue-600 mr-2"></i>
+        <div class="mb-6">
+        {% component "card" %}
+            {% fill "header" %}
+            <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-user-check text-chavi-charcoal-600 mr-2"></i>
                 Manually Matched Studies ({{ manually_matched.count }})
             </h2>
-            <p class="text-sm text-gray-600 mb-4">These studies were manually matched and will be processed</p>
-            
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm text-yellow-700">
-                            <strong>Please verify:</strong> These studies were manually matched. Please confirm that the patient associations are correct before proceeding.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for study in manually_matched %}
-                        <tr class="bg-yellow-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {{ study.matched_patient.patient_id }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            {% endfill %}
+            {% fill "body" %}
+            {% component "info_box" style="warning" %}
+                {% fill "default" %}<strong>Please verify:</strong> These studies were manually matched. Please confirm that the patient associations are correct before proceeding.{% endfill %}
+            {% endcomponent %}
+
+            {% component "table" %}
+                {% fill "head" %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matched Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                {% endfill %}
+                {% fill "body" %}
+                    {% for study in manually_matched %}
+                    <tr class="bg-chavi-sun-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% component "badge" style="info" %}{{ study.matched_patient.patient_id }}{% endcomponent %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfill %}
+            {% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
         </div>
         {% endif %}
 
         <!-- Unmatched Studies -->
         {% if unmatched %}
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-folder text-yellow-600 mr-2"></i>
+        <div class="mb-6">
+        {% component "card" %}
+            {% fill "header" %}
+            <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-folder text-chavi-sun-700 mr-2"></i>
                 Unmatched Studies ({{ unmatched.count }})
             </h2>
+            {% endfill %}
+            {% fill "body" %}
             <p class="text-sm text-gray-600 mb-4">These studies will be moved to the unprocessed folder</p>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for study in unmatched %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+            {% component "table" %}
+                {% fill "head" %}
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DICOM Patient ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Description</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modalities</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                {% endfill %}
+                {% fill "body" %}
+                    {% for study in unmatched %}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ study.dicom_patient_id }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.modalities|default:"N/A" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.file_count }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfill %}
+            {% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
         </div>
         {% endif %}
 
         <!-- Confirmation Form -->
         <form method="post" id="confirmationForm">
             {% csrf_token %}
-            
-            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-info-circle text-blue-400"></i>
-                    </div>
-                    <div class="ml-3">
-                        <h3 class="text-sm font-medium text-blue-800">What happens next?</h3>
-                        <div class="mt-2 text-sm text-blue-700">
-                            <ul class="list-disc list-inside space-y-1">
-                                <li>Matched studies will be processed and added to patient records in the database</li>
-                                <li>DICOM files will be moved to the processed_dicom folder organized by patient ID</li>
-                                <li>Unmatched studies will be moved to the Unprocessed_DICOM folder</li>
-                                <li>You can later match unprocessed studies through the admin interface</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
+            {% component "info_box" style="info" %}
+                {% fill "title" %}What happens next?{% endfill %}
+                {% fill "default" %}
+                <ul class="list-disc list-inside space-y-1">
+                    <li>Matched studies will be processed and added to patient records in the database</li>
+                    <li>DICOM files will be moved to the processed_dicom folder organized by patient ID</li>
+                    <li>Unmatched studies will be moved to the Unprocessed_DICOM folder</li>
+                    <li>You can later match unprocessed studies through the admin interface</li>
+                </ul>
+                {% endfill %}
+            {% endcomponent %}
 
             <input type="hidden" name="action" id="actionInput" value="">
-            
+
             <div class="flex items-center justify-between">
-                <button type="button" onclick="submitForm('back')"
-                        class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>Back to Matching
-                </button>
-                <button type="button" id="confirmBtn" onclick="submitForm('confirm')"
-                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded hover:shadow-lg transition-all">
-                    <i class="fas fa-check mr-2"></i>Confirm and Process
-                </button>
+                {% component "button" style="secondary" icon="fas fa-arrow-left" onclick="submitForm('back')" %}Back to Matching{% endcomponent %}
+                {% component "button" style="success" icon="fas fa-check" onclick="submitForm('confirm')" extra_class="confirm-btn" %}Confirm and Process{% endcomponent %}
             </div>
         </form>
 
         <!-- Processing Indicator -->
-        <div id="processingIndicator" class="hidden mt-6 bg-white rounded-lg shadow-md p-6">
+        {% component "card" id="processingIndicator" extra_class="hidden mt-6" %}
+            {% fill "body" %}
             <div class="flex items-center justify-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-chavi-primary mr-4"></div>
                 <div>
@@ -263,7 +180,8 @@
                     <p class="text-sm text-gray-500">This may take a few minutes. Please do not close this page.</p>
                 </div>
             </div>
-        </div>
+            {% endfill %}
+        {% endcomponent %}
     </div>
 </div>
 
@@ -271,13 +189,13 @@
     function submitForm(action) {
         // Set the action value
         document.getElementById('actionInput').value = action;
-        
+
         if (action === 'confirm') {
             // Show loading indicator and disable button
-            document.getElementById('confirmBtn').disabled = true;
+            document.querySelector('.confirm-btn').disabled = true;
             document.getElementById('processingIndicator').classList.remove('hidden');
         }
-        
+
         // Submit the form
         document.getElementById('confirmationForm').submit();
     }

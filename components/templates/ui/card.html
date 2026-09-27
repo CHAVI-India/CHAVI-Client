@@ -1,0 +1,47 @@
+{# Card — slots: header, body (default), footer, actions; kwargs: id, body_class #}
+<div{% if id %} id="{{ id }}"{% endif %} class="rounded-lg {% if flat %}border border-gray-200{% else %}shadow-md{% endif %} overflow-hidden{% if hoverable %} hover:shadow-lg transition-shadow duration-200{% endif %}
+    {% if accent == 'sun' %}bg-chavi-sun-50 border border-chavi-sun-200
+    {% elif accent == 'sand' %}bg-chavi-sand-50 border border-chavi-sand-200
+    {% elif accent == 'peach' %}bg-chavi-peach-50 border border-chavi-peach-200
+    {% elif accent == 'charcoal' %}bg-chavi-charcoal-50 border border-chavi-charcoal-200
+    {% elif accent == 'primary' %}bg-chavi-primary-50 border border-chavi-primary-200
+    {% else %}bg-white{% endif %} {{ extra_class }}">
+    {% if accent %}
+    <div class="h-1
+        {% if accent == 'sun' %}bg-chavi-sun-500
+        {% elif accent == 'sand' %}bg-chavi-sand-500
+        {% elif accent == 'peach' %}bg-chavi-peach-500
+        {% elif accent == 'charcoal' %}bg-chavi-charcoal-500
+        {% else %}bg-chavi-primary-500{% endif %}"></div>
+    {% endif %}
+    {% if title or component_vars.is_filled.header or component_vars.is_filled.actions %}
+    <div class="px-6 py-4 border-b flex items-center justify-between
+        {% if accent == 'sun' %}bg-chavi-sun-100 border-chavi-sun-200
+        {% elif accent == 'sand' %}bg-chavi-sand-100 border-chavi-sand-200
+        {% elif accent == 'peach' %}bg-chavi-peach-100 border-chavi-peach-200
+        {% elif accent == 'charcoal' %}bg-chavi-charcoal-100 border-chavi-charcoal-200
+        {% elif accent == 'primary' %}bg-chavi-primary-100 border-chavi-primary-200
+        {% else %}bg-chavi-charcoal-50 border-gray-200{% endif %}">
+        {% if component_vars.is_filled.header %}
+            {% slot "header" %}{% endslot %}
+        {% else %}
+            <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+        {% endif %}
+        {% slot "actions" %}{% endslot %}
+    </div>
+    {% endif %}
+    <div class="px-6 py-4 {{ body_class }}">
+        {% slot "body" %}{% endslot %}
+    </div>
+    {% if component_vars.is_filled.footer %}
+    <div class="px-6 py-4 border-t
+        {% if accent == 'sun' %}bg-chavi-sun-100 border-chavi-sun-200
+        {% elif accent == 'sand' %}bg-chavi-sand-100 border-chavi-sand-200
+        {% elif accent == 'peach' %}bg-chavi-peach-100 border-chavi-peach-200
+        {% elif accent == 'charcoal' %}bg-chavi-charcoal-100 border-chavi-charcoal-200
+        {% elif accent == 'primary' %}bg-chavi-primary-100 border-chavi-primary-200
+        {% else %}bg-gray-50 border-gray-200{% endif %}">
+        {% slot "footer" %}{% endslot %}
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,4 @@
+{# FileTypeBadge — icon + label colored by file extension (computed in component) #}
+<span class="inline-flex items-center text-sm font-medium {{ color }} {{ extra_class }}">
+    <i class="fas {{ icon }} mr-1"></i>{% if show_label %}{{ label }}{% endif %}
+</span>

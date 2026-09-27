@@ -1,0 +1,11 @@
+{# NavDropdownItem — one row inside nav_dropdown items slot #}
+{# kwargs: href, icon, label (or default slot), section (renders a section label instead of a link), divider (renders a separator) #}
+{% if divider %}
+<div class="border-t border-chavi-charcoal-600"></div>
+{% elif section %}
+<div class="px-4 pt-2 pb-1 text-xs font-semibold text-chavi-sand-300 uppercase tracking-wider">{{ section }}</div>
+{% else %}
+<a href="{{ href }}" class="block px-4 py-2 text-sm text-chavi-charcoal-100 hover:bg-chavi-charcoal-600 {{ extra_class }}">
+    {% if icon %}<i class="fas {{ icon }} mr-2 text-chavi-primary-300"></i>{% endif %}{% slot "default" %}{% endslot %}{{ label }}
+</a>
+{% endif %}

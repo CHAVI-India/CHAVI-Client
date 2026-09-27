@@ -1,0 +1,23 @@
+{# Modal — overlay dialog; requires modal_id kwarg #}
+{# visibility contract: `hidden` toggles display; `flex` is always present (hidden wins over flex) so legacy JS toggling only `hidden` stays compatible #}
+<div id="{{ modal_id }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 {% if open %}flex{% else %}hidden{% endif %} flex items-center justify-center z-50 {{ extra_class }}"
+     role="dialog" aria-modal="true" aria-labelledby="{{ modal_id }}-title">
+    <div class="bg-white rounded-lg shadow-xl p-6 {% if size == 'lg' %}max-w-2xl{% elif size == 'sm' %}max-w-sm{% else %}max-w-md{% endif %} w-full mx-4 relative">
+        {% if close_button %}
+        <button type="button" onclick="closeModal('{{ modal_id }}')" aria-label="Close"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <i class="fas fa-times"></i>
+        </button>
+        {% endif %}
+        <h3 class="text-xl font-bold text-gray-900 mb-4" id="{{ modal_id }}-title">
+            {% if danger %}<i class="fas fa-exclamation-triangle text-chavi-peach-500 mr-2"></i>{% endif %}
+            {% slot "title" %}{% endslot %}
+        </h3>
+        <div class="text-gray-600 mb-6">
+            {% slot "body" %}{% endslot %}
+        </div>
+        <div class="flex justify-end gap-3">
+            {% slot "footer" %}{% endslot %}
+        </div>
+    </div>
+</div>

@@ -1,0 +1,26 @@
+{# NotificationDropdown — bell + dropdown; notifications: [{message, url, created_at, unread}] #}
+<div class="relative {{ extra_class }}" data-notification-dropdown>
+    <button type="button" class="relative text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-md transition-colors" aria-label="Notifications" data-notification-trigger>
+        <i class="fas fa-bell text-lg"></i>
+        {% if unread_count %}
+        <span class="absolute -top-1 -right-1 bg-chavi-peach-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{{ unread_count }}</span>
+        {% endif %}
+    </button>
+    <div class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50" data-notification-menu>
+        <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
+        </div>
+        <div class="max-h-80 overflow-y-auto">
+            {% for note in notifications %}
+            <a href="{{ note.url|default:'#' }}" class="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                <p class="text-sm text-gray-800">{{ note.message }}</p>
+                {% if note.created_at %}<p class="text-xs text-gray-500 mt-1">{{ note.created_at }}</p>{% endif %}
+            </a>
+            {% empty %}
+            <div class="px-4 py-6 text-center text-sm text-gray-500">
+                <i class="fas fa-inbox text-2xl mb-2 block text-gray-300"></i>No notifications
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

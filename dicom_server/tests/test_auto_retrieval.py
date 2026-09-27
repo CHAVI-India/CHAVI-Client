@@ -110,6 +110,13 @@ class AutoRetrievalTaskTests(TestCase):
         dispatched = [c.args[0] for c in mock_dispatch.call_args_list]
         self.assertEqual(dispatched, [self.node.pk])
 
+    @patch('dicom_server.tasks.task_auto_retrieve_patient_node.delay')
+    def test_patient_event_skips_when_no_enabled_nodes(self, mock_dispatch):
+        RemoteDICOMNode.objects.all().update(auto_retrieve_enabled=False)
+        result = task_auto_retrieve_patient(self.patient.patient_id)
+        self.assertTrue(result['skipped'])
+        mock_dispatch.assert_not_called()
+
     def test_non_consented_patient_skipped(self):
         p2 = self._create_patient('P002', consent=False)
         result = _auto_retrieve_patient_node(self.node.pk, p2.patient_id)

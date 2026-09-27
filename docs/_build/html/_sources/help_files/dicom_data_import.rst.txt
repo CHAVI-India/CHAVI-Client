@@ -1,81 +1,20 @@
-DICOM Data Import
-=====================
+DICOM Data Import (Admin)
+============================
 
-The CHAVI application supports two methods for importing DICOM studies:
+.. note::
+   The easiest way to add scans is the upload page described in :doc:`handling_dicom_data`, or fetching them straight from the imaging system — see :doc:`dicom_retrieval`. This page is kept for staff who import through the Django admin area.
 
-1. Single Patient DICOM Upload
-2. Bulk DICOM Upload for Multiple Patients
+The admin area offers two ways to import DICOM studies:
 
-Single Patient DICOM Upload
--------------------------------
+1. **Patient DICOM Files** — for studies of a single patient
+2. **Bulk DICOM File Upload** — for studies of many patients at once
 
-This method is used when you have DICOM studies for a single patient.
+Both take a ZIP file. After saving the upload, select it in the list and run the matching action ("Extract and Process DICOM File and extract metadata" for single-patient, "Process Bulk DICOM Files" for bulk).
 
-Steps:
-^^^^^^
+How files are stored
+---------------------
 
-1. Navigate to "Patient DICOM Files" in the Django Admin interface
-2. Click "Add Patient DICOM File"
-3. Select the patient from the dropdown menu
-4. Upload a ZIP file containing the DICOM studies
-   
-   * Only ZIP files are accepted
-   * All DICOM studies in the ZIP must belong to the same patient
-   * Multiple studies for the same patient can be included
-
-5. Save the upload
-6. Select the uploaded file from the list
-7. Use the "Extract and Process DICOM File and extract metadata" action
-
-Processing Details:
-^^^^^^^^^^^^^^^^^^^^^
-
-The system will:
-
-#. Extract all DICOM files from the ZIP
-#. Verify and standardize the Patient ID in DICOM metadata
-#. Create a directory structure: ``Patient_ID/Study_Instance_UID/SOP_Instance_UID.dcm``
-#. Extract and store study information in the database:
-
-
-After that the folder will be zipped. The zipped file is ready for de-identification.
-
-Bulk DICOM Upload
-----------------
-
-This method allows uploading DICOM studies for multiple patients simultaneously.
-
-Steps:
-^^^^^^
-
-1. Navigate to "Bulk DICOM Upload" in the Django Admin interface
-2. Click "Add Bulk DICOM Upload"
-3. Upload a ZIP file containing DICOM studies from multiple patients
-4. Save the upload
-5. Select the uploaded file from the list
-6. Use the "Process Bulk DICOM Files" action
-
-Processing Details:
-^^^^^^^^^^^^^^^^^
-
-The system will:
-
-#. Extract all DICOM files from the ZIP
-#. For each DICOM file:
-#. Read the Patient ID from DICOM metadata
-#. Check if the patient exists in the system
-#. If patient exists:
-#. Save to patient's directory
-#. Update DICOM study information in database
-#. If patient doesn't exist:
-#. Move files to "Unprocessed_DICOM" directory
-#. Log as unprocessed
-
-Directory Structure:
-^^^^^^^^^^^^^^^^^^^^
-
-For processed files:
-::
+For processed files::
 
     media/
     ├── Patient_ID_1/
@@ -90,7 +29,7 @@ For processed files:
                 └── SOP_Instance_UID.dcm
 
 Important Notes
-----------------------
+----------------
 
 * Always verify that DICOM files are properly anonymized before upload
 * For single patient uploads, ensure all DICOM files belong to the correct patient

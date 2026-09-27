@@ -31,4 +31,11 @@ The CHAVI client is a Django application that is designed to allow users to mana
         - :doc:`Stage Information <stage_information>`
         - :doc:`Patient Outcomes <patient_outcomes>`
 
-    - :doc:`DICOM Studies <dicom_studies>`
+    - :doc:`DICOM Studies <dicom_study>`
+
+As well as typing data in by hand, the application can:
+
+    - Bring in data from spreadsheets — see :doc:`Importing data <csv_import_wizard>`
+    - Read documents such as reports and pull out the clinical details — see :doc:`automatic_data_extraction`
+    - Fetch scans directly from your hospital's imaging system — see :doc:`dicom_retrieval`
+    - Remove identifying details before data is shared — see :doc:`deidentification`

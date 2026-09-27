@@ -2,52 +2,51 @@
 {% block title %}Extraction Review - CHAVI Client{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-7xl px-4 py-8">
-    <div class="mb-6 rounded-lg bg-white p-8 shadow-lg">
-        <a href="{% url 'extractor:extraction_job_detail' extraction_job.id %}" class="text-sm font-semibold text-chavi-primary">
-            <i class="fas fa-arrow-left mr-1"></i>Back to extraction job
-        </a>
-        <h1 class="mt-3 text-3xl font-bold text-gray-800">
-            {% if batch.status == 'approved' %}Approved review{% else %}Review preview{% endif %}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600">
-            Job #{{ extraction_job.id }} · prepared by {{ snapshot.prepared_by.username }}
-            on {{ batch.created_at|date:"M d, Y H:i" }}
-        </p>
-        <p class="mt-1 text-sm text-gray-600">Status: <span class="font-semibold">{{ batch.get_status_display }}</span></p>
-        {% if batch.status == 'pending' %}
-        <p class="mt-1 text-sm text-gray-600">This preview expires at {{ batch.expires_at|date:"M d, Y H:i" }}.</p>
-        {% endif %}
-    </div>
+    {% url 'extractor:extraction_job_detail' extraction_job.id as job_url %}
+    {% if batch.status == 'approved' %}
+        {% component "page_header" title="Approved review" icon="fas fa-clipboard-check" back_url=job_url back_text="Back to extraction job" %}{% endcomponent %}
+    {% else %}
+        {% component "page_header" title="Review preview" icon="fas fa-clipboard-check" back_url=job_url back_text="Back to extraction job" %}{% endcomponent %}
+    {% endif %}
+    <p class="-mt-4 mb-6 text-sm text-gray-600">
+        Job #{{ extraction_job.id }} · prepared by {{ snapshot.prepared_by.username }}
+        on {{ batch.created_at|date:"M d, Y H:i" }} ·
+        Status: <span class="font-semibold">{{ batch.get_status_display }}</span>
+        {% if batch.status == 'pending' %}· expires {{ batch.expires_at|date:"M d, Y H:i" }}{% endif %}
+    </p>
 
     {% if batch.status == 'pending' %}
-    <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        Nothing has been written to the clinical tables yet. Check every value below before approving.
-    </div>
+        {% component "info_box" style="info" extra_class="mb-6" %}
+            {% fill "default" %}Nothing has been written to the clinical tables yet. Check every value below before approving.{% endfill %}
+        {% endcomponent %}
     {% elif batch.status == 'superseded' %}
-    <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-        This preview was replaced by a newer review and cannot be approved.
-    </div>
+        {% component "alert" style="warning" extra_class="mb-6" %}
+            {% fill "default" %}This preview was replaced by a newer review and cannot be approved.{% endfill %}
+        {% endcomponent %}
     {% endif %}
 
     <div class="space-y-6">
         {% for item in snapshot.records %}
-        <section class="rounded-lg bg-white p-6 shadow-lg">
-            <div class="mb-4 flex flex-wrap items-center gap-3">
-                <h2 class="text-xl font-bold text-gray-800">{{ item.model }} · extracted record {{ item.record_id }}</h2>
-                <span class="rounded-full px-3 py-1 text-xs font-semibold
-                    {% if item.operation == 'create' %}bg-green-100 text-green-800
-                    {% elif item.operation == 'update' %}bg-blue-100 text-blue-800
-                    {% elif item.operation == 'link' %}bg-purple-100 text-purple-800
-                    {% else %}bg-gray-100 text-gray-700{% endif %}">{{ item.operation }}</span>
+        {% component "card" %}
+            {% fill "header" %}
+            <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-semibold text-gray-900">{{ item.model }} · extracted record {{ item.record_id }}</h3>
+                {% if item.operation == 'create' %}{% component "badge" style="success" %}{{ item.operation }}{% endcomponent %}
+                {% elif item.operation == 'update' %}{% component "badge" style="info" %}{{ item.operation }}{% endcomponent %}
+                {% elif item.operation == 'link' %}{% component "badge" style="accent" %}{{ item.operation }}{% endcomponent %}
+                {% else %}{% component "badge" style="gray" %}{{ item.operation }}{% endcomponent %}
+                {% endif %}
                 {% if item.target_pk %}<span class="font-mono text-xs text-gray-500">{{ item.target_pk }}</span>{% endif %}
             </div>
+            {% endfill %}
+            {% fill "body" %}
             {% for name, parent in item.parents.items %}
             <p class="mb-1 text-sm text-gray-600"><span class="font-semibold">{{ name }}:</span> {{ parent }}</p>
             {% endfor %}
             {% if item.warnings %}
-            <div class="mb-4 rounded border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
-                {% for warning in item.warnings %}<p>{{ warning }}</p>{% endfor %}
-            </div>
+            {% component "alert" style="warning" extra_class="mb-4" %}
+                {% fill "default" %}{% for warning in item.warnings %}<p>{{ warning }}</p>{% endfor %}{% endfill %}
+            {% endcomponent %}
             {% endif %}
 
             {% if item.operation == 'skip' %}
@@ -55,78 +54,78 @@
             {% elif item.operation == 'link' %}
             <p class="text-sm text-gray-600">This extracted record will be linked to the selected existing record without changing it.</p>
             {% else %}
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Field</th>
-                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Current</th>
-                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Will save</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        {% for row in item.rows %}
-                        <tr class="{% if item.before %}{% if row.before != row.after %}bg-yellow-50{% endif %}{% endif %}">
-                            <td class="px-3 py-2 font-semibold text-gray-700">
-                                {{ row.name }}
-                                {% if row.extraction %}
-                                <details class="mt-1 text-xs font-normal">
-                                    <summary>Original LLM extraction: {{ row.extraction.label }}{% if row.extraction.basis == 'clinical_inference' %} — not explicitly reported{% endif %}</summary>
-                                    <div>Original value: {% if row.extraction.value is None or row.extraction.value == "" %}—{% else %}{{ row.extraction.value }}{% endif %}</div>
-                                    {% if row.extraction.note %}<div>{{ row.extraction.note }}</div>{% endif %}
-                                    {% if row.extraction.evidence %}<div>Source evidence: {{ row.extraction.evidence }}</div>{% endif %}
-                                </details>
-                                {% endif %}
-                            </td>
-                            <td class="px-3 py-2 text-gray-600">{% if row.before is None or row.before == "" %}—{% else %}{{ row.before }}{% endif %}</td>
-                            <td class="px-3 py-2 text-gray-900">{% if row.after is None or row.after == "" %}—{% else %}{{ row.after }}{% endif %}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            {% component "table" bare=True %}
+                {% fill "head" %}
+                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Field</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Current</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Will save</th>
+                {% endfill %}
+                {% fill "body" %}
+                    {% for row in item.rows %}
+                    <tr class="{% if item.before %}{% if row.before != row.after %}row-warning{% endif %}{% endif %}">
+                        <td class="px-4 py-3 font-semibold text-gray-700 text-sm">
+                            {{ row.name }}
+                            {% if row.extraction %}
+                            {% component "accordion" extra_class="mt-1 text-xs font-normal" %}
+                                {% fill "summary" %}Original LLM extraction: {{ row.extraction.label }}{% if row.extraction.basis == 'clinical_inference' %} — not explicitly reported{% endif %}{% endfill %}
+                                {% fill "default" %}
+                                <div>Original value: {% if row.extraction.value is None or row.extraction.value == "" %}—{% else %}{{ row.extraction.value }}{% endif %}</div>
+                                {% if row.extraction.note %}<div>{{ row.extraction.note }}</div>{% endif %}
+                                {% if row.extraction.evidence %}<div>Source evidence: {{ row.extraction.evidence }}</div>{% endif %}
+                                {% endfill %}
+                            {% endcomponent %}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{% if row.before is None or row.before == "" %}—{% else %}{{ row.before }}{% endif %}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900">{% if row.after is None or row.after == "" %}—{% else %}{{ row.after }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfill %}
+            {% endcomponent %}
             <div class="mt-4 space-y-1 text-xs text-gray-600">
                 {% for field_id, decision in item.field_decisions.items %}
                 <p>field {{ field_id }}: <span class="font-semibold">{{ decision.review_change }}</span> · {{ decision.data_accuracy }}{% if not decision.applied %} · not applied{% endif %}</p>
                 {% endfor %}
             </div>
             {% endif %}
-        </section>
+            {% endfill %}
+        {% endcomponent %}
         {% endfor %}
     </div>
 
     {% if batch.status == 'pending' %}
     <form method="post" action="{% url 'extractor:extraction_review_approve' extraction_job.id batch.id %}"
-          class="sticky bottom-0 mt-6 rounded-lg bg-white p-5 shadow-lg">
+          class="sticky bottom-0 mt-6 rounded-lg bg-white p-5 shadow-lg border border-chavi-sand-200">
         {% csrf_token %}
         {% if snapshot.warnings.duplicates %}
         <label class="mb-3 flex items-start gap-2 text-sm text-gray-800">
-            <input type="checkbox" name="acknowledge_duplicates" value="1" class="mt-1">
+            <input type="checkbox" name="acknowledge_duplicates" value="1" class="mt-1 rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
             <span>I have reviewed the possible duplicate warnings.</span>
         </label>
         {% endif %}
         <label class="mb-4 flex items-start gap-2 text-sm font-semibold text-gray-800">
-            <input type="checkbox" name="confirm" value="1" class="mt-1" required>
+            <input type="checkbox" name="confirm" value="1" class="mt-1 rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary" required>
             <span>I approve the displayed creates, updates, links, omissions, and pending records.</span>
         </label>
         <div class="flex flex-wrap gap-3">
-            <a href="{% url 'extractor:extraction_review_edit' extraction_job.id batch.id %}"
-               class="rounded-lg border border-gray-300 px-5 py-2 font-semibold text-gray-700">Back to review</a>
+            {% url 'extractor:extraction_review_edit' extraction_job.id batch.id as edit_url %}
+            {% component "button" style="secondary" href=edit_url %}Back to review{% endcomponent %}
             {% if can_approve %}
-            <button type="submit" class="bg-chavi-gradient rounded-lg px-5 py-2 font-semibold text-white">Approve &amp; Save</button>
+                {% component "button" style="primary" type="submit" icon="fas fa-check" %}Approve & Save{% endcomponent %}
             {% else %}
             <span class="rounded bg-gray-100 px-4 py-2 text-sm text-gray-600">This preview cannot be approved by the current user.</span>
             {% endif %}
         </div>
     </form>
     {% elif receipt %}
-    <div class="mt-6 rounded-lg bg-white p-6 shadow-lg">
-        <h2 class="mb-3 text-xl font-bold text-gray-800">Saved changes</h2>
+    {% component "card" title="Saved changes" extra_class="mt-6" %}
+        {% fill "body" %}
         <p class="mb-3 text-sm text-gray-600">Approved by {{ receipt.approved_by.username }} at {{ receipt.approved_at }}.</p>
         {% for op in receipt.operations %}
         <p class="text-sm"><span class="font-semibold">{{ op.operation }}</span> {{ op.model }} · <span class="font-mono text-xs">{{ op.target_pk }}</span></p>
         {% endfor %}
-    </div>
+        {% endfill %}
+    {% endcomponent %}
     {% endif %}
 </div>
 {% endblock %}

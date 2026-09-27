@@ -4,135 +4,79 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <div class="bg-white rounded-lg shadow-lg p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-file-upload text-chavi-primary mr-2"></i>
-                    Uploaded Files
-                </h1>
-                <p class="text-gray-600 mt-2">Manage your uploaded files and process them for extraction</p>
-            </div>
-            <a href="{% url 'extractor:file_upload_create' %}" 
-               class="bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                Upload New File
-            </a>
-        </div>
+    {% url 'extractor:file_upload_create' as upload_url %}
+    {% component "page_header" title="Uploaded Files" icon="fas fa-file-upload" subtitle="Manage your uploaded files and process them for extraction" %}
+        {% fill "actions" %}
+            {% component "button" style="primary" href=upload_url icon="fas fa-plus" %}Upload New File{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
 
-        {% if files %}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            File Name
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Patient
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Uploaded
-                        </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for file in files %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <i class="fas fa-file-{{ file.file_type|lower }} text-2xl mr-3
-                                    {% if file.file_type == 'PDF' %}text-red-500
-                                    {% elif file.file_type == 'CSV' %}text-green-500
-                                    {% elif file.file_type == 'EXCEL' %}text-blue-500
-                                    {% endif %}"></i>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-900">
-                                        {{ file.file.name|truncatechars:40 }}
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        {{ file.file.size|filesizeformat }}
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                {% if file.file_type == 'PDF' %}bg-red-100 text-red-800
-                                {% elif file.file_type == 'CSV' %}bg-green-100 text-green-800
-                                {% elif file.file_type == 'EXCEL' %}bg-blue-100 text-blue-800
-                                {% endif %}">
-                                {{ file.file_type }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {% if file.patient_id %}
-                                <i class="fas fa-user-check text-green-600 mr-1"></i>
-                                {{ file.patient_id.patient_id }}
-                            {% else %}
-                                <span class="text-gray-400">
-                                    <i class="fas fa-user-times mr-1"></i>
-                                    Not linked
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                {% if file.processing_status == 'pending' %}bg-yellow-100 text-yellow-800
-                                {% elif file.processing_status == 'processing' %}bg-blue-100 text-blue-800
-                                {% elif file.processing_status == 'completed' %}bg-green-100 text-green-800
-                                {% elif file.processing_status == 'failed' %}bg-red-100 text-red-800
-                                {% endif %}">
-                                {% if file.processing_status == 'pending' %}<i class="fas fa-clock mr-1"></i>
-                                {% elif file.processing_status == 'processing' %}<i class="fas fa-spinner fa-spin mr-1"></i>
-                                {% elif file.processing_status == 'completed' %}<i class="fas fa-check mr-1"></i>
-                                {% elif file.processing_status == 'failed' %}<i class="fas fa-times mr-1"></i>
-                                {% endif %}
-                                {{ file.get_processing_status_display }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ file.created_at|date:"M d, Y H:i" }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'extractor:file_upload_detail' file.id %}" 
-                               class="text-chavi-primary hover:text-chavi-secondary mr-3"
-                               title="View Details">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <button onclick="confirmDelete({{ file.id }}, '{{ file.file.name|escapejs }}')"
-                                    class="text-red-600 hover:text-red-800"
-                                    title="Delete File">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-file-upload text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-600 mb-2">No files uploaded yet</h3>
-            <p class="text-gray-500 mb-6">Upload your first file to get started with data extraction</p>
-            <a href="{% url 'extractor:file_upload_create' %}" 
-               class="inline-block bg-chavi-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                Upload File
-            </a>
-        </div>
-        {% endif %}
-    </div>
+    {% if files %}
+    {% component "table" %}
+        {% fill "head" %}
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">File Name</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Type</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Patient</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Uploaded</th>
+            <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Actions</th>
+        {% endfill %}
+        {% fill "body" %}
+            {% for file in files %}
+            <tr>
+                <td class="px-4 py-3">
+                    <div class="flex items-center">
+                        <i class="fas fa-file-{{ file.file_type|lower }} text-xl mr-3
+                            {% if file.file_type == 'PDF' %}text-chavi-peach-500
+                            {% elif file.file_type == 'CSV' %}text-chavi-primary-500
+                            {% elif file.file_type == 'EXCEL' %}text-chavi-charcoal-500
+                            {% endif %}"></i>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">{{ file.file.name|truncatechars:40 }}</div>
+                            <div class="text-xs text-gray-500">{{ file.file.size|filesizeformat }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    {% if file.file_type == 'PDF' %}{% component "badge" style="danger" %}{{ file.file_type }}{% endcomponent %}
+                    {% elif file.file_type == 'CSV' %}{% component "badge" style="success" %}{{ file.file_type }}{% endcomponent %}
+                    {% else %}{% component "badge" style="info" %}{{ file.file_type }}{% endcomponent %}
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {% if file.patient_id %}
+                        <i class="fas fa-user-check text-chavi-primary-600 mr-1"></i>{{ file.patient_id.patient_id }}
+                    {% else %}
+                        <span class="text-gray-400"><i class="fas fa-user-times mr-1"></i>Not linked</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    {% if file.processing_status == 'pending' %}{% component "badge" style="warning" icon="fas fa-clock" %}{{ file.get_processing_status_display }}{% endcomponent %}
+                    {% elif file.processing_status == 'processing' %}{% component "badge" style="info" icon="fas fa-spinner" %}{{ file.get_processing_status_display }}{% endcomponent %}
+                    {% elif file.processing_status == 'completed' %}{% component "badge" style="success" icon="fas fa-check" %}{{ file.get_processing_status_display }}{% endcomponent %}
+                    {% elif file.processing_status == 'failed' %}{% component "badge" style="danger" icon="fas fa-times" %}{{ file.get_processing_status_display }}{% endcomponent %}
+                    {% else %}{% component "badge" style="gray" %}{{ file.get_processing_status_display }}{% endcomponent %}
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ file.created_at|date:"M d, Y H:i" }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                    {% url 'extractor:file_upload_detail' file.id as detail_url %}
+                    {% component "icon_button" style="primary" size="sm" icon="fas fa-eye" aria_label="View Details" href=detail_url title="View Details" extra_class="mr-2" %}{% endcomponent %}
+                    {% component "icon_button" style="danger" size="sm" icon="fas fa-trash" aria_label="Delete File" title="Delete File" extra_class="delete-file-btn" data__file_id=file.id data__file_name=file.file.name|escapejs %}{% endcomponent %}
+                </td>
+            </tr>
+            {% endfor %}
+        {% endfill %}
+    {% endcomponent %}
+    {% else %}
+    {% component "card" %}{% fill "body" %}
+        {% component "empty_state" title="No files uploaded yet" description="Upload your first file to get started with data extraction" %}
+            {% fill "action" %}
+                {% component "button" style="primary" href=upload_url icon="fas fa-plus" %}Upload File{% endcomponent %}
+            {% endfill %}
+        {% endcomponent %}
+    {% endfill %}{% endcomponent %}
+    {% endif %}
 </div>
 
 <!-- Hidden form for delete -->
@@ -141,12 +85,15 @@
 </form>
 
 <script>
-function confirmDelete(fileId, fileName) {
-    if (confirm(`Are you sure you want to delete "${fileName}"?\n\nThis will permanently delete the file and all its processed versions from the system.`)) {
-        const form = document.getElementById('deleteForm');
-        form.action = `/extractor/files/${fileId}/delete/`;
-        form.submit();
-    }
-}
+document.querySelectorAll('.delete-file-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        const fileName = this.dataset.fileName;
+        if (confirm(`Are you sure you want to delete "${fileName}"?\n\nThis will permanently delete the file and all its processed versions from the system.`)) {
+            const form = document.getElementById('deleteForm');
+            form.action = `/extractor/files/${this.dataset.fileId}/delete/`;
+            form.submit();
+        }
+    });
+});
 </script>
 {% endblock %}

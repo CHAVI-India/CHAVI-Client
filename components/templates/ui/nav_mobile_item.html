@@ -1,0 +1,8 @@
+{# NavMobileItem — one link row in the mobile menu; section kwarg renders a section label instead; active → sun underline #}
+{% if section %}
+<div class="text-white text-xs font-semibold px-3 py-2 opacity-70 mt-2">{{ section }}</div>
+{% else %}
+<a href="{{ href }}" class="text-white hover:bg-white hover:bg-opacity-20 block px-3 py-2 rounded-md text-base font-medium {{ extra_class }}">
+    {% if icon %}<i class="fas {{ icon }} mr-2 text-chavi-primary-300"></i>{% endif %}<span class="pb-0.5 {% if active %}border-b-2 border-chavi-sun-400{% endif %}">{{ label }}{% slot "default" %}{% endslot %}</span>
+</a>
+{% endif %}

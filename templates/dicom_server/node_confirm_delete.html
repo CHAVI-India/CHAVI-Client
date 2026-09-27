@@ -2,15 +2,15 @@
 {% block title %}Delete Remote Node - CHAVI Client{% endblock %}
 {% block content %}
 <div class="max-w-xl mx-auto px-4 py-8">
-    {% include "dicom_server/_messages.html" %}
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">Delete Remote Node</h1>
-    <div class="bg-white rounded-lg shadow p-6">
+    {% url 'dicom_server:node_list' as back_url %}
+    {% component "page_header" title="Delete Remote Node" icon="fas fa-trash" back_url=back_url back_text="Back to nodes" %}{% endcomponent %}
+    {% component "card" accent="peach" %}{% fill "body" %}
         <p class="text-sm text-gray-700 mb-4">Delete remote node <strong>{{ object }}</strong>? This cannot be undone.</p>
         <form method="post" class="flex space-x-3">
             {% csrf_token %}
-            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Delete</button>
-            <a href="{% url 'dicom_server:node_list' %}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">Cancel</a>
+            {% component "button" style="danger" type="submit" icon="fas fa-trash" %}Delete{% endcomponent %}
+            {% component "button" style="secondary" href=back_url %}Cancel{% endcomponent %}
         </form>
-    </div>
+    {% endfill %}{% endcomponent %}
 </div>
 {% endblock %}

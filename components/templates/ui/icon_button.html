@@ -1,0 +1,9 @@
+{# IconButton — icon-only table/list action; requires icon + aria_label #}
+{% if href %}<a href="{{ href }}"{% else %}<button type="{{ type|default:'button' }}"{% if disabled %} disabled{% endif %}{% if onclick %} onclick="{{ onclick }}"{% endif %}{% endif %}
+    aria-label="{{ aria_label|default:'action' }}"{% if title %} title="{{ title }}"{% endif %}{% for k, v in data.items %} data-{{ k }}="{{ v }}"{% endfor %}
+    class="inline-flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-chavi-primary
+        {% if size == 'sm' %}h-8 w-8{% else %}h-9 w-9{% endif %}
+        {% if style == 'danger' %}text-chavi-peach-600 hover:text-chavi-peach-700 hover:bg-chavi-peach-50{% elif style == 'ghost' %}text-gray-400 hover:text-gray-600 hover:bg-gray-100{% else %}text-chavi-primary hover:text-chavi-primary-dark hover:bg-chavi-primary-50{% endif %}
+        disabled:opacity-50 disabled:pointer-events-none {{ extra_class }}">
+    <i class="{{ icon }}"></i>
+{% if href %}</a>{% else %}</button>{% endif %}

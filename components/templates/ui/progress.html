@@ -1,0 +1,13 @@
+{# Progress — linear progress bar; value 0-100; ids (track_id|bar_id|percent_id|label_id|bar_text_id) let JS update it live #}
+<div class="mb-4 {{ extra_class }}">
+    {% if label or show_percent %}
+    <div class="flex justify-between items-center mb-2">
+        <span{% if label_id %} id="{{ label_id }}"{% endif %} class="text-sm font-medium text-gray-700">{{ label }}</span>
+        {% if show_percent %}<span{% if percent_id %} id="{{ percent_id }}"{% endif %} class="text-sm font-medium text-chavi-primary">{{ value|default:0 }}%</span>{% endif %}
+    </div>
+    {% endif %}
+    <div{% if track_id %} id="{{ track_id }}"{% endif %} class="w-full bg-gray-200 rounded-full {% if size == 'sm' %}h-2{% elif size == 'lg' %}h-6{% else %}h-3{% endif %} overflow-hidden"
+         role="progressbar" aria-valuenow="{{ value|default:0 }}" aria-valuemin="0" aria-valuemax="100"{% if label %} aria-label="{{ label }}"{% endif %}>
+        <div{% if bar_id %} id="{{ bar_id }}"{% endif %} class="{% if style == 'success' %}bg-chavi-primary-600{% elif style == 'danger' %}bg-chavi-peach-500{% else %}bg-chavi-gradient{% endif %} {% if size == 'sm' %}h-2{% elif size == 'lg' %}h-6{% else %}h-3{% endif %} rounded-full transition-all duration-500 ease-out{% if bar_text_id %} flex items-center justify-center{% endif %}" style="width: {{ value|default:0 }}%">{% if bar_text_id %}<span id="{{ bar_text_id }}" class="text-xs text-white font-semibold">{{ value|default:0 }}%</span>{% endif %}</div>
+    </div>
+</div>

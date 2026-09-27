@@ -238,7 +238,10 @@ def task_auto_retrieve_node(self, node_id):
 
 @shared_task(bind=True)
 def task_auto_retrieve_patient(self, patient_id):
-    """Event-driven: immediately retrieve one patient from all active nodes."""
+    """Event-driven: immediately retrieve one patient from all auto-retrieval-enabled nodes."""
+    nodes = RemoteDICOMNode.objects.filter(is_active=True, auto_retrieve_enabled=True)
+    if not nodes.exists():
+        return {'skipped': True, 'reason': 'no auto-retrieval-enabled nodes'}
     try:
         patient = Patient.objects.get(patient_id=patient_id)
     except Patient.DoesNotExist:
@@ -246,7 +249,6 @@ def task_auto_retrieve_patient(self, patient_id):
     if not patient.chavi_consent:
         return {'skipped': True, 'reason': f'patient {patient_id} has not consented'}
 
-    nodes = RemoteDICOMNode.objects.filter(is_active=True, auto_retrieve_enabled=True)
     for node in nodes:
         task_auto_retrieve_patient_node.delay(node.pk, patient.patient_id, force=True)
 
