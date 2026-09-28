@@ -15,6 +15,9 @@ from pynetdicom.sop_class import (
     StudyRootQueryRetrieveInformationModelFind,
     StudyRootQueryRetrieveInformationModelMove,
     StudyRootQueryRetrieveInformationModelGet,
+    PatientRootQueryRetrieveInformationModelFind,
+    PatientRootQueryRetrieveInformationModelMove,
+    PatientRootQueryRetrieveInformationModelGet,
 )
 
 from dicom_server.models import DICOMServerConfiguration, RemoteDICOMNode
@@ -91,27 +94,70 @@ def _connect(ae: AE, node: RemoteDICOMNode, **assoc_kwargs):
     )
     if assoc.is_established:
         return assoc
-    if assoc.is_rejected:
-        detail = 'rejected by peer (check AE titles)'
+
+    # The peer accepted the association but rejected every requested
+    # presentation context — pynetdicom then aborts the association itself, so
+    # this check must run before the is_aborted branch. The per-context
+    # reasons (e.g. "Abstract Syntax Not Supported") say what the remote
+    # doesn't support.
+    if assoc.rejected_contexts and not assoc.accepted_contexts:
+        reasons = ', '.join(
+            f'{cx.abstract_syntax.name}: {cx.status}'
+            for cx in assoc.rejected_contexts
+        )
+        detail = (
+            f'peer rejected all presentation contexts ({reasons}) — check the '
+            "node's AE title matches its DICOM AET and that it supports "
+            'Query/Retrieve for our calling AE title'
+        )
+    elif assoc.is_rejected:
+        primitive = getattr(assoc.acceptor, 'primitive', None)
+        if primitive is not None:
+            detail = (
+                f'rejected by peer: {primitive.result_str}, '
+                f'{primitive.source_str}, {primitive.reason_str}'
+            )
+        else:
+            detail = 'rejected by peer (check AE titles)'
     elif assoc.is_aborted:
         detail = 'aborted (connection failed or dropped)'
-    elif getattr(assoc.acceptor, 'primitive', None) is not None:
-        detail = 'no accepted presentation contexts (peer does not support this SOP class)'
     else:
         detail = 'rejected or timed out'
     raise ConnectionError(f'Association to {node} {detail}')
 
 
+def _negotiated_qr_model(assoc, study_root_uid, patient_root_uid):
+    """Return the Q/R model the peer accepted, preferring Study Root.
+
+    Both models are proposed on the association so patient-root-only remotes
+    still work. Raises ConnectionError if neither was accepted.
+    """
+    accepted = {cx.abstract_syntax for cx in assoc.accepted_contexts}
+    for uid in (study_root_uid, patient_root_uid):
+        if uid in accepted:
+            return uid
+    raise ConnectionError(
+        'Peer accepted neither Study Root nor Patient Root Query/Retrieve'
+    )
+
+
 def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
-    """Study Root C-FIND at STUDY level for a PatientID.
+    """C-FIND at STUDY level for a PatientID (Study Root preferred, Patient
+    Root used when the peer accepts only that model).
 
     Returns a list of dicts: study_instance_uid, study_date, study_description,
     modalities, instances.
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
+    ae.add_requested_context(PatientRootQueryRetrieveInformationModelFind)
     assoc = _connect(ae, node)
     try:
+        model = _negotiated_qr_model(
+            assoc,
+            StudyRootQueryRetrieveInformationModelFind,
+            PatientRootQueryRetrieveInformationModelFind,
+        )
         q = Dataset()
         q.QueryRetrieveLevel = 'STUDY'
         q.PatientID = patient_id
@@ -122,9 +168,7 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
         q.NumberOfStudyRelatedInstances = ''
 
         results = []
-        for status, identifier in assoc.send_c_find(
-            q, StudyRootQueryRetrieveInformationModelFind
-        ):
+        for status, identifier in assoc.send_c_find(q, model):
             if status is None:
                 raise ConnectionError(f'C-FIND on {node} timed out or aborted')
             if status.Status in (0xFF00, 0xFF01) and identifier:
@@ -229,12 +273,18 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelMove)
+    ae.add_requested_context(PatientRootQueryRetrieveInformationModelMove)
     assoc = _connect(ae, node)
     try:
+        model = _negotiated_qr_model(
+            assoc,
+            StudyRootQueryRetrieveInformationModelMove,
+            PatientRootQueryRetrieveInformationModelMove,
+        )
         destination = destination or DICOMServerConfiguration.load().ae_title
         q = _study_identifier(study_instance_uid, patient_id)
         stats = _collect_subop_stats(
-            assoc.send_c_move(q, destination, StudyRootQueryRetrieveInformationModelMove),
+            assoc.send_c_move(q, destination, model),
             f'C-MOVE on {node}',
         )
         logger.info('C-MOVE %s study %s -> %s: %s', node, study_instance_uid, destination, stats)
@@ -244,9 +294,10 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
 
 
 # Extra storage SOP classes offered on C-GET beyond the curated common set.
-# An association negotiates at most 128 presentation contexts and the Q/R-GET
-# model takes one slot, leaving room for 127 — the curated 120 plus 7 extras,
-# spent on the second-generation RT objects an oncology PACS serves.
+# An association negotiates at most 128 presentation contexts and the two
+# Q/R-GET models (Study Root + Patient Root) take two slots, leaving room for
+# 126 — the curated 120 plus 6 extras, spent on the second-generation RT
+# objects an oncology PACS serves.
 _EXTRA_STORAGE_UIDS = (
     '1.2.840.10008.5.1.4.1.1.481.10',  # RT Physician Intent
     '1.2.840.10008.5.1.4.1.1.481.11',  # RT Segment Annotation
@@ -254,7 +305,6 @@ _EXTRA_STORAGE_UIDS = (
     '1.2.840.10008.5.1.4.1.1.481.16',  # RT Radiation Record Set
     '1.2.840.10008.5.1.4.1.1.481.22',  # RT Treatment Preparation
     '1.2.840.10008.5.1.4.1.1.481.23',  # Enhanced RT Image
-    '1.2.840.10008.5.1.4.1.1.481.24',  # Enhanced Continuous RT Image
 )
 
 
@@ -275,6 +325,7 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
     """
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelGet)
+    ae.add_requested_context(PatientRootQueryRetrieveInformationModelGet)
     storage_uids = _get_storage_uids()
     for uid in storage_uids:
         ae.add_requested_context(uid)
@@ -284,9 +335,14 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
         evt_handlers=[(evt.EVT_C_STORE, handle_store)],
     )
     try:
+        model = _negotiated_qr_model(
+            assoc,
+            StudyRootQueryRetrieveInformationModelGet,
+            PatientRootQueryRetrieveInformationModelGet,
+        )
         q = _study_identifier(study_instance_uid, patient_id)
         stats = _collect_subop_stats(
-            assoc.send_c_get(q, StudyRootQueryRetrieveInformationModelGet),
+            assoc.send_c_get(q, model),
             f'C-GET on {node}',
         )
         logger.info('C-GET %s study %s: %s', node, study_instance_uid, stats)

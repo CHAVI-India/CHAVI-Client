@@ -12,7 +12,7 @@ from pydicom import dcmread
 from datetime import datetime
 from django.utils import timezone
 import shutil
-from ..models import Patient, DICOMStudy, UnprocessedDICOMStudies, BulkDICOMUploadSession, BulkDICOMStudyMatch, _make_canonical_id
+from ..models import Patient, DICOMStudy, DICOMSeries, DICOMInstance, UnprocessedDICOMStudies, BulkDICOMUploadSession, BulkDICOMStudyMatch, _make_canonical_id
 import logging
 import uuid
 
@@ -193,6 +193,47 @@ def extract_and_analyze_upload(session):
         }
 
 
+def _upsert_series_instances(study, study_dir):
+    """Populate DICOMSeries/DICOMInstance rows from the stored .dcm files.
+
+    Same get_or_create semantics as the DICOM ingest path and
+    de-identification Pass 0, so all three produce identical hierarchy rows.
+    """
+    for file_path in study_dir.glob('*.dcm'):
+        try:
+            ds = dcmread(str(file_path), stop_before_pixels=True)
+        except Exception as e:
+            logger.warning(f"Could not read {file_path} for series/instance records: {e}")
+            continue
+
+        series_uid = str(getattr(ds, 'SeriesInstanceUID', '') or '').strip()
+        sop_uid = str(getattr(ds, 'SOPInstanceUID', '') or '').strip()
+        if not series_uid or not sop_uid:
+            continue
+
+        series_date = None
+        date_str = str(getattr(ds, 'SeriesDate', '') or getattr(ds, 'StudyDate', '') or '')
+        if date_str:
+            try:
+                series_date = datetime.strptime(date_str, '%Y%m%d').date()
+            except ValueError:
+                pass
+
+        frame_uid = getattr(ds, 'FrameOfReferenceUID', None)
+        series, _ = DICOMSeries.objects.get_or_create(
+            series_instance_uid=series_uid,
+            defaults={
+                'study': study,
+                'series_date': series_date,
+                'modality': str(getattr(ds, 'Modality', '') or '')[:16],
+                'frame_of_reference_uid': str(frame_uid) if frame_uid else None,
+            },
+        )
+        DICOMInstance.objects.get_or_create(
+            sop_instance_uid=sop_uid, defaults={'series': series},
+        )
+
+
 def process_confirmed_matches(session):
     """
     Process all confirmed study matches and move files to final locations.
@@ -263,7 +304,7 @@ def process_confirmed_matches(session):
                                 shutil.copy2(str(dicom_file), str(dest_file))
                     
                     # Create or update DICOMStudy record
-                    DICOMStudy.objects.update_or_create(
+                    study, _ = DICOMStudy.objects.update_or_create(
                         patient=patient,
                         study_instance_uid=study_match.study_instance_uid,
                         defaults={
@@ -274,6 +315,7 @@ def process_confirmed_matches(session):
                             'folder_path': str(study_dir.absolute())
                         }
                     )
+                    _upsert_series_instances(study, study_dir)
                     
                     study_match.match_status = BulkDICOMStudyMatch.MatchStatus.PROCESSED
                     study_match.final_folder_path = str(study_dir)

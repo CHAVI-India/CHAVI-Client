@@ -8,7 +8,9 @@ from django.conf import settings
 from django.db import transaction
 from pydicom.dataset import Dataset
 
-from client_app.models import Patient, DICOMStudy, _make_canonical_id
+from client_app.models import (
+    Patient, DICOMStudy, DICOMSeries, DICOMInstance, _make_canonical_id,
+)
 from dicom_server.models import InboundDICOMInstance
 from dicom_server.services.classifier import classify_study
 
@@ -118,7 +120,8 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
         ds.save_as(dest, enforce_file_format=True)
 
         with transaction.atomic():
-            _upsert_study(patient, ds, study_dir)
+            study = _upsert_study(patient, ds, study_dir)
+            _upsert_series_instance(ds, study)
             InboundDICOMInstance.objects.create(
                 status=InboundDICOMInstance.Status.STORED,
                 matched_patient=patient, file_path=str(dest), **log_fields,
@@ -143,7 +146,7 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
         return IngestResult(status=STATUS_INTERNAL_ERROR, reason='Internal storage error')
 
 
-def _upsert_study(patient: Patient, ds: Dataset, study_dir: Path) -> None:
+def _upsert_study(patient: Patient, ds: Dataset, study_dir: Path) -> DICOMStudy:
     """Merge this instance's metadata into the DICOMStudy row (comma-joined sets)."""
     uid = str(ds.StudyInstanceUID)
     study = DICOMStudy.objects.filter(study_instance_uid=uid).first()
@@ -176,3 +179,39 @@ def _upsert_study(patient: Patient, ds: Dataset, study_dir: Path) -> None:
             pass
     study.folder_path = str(study_dir.absolute())
     study.save()
+    return study
+
+
+def _upsert_series_instance(ds: Dataset, study: DICOMStudy) -> None:
+    """Populate the DICOMSeries/DICOMInstance hierarchy for a stored
+    instance, so series/instance records exist immediately after retrieval
+    rather than only after de-identification Pass 0 (which get_or_creates
+    the same rows)."""
+    series_uid = str(getattr(ds, 'SeriesInstanceUID', '') or '').strip()
+    sop_uid = str(getattr(ds, 'SOPInstanceUID', '') or '').strip()
+    if not series_uid or not sop_uid:
+        return
+
+    date_str = str(
+        getattr(ds, 'SeriesDate', '') or getattr(ds, 'StudyDate', '') or ''
+    )
+    series_date = None
+    if date_str:
+        try:
+            series_date = datetime.strptime(date_str, '%Y%m%d').date()
+        except ValueError:
+            pass
+
+    frame_uid = getattr(ds, 'FrameOfReferenceUID', None)
+    series, _ = DICOMSeries.objects.get_or_create(
+        series_instance_uid=series_uid,
+        defaults={
+            'study': study,
+            'series_date': series_date,
+            'modality': str(getattr(ds, 'Modality', '') or '')[:16],
+            'frame_of_reference_uid': str(frame_uid) if frame_uid else None,
+        },
+    )
+    DICOMInstance.objects.get_or_create(
+        sop_instance_uid=sop_uid, defaults={'series': series},
+    )

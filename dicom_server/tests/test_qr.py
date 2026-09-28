@@ -15,6 +15,9 @@ from pynetdicom.sop_class import (
     StudyRootQueryRetrieveInformationModelFind,
     StudyRootQueryRetrieveInformationModelMove,
     StudyRootQueryRetrieveInformationModelGet,
+    PatientRootQueryRetrieveInformationModelFind,
+    PatientRootQueryRetrieveInformationModelMove,
+    PatientRootQueryRetrieveInformationModelGet,
 )
 
 from client_app.models import Patient, DICOMStudy, SiteConfiguration
@@ -26,29 +29,45 @@ from dicom_server.tests.utils import make_test_dataset
 
 
 class _StubPACS:
-    """A pynetdicom AE acting as a remote PACS for tests."""
+    """A pynetdicom AE acting as a remote PACS for tests.
 
-    def __init__(self, datasets, move_dest=None):
+    patient_root=True negotiates Patient Root Q/R only (the SCU must fall
+    back from Study Root). echo_only=True supports only Verification, so any
+    Q/R association is rejected at the presentation-context level.
+    """
+
+    def __init__(self, datasets, move_dest=None, patient_root=False,
+                 echo_only=False):
         self.datasets = datasets
         self.move_dest = move_dest
         self.ae = AE(ae_title='STUBPACS')
         self.ae.supported_contexts = StoragePresentationContexts
 
+        if patient_root:
+            find = PatientRootQueryRetrieveInformationModelFind
+            move = PatientRootQueryRetrieveInformationModelMove
+            get = PatientRootQueryRetrieveInformationModelGet
+        else:
+            find = StudyRootQueryRetrieveInformationModelFind
+            move = StudyRootQueryRetrieveInformationModelMove
+            get = StudyRootQueryRetrieveInformationModelGet
+
         handlers = []
         self.ae.add_supported_context(Verification)
         handlers.append((evt.EVT_C_ECHO, lambda event: 0x0000))
-        self.ae.add_supported_context(StudyRootQueryRetrieveInformationModelFind)
-        handlers.append((evt.EVT_C_FIND, self._handle_find))
-        if move_dest is not None:
-            self.ae.requested_contexts = StoragePresentationContexts
-            self.ae.add_supported_context(StudyRootQueryRetrieveInformationModelMove)
-            handlers.append((evt.EVT_C_MOVE, self._handle_move))
-        else:
-            for cx in self.ae.supported_contexts:
-                cx.scp_role = True
-                cx.scu_role = False
-            self.ae.add_supported_context(StudyRootQueryRetrieveInformationModelGet)
-            handlers.append((evt.EVT_C_GET, self._handle_get))
+        if not echo_only:
+            self.ae.add_supported_context(find)
+            handlers.append((evt.EVT_C_FIND, self._handle_find))
+            if move_dest is not None:
+                self.ae.requested_contexts = StoragePresentationContexts
+                self.ae.add_supported_context(move)
+                handlers.append((evt.EVT_C_MOVE, self._handle_move))
+            else:
+                for cx in self.ae.supported_contexts:
+                    cx.scp_role = True
+                    cx.scu_role = False
+                self.ae.add_supported_context(get)
+                handlers.append((evt.EVT_C_GET, self._handle_get))
 
         self.server = self.ae.start_server(
             ('127.0.0.1', 0), block=False, evt_handlers=handlers,
@@ -147,6 +166,51 @@ class QRClientTests(TransactionTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['study_instance_uid'], ds.StudyInstanceUID)
         self.assertEqual(results[0]['modalities'], 'CT')
+
+    def test_find_studies_patient_root_fallback(self):
+        """Remote supports only Patient Root FIND — the SCU must negotiate
+        it instead of failing."""
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        pacs = _StubPACS([ds], patient_root=True)
+        try:
+            results = qr_client.find_studies(
+                self._node(port=pacs.port), 'MR/25/004771'
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['study_instance_uid'], ds.StudyInstanceUID)
+
+    def test_move_study_patient_root_fallback(self):
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        pacs = _StubPACS([ds], move_dest=self.scp_port, patient_root=True)
+        try:
+            stats = qr_client.move_study(
+                self._node(port=pacs.port), ds.StudyInstanceUID, 'MR/25/004771'
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(stats['completed'], 1)
+
+    def test_find_studies_all_contexts_rejected(self):
+        """Peer accepts the association but rejects every presentation
+        context — the error must report the rejection reason, not the
+        generic 'aborted' message."""
+        pacs = _StubPACS([], echo_only=True)
+        try:
+            with self.assertRaises(ConnectionError) as cm:
+                qr_client.find_studies(
+                    self._node(port=pacs.port), 'MR/25/004771'
+                )
+        finally:
+            pacs.shutdown()
+
+        msg = str(cm.exception)
+        self.assertIn('rejected all presentation contexts', msg)
+        self.assertIn('Abstract Syntax Not Supported', msg)
+        self.assertNotIn('aborted', msg)
 
     def test_find_studies_for_patient_raises_when_all_ids_fail(self):
         node = self._node(port=1)  # nothing listening

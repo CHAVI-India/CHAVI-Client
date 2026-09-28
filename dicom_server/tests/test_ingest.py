@@ -5,7 +5,9 @@ from unittest import mock
 from django.test import TestCase, override_settings
 from pydicom import dcmread
 
-from client_app.models import Patient, DICOMStudy, SiteConfiguration
+from client_app.models import (
+    Patient, DICOMStudy, DICOMSeries, DICOMInstance, SiteConfiguration,
+)
 from dicom_server.models import InboundDICOMInstance
 from dicom_server.services.ingest import ingest_dataset, find_patient, sanitize
 from dicom_server.tests.utils import make_test_dataset
@@ -74,6 +76,13 @@ class IngestDatasetTests(TestCase):
         self.assertEqual(entry.matched_patient, self.patient)
         self.assertEqual(entry.sop_instance_uid, ds.SOPInstanceUID)
 
+        # Series/instance hierarchy populated at ingest time
+        series = DICOMSeries.objects.get(series_instance_uid=ds.SeriesInstanceUID)
+        self.assertEqual(series.study, study)
+        self.assertEqual(series.modality, 'CT')
+        instance = DICOMInstance.objects.get(sop_instance_uid=ds.SOPInstanceUID)
+        self.assertEqual(instance.series, series)
+
     def test_canonical_match_rewrites_patient_id(self):
         ds = make_test_dataset(patient_id='25004771')
         result = ingest_dataset(ds)
@@ -141,6 +150,8 @@ class IngestDatasetTests(TestCase):
         ingest_dataset(ds)
         ingest_dataset(ds)  # same SOPInstanceUID again
         self.assertEqual(DICOMStudy.objects.count(), 1)
+        self.assertEqual(DICOMSeries.objects.count(), 1)
+        self.assertEqual(DICOMInstance.objects.count(), 1)
         self.assertEqual(InboundDICOMInstance.objects.filter(status='STORED').count(), 2)
 
     def test_modalities_merge_across_instances(self):
