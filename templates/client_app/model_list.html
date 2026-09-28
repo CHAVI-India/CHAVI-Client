@@ -27,7 +27,7 @@
     {% endif %}
 
     <!-- Add Button -->
-    {% if add_url %}
+    {% if add_url and can_add %}
     <div class="mb-4">
         {% component "button" style="primary" href=add_url icon="fas fa-plus" %}Add {{ model_name }}{% endcomponent %}
     </div>
@@ -48,8 +48,10 @@
                     {% if obj.created_at %}{{ obj.created_at|date:"d/m/Y H:i" }}{% else %}-{% endif %}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {% if can_edit %}
                     {% url edit_url_name obj.pk as edit_url %}
                     {% component "icon_button" icon="fas fa-edit" aria_label="Edit" href=edit_url %}{% endcomponent %}
+                    {% endif %}
                 </td>
             </tr>
             {% empty %}

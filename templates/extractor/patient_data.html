@@ -21,12 +21,14 @@
         <div class="space-y-2 mb-4">
             {% for fr in file_rows %}
             <div class="flex items-center gap-3 border border-gray-200 rounded-lg px-4 py-2.5">
+                {% if perms.extractor.add_extractionjob %}
                 <input type="checkbox" name="processed_files" value="{{ fr.processed_file.id }}" form_id="extract-form"
                        class="rounded border-gray-300 text-chavi-primary"
                        {% if deid_enabled %}
                            {% if not fr.processed_file.deidentified %}disabled title="Deidentification required before extraction"{% endif %}
                            {% if fr.processed_file.deidentified and deid_require_review and not fr.processed_file.deid_reviewed %}disabled title="Review the deidentified text before extraction"{% endif %}
                        {% endif %}>
+                {% endif %}
                 <div class="flex-1 min-w-0">
                     <span class="font-medium text-gray-900">{{ fr.processed_file.file_upload.original_filename }}</span>
                     <span class="text-xs text-gray-400 ml-2">v{{ fr.processed_file.version }}</span>
@@ -61,6 +63,7 @@
                     <span class="text-gray-400">no job</span>
                     {% endif %}
                 </div>
+                {% if perms.extractor.change_processedtext %}
                 {% if fr.processed_file.processing_warning == 'no_text' or fr.processed_file.processing_warning == 'low_text' or fr.processed_file.processing_warning == 'ocr_empty' %}
                 <form method="post" action="{% url 'extractor:processed_text_ocr' fr.processed_file.id %}">
                     {% csrf_token %}
@@ -88,11 +91,15 @@
                     </form>
                     {% endif %}
                 {% endif %}
+                {% endif %}
+                {% if perms.extractor.view_processedtext %}
                 {% url 'extractor:processed_text_view' fr.processed_file.id as view_url %}
                 {% component "button" style="link" size="sm" href=view_url %}View{% endcomponent %}
+                {% endif %}
             </div>
             {% endfor %}
         </div>
+        {% if perms.extractor.add_extractionjob %}
         <div class="flex items-center gap-3">
             <select name="response_model" required form_id="extract-form"
                     class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -103,6 +110,7 @@
             </select>
             {% component "button" type="submit" form_id="extract-form" style="gradient" size="sm" icon="fas fa-play" %}Start extraction{% endcomponent %}
         </div>
+        {% endif %}
         {% else %}
         <p class="text-gray-500 text-sm">No processed files for this patient yet.</p>
         {% endif %}
@@ -134,8 +142,10 @@
                 <span class="text-gray-400 truncate max-w-xs">{{ job.processed_file.file_upload.original_filename }}</span>
                 {% if job.tokens_used %}<span class="text-gray-400">{{ job.tokens_used }} tok</span>{% endif %}
                 <span class="text-gray-400">{{ job.created_at|date:"M d H:i" }}</span>
+                {% if perms.extractor.view_extractionjob %}
                 {% url 'extractor:extraction_job_detail' job.id as job_url %}
                 {% component "button" style="link" size="sm" href=job_url extra_class="ml-auto" %}detail{% endcomponent %}
+                {% endif %}
             </div>
             {% endfor %}
         </div>

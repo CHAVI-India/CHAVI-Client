@@ -36,7 +36,9 @@
         </h3>
         {% endfill %}
         {% fill "actions" %}
+            {% if perms.extractor.add_embeddingconfiguration %}
             {% component "button" style="accent" href=create_url icon="fas fa-plus" %}New Configuration{% endcomponent %}
+            {% endif %}
         {% endfill %}
         {% fill "body" %}
             {% if configs %}
@@ -67,18 +69,22 @@
                             </div>
                         </div>
                         <div class="flex space-x-2 ml-4">
-                            {% if not config.is_active %}
+                            {% if not config.is_active and perms.extractor.change_embeddingconfiguration %}
                             <form method="post" action="{% url 'extractor:embedding_config_activate' config.id %}" class="inline">
                                 {% csrf_token %}
                                 {% component "button" style="primary" size="sm" type="submit" icon="fas fa-power-off" %}Activate{% endcomponent %}
                             </form>
                             {% endif %}
+                            {% if perms.extractor.change_embeddingconfiguration %}
                             {% url 'extractor:embedding_config_edit' config.id as edit_url %}
                             {% component "icon_button" style="primary" size="sm" href=edit_url icon="fas fa-edit" aria_label="Edit configuration" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.delete_embeddingconfiguration %}
                             <form method="post" action="{% url 'extractor:embedding_config_delete' config.id %}" class="inline" onsubmit="return confirm('Delete this configuration and all its embeddings?');">
                                 {% csrf_token %}
                                 {% component "icon_button" style="danger" size="sm" type="submit" icon="fas fa-trash" aria_label="Delete configuration" %}{% endcomponent %}
                             </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -101,8 +107,10 @@
         </h3>
         {% endfill %}
         {% fill "actions" %}
+            {% if perms.extractor.change_embeddingconfiguration %}
             {% component "button" style="info" onclick="computeEmbeddings(false)" icon="fas fa-sync" %}Compute New{% endcomponent %}
             {% component "button" style="accent" onclick="computeEmbeddings(true)" icon="fas fa-redo" %}Refresh All{% endcomponent %}
+            {% endif %}
         {% endfill %}
         {% fill "body" %}
             {% if embedding_stats and embedding_stats.total > 0 %}
@@ -139,7 +147,9 @@
             {% else %}
             {% component "empty_state" icon="fas fa-database" description="No embeddings computed yet" %}
                 {% fill "action" %}
+                    {% if perms.extractor.change_embeddingconfiguration %}
                     {% component "button" style="accent" onclick="computeEmbeddings(false)" icon="fas fa-play" %}Compute Embeddings Now{% endcomponent %}
+                    {% endif %}
                 {% endfill %}
             {% endcomponent %}
             {% endif %}

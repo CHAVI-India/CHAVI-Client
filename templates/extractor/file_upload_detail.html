@@ -9,13 +9,17 @@
     {% with subtitle_text=file_upload.original_filename|default:file_upload.file.name %}
     {% component "page_header" title="File Details" icon="fas fa-file-alt" subtitle=subtitle_text back_url=list_url back_text="Back to List" %}
         {% fill "actions" %}
+            {% if perms.extractor.change_fileupload %}
             {% if file_upload.processing_status == 'pending' or file_upload.processing_status == 'failed' %}
             <form method="post" action="{% url 'extractor:file_upload_process' file_upload.id %}" class="inline">
                 {% csrf_token %}
                 {% component "button" style="primary" type="submit" icon="fas fa-cogs" %}Process File{% endcomponent %}
             </form>
             {% endif %}
+            {% endif %}
+            {% if perms.extractor.delete_fileupload %}
             {% component "button" style="danger" icon="fas fa-trash" onclick="confirmDelete()" %}Delete{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
     {% endwith %}
@@ -110,6 +114,7 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
+                            {% if perms.extractor.change_processedtext %}
                             {% if processed.processing_warning == 'no_text' or processed.processing_warning == 'low_text' or processed.processing_warning == 'ocr_empty' %}
                             <form method="post" action="{% url 'extractor:processed_text_ocr' processed.id %}">
                                 {% csrf_token %}
@@ -137,8 +142,11 @@
                                 </form>
                                 {% endif %}
                             {% endif %}
+                            {% endif %}
+                            {% if perms.extractor.view_processedtext %}
                             {% url 'extractor:processed_text_view' processed.id as view_url %}
                             {% component "button" style="primary" href=view_url icon="fas fa-eye" %}View{% endcomponent %}
+                            {% endif %}
                         </div>
                     </div>
                 </div>

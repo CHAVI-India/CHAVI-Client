@@ -8,8 +8,12 @@
     {% url 'extractor:client_configuration_create' as create_url %}
     {% component "page_header" title="LLM Client Configurations" icon="fas fa-robot" %}
         {% fill "actions" %}
+            {% if perms.extractor.view_responsemodel %}
             {% component "button" style="secondary" href=rm_url icon="fas fa-cogs" %}Response Models{% endcomponent %}
+            {% endif %}
+            {% if perms.extractor.add_clientconfiguration %}
             {% component "button" style="primary" href=create_url icon="fas fa-plus" %}Add Configuration{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -48,7 +52,9 @@
             {% fill "footer" %}
             <div class="flex gap-2">
                 {% component "button" style="secondary" size="sm" href=detail_url icon="fas fa-eye" extra_class="flex-1" %}View{% endcomponent %}
+                {% if perms.extractor.change_clientconfiguration %}
                 {% component "button" style="info" size="sm" href=edit_url icon="fas fa-edit" extra_class="flex-1" %}Edit{% endcomponent %}
+                {% endif %}
             </div>
             {% endfill %}
         {% endcomponent %}
@@ -58,7 +64,9 @@
     {% component "card" %}{% fill "body" %}
         {% component "empty_state" icon="fas fa-robot" title="No LLM Configurations Yet" description="Create your first LLM client configuration to start using AI-powered extraction." %}
             {% fill "action" %}
+                {% if perms.extractor.add_clientconfiguration %}
                 {% component "button" style="primary" href=create_url icon="fas fa-plus" %}Add Configuration{% endcomponent %}
+                {% endif %}
             {% endfill %}
         {% endcomponent %}
     {% endfill %}{% endcomponent %}

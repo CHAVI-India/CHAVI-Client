@@ -21,13 +21,11 @@ def build_homepage_metrics(user, *, now=None):
     period_start = now - timedelta(days=30)
 
     can_view_extractions = user.has_perm("extractor.view_extractionjob")
-    can_view_deidentification = (
-        user.is_staff
-        and user.has_perm("deidentification.view_deidpatient")
+    can_view_deidentification = user.has_perm(
+        "deidentification.view_deidpatient"
     )
-    can_view_deidentification_jobs = (
-        user.is_staff
-        and user.has_perm("deidentification.view_deidentificationjob")
+    can_view_deidentification_jobs = user.has_perm(
+        "deidentification.view_deidentificationjob"
     )
 
     task_counts = {
@@ -125,15 +123,16 @@ def build_homepage_metrics(user, *, now=None):
             "failed_or_stalled": failed_or_stalled,
         },
         "permissions": {
-            "patient_search": user.is_authenticated,
+            "patient_search": user.has_perm("client_app.view_patient"),
             "patient_add": user.has_perm("client_app.add_patient"),
-            "csv_import": user.is_authenticated,
-            "dicom_upload": user.is_authenticated,
-            "dicom_retrieve": user.has_perm("client_app.add_dicomstudy"),
+            "csv_import": user.has_perm("data_import.view_fileimportsession"),
+            "dicom_upload": user.has_perm("client_app.add_bulkdicomuploadsession"),
+            "dicom_sessions": user.has_perm("client_app.view_bulkdicomuploadsession"),
+            "dicom_retrieve": user.has_perm("dicom_server.add_retrievaljob"),
             "extraction_dashboard": user.has_perm("extractor.view_processedtext"),
             "file_upload": user.has_perm("extractor.add_fileupload"),
             "deidentification": can_view_deidentification,
-            "task_runs": user.is_authenticated,
+            "task_runs": user.has_perm("client_app.view_taskrun"),
             "admin": user.is_staff,
         },
     }

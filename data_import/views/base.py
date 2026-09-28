@@ -5,6 +5,7 @@ Base view class for import workflow.
 from django.views.generic import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from ..models import FileImportSession, FileImportSessionStep
 
@@ -14,11 +15,30 @@ class BaseImportView(LoginRequiredMixin, View):
     Base view for all import workflow steps.
     Provides common functionality for session management and navigation.
     """
-    
+
     # Override in subclasses
     step_identifier = None  # e.g., FileImportSessionStep.UPLOAD
     step_name = None  # Display name
     template_name = None
+
+    def get_required_permission(self):
+        """Permission required for the current request.
+
+        Reads (GET/HEAD) need ``view_fileimportsession``; writes (POST)
+        need ``change_fileimportsession``. Subclasses may override.
+        """
+        if self.request.method == 'POST':
+            return 'data_import.change_fileimportsession'
+        return 'data_import.view_fileimportsession'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            # Let LoginRequiredMixin produce the login redirect.
+            return super().dispatch(request, *args, **kwargs)
+        perm = self.get_required_permission()
+        if perm and not request.user.has_perm(perm):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
     
     # Step order - defines the sequence of steps
     STEP_ORDER = [

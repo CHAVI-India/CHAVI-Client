@@ -1,8 +1,8 @@
 import logging
 
 from django.contrib import messages
-from django.contrib.auth.mixins import AccessMixin
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -24,28 +24,23 @@ from dicom_server.tasks import task_retrieve_studies
 logger = logging.getLogger(__name__)
 
 
-class StaffRequiredMixin(AccessMixin):
-    """Staff-only pages: anonymous → login redirect; non-staff → 403."""
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return self.handle_no_permission()
-        if not request.user.is_staff:
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+class DicomPermissionRequiredMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    """Anonymous → login redirect; authenticated without the permission → 403."""
+    raise_exception = True
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect_to_login(
+            self.request.get_full_path(),
+            self.get_login_url(),
+            self.get_redirect_field_name(),
+        )
 
 
-class QRPermissionMixin(AccessMixin):
-    """Q/R pages: login + client_app.add_dicomstudy permission."""
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return self.handle_no_permission()
-        if not request.user.has_perm('client_app.add_dicomstudy'):
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
-
-
-class DashboardView(QRPermissionMixin, TemplateView):
+class DashboardView(DicomPermissionRequiredMixin, TemplateView):
     template_name = 'dicom_server/dashboard.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -60,12 +55,13 @@ class DashboardView(QRPermissionMixin, TemplateView):
         return context
 
 
-# --- Configuration (staff only) ---
+# --- Configuration (server config permission) ---
 
-class ConfigUpdateView(StaffRequiredMixin, UpdateView):
+class ConfigUpdateView(DicomPermissionRequiredMixin, UpdateView):
     model = DICOMServerConfiguration
     form_class = DICOMServerConfigForm
     template_name = 'dicom_server/config_form.html'
+    permission_required = 'dicom_server.change_dicomserverconfiguration'
     success_url = reverse_lazy('dicom_server:dashboard')
 
     def get_object(self, queryset=None):
@@ -76,16 +72,18 @@ class ConfigUpdateView(StaffRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class RemoteNodeListView(StaffRequiredMixin, ListView):
+class RemoteNodeListView(DicomPermissionRequiredMixin, ListView):
     model = RemoteDICOMNode
     template_name = 'dicom_server/node_list.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
     context_object_name = 'nodes'
 
 
-class RemoteNodeCreateView(StaffRequiredMixin, CreateView):
+class RemoteNodeCreateView(DicomPermissionRequiredMixin, CreateView):
     model = RemoteDICOMNode
     form_class = RemoteDICOMNodeForm
     template_name = 'dicom_server/node_form.html'
+    permission_required = 'dicom_server.add_remotedicomnode'
     success_url = reverse_lazy('dicom_server:node_list')
 
     def form_valid(self, form):
@@ -93,10 +91,11 @@ class RemoteNodeCreateView(StaffRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class RemoteNodeUpdateView(StaffRequiredMixin, UpdateView):
+class RemoteNodeUpdateView(DicomPermissionRequiredMixin, UpdateView):
     model = RemoteDICOMNode
     form_class = RemoteDICOMNodeForm
     template_name = 'dicom_server/node_form.html'
+    permission_required = 'dicom_server.change_remotedicomnode'
     success_url = reverse_lazy('dicom_server:node_list')
 
     def form_valid(self, form):
@@ -104,9 +103,10 @@ class RemoteNodeUpdateView(StaffRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class RemoteNodeDeleteView(StaffRequiredMixin, DeleteView):
+class RemoteNodeDeleteView(DicomPermissionRequiredMixin, DeleteView):
     model = RemoteDICOMNode
     template_name = 'dicom_server/node_confirm_delete.html'
+    permission_required = 'dicom_server.delete_remotedicomnode'
     success_url = reverse_lazy('dicom_server:node_list')
 
     def form_valid(self, form):
@@ -114,7 +114,9 @@ class RemoteNodeDeleteView(StaffRequiredMixin, DeleteView):
         return super().form_valid(form)
 
 
-class RemoteNodeEchoView(StaffRequiredMixin, View):
+class RemoteNodeEchoView(DicomPermissionRequiredMixin, View):
+    permission_required = 'dicom_server.view_remotedicomnode'
+
     def post(self, request, pk):
         node = get_object_or_404(RemoteDICOMNode, pk=pk)
         try:
@@ -130,11 +132,12 @@ class RemoteNodeEchoView(StaffRequiredMixin, View):
         return redirect('dicom_server:node_list')
 
 
-# --- Query/Retrieve (add_dicomstudy permission) ---
+# --- Query/Retrieve (retrieval job permissions) ---
 
-class RetrieveStudiesView(QRPermissionMixin, FormView):
+class RetrieveStudiesView(DicomPermissionRequiredMixin, FormView):
     template_name = 'dicom_server/retrieve.html'
     form_class = RetrieveStudiesForm
+    permission_required = 'dicom_server.add_retrievaljob'
 
     def form_valid(self, form):
         node = form.cleaned_data['node']
@@ -163,16 +166,18 @@ class RetrieveStudiesView(QRPermissionMixin, FormView):
         return redirect('dicom_server:job_detail', pk=job.pk)
 
 
-class RetrievalJobListView(QRPermissionMixin, ListView):
+class RetrievalJobListView(DicomPermissionRequiredMixin, ListView):
     model = RetrievalJob
     template_name = 'dicom_server/job_list.html'
+    permission_required = 'dicom_server.view_retrievaljob'
     context_object_name = 'jobs'
     paginate_by = 25
 
 
-class RetrievalJobDetailView(QRPermissionMixin, DetailView):
+class RetrievalJobDetailView(DicomPermissionRequiredMixin, DetailView):
     model = RetrievalJob
     template_name = 'dicom_server/job_detail.html'
+    permission_required = 'dicom_server.view_retrievaljob'
     context_object_name = 'job'
 
     def get_context_data(self, **kwargs):

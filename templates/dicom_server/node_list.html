@@ -6,7 +6,9 @@
     {% url 'dicom_server:dashboard' as dash_url %}
     {% component "page_header" title="Remote DICOM Nodes" icon="fas fa-network-wired" back_url=dash_url back_text="Back to dashboard" %}
         {% fill "actions" %}
+            {% if perms.dicom_server.add_remotedicomnode %}
             {% component "button" style="primary" href=add_url icon="fas fa-plus" %}Add Node{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -37,12 +39,18 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                         {% url 'dicom_server:node_update' node.pk as node_edit_url %}
                         {% url 'dicom_server:node_delete' node.pk as node_del_url %}
+                        {% if perms.dicom_server.view_remotedicomnode %}
                         <form method="post" action="{% url 'dicom_server:node_echo' node.pk %}" class="inline">
                             {% csrf_token %}
                             {% component "icon_button" icon="fas fa-heartbeat" type="submit" aria_label="Echo" title="Echo" %}{% endcomponent %}
                         </form>
+                        {% endif %}
+                        {% if perms.dicom_server.change_remotedicomnode %}
                         {% component "icon_button" icon="fas fa-edit" aria_label="Edit" href=node_edit_url title="Edit" %}{% endcomponent %}
+                        {% endif %}
+                        {% if perms.dicom_server.delete_remotedicomnode %}
                         {% component "icon_button" icon="fas fa-trash" style="danger" aria_label="Delete" href=node_del_url title="Delete" %}{% endcomponent %}
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -51,7 +59,9 @@
         {% else %}
         {% component "empty_state" title="No remote nodes configured yet" description="Add a node to enable DICOM retrieval." %}
             {% fill "action" %}
+                {% if perms.dicom_server.add_remotedicomnode %}
                 {% component "button" style="primary" href=add_url icon="fas fa-plus" %}Add Node{% endcomponent %}
+                {% endif %}
             {% endfill %}
         {% endcomponent %}
         {% endif %}

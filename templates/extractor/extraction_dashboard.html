@@ -8,7 +8,9 @@
     {% url 'extractor:extraction_dashboard' as clear_url %}
     {% component "page_header" title="Data Extraction Dashboard" icon="fas fa-robot" subtitle='To start a new extraction run, open a patient and use "Start extraction" on their files' %}
         {% fill "actions" %}
+            {% if perms.extractor.view_extractionjob %}
             {% component "button" style="primary" href=results_url icon="fas fa-list" %}View All Results{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -86,8 +88,10 @@
                     </span>
                 </td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
+                    {% if perms.extractor.view_extractionresult %}
                     {% url 'extractor:patient_data' patient.pk as purl %}
                     {% component "button" style="primary" size="sm" href=purl icon="fas fa-play" %}Extract / Review{% endcomponent %}
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

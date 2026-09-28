@@ -73,7 +73,9 @@
         </h3>
         {% endfill %}
         {% fill "actions" %}
+            {% if perms.extractor.add_instructormessage %}
             {% component "button" style="primary" size="sm" href=add_message_url icon="fas fa-plus" %}Add Message{% endcomponent %}
+            {% endif %}
         {% endfill %}
         {% fill "body" %}
             {% if instructor_messages %}
@@ -93,10 +95,14 @@
                         </div>
                         <div class="flex items-center space-x-2">
                             {% url 'extractor:instructor_message_edit' message.id as msg_edit_url %}
+                            {% if perms.extractor.change_instructormessage %}
                             {% component "icon_button" style="primary" href=msg_edit_url icon="fas fa-edit" aria_label="Edit" title="Edit" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.delete_instructormessage %}
                             {% with del_onclick="deleteMessage("|add:message.id|add:")" %}
                             {% component "icon_button" style="danger" icon="fas fa-trash" aria_label="Delete" title="Delete" onclick=del_onclick %}{% endcomponent %}
                             {% endwith %}
+                            {% endif %}
                         </div>
                     </div>
                     {% component "code_block" %}{% if message.prompt.content %}{{ message.prompt.content }}{% else %}{{ message.prompt }}{% endif %}{% endcomponent %}
@@ -110,7 +116,9 @@
                 <p class="mb-4">
                     Add system prompts to guide the LLM during data extraction. Without prompts, the LLM may not extract data accurately.
                 </p>
+                {% if perms.extractor.add_instructormessage %}
                 {% component "button" style="warning" href=add_message_url icon="fas fa-plus" %}Add First Message{% endcomponent %}
+                {% endif %}
                 {% endfill %}
             {% endcomponent %}
             {% endif %}

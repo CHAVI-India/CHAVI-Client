@@ -15,10 +15,12 @@
     {% component "card" title="Studies & Deidentification Jobs" extra_class="mt-6" %}
         {% fill "actions" %}
             <div class="flex flex-wrap items-center gap-2">
+                {% if perms.deidentification.add_deidentificationjob %}
                 <form method="post" action="{% url 'deidentification:trigger_deidentify' patient.patient_id %}" id="deidentify-form">
                     {% csrf_token %}
                     {% component "button" style="primary" type="submit" icon="fas fa-play" %}Deidentify All Studies{% endcomponent %}
                 </form>
+                {% endif %}
                 {% url 'deidentification:download_clinical' patient.patient_id as dc_url %}
                 {% component "button" style="secondary" icon="fas fa-file-medical" href=dc_url disabled=deid_patient|yesno:",True" onclick="return handleDownloadClick(event, this.href)" %}Download Clinical (JSON){% endcomponent %}
                 {% url 'deidentification:download' patient.patient_id as dd_url %}

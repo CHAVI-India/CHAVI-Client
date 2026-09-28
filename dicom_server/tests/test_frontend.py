@@ -19,13 +19,27 @@ class DicomFrontendTestCase(TestCase):
         # .update() bypasses post_save — no broker in tests
         Patient.objects.filter(pk=cls.patient.pk).update(chavi_consent=True)
         cls.patient.chavi_consent = True
+        # DICOM-admin-style user: is_staff plus node/config model permissions.
+        # Retrieval-job permissions are deliberately NOT granted so the tests
+        # can show is_staff alone does not open Q/R pages.
         cls.staff = User.objects.create_user('staff', password='pw', is_staff=True)
+        cls.staff.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='dicom_server',
+            codename__in=[
+                'view_remotedicomnode', 'add_remotedicomnode',
+                'change_remotedicomnode', 'delete_remotedicomnode',
+                'change_dicomserverconfiguration',
+            ],
+        ))
+        # Retrieval operator: can view the dashboard/nodes and run Q/R jobs,
+        # but cannot change server config or create/edit/delete nodes.
         cls.perm_user = User.objects.create_user('qruser', password='pw')
-        cls.perm_user.user_permissions.add(
-            Permission.objects.get(
-                codename='add_dicomstudy', content_type__app_label='client_app',
-            )
-        )
+        cls.perm_user.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='dicom_server',
+            codename__in=[
+                'view_remotedicomnode', 'add_retrievaljob', 'view_retrievaljob',
+            ],
+        ))
         cls.plain_user = User.objects.create_user('plain', password='pw')
         cls.node = RemoteDICOMNode.objects.create(
             name='Stub PACS', ae_title='STUBPACS', host='127.0.0.1',
@@ -35,10 +49,12 @@ class DicomFrontendTestCase(TestCase):
 
 class TestPermissionGating(DicomFrontendTestCase):
     QR_URLS = ['dashboard', 'retrieve', 'job_list']
-    STAFF_URLS = ['config_edit', 'node_list', 'node_create']
+    # node_list only needs view_remotedicomnode — the same perm that opens the
+    # dashboard — so it is reachable by the retrieval operator.
+    ADMIN_URLS = ['config_edit', 'node_create']
 
     def test_anonymous_redirected_to_login(self):
-        for name in self.QR_URLS + self.STAFF_URLS:
+        for name in self.QR_URLS + self.ADMIN_URLS + ['node_list']:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 302, name)
             self.assertIn('/accounts/login/', resp.url, name)
@@ -52,26 +68,26 @@ class TestPermissionGating(DicomFrontendTestCase):
 
     def test_plain_user_denied_everywhere(self):
         self.client.force_login(self.plain_user)
-        for name in self.QR_URLS + self.STAFF_URLS:
+        for name in self.QR_URLS + self.ADMIN_URLS + ['node_list']:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 403, name)
 
-    def test_perm_user_can_access_qr_but_not_staff_pages(self):
+    def test_perm_user_can_access_qr_but_not_admin_pages(self):
         self.client.force_login(self.perm_user)
-        for name in self.QR_URLS:
+        for name in self.QR_URLS + ['node_list']:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 200, name)
-        for name in self.STAFF_URLS:
+        for name in self.ADMIN_URLS:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 403, name)
 
-    def test_staff_without_perm_denied_qr_pages(self):
+    def test_staff_without_retrieval_perm_denied_qr_pages(self):
         # is_staff alone does not grant retrieval — the permission is required.
         self.client.force_login(self.staff)
-        for name in self.QR_URLS:
+        for name in ['retrieve', 'job_list']:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 403, name)
-        for name in self.STAFF_URLS:
+        for name in self.ADMIN_URLS + ['node_list', 'dashboard']:
             resp = self.client.get(reverse(f'dicom_server:{name}'))
             self.assertEqual(resp.status_code, 200, name)
 
@@ -163,8 +179,8 @@ class TestNodeCRUD(DicomFrontendTestCase):
         self.assertContains(resp, 'rejected by peer')
 
     @mock.patch('dicom_server.views.qr_client.echo', return_value=(True, ''))
-    def test_echo_action_denied_for_perm_user(self, mock_echo):
-        self.client.force_login(self.perm_user)
+    def test_echo_action_denied_for_plain_user(self, mock_echo):
+        self.client.force_login(self.plain_user)
         resp = self.client.post(reverse('dicom_server:node_echo', args=[self.node.pk]))
         self.assertEqual(resp.status_code, 403)
         mock_echo.assert_not_called()

@@ -174,8 +174,37 @@ class ForeignKeyInitMixin:
         return super().form_valid(form)
 
 
-class BaseFormView(ForeignKeyInitMixin, LoginRequiredMixin, CreateView):
+class ModelPermissionMixin(PermissionRequiredMixin):
+    """Derives the required model permission from ``self.model``.
+
+    Subclasses pick the verb via ``permission_action`` ('add', 'change',
+    'delete' or 'view'); the codename is built from the model's app label
+    and model name, e.g. ``client_app.add_diagnosis``.
+
+    Anonymous users are redirected to login; authenticated users without
+    the permission get 403.
+    """
+    permission_action = None
+    raise_exception = True
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        from django.contrib.auth.views import redirect_to_login
+        return redirect_to_login(
+            self.request.get_full_path(),
+            self.get_login_url(),
+            self.get_redirect_field_name(),
+        )
+
+    def get_permission_required(self):
+        opts = self.model._meta
+        return [f"{opts.app_label}.{self.permission_action}_{opts.model_name}"]
+
+
+class BaseFormView(ForeignKeyInitMixin, LoginRequiredMixin, ModelPermissionMixin, CreateView):
     """Base view for all form views with common functionality"""
+    permission_action = 'add'
     template_name = 'client_app/form_template.html'
     
     def get_context_data(self, **kwargs):
@@ -194,11 +223,9 @@ class BaseFormView(ForeignKeyInitMixin, LoginRequiredMixin, CreateView):
 
 
 # Patient-level form views
-class PatientCreateView(PermissionRequiredMixin, BaseFormView):
+class PatientCreateView(BaseFormView):
     model = Patient
     form_class = PatientForm
-    permission_required = 'client_app.add_patient'
-    raise_exception = True
 
     def get_success_url(self):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient_id}'
@@ -277,9 +304,10 @@ class DiagnosisCreateView(BaseFormView):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient.patient_id}'
 
 
-class DiagnosisUpdateView(LoginRequiredMixin, UpdateView):
+class DiagnosisUpdateView(LoginRequiredMixin, ModelPermissionMixin, UpdateView):
     model = Diagnosis
     form_class = DiagnosisForm
+    permission_action = 'change'
     template_name = 'client_app/form_template.html'
     pk_url_kwarg = 'pk'
     
@@ -498,23 +526,28 @@ class SystemicTherapyScheduleCreateView(BaseFormView):
 
 
 # Base classes for List and Update views
-class BaseListView(LoginRequiredMixin, ListView):
+class BaseListView(LoginRequiredMixin, ModelPermissionMixin, ListView):
     """Base view for listing model instances"""
+    permission_action = 'view'
     template_name = 'client_app/model_list.html'
     paginate_by = 25
     edit_url_name = None  # Override in subclass
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = f"{self.model._meta.verbose_name_plural}"
-        context['model_name'] = self.model._meta.verbose_name
-        context['model_name_plural'] = self.model._meta.verbose_name_plural
-        context['edit_url_name'] = self.edit_url_name or f'client_app:{self.model._meta.model_name}_edit'
+        opts = self.model._meta
+        context['title'] = f"{opts.verbose_name_plural}"
+        context['model_name'] = opts.verbose_name
+        context['model_name_plural'] = opts.verbose_name_plural
+        context['edit_url_name'] = self.edit_url_name or f'client_app:{opts.model_name}_edit'
+        context['can_add'] = self.request.user.has_perm(f"{opts.app_label}.add_{opts.model_name}")
+        context['can_edit'] = self.request.user.has_perm(f"{opts.app_label}.change_{opts.model_name}")
         return context
 
 
-class BaseUpdateView(LoginRequiredMixin, UpdateView):
+class BaseUpdateView(LoginRequiredMixin, ModelPermissionMixin, UpdateView):
     """Base view for updating model instances"""
+    permission_action = 'change'
     template_name = 'client_app/form_template.html'
     pk_url_kwarg = 'pk'
     

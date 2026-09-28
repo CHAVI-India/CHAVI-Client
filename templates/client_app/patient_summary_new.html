@@ -37,9 +37,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:comorbidity_list' as comorbidity_list_url %}
+            {% if caps.view_comorbidity %}
             {% component "link_chip" url=comorbidity_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:comorbidity_add' as add_comorbidity_url %}
+            {% if caps.add_comorbidity %}
             {% component "link_chip" url=add_comorbidity_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -51,9 +55,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:symptom_list' as symptom_list_url %}
+            {% if caps.view_symptom %}
             {% component "link_chip" url=symptom_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:symptom_add' as add_symptom_url %}
+            {% if caps.add_symptom %}
             {% component "link_chip" url=add_symptom_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -65,9 +73,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:patientassessment_list' as assessment_list_url %}
+            {% if caps.view_patientassessment %}
             {% component "link_chip" url=assessment_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:patientassessment_add' as assessment_add_url %}
+            {% if caps.add_patientassessment %}
             {% component "link_chip" url=assessment_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -79,9 +91,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:laboratoryresults_list' as lab_list_url %}
+            {% if caps.view_laboratoryresults %}
             {% component "link_chip" url=lab_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:laboratoryresults_add' as lab_add_url %}
+            {% if caps.add_laboratoryresults %}
             {% component "link_chip" url=lab_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -93,9 +109,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:patientoutcome_list' as outcome_list_url %}
+            {% if caps.view_patientoutcome %}
             {% component "link_chip" url=outcome_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:patientoutcome_add' as outcome_add_url %}
+            {% if caps.add_patientoutcome %}
             {% component "link_chip" url=outcome_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -107,9 +127,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:patientreportedoutcome_list' as pro_list_url %}
+            {% if caps.view_patientreportedoutcome %}
             {% component "link_chip" url=pro_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:patientreportedoutcome_add' as pro_add_url %}
+            {% if caps.add_patientreportedoutcome %}
             {% component "link_chip" url=pro_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -121,7 +145,9 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:patientdicomfile_add' as dicom_add_url %}
+            {% if caps.add_patientdicomfile %}
             {% component "link_chip" url=dicom_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -133,9 +159,13 @@
           </div>
           <div class="flex gap-2">
             {% url 'client_app:germlinegenomicalterations_list' as germline_list_url %}
+            {% if caps.view_germlinegenomicalterations %}
             {% component "link_chip" url=germline_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:germlinegenomicalterations_add' as germline_add_url %}
+            {% if caps.add_germlinegenomicalterations %}
             {% component "link_chip" url=germline_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+            {% endif %}
           </div>
         </div>
 
@@ -151,7 +181,9 @@
       <h2 class="text-2xl font-semibold text-gray-900">Diagnoses</h2>
     {% endfill %}
     {% fill "actions" %}
+      {% if caps.add_diagnosis %}
       {% component "button" style="success" href=add_diag_href icon="fas fa-plus" %}Add New Diagnosis{% endcomponent %}
+      {% endif %}
     {% endfill %}
     {% fill "body" %}
     {% if diagnoses.count > 0 %}
@@ -187,8 +219,10 @@
                     <h3 class="text-lg font-semibold text-gray-800">{{ diagnosis.cancer_system }} - {{ diagnosis.presentation_type }}</h3>
                     <p class="text-gray-600">Diagnosed on: {{ diagnosis.diagnosis_date|date:"d/m/Y" }}</p>
                   </div>
+                  {% if caps.change_diagnosis %}
                   {% url 'client_app:diagnosis_edit' diagnosis.chavi_diagnosis_id as edit_diagnosis_url %}
                   {% component "button" style="primary" href=edit_diagnosis_url icon="fas fa-edit" %}Edit Diagnosis{% endcomponent %}
+                  {% endif %}
                 </div>
               </div>
 
@@ -206,9 +240,13 @@
                       </div>
                       <div class="flex gap-2 mb-4">
                         {% url 'client_app:pathology_list' as pathology_list_url %}
+                        {% if caps.view_pathology %}
                         {% component "link_chip" url=pathology_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'client_app:pathology_add' as pathology_add_url %}
+                        {% if caps.add_pathology %}
                         {% component "link_chip" url=pathology_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                        {% endif %}
                       </div>
                       
                       {% if diag_item.diagnostic_data.pathologies.pathologies_with_children %}
@@ -222,7 +260,9 @@
                                 </h6>
                               {% endfill %}
                               {% fill "actions" %}
+                                {% if caps.change_pathology %}
                                 {% component "link_chip" url=edit_pathology_url label="Edit" %}{% endcomponent %}
+                                {% endif %}
                               {% endfill %}
                               {% fill "body" %}
                                 <!-- IHC Tests -->
@@ -233,9 +273,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:immunohistochemistry_list' as ihc_list_url %}
+                                    {% if caps.view_immunohistochemistry %}
                                     {% component "link_chip" url=ihc_list_url param="pathology_id" value=pathology_data.pathology.chavi_pathology_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:immunohistochemistry_add' as ihc_add_url %}
+                                    {% if caps.add_immunohistochemistry %}
                                     {% component "link_chip" url=ihc_add_url param="pathology" value=pathology_data.pathology.chavi_pathology_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                                 
@@ -247,9 +291,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:cytogenetics_list' as cyto_list_url %}
+                                    {% if caps.view_cytogenetics %}
                                     {% component "link_chip" url=cyto_list_url param="pathology_id" value=pathology_data.pathology.chavi_pathology_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:cytogenetics_add' as cyto_add_url %}
+                                    {% if caps.add_cytogenetics %}
                                     {% component "link_chip" url=cyto_add_url param="pathology" value=pathology_data.pathology.chavi_pathology_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                                 
@@ -261,9 +309,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:somaticgenomicalterations_list' as somatic_list_url %}
+                                    {% if caps.view_somaticgenomicalterations %}
                                     {% component "link_chip" url=somatic_list_url param="pathology_id" value=pathology_data.pathology.chavi_pathology_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:somaticgenomicalterations_add' as somatic_add_url %}
+                                    {% if caps.add_somaticgenomicalterations %}
                                     {% component "link_chip" url=somatic_add_url param="pathology" value=pathology_data.pathology.chavi_pathology_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                                 
@@ -275,9 +327,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:geneexpressiondata_list' as gene_list_url %}
+                                    {% if caps.view_geneexpressiondata %}
                                     {% component "link_chip" url=gene_list_url param="pathology_id" value=pathology_data.pathology.chavi_pathology_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:geneexpressiondata_add' as gene_add_url %}
+                                    {% if caps.add_geneexpressiondata %}
                                     {% component "link_chip" url=gene_add_url param="pathology" value=pathology_data.pathology.chavi_pathology_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                                 
@@ -289,9 +345,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:epigeneticdata_list' as epi_list_url %}
+                                    {% if caps.view_epigeneticdata %}
                                     {% component "link_chip" url=epi_list_url param="pathology_id" value=pathology_data.pathology.chavi_pathology_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:epigeneticdata_add' as epi_add_url %}
+                                    {% if caps.add_epigeneticdata %}
                                     {% component "link_chip" url=epi_add_url param="pathology" value=pathology_data.pathology.chavi_pathology_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                               {% endfill %}
@@ -311,9 +371,13 @@
                       </div>
                       <div class="flex gap-2">
                         {% url 'client_app:stageinformation_list' as stage_list_url %}
+                        {% if caps.view_stageinformation %}
                         {% component "link_chip" url=stage_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'client_app:stageinformation_add' as stage_add_url %}
+                        {% if caps.add_stageinformation %}
                         {% component "link_chip" url=stage_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                        {% endif %}
                       </div>
                     </div>
                   {% endif %}
@@ -333,16 +397,20 @@
                       </div>
                       <div class="flex gap-2">
                         {% url 'client_app:lesion_list' as lesion_list_url %}
+                        {% if caps.view_lesion %}
                         {% component "link_chip" url=lesion_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'client_app:lesion_add' as lesion_add_url %}
+                        {% if caps.add_lesion %}
                         {% component "link_chip" url=lesion_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                        {% endif %}
                       </div>
                     </div>
                     
                     {% if diag_item.diagnostic_data.lesions.count > 0 %}
                       <div class="space-y-3">
                         {% for lesion_data in diag_item.diagnostic_data.lesions.lesions_with_responses %}
-                          {% url 'admin:client_app_lesion_change' lesion_data.lesion.chavi_lesion_id as edit_lesion_url %}
+                          {% url 'client_app:lesion_edit' lesion_data.lesion.chavi_lesion_id as edit_lesion_url %}
                           {% component "card" flat=True %}
                             {% fill "header" %}
                               <h6 class="font-medium text-gray-900">
@@ -353,7 +421,9 @@
                               </h6>
                             {% endfill %}
                             {% fill "actions" %}
+                              {% if caps.change_lesion %}
                               {% component "link_chip" url=edit_lesion_url label="Edit" %}{% endcomponent %}
+                              {% endif %}
                             {% endfill %}
                             {% fill "body" %}
                               <!-- Lesion Responses -->
@@ -363,9 +433,13 @@
                               </div>
                               <div class="flex gap-2">
                                 {% url 'client_app:lesionresponse_list' as lesionresponse_list_url %}
+                                {% if caps.view_lesionresponse %}
                                 {% component "link_chip" url=lesionresponse_list_url param="lesion_id" value=lesion_data.lesion.chavi_lesion_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                {% endif %}
                                 {% url 'client_app:lesionresponse_add' as lesion_response_add_url %}
+                                {% if caps.add_lesionresponse %}
                                 {% component "link_chip" url=lesion_response_add_url param="lesion" value=lesion_data.lesion.chavi_lesion_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                {% endif %}
                               </div>
                             {% endfill %}
                           {% endcomponent %}
@@ -394,9 +468,13 @@
                   </div>
                   <div class="flex gap-2">
                     {% url 'client_app:surgery_list' as surgery_list_url %}
+                    {% if caps.view_surgery %}
                     {% component "link_chip" url=surgery_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                    {% endif %}
                     {% url 'client_app:surgery_add' as surgery_add_url %}
+                    {% if caps.add_surgery %}
                     {% component "link_chip" url=surgery_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                    {% endif %}
                   </div>
                 </div>
 
@@ -410,9 +488,13 @@
                       </div>
                       <div class="flex gap-2 mb-4">
                         {% url 'client_app:radiotherapy_list' as radio_list_url %}
+                        {% if caps.view_radiotherapy %}
                         {% component "link_chip" url=radio_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'client_app:radiotherapy_add' as radio_add_url %}
+                        {% if caps.add_radiotherapy %}
                         {% component "link_chip" url=radio_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                        {% endif %}
                       </div>
                       
                       {% if diag_item.treatment_data.radiotherapies.radiotherapies_with_children %}
@@ -426,7 +508,9 @@
                                 </h6>
                               {% endfill %}
                               {% fill "actions" %}
+                                {% if caps.change_radiotherapy %}
                                 {% component "link_chip" url=edit_radio_url label="Edit" %}{% endcomponent %}
+                                {% endif %}
                               {% endfill %}
                               {% fill "body" %}
                                 <!-- Radiotherapy Volumes -->
@@ -437,9 +521,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:radiotherapyvolume_list' as vol_list_url %}
+                                    {% if caps.view_radiotherapyvolume %}
                                     {% component "link_chip" url=vol_list_url param="radiotherapy_id" value=radio_data.radiotherapy.chavi_radiotherapy_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:radiotherapyvolume_add' as vol_add_url %}
+                                    {% if caps.add_radiotherapyvolume %}
                                     {% component "link_chip" url=vol_add_url param="radiotherapy" value=radio_data.radiotherapy.chavi_radiotherapy_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                                 
@@ -451,9 +539,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:radiotherapydosevolumedata_list' as dose_list_url %}
+                                    {% if caps.view_radiotherapydosevolumedata %}
                                     {% component "link_chip" url=dose_list_url param="radiotherapy_id" value=radio_data.radiotherapy.chavi_radiotherapy_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:radiotherapydosevolumedata_add' as dose_add_url %}
+                                    {% if caps.add_radiotherapydosevolumedata %}
                                     {% component "link_chip" url=dose_add_url param="radiotherapy" value=radio_data.radiotherapy.chavi_radiotherapy_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                               {% endfill %}
@@ -475,9 +567,13 @@
                       </div>
                       <div class="flex gap-2 mb-4">
                         {% url 'client_app:systemictherapy_list' as systemic_list_url %}
+                        {% if caps.view_systemictherapy %}
                         {% component "link_chip" url=systemic_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'client_app:systemictherapy_add' as systemic_add_url %}
+                        {% if caps.add_systemictherapy %}
                         {% component "link_chip" url=systemic_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                        {% endif %}
                       </div>
                       
                       {% if diag_item.treatment_data.systemic_therapies.systemic_therapies_with_schedules %}
@@ -491,7 +587,9 @@
                                 </h6>
                               {% endfill %}
                               {% fill "actions" %}
+                                {% if caps.change_systemictherapy %}
                                 {% component "link_chip" url=edit_therapy_url label="Edit" %}{% endcomponent %}
+                                {% endif %}
                               {% endfill %}
                               {% fill "body" %}
                                 <!-- Drug Schedules -->
@@ -502,9 +600,13 @@
                                   </div>
                                   <div class="flex gap-2">
                                     {% url 'client_app:systemictherapyschedule_list' as schedule_list_url %}
+                                    {% if caps.view_systemictherapyschedule %}
                                     {% component "link_chip" url=schedule_list_url param="systemic_therapy_id" value=therapy_data.systemic_therapy.chavi_systemic_therapy_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                                    {% endif %}
                                     {% url 'client_app:systemictherapyschedule_add' as schedule_add_url %}
+                                    {% if caps.add_systemictherapyschedule %}
                                     {% component "link_chip" url=schedule_add_url param="systemic_therapy" value=therapy_data.systemic_therapy.chavi_systemic_therapy_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                                    {% endif %}
                                   </div>
                                 </div>
                               {% endfill %}
@@ -531,9 +633,13 @@
                     </div>
                     <div class="flex gap-2">
                       {% url 'client_app:othertreatment_list' as other_treatment_list_url %}
+                      {% if caps.view_othertreatment %}
                       {% component "link_chip" url=other_treatment_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                      {% endif %}
                       {% url 'client_app:othertreatment_add' as other_treatment_add_url %}
+                      {% if caps.add_othertreatment %}
                       {% component "link_chip" url=other_treatment_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                      {% endif %}
                     </div>
                   </div>
 
@@ -549,9 +655,13 @@
                     </div>
                     <div class="flex gap-2">
                       {% url 'client_app:concomitantmedications_list' as concomitant_list_url %}
+                      {% if caps.view_concomitantmedications %}
                       {% component "link_chip" url=concomitant_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                      {% endif %}
                       {% url 'client_app:concomitantmedications_add' as concomitant_add_url %}
+                      {% if caps.add_concomitantmedications %}
                       {% component "link_chip" url=concomitant_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                      {% endif %}
                     </div>
                   </div>
 
@@ -575,9 +685,13 @@
                     </div>
                     <div class="flex gap-2">
                       {% url 'client_app:outcome_list' as outcome_diag_list_url %}
+                      {% if caps.view_outcome %}
                       {% component "link_chip" url=outcome_diag_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                      {% endif %}
                       {% url 'client_app:outcome_add' as outcome_diag_add_url %}
+                      {% if caps.add_outcome %}
                       {% component "link_chip" url=outcome_diag_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                      {% endif %}
                     </div>
                   </div>
 
@@ -593,9 +707,13 @@
                     </div>
                     <div class="flex gap-2">
                       {% url 'client_app:adverseeffects_list' as adverse_list_url %}
+                      {% if caps.view_adverseeffects %}
                       {% component "link_chip" url=adverse_list_url param="diagnosis_id" value=diagnosis.chavi_diagnosis_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+                      {% endif %}
                       {% url 'client_app:adverseeffects_add' as adverse_add_url %}
+                      {% if caps.add_adverseeffects %}
                       {% component "link_chip" url=adverse_add_url param="diagnosis" value=diagnosis.chavi_diagnosis_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
+                      {% endif %}
                     </div>
                   </div>
 
@@ -609,7 +727,9 @@
     {% else %}
       {% component "empty_state" icon="fas fa-stethoscope" title="No diagnoses recorded" description="This patient doesn't have any diagnoses recorded yet." %}
         {% fill "action" %}
+          {% if caps.add_diagnosis %}
           {% component "button" style="gradient" href=add_diag_href icon="fas fa-plus" %}Add First Diagnosis{% endcomponent %}
+          {% endif %}
         {% endfill %}
       {% endcomponent %}
     {% endif %}

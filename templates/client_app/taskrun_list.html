@@ -97,16 +97,16 @@
             <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100">
                 {% url 'client_app:taskrun_detail' task.pk as detail_url %}
                 {% component "button" style="link" size="sm" href=detail_url icon="fas fa-eye" %}View{% endcomponent %}
-                {% if task.status == 'SUCCESS' and task.task_name == 'import_legacy_mapping' %}
+                {% if task.status == 'SUCCESS' and task.task_name == 'import_legacy_mapping' and perms.deidentification.add_deidpatient %}
                     {% url 'deidentification:legacy_import_results' task.pk as results_url %}
                     {% component "button" style="link" size="sm" href=results_url icon="fas fa-clipboard-check" %}Results{% endcomponent %}
                 {% endif %}
-                {% if task.status == 'SUCCESS' and task.task_name in 'build_dicom_download_zip,build_clinical_download_zip' %}
+                {% if task.status == 'SUCCESS' and task.task_name in 'build_dicom_download_zip,build_clinical_download_zip' and perms.deidentification.view_deidpatient %}
                     {% url 'deidentification:download_result' task.pk as download_url %}
                     {% component "button" style="link" size="sm" href=download_url icon="fas fa-download" %}Download{% endcomponent %}
                 {% endif %}
                 {% if task.status == 'FAILURE' or task.status == 'STALLED' %}
-                    {% if task.task_args %}
+                    {% if task.task_args and perms.client_app.change_taskrun %}
                     <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">
                         {% csrf_token %}
                         {% component "button" style="link" size="sm" type="submit" icon="fas fa-play" %}Resume{% endcomponent %}

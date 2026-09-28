@@ -4,7 +4,8 @@ import os
 import shutil
 import urllib.parse
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.conf import settings
 from django.db.models import Case, Count, Exists, F, IntegerField, Max, OuterRef, Q, Value, When
 from django.http import JsonResponse, Http404, FileResponse, HttpResponse
@@ -18,11 +19,19 @@ from deidentification.models import DeidPatient, DeidentificationJob
 logger = logging.getLogger(__name__)
 
 
-class StaffPermissionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, PermissionRequiredMixin):
-    """Base mixin: requires authenticated + is_staff + the specified Django model permission."""
+class DeidPermissionRequiredMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    """Anonymous users redirect to login; authenticated users without the
+    required permission get 403."""
+    raise_exception = True
 
-    def test_func(self):
-        return self.request.user.is_staff
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect_to_login(
+            self.request.get_full_path(),
+            self.get_login_url(),
+            self.get_redirect_field_name(),
+        )
 
 
 def _annotate_patient_list(qs):
@@ -181,7 +190,7 @@ def _bulk_patient_ids_from_request(request):
     return list(Patient.objects.values_list('patient_id', flat=True))
 
 
-class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
+class DeidPatientListView(DeidPermissionRequiredMixin, ListView):
     model = Patient
     template_name = 'deidentification/patient_list.html'
     context_object_name = 'patients'
@@ -276,7 +285,7 @@ class DeidPatientListView(StaffPermissionRequiredMixin, ListView):
         return context
 
 
-class DeidPatientDetailView(StaffPermissionRequiredMixin, View):
+class DeidPatientDetailView(DeidPermissionRequiredMixin, View):
     template_name = 'deidentification/patient_detail.html'
     permission_required = 'deidentification.view_deidpatient'
 
@@ -302,7 +311,7 @@ class DeidPatientDetailView(StaffPermissionRequiredMixin, View):
         })
 
 
-class TriggerDeidentificationView(StaffPermissionRequiredMixin, View):
+class TriggerDeidentificationView(DeidPermissionRequiredMixin, View):
     permission_required = 'deidentification.add_deidentificationjob'
 
     def post(self, request, patient_id):
@@ -326,7 +335,7 @@ class TriggerDeidentificationView(StaffPermissionRequiredMixin, View):
         })
 
 
-class JobStatusView(StaffPermissionRequiredMixin, View):
+class JobStatusView(DeidPermissionRequiredMixin, View):
     permission_required = 'deidentification.view_deidentificationjob'
 
     def get(self, request, job_id):
@@ -343,7 +352,7 @@ class JobStatusView(StaffPermissionRequiredMixin, View):
         })
 
 
-class LegacyImportView(StaffPermissionRequiredMixin, View):
+class LegacyImportView(DeidPermissionRequiredMixin, View):
     template_name = 'deidentification/legacy_import.html'
     permission_required = 'deidentification.add_deidpatient'
 
@@ -383,7 +392,7 @@ class LegacyImportView(StaffPermissionRequiredMixin, View):
         })
 
 
-class LegacyImportResultsView(StaffPermissionRequiredMixin, View):
+class LegacyImportResultsView(DeidPermissionRequiredMixin, View):
     """Show unmatched rows from a completed legacy import task for manual reconciliation."""
     template_name = 'deidentification/legacy_import_results.html'
     permission_required = 'deidentification.add_deidpatient'
@@ -521,7 +530,7 @@ def _build_unmatched_hierarchy(rows):
     return patients
 
 
-class CreateMissingPatientView(StaffPermissionRequiredMixin, View):
+class CreateMissingPatientView(DeidPermissionRequiredMixin, View):
     """Create a new client_app.Patient from unmatched legacy data."""
     permission_required = 'deidentification.add_deidpatient'
 
@@ -543,7 +552,7 @@ class CreateMissingPatientView(StaffPermissionRequiredMixin, View):
         return JsonResponse({'success': True, 'patient_id': patient_id})
 
 
-class CreateMissingStudyView(StaffPermissionRequiredMixin, View):
+class CreateMissingStudyView(DeidPermissionRequiredMixin, View):
     """Create a new client_app.DICOMStudy from unmatched legacy data."""
     permission_required = 'deidentification.add_deidpatient'
 
@@ -571,7 +580,7 @@ class CreateMissingStudyView(StaffPermissionRequiredMixin, View):
         return JsonResponse({'success': True, 'study_instance_uid': study_instance_uid})
 
 
-class CreateMissingSeriesView(StaffPermissionRequiredMixin, View):
+class CreateMissingSeriesView(DeidPermissionRequiredMixin, View):
     """Create a new client_app.DICOMSeries from unmatched legacy data."""
     permission_required = 'deidentification.add_deidpatient'
 
@@ -624,7 +633,7 @@ class CreateMissingSeriesView(StaffPermissionRequiredMixin, View):
         return JsonResponse({'success': True, 'series_instance_uid': series_instance_uid})
 
 
-class CreateMissingInstanceView(StaffPermissionRequiredMixin, View):
+class CreateMissingInstanceView(DeidPermissionRequiredMixin, View):
     """Create a new client_app.DICOMInstance from unmatched legacy data."""
     permission_required = 'deidentification.add_deidpatient'
 
@@ -667,7 +676,7 @@ class CreateMissingInstanceView(StaffPermissionRequiredMixin, View):
         return JsonResponse({'success': True, 'sop_instance_uid': sop_instance_uid})
 
 
-class BulkCreateMissingView(StaffPermissionRequiredMixin, View):
+class BulkCreateMissingView(DeidPermissionRequiredMixin, View):
     """Bulk create multiple missing records from unmatched legacy data.
 
     Accepts either:
@@ -848,7 +857,7 @@ class BulkCreateMissingView(StaffPermissionRequiredMixin, View):
         })
 
 
-class BulkDeidentifyView(StaffPermissionRequiredMixin, View):
+class BulkDeidentifyView(DeidPermissionRequiredMixin, View):
     permission_required = 'deidentification.add_deidentificationjob'
 
     def post(self, request):
@@ -892,7 +901,7 @@ class BulkDeidentifyView(StaffPermissionRequiredMixin, View):
         })
 
 
-class DeidDownloadView(StaffPermissionRequiredMixin, View):
+class DeidDownloadView(DeidPermissionRequiredMixin, View):
     """Download deidentified DICOM files as a ZIP.
 
     All downloads are dispatched as background Celery tasks to avoid
@@ -1012,7 +1021,7 @@ def _serialize_patient_clinical_data(patient, request):
     return patient_data
 
 
-class DeidClinicalDownloadView(StaffPermissionRequiredMixin, View):
+class DeidClinicalDownloadView(DeidPermissionRequiredMixin, View):
     """Download deidentified clinical data as a ZIP of per-patient JSON files.
 
     All downloads are dispatched as background Celery tasks to avoid
@@ -1040,7 +1049,7 @@ class DeidClinicalDownloadView(StaffPermissionRequiredMixin, View):
         })
 
 
-class DownloadResultView(StaffPermissionRequiredMixin, View):
+class DownloadResultView(DeidPermissionRequiredMixin, View):
     """Serve a ZIP file produced by a completed async download task."""
     permission_required = 'deidentification.view_deidpatient'
 

@@ -8,7 +8,9 @@
     {% url 'extractor:wizard_start' as wizard_url %}
     {% component "page_header" title="Instructor Messages (Prompts)" icon="fas fa-comment-dots" subtitle="Manage the prompts sent to the LLM for each response model. Messages are sent in order, lowest first." %}
         {% fill "actions" %}
+            {% if perms.extractor.view_responsemodel %}
             {% component "button" style="secondary" href=rm_url icon="fas fa-project-diagram" %}Response Models{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -31,7 +33,9 @@
             </div>
             {% endfill %}
             {% fill "actions" %}
+                {% if perms.extractor.add_instructormessage %}
                 {% component "button" style="primary" size="sm" href=add_url icon="fas fa-plus" %}Add Message{% endcomponent %}
+                {% endif %}
             {% endfill %}
             {% fill "body" %}
                 {% if model.instructormessage_set.all %}
@@ -52,7 +56,10 @@
                             </div>
                             <div class="flex items-center space-x-3">
                                 {% url 'extractor:instructor_message_edit' message.id as edit_url %}
+                                {% if perms.extractor.change_instructormessage %}
                                 {% component "icon_button" style="primary" size="sm" href=edit_url icon="fas fa-edit" aria_label="Edit" title="Edit" %}{% endcomponent %}
+                                {% endif %}
+                                {% if perms.extractor.delete_instructormessage %}
                                 <form method="POST" action="{% url 'extractor:instructor_message_delete' message.id %}"
                                       onsubmit="return confirm('Are you sure you want to delete this instructor message?\n\nThis action cannot be undone.');"
                                       class="inline">
@@ -60,6 +67,7 @@
                                     <input type="hidden" name="next" value="{% url 'extractor:instructor_message_list' %}">
                                     {% component "icon_button" style="danger" size="sm" type="submit" icon="fas fa-trash" aria_label="Delete" title="Delete" %}{% endcomponent %}
                                 </form>
+                                {% endif %}
                             </div>
                         </div>
                         {% component "code_block" %}{% if message.prompt.content %}{{ message.prompt.content|truncatechars:400 }}{% else %}{{ message.prompt|truncatechars:400 }}{% endif %}{% endcomponent %}

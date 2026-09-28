@@ -8,8 +8,12 @@
     {% url 'extractor:wizard_start' as wizard_url %}
     {% component "page_header" title="Response Models" icon="fas fa-cogs" %}
         {% fill "actions" %}
+            {% if perms.extractor.view_clientconfiguration %}
             {% component "button" style="secondary" href=configs_url icon="fas fa-robot" %}LLM Configurations{% endcomponent %}
+            {% endif %}
+            {% if perms.extractor.add_responsemodel %}
             {% component "button" style="primary" href=wizard_url icon="fas fa-plus" %}Create New Response Model{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -47,7 +51,9 @@
     {% component "card" %}{% fill "body" %}
         {% component "empty_state" title="No Response Models Yet" description="Create your first response model to start extracting structured data from documents." %}
             {% fill "action" %}
+                {% if perms.extractor.add_responsemodel %}
                 {% component "button" style="primary" href=wizard_url icon="fas fa-plus" %}Create Response Model{% endcomponent %}
+                {% endif %}
             {% endfill %}
         {% endcomponent %}
     {% endfill %}{% endcomponent %}

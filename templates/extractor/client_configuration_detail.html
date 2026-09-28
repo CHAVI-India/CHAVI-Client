@@ -10,7 +10,9 @@
     {% component "page_header" title=configuration.llm_model_name icon="fas fa-robot" subtitle=configuration.model_provider back_url=list_url back_text="Back to List" %}
         {% fill "actions" %}
             {% component "button" style="primary" icon="fas fa-plug" id="test-connection-btn" onclick="testConnection()" %}Test Connection{% endcomponent %}
+            {% if perms.extractor.change_clientconfiguration %}
             {% component "button" style="info" href=edit_url icon="fas fa-edit" %}Edit{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -85,8 +87,10 @@
                             <p class="font-semibold text-gray-800">{{ model.name }}</p>
                             <p class="text-sm text-gray-600">Created: {{ model.created_at|date:"M d, Y" }}</p>
                         </div>
+                        {% if perms.extractor.view_responsemodel %}
                         {% url 'extractor:response_model_detail' model.id as model_url %}
                         {% component "icon_button" style="primary" href=model_url icon="fas fa-arrow-right" aria_label="View response model" %}{% endcomponent %}
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -98,16 +102,20 @@
             {% fill "body" %}
             <div class="flex justify-between items-center">
                 <div>
+                    {% if perms.extractor.delete_clientconfiguration %}
                     <form method="post" action="{% url 'extractor:client_configuration_delete' configuration.id %}"
                           onsubmit="return confirm('Are you sure you want to delete this configuration? This action cannot be undone.');">
                         {% csrf_token %}
                         {% component "button" style="danger" type="submit" icon="fas fa-trash" disabled=response_models.count %}Delete Configuration{% endcomponent %}
                     </form>
+                    {% endif %}
                     {% if response_models.count > 0 %}
                     <p class="text-xs text-gray-500 mt-1">Cannot delete: configuration is in use</p>
                     {% endif %}
                 </div>
+                {% if perms.extractor.add_responsemodel %}
                 {% component "button" style="gradient" href=wizard_url icon="fas fa-magic" %}Create Response Model{% endcomponent %}
+                {% endif %}
             </div>
             {% endfill %}
         {% endcomponent %}

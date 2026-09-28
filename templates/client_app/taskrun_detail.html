@@ -74,7 +74,11 @@
                 <dt class="font-medium text-gray-500">Related Session</dt>
                 <dd class="text-gray-900">
                     {% url 'client_app:bulk_dicom_matching' task_run.related_session_id as session_url %}
+                    {% if perms.client_app.view_bulkdicomuploadsession %}
                     {% component "link_chip" url=session_url label=task_run.related_session_id icon="fas fa-link" %}{% endcomponent %}
+                    {% else %}
+                    {{ task_run.related_session_id }}
+                    {% endif %}
                 </dd>
             </div>
             {% endif %}
@@ -107,7 +111,7 @@
     <!-- Actions -->
     <div class="flex gap-3">
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' %}
-            {% if task_run.task_args %}
+            {% if task_run.task_args and perms.client_app.change_taskrun %}
             <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}">
                 {% csrf_token %}
                 {% component "button" style="success" type="submit" icon="fas fa-play" %}Resume{% endcomponent %}
@@ -115,7 +119,7 @@
             {% endif %}
         {% endif %}
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' or task_run.status == 'SUCCESS' %}
-            {% if task_run.task_args %}
+            {% if task_run.task_args and perms.client_app.change_taskrun %}
             <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}">
                 {% csrf_token %}
                 {% component "button" style="primary" type="submit" icon="fas fa-redo" %}Retry{% endcomponent %}

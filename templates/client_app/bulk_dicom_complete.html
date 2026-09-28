@@ -54,7 +54,11 @@
                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {% url 'client_app:patient_summary' as patient_summary_url %}
+                            {% if perms.client_app.view_patient %}
                             {% component "link_chip" url=patient_summary_url param="patient_id" value=study.matched_patient.patient_id label=study.matched_patient.patient_id %}{% endcomponent %}
+                            {% else %}
+                            {{ study.matched_patient.patient_id }}
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">{{ study.study_description|default:"N/A" }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ study.study_date|default:"N/A" }}</td>
@@ -125,11 +129,17 @@
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
             {% url 'client_app:bulk_dicom_upload' as upload_url %}
+            {% if perms.client_app.add_bulkdicomuploadsession %}
             {% component "button" style="primary" href=upload_url icon="fas fa-upload" %}Upload Another Batch{% endcomponent %}
+            {% endif %}
             {% url 'client_app:patient_search' as search_url %}
+            {% if perms.client_app.view_patient %}
             {% component "button" style="info" href=search_url icon="fas fa-search" %}Search Patients{% endcomponent %}
+            {% endif %}
             {% url 'admin:index' as admin_url %}
+            {% if user.is_staff %}
             {% component "button" style="secondary" href=admin_url icon="fas fa-cog" %}Admin Panel{% endcomponent %}
+            {% endif %}
             {% url 'client_app:homepage' as home_url %}
             {% component "button" style="secondary" href=home_url icon="fas fa-home" %}Home{% endcomponent %}
         </div>

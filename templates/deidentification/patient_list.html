@@ -122,11 +122,13 @@
         {% fill "header" %}
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 flex-wrap w-full">
         <!-- Deidentify Actions -->
+        {% if perms.deidentification.add_deidentificationjob %}
         <div class="flex flex-wrap items-center gap-2 p-3 bg-gradient-to-r from-chavi-sand-50 to-chavi-charcoal-50 rounded-lg border border-chavi-sand-200">
             <span class="text-xs font-semibold text-chavi-sand-700 uppercase tracking-wide mr-1">Deidentify</span>
             {% component "button" style="primary" icon="fas fa-play" id="bulk-deidentify-btn" disabled=True %}Deidentify Selected (<span id="selected-count">0</span>){% endcomponent %}
             {% component "button" style="secondary" icon="fas fa-layer-group" id="deidentify-all-btn" extra_class="border-chavi-sand-300 text-chavi-sand-700 hover:bg-chavi-sand-50" %}Deidentify All Patients{% endcomponent %}
         </div>
+        {% endif %}
         <!-- Download Actions -->
         <div class="flex flex-wrap items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
             <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Download</span>
@@ -373,10 +375,10 @@ function selectedCount() {
 
 function updateUI() {
     const count = selectedCount();
-    selectedCountSpan.textContent = count;
-    bulkBtn.disabled = count === 0;
-    downloadSelectedBtn.disabled = count === 0;
-    downloadSelectedClinicalBtn.disabled = count === 0;
+    if (selectedCountSpan) selectedCountSpan.textContent = count;
+    if (bulkBtn) bulkBtn.disabled = count === 0;
+    if (downloadSelectedBtn) downloadSelectedBtn.disabled = count === 0;
+    if (downloadSelectedClinicalBtn) downloadSelectedClinicalBtn.disabled = count === 0;
 
     const idSet = new Set(selection.ids);
     const exclSet = new Set(selection.excluded);
@@ -474,7 +476,7 @@ function triggerBulkDeidentify(body) {
     }).catch(err => alert('Error: ' + err));
 }
 
-bulkBtn.addEventListener('click', function() {
+bulkBtn?.addEventListener('click', function() {
     const count = selectedCount();
     if (count === 0) return;
     if (selection.mode === 'filtered') {
@@ -490,7 +492,7 @@ bulkBtn.addEventListener('click', function() {
     }
 });
 
-document.getElementById('deidentify-all-btn').addEventListener('click', function() {
+document.getElementById('deidentify-all-btn')?.addEventListener('click', function() {
     if (!confirm('Deidentify ALL patients? This will process all DICOM studies for every patient in the system.')) return;
     triggerBulkDeidentify({ patient_ids: [] });
 });

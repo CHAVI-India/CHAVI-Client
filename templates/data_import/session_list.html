@@ -8,7 +8,9 @@
     {% url 'data_import:step1' as new_session_url %}
     {% component "page_header" title="Data Import Sessions" icon="fas fa-file-import" subtitle="Manage your CSV data import sessions" %}
         {% fill "actions" %}
+            {% if perms.data_import.add_fileimportsession %}
             {% component "button" style="primary" href=new_session_url icon="fas fa-plus" %}New Import Session{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -54,7 +56,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {% url 'data_import:step1_edit' session.id as edit_url %}
-                    {% if not session.data_imported %}
+                    {% if not session.data_imported and perms.data_import.change_fileimportsession %}
                         {% component "icon_button" icon="fas fa-edit" aria_label="Continue" href=edit_url title="Continue" %}{% endcomponent %}
                     {% endif %}
                     {% component "icon_button" icon="fas fa-eye" style="ghost" aria_label="View" href=edit_url title="View" %}{% endcomponent %}

@@ -80,10 +80,12 @@ class TaskRunResumeRetryViewTests(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username='tester2', password='pw')
-        # Resume/retry are gated by TASK_TYPE_PERMISSIONS; ASSOCIATE needs view_patient.
-        self.user.user_permissions.add(
-            Permission.objects.get(codename='view_patient', content_type__app_label='client_app')
-        )
+        # Resume/retry need view_taskrun + change_taskrun plus the per-type
+        # permission from TASK_TYPE_PERMISSIONS (ASSOCIATE → view_patient).
+        self.user.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='client_app',
+            codename__in=['view_patient', 'view_taskrun', 'change_taskrun'],
+        ))
         self.client.force_login(self.user)
 
     def _make_task_run(self, status, task_args=None, task_kwargs=None, task_name='task_associate_dicom_to_project'):

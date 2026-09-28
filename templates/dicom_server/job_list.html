@@ -6,7 +6,9 @@
     {% url 'dicom_server:dashboard' as dash_url %}
     {% component "page_header" title="Retrieval Jobs" icon="fas fa-download" back_url=dash_url back_text="Back to dashboard" %}
         {% fill "actions" %}
+            {% if perms.dicom_server.add_retrievaljob %}
             {% component "button" style="primary" href=retrieve_url icon="fas fa-download" %}New Retrieval{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -41,7 +43,9 @@
         {% else %}
         {% component "empty_state" title="No retrieval jobs yet" description="Start a retrieval to pull studies from a remote node." %}
             {% fill "action" %}
+                {% if perms.dicom_server.add_retrievaljob %}
                 {% component "button" style="primary" href=retrieve_url icon="fas fa-download" %}New Retrieval{% endcomponent %}
+                {% endif %}
             {% endfill %}
         {% endcomponent %}
         {% endif %}

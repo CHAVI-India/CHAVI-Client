@@ -7,7 +7,9 @@
     {% url 'extractor:file_upload_create' as upload_url %}
     {% component "page_header" title="Uploaded Files" icon="fas fa-file-upload" subtitle="Manage your uploaded files and process them for extraction" %}
         {% fill "actions" %}
+            {% if perms.extractor.add_fileupload %}
             {% component "button" style="primary" href=upload_url icon="fas fa-plus" %}Upload New File{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -62,7 +64,9 @@
                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                     {% url 'extractor:file_upload_detail' file.id as detail_url %}
                     {% component "icon_button" style="primary" size="sm" icon="fas fa-eye" aria_label="View Details" href=detail_url title="View Details" extra_class="mr-2" %}{% endcomponent %}
+                    {% if perms.extractor.delete_fileupload %}
                     {% component "icon_button" style="danger" size="sm" icon="fas fa-trash" aria_label="Delete File" title="Delete File" extra_class="delete-file-btn" data__file_id=file.id data__file_name=file.file.name|escapejs %}{% endcomponent %}
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -72,7 +76,9 @@
     {% component "card" %}{% fill "body" %}
         {% component "empty_state" title="No files uploaded yet" description="Upload your first file to get started with data extraction" %}
             {% fill "action" %}
+                {% if perms.extractor.add_fileupload %}
                 {% component "button" style="primary" href=upload_url icon="fas fa-plus" %}Upload File{% endcomponent %}
+                {% endif %}
             {% endfill %}
         {% endcomponent %}
     {% endfill %}{% endcomponent %}

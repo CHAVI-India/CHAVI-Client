@@ -18,7 +18,14 @@ class Step1UploadCSVView(BaseImportView):
     step_identifier = FileImportSessionStep.UPLOAD
     step_name = "Upload CSV File"
     template_name = 'data_import/step1_upload.html'
-    
+
+    def get_required_permission(self):
+        # Creating a brand-new session (no session_id) needs add; editing
+        # an existing session falls back to the base view/change rules.
+        if self.kwargs.get('session_id') is None:
+            return 'data_import.add_fileimportsession'
+        return super().get_required_permission()
+
     def get(self, request, session_id=None):
         """
         Display the upload form.

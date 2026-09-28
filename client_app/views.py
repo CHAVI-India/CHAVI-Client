@@ -1,10 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 import os
 import uuid
+from django.apps import apps
 from django.conf import settings
 from django.views.static import serve
 from django.views.generic import TemplateView, View, ListView, CreateView, DetailView
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from unfold.views import UnfoldModelAdminViewMixin
 from .models import *
 from .models import _make_canonical_id, TaskRun, Notification
@@ -31,6 +33,21 @@ from django.utils import timezone
 
 # Create your views here.
 
+class RbacPermissionRequiredMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    """Anonymous users are redirected to login; authenticated users without
+    the required model permission get 403."""
+    raise_exception = True
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return redirect_to_login(
+            self.request.get_full_path(),
+            self.get_login_url(),
+            self.get_redirect_field_name(),
+        )
+
+
 def custom_403_view(request, exception=None):
     """Custom 403 error page view that works in both DEBUG and production modes."""
     return render(request, '403.html', status=403)
@@ -52,9 +69,10 @@ def documentation_view(request, path=''):
         path = 'index.html'
     return serve(request, path, document_root=doc_root)
 
-class PatientSummaryView(LoginRequiredMixin, TemplateView):
+class PatientSummaryView(RbacPermissionRequiredMixin, TemplateView):
     """View for displaying patient summary and related data."""
     template_name = "client_app/patient_summary_new.html"
+    permission_required = 'client_app.view_patient'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -290,12 +308,25 @@ class PatientSummaryView(LoginRequiredMixin, TemplateView):
             'objects': dicom_studies,
             'count': dicom_studies_count
         }
-        
+
+        # Per-model capability flags (caps.add_diagnosis / caps.view_diagnosis /
+        # caps.change_diagnosis ...) so the summary template can hide action
+        # links the user is not allowed to use.
+        caps = {}
+        for model in apps.get_app_config('client_app').get_models():
+            model_name = model._meta.model_name
+            for verb in ('view', 'add', 'change'):
+                caps[f'{verb}_{model_name}'] = self.request.user.has_perm(
+                    f'client_app.{verb}_{model_name}'
+                )
+        context['caps'] = caps
+
         return context
 
-class PatientSearchView(LoginRequiredMixin, TemplateView):
+class PatientSearchView(RbacPermissionRequiredMixin, TemplateView):
     """View for searching patients and redirecting to their summary page."""
     template_name = "client_app/patient_search.html"
+    permission_required = 'client_app.view_patient'
     patients_per_page = 20
     
     def get_context_data(self, **kwargs):
@@ -350,9 +381,10 @@ class PatientSearchView(LoginRequiredMixin, TemplateView):
 
 # Bulk DICOM Upload Views
 
-class BulkDICOMUploadView(LoginRequiredMixin, TemplateView):
+class BulkDICOMUploadView(RbacPermissionRequiredMixin, TemplateView):
     """View for uploading bulk DICOM zip files"""
     template_name = "client_app/bulk_dicom_upload.html"
+    permission_required = 'client_app.add_bulkdicomuploadsession'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -422,9 +454,15 @@ def _get_fuzzy_patient_suggestions(dicom_patient_id, patient_qs, top_n=3, score_
     ]
 
 
-class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
+class BulkDICOMMatchingView(RbacPermissionRequiredMixin, TemplateView):
     """View for matching DICOM studies to patients"""
     template_name = "client_app/bulk_dicom_matching.html"
+
+    def get_permission_required(self):
+        # POST mutates the session's study matches; GET only reads them.
+        if self.request.method == 'POST':
+            return ('client_app.change_bulkdicomuploadsession',)
+        return ('client_app.view_bulkdicomuploadsession',)
 
     def dispatch(self, request, *args, **kwargs):
         session_id = kwargs.get('session_id')
@@ -520,9 +558,15 @@ class BulkDICOMMatchingView(LoginRequiredMixin, TemplateView):
         return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
 
 
-class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
+class BulkDICOMConfirmationView(RbacPermissionRequiredMixin, TemplateView):
     """View for confirming patient matches before processing"""
     template_name = "client_app/bulk_dicom_confirmation.html"
+
+    def get_permission_required(self):
+        # POST confirms matches and dispatches the processing task.
+        if self.request.method == 'POST':
+            return ('client_app.change_bulkdicomuploadsession',)
+        return ('client_app.view_bulkdicomuploadsession',)
 
     def dispatch(self, request, *args, **kwargs):
         session_id = kwargs.get('session_id')
@@ -625,9 +669,10 @@ class BulkDICOMConfirmationView(LoginRequiredMixin, TemplateView):
         return redirect('client_app:bulk_dicom_confirmation', session_id=session.session_id)
 
 
-class BulkDICOMCompleteView(LoginRequiredMixin, TemplateView):
+class BulkDICOMCompleteView(RbacPermissionRequiredMixin, TemplateView):
     """View showing completion status of bulk DICOM upload"""
     template_name = "client_app/bulk_dicom_complete.html"
+    permission_required = 'client_app.view_bulkdicomuploadsession'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -652,8 +697,9 @@ class BulkDICOMCompleteView(LoginRequiredMixin, TemplateView):
 
 
 # AJAX endpoint for patient search in select2
-class PatientSearchAPIView(LoginRequiredMixin, View):
+class PatientSearchAPIView(RbacPermissionRequiredMixin, View):
     """API endpoint for searching patients (for Select2)"""
+    permission_required = 'client_app.view_patient'
     
     def get(self, request):
         search_term = request.GET.get('q', '')
@@ -696,9 +742,10 @@ class PatientSearchAPIView(LoginRequiredMixin, View):
         return JsonResponse({'results': results})
 
 
-class PatientDataExportView(LoginRequiredMixin, TemplateView):
+class PatientDataExportView(RbacPermissionRequiredMixin, TemplateView):
     """View for exporting patient data with filtering capabilities"""
     template_name = "client_app/patient_data_export.html"
+    permission_required = 'client_app.view_patient'
     patients_per_page = 20
     
     def get_context_data(self, **kwargs):
@@ -844,9 +891,10 @@ class PatientDataExportView(LoginRequiredMixin, TemplateView):
         return redirect('client_app:task_progress', task_id=task_result.id)
 
 
-class DICOMDataExportView(LoginRequiredMixin, TemplateView):
+class DICOMDataExportView(RbacPermissionRequiredMixin, TemplateView):
     """View for exporting DICOM data with filtering capabilities"""
     template_name = "client_app/dicom_data_export.html"
+    permission_required = 'client_app.view_dicomstudy'
     studies_per_page = 20
     
     def get_context_data(self, **kwargs):
@@ -1012,8 +1060,9 @@ class DICOMDataExportView(LoginRequiredMixin, TemplateView):
         return render(request, 'client_app/dicom_export_progress.html', context)
 
 
-class DICOMExportProgressView(LoginRequiredMixin, View):
+class DICOMExportProgressView(RbacPermissionRequiredMixin, View):
     """API endpoint to check DICOM export progress via celery-progress"""
+    permission_required = 'client_app.view_dicomstudy'
     
     def get(self, request, task_id):
         from celery.result import AsyncResult
@@ -1032,8 +1081,9 @@ class DICOMExportProgressView(LoginRequiredMixin, View):
             })
 
 
-class DICOMExportDownloadView(LoginRequiredMixin, View):
+class DICOMExportDownloadView(RbacPermissionRequiredMixin, View):
     """Download the completed DICOM export ZIP file(s) from Celery task result"""
+    permission_required = 'client_app.view_dicomstudy'
     
     def get(self, request, task_id):
         from pathlib import Path
@@ -1075,9 +1125,10 @@ class DICOMExportDownloadView(LoginRequiredMixin, View):
             return redirect('client_app:dicom_data_export')
 
 
-class TaskProgressView(LoginRequiredMixin, TemplateView):
+class TaskProgressView(RbacPermissionRequiredMixin, TemplateView):
     """Generic progress page for any Celery task using celery-progress"""
     template_name = "client_app/task_progress.html"
+    permission_required = 'client_app.view_taskrun'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1086,8 +1137,9 @@ class TaskProgressView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class TaskDownloadView(LoginRequiredMixin, View):
+class TaskDownloadView(RbacPermissionRequiredMixin, View):
     """Generic download view that reads file path from Celery task result"""
+    permission_required = 'client_app.view_taskrun'
 
     def get(self, request, task_id):
         from pathlib import Path
@@ -1145,7 +1197,8 @@ def _get_visible_task_types(user):
     return visible
 
 
-class TaskRunListView(LoginRequiredMixin, ListView):
+class TaskRunListView(RbacPermissionRequiredMixin, ListView):
+    permission_required = 'client_app.view_taskrun'
     model = TaskRun
     template_name = 'client_app/taskrun_list.html'
     context_object_name = 'task_runs'
@@ -1187,7 +1240,8 @@ class TaskRunListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class TaskRunDetailView(LoginRequiredMixin, DetailView):
+class TaskRunDetailView(RbacPermissionRequiredMixin, DetailView):
+    permission_required = 'client_app.view_taskrun'
     model = TaskRun
     template_name = 'client_app/taskrun_detail.html'
     context_object_name = 'task_run'
@@ -1243,7 +1297,9 @@ def _redispatch_task_run(task_run):
     return task_func.delay(*args, **kwargs)
 
 
-class TaskRunResumeView(LoginRequiredMixin, View):
+class TaskRunResumeView(RbacPermissionRequiredMixin, View):
+    permission_required = ('client_app.view_taskrun', 'client_app.change_taskrun')
+
     def post(self, request, pk):
         task_run = get_object_or_404(TaskRun, pk=pk)
         if not request.user.is_superuser:
@@ -1277,7 +1333,9 @@ class TaskRunResumeView(LoginRequiredMixin, View):
         return redirect('client_app:task_progress', task_id=new_result.id)
 
 
-class TaskRunRetryView(LoginRequiredMixin, View):
+class TaskRunRetryView(RbacPermissionRequiredMixin, View):
+    permission_required = ('client_app.view_taskrun', 'client_app.change_taskrun')
+
     def post(self, request, pk):
         task_run = get_object_or_404(TaskRun, pk=pk)
         if not request.user.is_superuser:
@@ -1311,7 +1369,8 @@ class TaskRunRetryView(LoginRequiredMixin, View):
 # Bulk DICOM Sessions listing
 # ---------------------------------------------------------------------------
 
-class BulkDICOMSessionListView(LoginRequiredMixin, ListView):
+class BulkDICOMSessionListView(RbacPermissionRequiredMixin, ListView):
+    permission_required = 'client_app.view_bulkdicomuploadsession'
     model = BulkDICOMUploadSession
     template_name = 'client_app/bulk_dicom_session_list.html'
     context_object_name = 'sessions'

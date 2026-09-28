@@ -55,48 +55,94 @@
 
                         {% if user.is_authenticated %}
                         <!-- Data Import Dropdown -->
+                        {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode %}
                         {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,dicom_server,bulk_dicom" %}
                             {% fill "items" %}
+                            {% if perms.data_import.view_fileimportsession %}
                             {% component "nav_dropdown_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.client_app.add_bulkdicomuploadsession %}
                             {% component "nav_dropdown_item" href=nav_dicom_up icon="fa-file-medical" label="DICOM Upload" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.client_app.view_bulkdicomuploadsession %}
                             {% component "nav_dropdown_item" href=nav_dicom_sessions icon="fa-list" label="DICOM Sessions" %}{% endcomponent %}
-                            {% if perms.client_app.add_dicomstudy %}
+                            {% endif %}
+                            {% if perms.dicom_server.view_remotedicomnode %}
                             {% component "nav_dropdown_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
                             {% endif %}
                             {% endfill %}
                         {% endcomponent %}
+                        {% endif %}
 
                         <!-- LLM Extraction Dropdown -->
+                        {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
                         {% component "nav_dropdown" icon="fa-magic" label="LLM Extraction" active_on="extractor" width="w-60" %}
                             {% fill "items" %}
+                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob %}
                             {% component "nav_dropdown_item" section="Run" %}{% endcomponent %}
+                            {% if perms.extractor.view_processedtext %}
                             {% component "nav_dropdown_item" href=nav_ex_dash icon="fa-robot" label="Data Extraction" extra_class="font-semibold bg-chavi-charcoal-600" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_extractionjob %}
                             {% component "nav_dropdown_item" href=nav_ex_results icon="fa-clipboard-list" label="Extraction Results" %}{% endcomponent %}
+                            {% endif %}
+                            {% endif %}
+                            {% if perms.extractor.view_fileupload %}
+                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% endif %}
                             {% component "nav_dropdown_item" section="Files" %}{% endcomponent %}
                             {% component "nav_dropdown_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration %}
+                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% endif %}
                             {% component "nav_dropdown_item" section="Configure" %}{% endcomponent %}
+                            {% if perms.extractor.view_clientconfiguration %}
                             {% component "nav_dropdown_item" href=nav_ex_clients icon="fa-server" label="LLM Clients" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_responsemodel %}
                             {% component "nav_dropdown_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_instructormessage %}
                             {% component "nav_dropdown_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_embeddingconfiguration %}
                             {% component "nav_dropdown_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                            {% endif %}
+                            {% endif %}
+                            {% if perms.extractor.add_responsemodel %}
+                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% endif %}
                             {% component "nav_dropdown_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" extra_class="font-semibold" %}{% endcomponent %}
+                            {% endif %}
                             {% endfill %}
                         {% endcomponent %}
+                        {% endif %}
 
                         <!-- Deidentification Dropdown -->
+                        {% if perms.deidentification.view_deidpatient or perms.deidentification.add_deidpatient %}
                         {% component "nav_dropdown" icon="fa-file-export" label="Deidentification" active_on="deidentification" %}
                             {% fill "items" %}
+                            {% if perms.deidentification.view_deidpatient %}
                             {% component "nav_dropdown_item" href=nav_deid icon="fa-users" label="Deidentification Patient List" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.deidentification.add_deidpatient %}
                             {% component "nav_dropdown_item" href=nav_deid_legacy icon="fa-database" label="Legacy Mapping Import" %}{% endcomponent %}
+                            {% endif %}
                             {% endfill %}
                         {% endcomponent %}
+                        {% endif %}
 
                         <!-- Patient Search + Task Runs -->
+                        {% if perms.client_app.view_patient %}
                         {% component "nav_link" href=nav_search icon="fa-search" label="Patient Search" active_on="patient_search" %}{% endcomponent %}
+                        {% endif %}
+                        {% if perms.client_app.view_taskrun %}
                         {% component "nav_link" href=nav_tasks icon="fa-tasks" label="Task Runs" active_on="taskrun" %}{% endcomponent %}
+                        {% endif %}
 
                         {% else %}
                         {% url 'account_login' as nav_login %}
@@ -104,7 +150,9 @@
                         {% endif %}
 
                         {% url 'admin:index' as nav_admin %}
+                        {% if user.is_staff %}
                         {% component "nav_link" href=nav_admin icon="fa-cog" label="Admin" active_on="admin" %}{% endcomponent %}
+                        {% endif %}
                         {% url 'documentation-index' as nav_docs %}
                         {% component "nav_link" href=nav_docs icon="fa-book" label="Docs" active_on="documentation" target="_blank" %}{% endcomponent %}
                     </div>
@@ -130,9 +178,11 @@
                                         <div id="notif-list">
                                             <div class="px-4 py-6 text-center text-chavi-charcoal-300 text-sm">Loading...</div>
                                         </div>
+                                        {% if perms.client_app.view_taskrun %}
                                         <div class="border-t border-chavi-charcoal-600 px-4 py-2 text-center">
                                             <a href="{% url 'client_app:taskrun_list' %}" class="text-xs text-chavi-primary hover:underline">View all tasks</a>
                                         </div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -170,32 +220,70 @@
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-black bg-opacity-20">
                 {% component "nav_mobile_item" href=nav_home icon="fa-home" label="Home" active_on="homepage" %}{% endcomponent %}
                 {% if user.is_authenticated %}
+                {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode %}
                 {% component "nav_mobile_item" section="DATA IMPORT" %}{% endcomponent %}
+                {% if perms.data_import.view_fileimportsession %}
                 {% component "nav_mobile_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.client_app.add_bulkdicomuploadsession %}
                 {% component "nav_mobile_item" href=nav_dicom_up icon="fa-file-medical" label="DICOM Upload" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.client_app.view_bulkdicomuploadsession %}
                 {% component "nav_mobile_item" href=nav_dicom_sessions icon="fa-list" label="DICOM Sessions" %}{% endcomponent %}
-                {% if perms.client_app.add_dicomstudy %}
+                {% endif %}
+                {% if perms.dicom_server.view_remotedicomnode %}
                 {% component "nav_mobile_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
                 {% endif %}
+                {% endif %}
+                {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
                 {% component "nav_mobile_item" section="LLM EXTRACTION" %}{% endcomponent %}
+                {% if perms.extractor.view_processedtext %}
                 {% component "nav_mobile_item" href=nav_ex_dash icon="fa-robot" label="Data Extraction" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_extractionjob %}
                 {% component "nav_mobile_item" href=nav_ex_results icon="fa-clipboard-list" label="Extraction Results" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_fileupload %}
                 {% component "nav_mobile_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_clientconfiguration %}
                 {% component "nav_mobile_item" href=nav_ex_clients icon="fa-server" label="LLM Clients" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_responsemodel %}
                 {% component "nav_mobile_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_instructormessage %}
                 {% component "nav_mobile_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.view_embeddingconfiguration %}
                 {% component "nav_mobile_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.extractor.add_responsemodel %}
                 {% component "nav_mobile_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" %}{% endcomponent %}
+                {% endif %}
+                {% endif %}
+                {% if perms.deidentification.view_deidpatient or perms.deidentification.add_deidpatient %}
                 {% component "nav_mobile_item" section="DEIDENTIFICATION" %}{% endcomponent %}
+                {% if perms.deidentification.view_deidpatient %}
                 {% component "nav_mobile_item" href=nav_deid icon="fa-users" label="Deidentification Patient List" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.deidentification.add_deidpatient %}
                 {% component "nav_mobile_item" href=nav_deid_legacy icon="fa-database" label="Legacy Mapping Import" %}{% endcomponent %}
+                {% endif %}
+                {% endif %}
+                {% if perms.client_app.view_patient %}
                 {% component "nav_mobile_item" section="PATIENT MANAGEMENT" %}{% endcomponent %}
                 {% component "nav_mobile_item" href=nav_search icon="fa-search" label="Patient Search" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.client_app.view_taskrun %}
                 {% component "nav_mobile_item" section="MONITORING" %}{% endcomponent %}
                 {% component "nav_mobile_item" href=nav_tasks icon="fa-tasks" label="Task Runs" %}{% endcomponent %}
                 {% endif %}
+                {% endif %}
                 {% component "nav_mobile_item" section="SYSTEM" %}{% endcomponent %}
+                {% if user.is_staff %}
                 {% component "nav_mobile_item" href=nav_admin icon="fa-cog" label="Admin" %}{% endcomponent %}
+                {% endif %}
                 {% component "nav_mobile_item" href=nav_docs icon="fa-book" label="Documentation" target="_blank" %}{% endcomponent %}
                 {% if user.is_authenticated %}
                     {% url 'account_logout' as nav_logout %}

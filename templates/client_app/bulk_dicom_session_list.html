@@ -7,7 +7,9 @@
     {% url 'client_app:bulk_dicom_upload' as upload_url %}
     {% component "page_header" title="Bulk DICOM Sessions" icon="fas fa-file-medical" %}
         {% fill "actions" %}
+            {% if perms.client_app.add_bulkdicomuploadsession %}
             {% component "button" style="primary" href=upload_url icon="fas fa-upload" %}New Upload{% endcomponent %}
+            {% endif %}
         {% endfill %}
     {% endcomponent %}
 
@@ -78,24 +80,24 @@
                     {{ session.created_at|date:"M d, H:i" }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {% if session.status == 'ANALYZED' %}
+                    {% if session.status == 'ANALYZED' and perms.client_app.change_bulkdicomuploadsession %}
                         {% url 'client_app:bulk_dicom_matching' session.session_id as match_url %}
                         {% component "icon_button" icon="fas fa-link" aria_label="Match studies" href=match_url %}{% endcomponent %}
-                    {% elif session.status == 'CONFIRMED' %}
+                    {% elif session.status == 'CONFIRMED' and perms.client_app.change_bulkdicomuploadsession %}
                         {% url 'client_app:bulk_dicom_confirmation' session.session_id as confirm_url %}
                         {% component "icon_button" icon="fas fa-check" aria_label="Confirm upload" href=confirm_url %}{% endcomponent %}
                     {% elif session.status == 'COMPLETED' %}
                         {% url 'client_app:bulk_dicom_complete' session.session_id as view_url %}
                         {% component "icon_button" icon="fas fa-eye" aria_label="View session" href=view_url %}{% endcomponent %}
                     {% elif session.status == 'FAILED' %}
-                        {% if session.celery_task_id %}
+                        {% if session.celery_task_id and perms.client_app.view_taskrun %}
                         {% url 'client_app:task_progress' session.celery_task_id as err_url %}
                         {% component "icon_button" icon="fas fa-exclamation-triangle" style="danger" aria_label="View error" href=err_url %}{% endcomponent %}
                         {% endif %}
-                    {% elif session.status == 'PROCESSING' and session.celery_task_id %}
+                    {% elif session.status == 'PROCESSING' and session.celery_task_id and perms.client_app.view_taskrun %}
                         {% url 'client_app:task_progress' session.celery_task_id as prog_url %}
                         {% component "icon_button" icon="fas fa-spinner" style="ghost" aria_label="View progress" href=prog_url %}{% endcomponent %}
-                    {% elif session.celery_task_id %}
+                    {% elif session.celery_task_id and perms.client_app.view_taskrun %}
                         {% url 'client_app:task_progress' session.celery_task_id as pend_url %}
                         {% component "icon_button" icon="fas fa-clock" style="ghost" aria_label="Pending" href=pend_url %}{% endcomponent %}
                     {% endif %}

@@ -54,11 +54,13 @@
         <p class="mt-2 max-w-2xl text-chavi-charcoal-100">Manage linked clinical records, imaging and research workflows from one workspace.</p>
     </div>
     <div class="w-full lg:w-[420px] space-y-3">
+        {% if metrics.permissions.patient_search %}
         <form action="{% url 'client_app:patient_search' %}" method="get" class="flex bg-white rounded-xl p-2">
             <label for="homepage-patient-search" class="sr-only">Search patients</label>
             <input id="homepage-patient-search" name="search" class="min-w-0 flex-1 px-3 text-chavi-charcoal-900 outline-none" placeholder="Search patient ID">
             {% component "button" type="submit" icon="fas fa-search" %}Search{% endcomponent %}
         </form>
+        {% endif %}
         {% if metrics.permissions.patient_add %}
         {% url 'client_app:patient_add' as patient_add_url %}
         {% component "button" style="warning" size="lg" href=patient_add_url icon="fas fa-user-plus" extra_class="w-full justify-center rounded-xl" %}Add patient{% endcomponent %}
@@ -82,18 +84,24 @@
             <span class="text-sm text-gray-500">Only tools available to you are shown</span>
         </div>
         <div class="grid sm:grid-cols-2 gap-3">
+            {% if metrics.permissions.patient_search %}
             {% url 'client_app:patient_search' as ps_url %}
             {% component "action_tile" href=ps_url icon="fa-user-injured" icon_style="primary" title="Find a patient" %}
                 Search existing patient records and open their complete summaries.{% if metrics.permissions.patient_add %} Create a new patient from the same page when the record does not yet exist.{% endif %}
             {% endcomponent %}
+            {% endif %}
+            {% if metrics.permissions.csv_import %}
             {% url 'data_import:step1' as step1_url %}
             {% component "action_tile" href=step1_url icon="fa-file-csv" icon_style="primary" title="Structured CSV import" %}
                 Upload structured CSV files and map columns, dates and lookup values through a guided workflow. Review the mapping before records are imported.
             {% endcomponent %}
+            {% endif %}
+            {% if metrics.permissions.dicom_upload %}
             {% url 'client_app:bulk_dicom_upload' as bulk_url %}
             {% component "action_tile" href=bulk_url icon="fa-file-medical" icon_style="sand" title="Upload DICOM" %}
                 Upload multi-patient DICOM archives and automatically match studies to known patients. Review uncertain matches before processing the imaging data.
             {% endcomponent %}
+            {% endif %}
             {% if metrics.permissions.file_upload %}
             {% url 'extractor:file_upload_create' as fup_url %}
             {% component "action_tile" href=fup_url icon="fa-wand-magic-sparkles" icon_style="sun" title="LLM-assisted extraction" %}
@@ -112,10 +120,10 @@
     <section class="bg-white border border-chavi-charcoal-100 rounded-2xl overflow-hidden">
         <div class="p-6 border-b border-chavi-charcoal-100"><p class="text-xs font-bold uppercase tracking-wider text-chavi-peach-700">Attention</p><h2 class="text-2xl font-bold mt-1">Needs review</h2></div>
         <div class="divide-y divide-chavi-charcoal-100">
-            <a href="{% url 'data_import:session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-primary-50"><span><i class="fas fa-file-csv text-chavi-primary-600 w-6" aria-hidden="true"></i>Unfinished CSV imports</span><span class="flex items-center gap-3"><b>{{ metrics.attention.unfinished_csv_imports }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
-            <a href="{% url 'client_app:bulk_dicom_session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-sand-50"><span><i class="fas fa-link text-chavi-sand-600 w-6" aria-hidden="true"></i>DICOM matching</span><span class="flex items-center gap-3"><b>{{ metrics.attention.dicom_matching }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
+            {% if metrics.permissions.csv_import %}<a href="{% url 'data_import:session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-primary-50"><span><i class="fas fa-file-csv text-chavi-primary-600 w-6" aria-hidden="true"></i>Unfinished CSV imports</span><span class="flex items-center gap-3"><b>{{ metrics.attention.unfinished_csv_imports }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
+            {% if metrics.permissions.dicom_sessions %}<a href="{% url 'client_app:bulk_dicom_session_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-sand-50"><span><i class="fas fa-link text-chavi-sand-600 w-6" aria-hidden="true"></i>DICOM matching</span><span class="flex items-center gap-3"><b>{{ metrics.attention.dicom_matching }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
             {% if metrics.attention.extraction_waiting != None %}<a href="{% url 'extractor:extraction_results_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-sun-50"><span><i class="fas fa-clipboard-check text-chavi-sun-700 w-6" aria-hidden="true"></i>Extraction review</span><span class="flex items-center gap-3"><b>{{ metrics.attention.extraction_waiting }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
-            <a href="{% url 'client_app:taskrun_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-peach-50"><span><i class="fas fa-triangle-exclamation text-chavi-peach-600 w-6" aria-hidden="true"></i>Failed or stalled tasks</span><span class="flex items-center gap-3"><b>{{ metrics.attention.failed_or_stalled_user_tasks }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>
+            {% if metrics.permissions.task_runs %}<a href="{% url 'client_app:taskrun_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-peach-50"><span><i class="fas fa-triangle-exclamation text-chavi-peach-600 w-6" aria-hidden="true"></i>Failed or stalled tasks</span><span class="flex items-center gap-3"><b>{{ metrics.attention.failed_or_stalled_user_tasks }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
             {% if metrics.attention.deidentification_exceptions != None %}<a href="{% url 'deidentification:patient_list' %}" class="p-4 flex items-center justify-between hover:bg-chavi-peach-50"><span><i class="fas fa-shield text-chavi-peach-600 w-6" aria-hidden="true"></i>De-id exceptions</span><span class="flex items-center gap-3"><b>{{ metrics.attention.deidentification_exceptions }}</b><i class="fas fa-chevron-right text-xs text-gray-400" aria-hidden="true"></i></span></a>{% endif %}
         </div>
         <p class="p-4 bg-chavi-charcoal-50 text-sm text-gray-600">Live counts of incomplete or exceptional workflow states.</p>
