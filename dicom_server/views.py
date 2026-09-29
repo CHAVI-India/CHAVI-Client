@@ -132,6 +132,62 @@ class RemoteNodeEchoView(DicomPermissionRequiredMixin, View):
         return redirect('dicom_server:node_list')
 
 
+class RemoteNodeCapabilitiesView(DicomPermissionRequiredMixin, View):
+    """POST: probe which Q/R services (C-FIND/C-MOVE/C-GET) a remote node
+    actually supports, then report the result as a flash message."""
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def post(self, request, pk):
+        node = get_object_or_404(RemoteDICOMNode, pk=pk)
+        try:
+            caps = qr_client.probe_qr_capabilities(node)
+        except Exception as e:
+            logger.exception('Q/R capability probe of %s failed', node)
+            messages.error(request, f'{node}: capability check failed — {e}')
+            return redirect('dicom_server:node_list')
+        if caps.get('error'):
+            messages.error(request, f'{node}: {caps["error"]}')
+            return redirect('dicom_server:node_list')
+
+        def _fmt(value):
+            return {
+                'study': '✓',
+                'patient': '✓ (Patient Root)',
+                'broken': 'negotiated but aborts queries',
+            }.get(value, '✗')
+
+        summary = (
+            f'C-FIND {_fmt(caps["find"])} · '
+            f'C-MOVE {_fmt(caps["move"])} · '
+            f'C-GET {_fmt(caps["get"])}'
+        )
+        if caps['find'] == 'broken':
+            hint = (
+                ' — it negotiates C-FIND but aborts queries: likely a '
+                'storage-only node (e.g. a treatment machine); it can '
+                'receive pushed studies but cannot be queried'
+            )
+        elif node.prefer_c_get and not caps['get']:
+            hint = (
+                ' — this node is set to C-GET but the peer does not support '
+                'it; switch the node to C-MOVE or retrieval will fail'
+            )
+        elif not node.prefer_c_get and not caps['move']:
+            hint = (
+                ' — this node is set to C-MOVE but the peer does not support '
+                'it; enable "Prefer C-GET" or retrieval will fail'
+            )
+        elif caps['get'] and not caps['get_storage']:
+            hint = (
+                ' — the peer accepts C-GET but no storage contexts with us '
+                'as receiver; C-GET delivery may still fail'
+            )
+        else:
+            hint = ''
+        messages.info(request, f'{node}: {summary}{hint}')
+        return redirect('dicom_server:node_list')
+
+
 # --- Query/Retrieve (retrieval job permissions) ---
 
 class RetrieveStudiesView(DicomPermissionRequiredMixin, FormView):

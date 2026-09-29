@@ -65,6 +65,10 @@ class TestPermissionGating(DicomFrontendTestCase):
         resp = self.client.post(reverse('dicom_server:node_echo', args=[self.node.pk]))
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/accounts/login/', resp.url)
+        resp = self.client.post(
+            reverse('dicom_server:node_capabilities', args=[self.node.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/accounts/login/', resp.url)
 
     def test_plain_user_denied_everywhere(self):
         self.client.force_login(self.plain_user)
@@ -184,6 +188,43 @@ class TestNodeCRUD(DicomFrontendTestCase):
         resp = self.client.post(reverse('dicom_server:node_echo', args=[self.node.pk]))
         self.assertEqual(resp.status_code, 403)
         mock_echo.assert_not_called()
+
+    @mock.patch('dicom_server.views.qr_client.probe_qr_capabilities')
+    def test_capabilities_action_staff(self, mock_probe):
+        # self.node has prefer_c_get=True — a peer without C-GET must produce
+        # the switch-to-C-MOVE hint.
+        mock_probe.return_value = {
+            'find': 'study', 'move': 'study', 'get': None, 'get_storage': 0,
+        }
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            reverse('dicom_server:node_capabilities', args=[self.node.pk]),
+            follow=True,
+        )
+        mock_probe.assert_called_once_with(self.node)
+        self.assertContains(resp, 'C-FIND')
+        self.assertContains(resp, 'C-MOVE')
+        self.assertContains(resp, 'switch the node to C-MOVE')
+
+    @mock.patch('dicom_server.views.qr_client.probe_qr_capabilities')
+    def test_capabilities_broken_find_hint(self, mock_probe):
+        mock_probe.return_value = {
+            'find': 'broken', 'move': 'study', 'get': None, 'get_storage': 0,
+        }
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            reverse('dicom_server:node_capabilities', args=[self.node.pk]),
+            follow=True,
+        )
+        self.assertContains(resp, 'storage-only node')
+
+    @mock.patch('dicom_server.views.qr_client.probe_qr_capabilities')
+    def test_capabilities_denied_for_plain_user(self, mock_probe):
+        self.client.force_login(self.plain_user)
+        resp = self.client.post(
+            reverse('dicom_server:node_capabilities', args=[self.node.pk]))
+        self.assertEqual(resp.status_code, 403)
+        mock_probe.assert_not_called()
 
 
 class TestRetrieveView(DicomFrontendTestCase):

@@ -37,7 +37,7 @@ class _StubPACS:
     """
 
     def __init__(self, datasets, move_dest=None, patient_root=False,
-                 echo_only=False):
+                 echo_only=False, abort_on_find=False):
         self.datasets = datasets
         self.move_dest = move_dest
         self.ae = AE(ae_title='STUBPACS')
@@ -57,7 +57,10 @@ class _StubPACS:
         handlers.append((evt.EVT_C_ECHO, lambda event: 0x0000))
         if not echo_only:
             self.ae.add_supported_context(find)
-            handlers.append((evt.EVT_C_FIND, self._handle_find))
+            handlers.append((
+                evt.EVT_C_FIND,
+                self._handle_find_abort if abort_on_find else self._handle_find,
+            ))
             if move_dest is not None:
                 self.ae.requested_contexts = StoragePresentationContexts
                 self.ae.add_supported_context(move)
@@ -73,6 +76,13 @@ class _StubPACS:
             ('127.0.0.1', 0), block=False, evt_handlers=handlers,
         )
         self.port = self.server.server_address[1]
+
+    @staticmethod
+    def _handle_find_abort(event):
+        """Accepts the FIND context but aborts on the query itself —
+        mimics storage-only nodes (e.g. a treatment machine's data system)."""
+        event.assoc.abort()
+        yield 0xFF00, Dataset()  # pragma: no cover — unreachable after abort
 
     def _handle_move(self, event):
         yield ('127.0.0.1', self.move_dest)
@@ -308,6 +318,112 @@ class QRClientTests(TransactionTestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, 'FAILED')
         self.assertIn('C-FIND', job.error_log)
+
+    def test_find_studies_aborted_query_raises_connection_error(self):
+        """Peer accepts the FIND context then aborts mid-query — must raise
+        ConnectionError, not crash on the missing Status attribute."""
+        pacs = _StubPACS([], abort_on_find=True)
+        try:
+            with self.assertRaises(ConnectionError) as cm:
+                qr_client.find_studies(
+                    self._node(port=pacs.port), 'MR/25/004771'
+                )
+        finally:
+            pacs.shutdown()
+
+        self.assertIn('aborted', str(cm.exception))
+
+    @mock.patch(
+        'pynetdicom.association.Association.send_c_echo',
+        return_value=Dataset(),
+    )
+    def test_echo_aborted_reports_reason(self, mock_echo):
+        """Empty status dataset (abort/timeout) → (False, reason), not an
+        AttributeError."""
+        pacs = _StubPACS([])
+        try:
+            ok, reason = qr_client.echo(self._node(port=pacs.port))
+        finally:
+            pacs.shutdown()
+
+        self.assertFalse(ok)
+        self.assertIn('aborted', reason)
+
+    def test_get_study_rejected_raises_actionable_error(self):
+        """Peer supports C-MOVE but not C-GET — the error must name the
+        operation and tell the admin how to fix the node."""
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        pacs = _StubPACS([ds], move_dest=self.scp_port)
+        try:
+            node = self._node(port=pacs.port)
+            with self.assertRaises(qr_client.QRModelNotAcceptedError) as cm:
+                qr_client.get_study(node, ds.StudyInstanceUID, 'MR/25/004771')
+        finally:
+            pacs.shutdown()
+
+        msg = str(cm.exception)
+        self.assertIn('does not support C-GET', msg)
+        self.assertIn('stub', msg)  # node.name
+        self.assertIn('C-MOVE', msg)
+
+    @mock.patch.object(qr_client, 'get_study')
+    def test_task_fails_fast_when_get_not_negotiated(self, mock_get):
+        """When the peer rejects the retrieve presentation contexts, the
+        remaining studies are failed immediately instead of repeating the
+        doomed association."""
+        mock_get.side_effect = qr_client.QRModelNotAcceptedError(
+            "peer 'STUBPACS' does not support C-GET — switch to C-MOVE"
+        )
+        node = self._node(port=1, prefer_c_get=True)
+        job = RetrievalJob.objects.create(
+            node=node, patient=self.patient, study_uids=['1.2.3', '4.5.6'],
+        )
+
+        result = task_retrieve_studies(node.pk, 'MR/25/004771', None, job.pk)
+
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(len(result['studies']), 2)
+        self.assertTrue(all(s['failed'] for s in result['studies']))
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'FAILED')
+        self.assertIn('does not support C-GET', job.error_log)
+
+    def test_probe_qr_capabilities_move_only_peer(self):
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        pacs = _StubPACS([ds], move_dest=self.scp_port)
+        try:
+            caps = qr_client.probe_qr_capabilities(
+                self._node(port=pacs.port)
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertNotIn('error', caps)
+        self.assertEqual(caps['find'], 'study')
+        self.assertEqual(caps['move'], 'study')
+        self.assertIsNone(caps['get'])
+        self.assertGreater(caps['get_storage'], 0)
+
+    def test_probe_qr_capabilities_broken_find(self):
+        """Peer negotiates the FIND context but aborts the actual query —
+        reported as 'broken', not supported."""
+        pacs = _StubPACS([], abort_on_find=True)
+        try:
+            caps = qr_client.probe_qr_capabilities(
+                self._node(port=pacs.port)
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertNotIn('error', caps)
+        self.assertEqual(caps['find'], 'broken')
+
+    def test_probe_qr_capabilities_unreachable(self):
+        caps = qr_client.probe_qr_capabilities(self._node(port=1))
+        self.assertIn('error', caps)
+        self.assertIsNone(caps['find'])
+        self.assertIsNone(caps['move'])
+        self.assertIsNone(caps['get'])
 
     def test_task_retrieve_studies_skips_cfind_when_study_uids_set(self):
         ds = make_test_dataset(patient_id='MR/25/004771')

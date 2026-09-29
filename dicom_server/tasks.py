@@ -80,6 +80,15 @@ def task_retrieve_studies(self, node_id, patient_id, user_id=None, job_id=None, 
                     stats = qr_client.get_study(node, uid, patient.patient_id)
                 else:
                     stats = qr_client.move_study(node, uid, patient.patient_id)
+            except qr_client.QRModelNotAcceptedError as e:
+                logger.error('Retrieve method not supported by %s: %s', node, e)
+                # Every remaining study would hit the same rejection — mark
+                # them all failed now instead of opening doomed associations.
+                stats = {'status': None, 'completed': 0, 'failed': -1, 'error': str(e)}
+                for remaining in studies[i:]:
+                    stats_all.append(
+                        {'study_instance_uid': remaining['study_instance_uid'], **stats})
+                break
             except Exception as e:
                 logger.exception('Retrieval of study %s failed', uid)
                 stats = {'status': None, 'completed': 0, 'failed': -1, 'error': str(e)}

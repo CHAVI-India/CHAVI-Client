@@ -12,6 +12,7 @@ urlpatterns = [
     path('nodes/<int:pk>/edit/', views.RemoteNodeUpdateView.as_view(), name='node_update'),
     path('nodes/<int:pk>/delete/', views.RemoteNodeDeleteView.as_view(), name='node_delete'),
     path('nodes/<int:pk>/echo/', views.RemoteNodeEchoView.as_view(), name='node_echo'),
+    path('nodes/<int:pk>/capabilities/', views.RemoteNodeCapabilitiesView.as_view(), name='node_capabilities'),
     path('retrieve/', views.RetrieveStudiesView.as_view(), name='retrieve'),
     path('jobs/', views.RetrievalJobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', views.RetrievalJobDetailView.as_view(), name='job_detail'),

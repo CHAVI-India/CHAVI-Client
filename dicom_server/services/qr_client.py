@@ -26,6 +26,11 @@ from dicom_server.scp.handlers import handle_store
 logger = logging.getLogger(__name__)
 
 
+class QRModelNotAcceptedError(ConnectionError):
+    """The peer accepted the association but rejected the Q/R presentation
+    contexts needed for the requested DIMSE operation."""
+
+
 def _scu_ae() -> AE:
     config = DICOMServerConfiguration.load()
     ae = AE(ae_title=config.ae_title)
@@ -52,12 +57,13 @@ def echo(node: RemoteDICOMNode) -> tuple[bool, str]:
         return False, str(e)
     try:
         status = assoc.send_c_echo()
-        if status and status.Status == 0x0000:
+        code = getattr(status, 'Status', None)
+        if code == 0x0000:
             logger.info('C-ECHO %s: success', node)
             return True, ''
         reason = (
-            f'C-ECHO returned status 0x{status.Status:04X}'
-            if status is not None else 'C-ECHO timed out'
+            f'C-ECHO returned status 0x{code:04X}'
+            if code is not None else 'C-ECHO timed out or aborted'
         )
         logger.info('C-ECHO %s: failed (%s)', node, reason)
         return False, reason
@@ -126,18 +132,44 @@ def _connect(ae: AE, node: RemoteDICOMNode, **assoc_kwargs):
     raise ConnectionError(f'Association to {node} {detail}')
 
 
-def _negotiated_qr_model(assoc, study_root_uid, patient_root_uid):
+def _negotiated_qr_model(assoc, study_root_uid, patient_root_uid,
+                       operation: str, node: RemoteDICOMNode):
     """Return the Q/R model the peer accepted, preferring Study Root.
 
     Both models are proposed on the association so patient-root-only remotes
-    still work. Raises ConnectionError if neither was accepted.
+    still work. Raises QRModelNotAcceptedError — with the rejection reasons
+    and a remediation hint — if neither was accepted.
     """
     accepted = {cx.abstract_syntax for cx in assoc.accepted_contexts}
     for uid in (study_root_uid, patient_root_uid):
         if uid in accepted:
             return uid
-    raise ConnectionError(
-        'Peer accepted neither Study Root nor Patient Root Query/Retrieve'
+
+    rejected = {cx.abstract_syntax: cx.status for cx in assoc.rejected_contexts}
+    reasons = ', '.join(
+        f'{uid.name}: {rejected[uid]}'
+        for uid in (study_root_uid, patient_root_uid)
+        if uid in rejected
+    )
+    detail = f' ({reasons})' if reasons else ''
+
+    if operation == 'C-GET':
+        local_aet = DICOMServerConfiguration.load().ae_title
+        hint = (
+            f'Edit remote node {node.name!r} and uncheck "Prefer C-GET" to '
+            f'use C-MOVE (requires AE {local_aet!r} registered as a C-MOVE '
+            'destination on the peer)'
+        )
+    elif operation == 'C-MOVE':
+        hint = (
+            f'Enable "Prefer C-GET" on remote node {node.name!r} '
+            '(no inbound connection needed)'
+        )
+    else:
+        hint = 'the peer does not accept Study/Patient Root C-FIND for our calling AE title'
+
+    raise QRModelNotAcceptedError(
+        f'peer {node.ae_title!r} does not support {operation}{detail} — {hint}'
     )
 
 
@@ -157,6 +189,7 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
             assoc,
             StudyRootQueryRetrieveInformationModelFind,
             PatientRootQueryRetrieveInformationModelFind,
+            'C-FIND', node,
         )
         q = Dataset()
         q.QueryRetrieveLevel = 'STUDY'
@@ -169,9 +202,16 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
 
         results = []
         for status, identifier in assoc.send_c_find(q, model):
-            if status is None:
-                raise ConnectionError(f'C-FIND on {node} timed out or aborted')
-            if status.Status in (0xFF00, 0xFF01) and identifier:
+            code = getattr(status, 'Status', None)
+            if status is None or code is None:
+                raise ConnectionError(
+                    f'C-FIND on {node} aborted or timed out — the peer '
+                    'accepted the association but dropped it during the '
+                    'query. The node likely has no Query/Retrieve service '
+                    '(common for treatment machines); it can only receive '
+                    'data via push (C-STORE).'
+                )
+            if code in (0xFF00, 0xFF01) and identifier:
                 results.append({
                     'study_instance_uid': str(getattr(identifier, 'StudyInstanceUID', '') or ''),
                     'study_date': str(getattr(identifier, 'StudyDate', '') or ''),
@@ -179,8 +219,12 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
                     'modalities': str(getattr(identifier, 'ModalitiesInStudy', '') or ''),
                     'instances': getattr(identifier, 'NumberOfStudyRelatedInstances', None),
                 })
-            elif status.Status not in (0xFF00, 0xFF01, 0x0000):
-                logger.warning('C-FIND on %s returned status 0x%04X', node, status.Status)
+            elif code not in (0xFF00, 0xFF01, 0x0000):
+                comment = getattr(status, 'ErrorComment', '') or ''
+                logger.warning(
+                    'C-FIND on %s returned status 0x%04X%s',
+                    node, code, f' ({comment})' if comment else '',
+                )
         logger.info('C-FIND %s patient %s: %d studies', node, patient_id, len(results))
         return results
     finally:
@@ -280,6 +324,7 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
             assoc,
             StudyRootQueryRetrieveInformationModelMove,
             PatientRootQueryRetrieveInformationModelMove,
+            'C-MOVE', node,
         )
         destination = destination or DICOMServerConfiguration.load().ae_title
         q = _study_identifier(study_instance_uid, patient_id)
@@ -339,6 +384,7 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
             assoc,
             StudyRootQueryRetrieveInformationModelGet,
             PatientRootQueryRetrieveInformationModelGet,
+            'C-GET', node,
         )
         q = _study_identifier(study_instance_uid, patient_id)
         stats = _collect_subop_stats(
@@ -347,5 +393,102 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
         )
         logger.info('C-GET %s study %s: %s', node, study_instance_uid, stats)
         return stats
+    finally:
+        assoc.release()
+
+
+# Representative storage SOP classes for the capability probe — enough to tell
+# whether the peer accepts storage presentation contexts with us in the SCP
+# role (required for it to deliver instances during C-GET).
+_PROBE_STORAGE_UIDS = (
+    '1.2.840.10008.5.1.4.1.1.2',      # CT Image Storage
+    '1.2.840.10008.5.1.4.1.1.4',      # MR Image Storage
+    '1.2.840.10008.5.1.4.1.1.128',    # PET Image Storage
+    '1.2.840.10008.5.1.4.1.1.1',      # Computed Radiography Image Storage
+    '1.2.840.10008.5.1.4.1.1.6.1',    # Ultrasound Image Storage
+    '1.2.840.10008.5.1.4.1.1.20',     # Nuclear Medicine Image Storage
+    '1.2.840.10008.5.1.4.1.1.7',      # Secondary Capture Image Storage
+    '1.2.840.10008.5.1.4.1.1.481.1',  # RT Image Storage
+    '1.2.840.10008.5.1.4.1.1.481.5',  # RT Plan Storage
+    '1.2.840.10008.5.1.4.1.1.481.2',  # RT Dose Storage
+    '1.2.840.10008.5.1.4.1.1.481.3',  # RT Structure Set Storage
+    '1.2.840.10008.5.1.4.1.1.481.23',  # Enhanced RT Image Storage
+)
+
+_PROBE_PATIENT_ID = 'ZZ_CHAVI_CAPABILITY_PROBE'
+
+
+def probe_qr_capabilities(node: RemoteDICOMNode) -> dict:
+    """Probe which Query/Retrieve services a remote node actually supports.
+
+    Returns a dict: find/move/get each 'study' | 'patient' | 'broken' | None
+    ('broken' = the FIND context was negotiated but the query itself aborted —
+    the tell-tale of a storage-only node like a treatment machine's data
+    system), get_storage = count of storage contexts accepted with us in the
+    SCP role (needed for C-GET delivery), and 'error' if the association
+    itself could not be established.
+
+    C-FIND is exercised with a real (non-matching) query because negotiation
+    alone cannot distinguish an implemented service from an accept-then-abort
+    stub. MOVE/GET are reported at negotiation level only — issuing real
+    retrieves would have side effects.
+    """
+    ae = _scu_ae()
+    ops = {
+        'find': (StudyRootQueryRetrieveInformationModelFind,
+                 PatientRootQueryRetrieveInformationModelFind),
+        'move': (StudyRootQueryRetrieveInformationModelMove,
+                 PatientRootQueryRetrieveInformationModelMove),
+        'get': (StudyRootQueryRetrieveInformationModelGet,
+                PatientRootQueryRetrieveInformationModelGet),
+    }
+    for study_uid, patient_uid in ops.values():
+        ae.add_requested_context(study_uid)
+        ae.add_requested_context(patient_uid)
+    for uid in _PROBE_STORAGE_UIDS:
+        ae.add_requested_context(uid)
+    roles = [build_role(uid, scp_role=True) for uid in _PROBE_STORAGE_UIDS]
+
+    try:
+        assoc = _connect(ae, node, ext_neg=roles)
+    except ConnectionError as e:
+        return {'find': None, 'move': None, 'get': None,
+                'get_storage': 0, 'error': str(e)}
+
+    try:
+        accepted = {cx.abstract_syntax for cx in assoc.accepted_contexts}
+        caps = {}
+        for op, (study_uid, patient_uid) in ops.items():
+            caps[op] = (
+                'study' if study_uid in accepted
+                else 'patient' if patient_uid in accepted
+                else None
+            )
+        caps['get_storage'] = sum(
+            1 for uid in _PROBE_STORAGE_UIDS if uid in accepted
+        )
+
+        if caps['find']:
+            find_model = (
+                StudyRootQueryRetrieveInformationModelFind
+                if caps['find'] == 'study'
+                else PatientRootQueryRetrieveInformationModelFind
+            )
+            q = Dataset()
+            q.QueryRetrieveLevel = 'STUDY'
+            q.PatientID = _PROBE_PATIENT_ID
+            q.StudyInstanceUID = ''
+            responded = False
+            try:
+                for status, _ in assoc.send_c_find(q, find_model):
+                    if getattr(status, 'Status', None) is not None:
+                        responded = True
+            except Exception:
+                pass
+            if not responded:
+                caps['find'] = 'broken'
+
+        logger.info('Q/R capabilities %s: %s', node, caps)
+        return caps
     finally:
         assoc.release()

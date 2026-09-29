@@ -44,6 +44,10 @@
                             {% csrf_token %}
                             {% component "icon_button" icon="fas fa-heartbeat" type="submit" aria_label="Echo" title="Echo" %}{% endcomponent %}
                         </form>
+                        <form method="post" action="{% url 'dicom_server:node_capabilities' node.pk %}" class="inline">
+                            {% csrf_token %}
+                            {% component "icon_button" icon="fas fa-list-check" type="submit" aria_label="Test Q/R capabilities" title="Test Q/R capabilities" %}{% endcomponent %}
+                        </form>
                         {% endif %}
                         {% if perms.dicom_server.change_remotedicomnode %}
                         {% component "icon_button" icon="fas fa-edit" aria_label="Edit" href=node_edit_url title="Edit" %}{% endcomponent %}
