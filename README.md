@@ -125,7 +125,7 @@ First of all ensure that you have the latest version of Python 3 installed in yo
 Please clone the git repository in your computer using the following command. If you have SSH keys installed then you can use the alternative SSH command.
 
 ```
-git clone https://gitlab.com/drsantam/chavi_client.git
+git clone https://github.com/CHAVI-India/CHAVI-Client.git
 ```
 
 After that create a python virtual environment using a package of your choice. We have used venv in this project and you can use the same also by following the instructions available at the Virtualenv website - https://virtualenv.pypa.io/en/legacy/installation.html

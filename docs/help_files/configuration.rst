@@ -129,5 +129,5 @@ Security Recommendations
 
 For additional help please contact CHAVI support team. 
 
-You can raise tickets for support at https://gitlab.com/chavi/chavi-2.0/-/issues
+You can raise tickets for support at https://github.com/CHAVI-India/CHAVI-Client/issues
 
