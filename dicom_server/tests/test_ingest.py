@@ -8,7 +8,9 @@ from pydicom import dcmread
 from client_app.models import (
     Patient, DICOMStudy, DICOMSeries, DICOMInstance, SiteConfiguration,
 )
-from dicom_server.models import InboundDICOMInstance
+from dicom_server.models import (
+    InboundDICOMInstance, PatientIDAlias, RemoteDICOMNode,
+)
 from dicom_server.services.ingest import ingest_dataset, find_patient, sanitize
 from dicom_server.tests.utils import make_test_dataset
 
@@ -35,6 +37,31 @@ class FindPatientTests(TestCase):
 
     def test_empty_returns_none(self):
         self.assertIsNone(find_patient(''))
+
+    def test_alias_match(self):
+        node = RemoteDICOMNode.objects.create(
+            name='PACS', ae_title='PACS', host='127.0.0.1', port=104,
+        )
+        PatientIDAlias.objects.create(
+            node=node, patient=self.patient, remote_patient_id='PACS-9981',
+        )
+        self.assertEqual(find_patient('PACS-9981'), self.patient)
+
+    def test_ambiguous_alias_returns_none(self):
+        other = Patient.objects.create(patient_id='MR/26/000001', gender='Male')
+        n1 = RemoteDICOMNode.objects.create(
+            name='N1', ae_title='N1', host='127.0.0.1', port=104,
+        )
+        n2 = RemoteDICOMNode.objects.create(
+            name='N2', ae_title='N2', host='127.0.0.1', port=104,
+        )
+        PatientIDAlias.objects.create(
+            node=n1, patient=self.patient, remote_patient_id='SHARED-1',
+        )
+        PatientIDAlias.objects.create(
+            node=n2, patient=other, remote_patient_id='SHARED-1',
+        )
+        self.assertIsNone(find_patient('SHARED-1'))
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())

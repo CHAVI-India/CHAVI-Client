@@ -11,7 +11,7 @@ from pydicom.dataset import Dataset
 from client_app.models import (
     Patient, DICOMStudy, DICOMSeries, DICOMInstance, _make_canonical_id,
 )
-from dicom_server.models import InboundDICOMInstance
+from dicom_server.models import InboundDICOMInstance, PatientIDAlias
 from dicom_server.services.classifier import classify_study
 
 logger = logging.getLogger(__name__)
@@ -35,13 +35,33 @@ def find_patient(dicom_patient_id: str):
     """Resolve a DICOM PatientID to a client_app.Patient.
 
     Stage 1: exact match on patient_id.
-    Stage 2: canonical normalised match (same rule as the bulk import services):
+    Stage 2: explicit PatientIDAlias (remote IDs registered for a node).
+    If the remote ID is aliased to multiple patients on different nodes the
+    match is ambiguous — refuse rather than guess (canonical fallback would
+    silently accept a cross-node collision).
+    Stage 3: canonical normalised match (same rule as the bulk import services):
     canonical_db == canonical_dicom or canonical_db.endswith(canonical_dicom).
     """
     try:
         return Patient.objects.get(patient_id=dicom_patient_id)
     except Patient.DoesNotExist:
         pass
+
+    alias_patient_ids = set(
+        PatientIDAlias.objects.filter(remote_patient_id=dicom_patient_id)
+        .values_list('patient_id', flat=True)
+    )
+    if len(alias_patient_ids) > 1:
+        logger.warning(
+            'PatientID %r is aliased to multiple patients across nodes — '
+            'refusing to resolve', dicom_patient_id,
+        )
+        return None
+    if alias_patient_ids:
+        return Patient.objects.filter(
+            patient_id=next(iter(alias_patient_ids)),
+        ).first()
+
     canonical_dicom = _make_canonical_id(dicom_patient_id)
     if not canonical_dicom:
         return None

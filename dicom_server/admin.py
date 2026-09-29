@@ -4,6 +4,7 @@ from unfold.admin import ModelAdmin
 from dicom_server.models import (
     DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
     PatientIDAlias, AutoRetrievalState, RetrievalJob,
+    RetrievalBatch, RetrievalBatchPatient,
 )
 from dicom_server.services import qr_client
 from dicom_server.services.schedule_sync import sync_node_schedule
@@ -39,6 +40,11 @@ class RemoteDICOMNodeAdmin(ModelAdmin):
     fieldsets = (
         (None, {
             'fields': ('name', 'ae_title', 'host', 'port', 'is_active', 'prefer_c_get'),
+        }),
+        ('Patient ID mapping', {
+            'fields': ('patient_id_transforms',),
+            'description': 'Regex transform rules used to generate remote '
+                           'PatientID candidates for C-FIND.',
         }),
         ('Automatic retrieval schedule', {
             'fields': (
@@ -106,6 +112,32 @@ class AutoRetrievalStateAdmin(ModelAdmin):
     list_filter = ['node']
     search_fields = ['patient__patient_id']
     readonly_fields = [f.name for f in AutoRetrievalState._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(RetrievalBatch)
+class RetrievalBatchAdmin(ModelAdmin):
+    list_display = [
+        'pk', 'node', 'status', 'created_by', 'created_at', 'completed_at',
+    ]
+    list_filter = ['status', 'node']
+    readonly_fields = [f.name for f in RetrievalBatch._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(RetrievalBatchPatient)
+class RetrievalBatchPatientAdmin(ModelAdmin):
+    list_display = ['batch', 'patient', 'query_status', 'selected', 'job']
+    list_filter = ['query_status', 'selected']
+    search_fields = ['patient__patient_id']
+    readonly_fields = [f.name for f in RetrievalBatchPatient._meta.fields]
 
     def has_add_permission(self, request):
         return False

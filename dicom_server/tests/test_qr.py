@@ -20,7 +20,9 @@ from pynetdicom.sop_class import (
     PatientRootQueryRetrieveInformationModelGet,
 )
 
-from client_app.models import Patient, DICOMStudy, SiteConfiguration
+from client_app.models import (
+    Patient, DICOMStudy, DICOMInstance, SiteConfiguration,
+)
 from dicom_server.models import RemoteDICOMNode, RetrievalJob
 from dicom_server.services import qr_client
 from dicom_server.scp.server import build_ae, HANDLERS
@@ -84,35 +86,72 @@ class _StubPACS:
         event.assoc.abort()
         yield 0xFF00, Dataset()  # pragma: no cover — unreachable after abort
 
+    def _selected(self, event):
+        """Datasets matching the retrieve identifier's PatientID / Study /
+        Series filters (empty values act as wildcards)."""
+        pid = getattr(event.identifier, 'PatientID', '') or ''
+        suid = getattr(event.identifier, 'StudyInstanceUID', '') or ''
+        seuid = getattr(event.identifier, 'SeriesInstanceUID', '') or ''
+        return [
+            ds for ds in self.datasets
+            if (not pid or ds.PatientID == pid)
+            and (not suid or ds.StudyInstanceUID == suid)
+            and (not seuid or ds.SeriesInstanceUID == seuid)
+        ]
+
     def _handle_move(self, event):
         yield ('127.0.0.1', self.move_dest)
-        yield len(self.datasets)
-        for ds in self.datasets:
+        selected = self._selected(event)
+        yield len(selected)
+        for ds in selected:
             yield 0xFF00, ds
 
     def _handle_get(self, event):
-        yield len(self.datasets)
-        for ds in self.datasets:
+        selected = self._selected(event)
+        yield len(selected)
+        for ds in selected:
             yield 0xFF00, ds
 
     def _handle_find(self, event):
+        level = str(getattr(event.identifier, 'QueryRetrieveLevel', '') or '').upper()
+        q_pid = getattr(event.identifier, 'PatientID', '') or ''
+        q_suid = getattr(event.identifier, 'StudyInstanceUID', '') or ''
         seen = set()
         for ds in self.datasets:
-            uid = ds.StudyInstanceUID
-            if uid in seen:
+            if q_pid and ds.PatientID != q_pid:
                 continue
-            seen.add(uid)
             if event.is_cancelled:
                 yield 0xFE00, None
                 return
-            rsp = Dataset()
-            rsp.QueryRetrieveLevel = 'STUDY'
-            rsp.PatientID = getattr(ds, 'PatientID', '')
-            rsp.StudyInstanceUID = uid
-            rsp.StudyDate = getattr(ds, 'StudyDate', '')
-            rsp.StudyDescription = getattr(ds, 'StudyDescription', '')
-            rsp.ModalitiesInStudy = getattr(ds, 'Modality', '')
-            yield 0xFF00, rsp
+            if level == 'SERIES':
+                if q_suid and ds.StudyInstanceUID != q_suid:
+                    continue
+                uid = ds.SeriesInstanceUID
+                if uid in seen:
+                    continue
+                seen.add(uid)
+                rsp = Dataset()
+                rsp.QueryRetrieveLevel = 'SERIES'
+                rsp.PatientID = getattr(ds, 'PatientID', '')
+                rsp.StudyInstanceUID = ds.StudyInstanceUID
+                rsp.SeriesInstanceUID = uid
+                rsp.SeriesDescription = getattr(ds, 'SeriesDescription', '')
+                rsp.Modality = getattr(ds, 'Modality', '')
+                rsp.SeriesNumber = getattr(ds, 'SeriesNumber', '')
+                yield 0xFF00, rsp
+            else:
+                uid = ds.StudyInstanceUID
+                if uid in seen:
+                    continue
+                seen.add(uid)
+                rsp = Dataset()
+                rsp.QueryRetrieveLevel = 'STUDY'
+                rsp.PatientID = getattr(ds, 'PatientID', '')
+                rsp.StudyInstanceUID = uid
+                rsp.StudyDate = getattr(ds, 'StudyDate', '')
+                rsp.StudyDescription = getattr(ds, 'StudyDescription', '')
+                rsp.ModalitiesInStudy = getattr(ds, 'Modality', '')
+                yield 0xFF00, rsp
 
     def shutdown(self):
         self.server.shutdown()
@@ -424,6 +463,80 @@ class QRClientTests(TransactionTestCase):
         self.assertIsNone(caps['find'])
         self.assertIsNone(caps['move'])
         self.assertIsNone(caps['get'])
+
+    def test_find_studies_with_series_groups_series_and_tags_id(self):
+        """One association: study query per ID (alias format), then series
+        query per study. The study is tagged with the remote ID that matched."""
+        study_uid = '1.2.3.4'
+        ds1 = make_test_dataset(patient_id='25_004771', study_uid=study_uid)
+        ds2 = make_test_dataset(patient_id='25_004771', study_uid=study_uid)
+        pacs = _StubPACS([ds1, ds2])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771', '25_004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(studies), 1)
+        self.assertEqual(studies[0]['remote_patient_id'], '25_004771')
+        self.assertEqual(studies[0]['study_instance_uid'], study_uid)
+        self.assertEqual(len(studies[0]['series']), 2)
+        self.assertIn('accession_number', studies[0])
+
+    def test_find_studies_with_series_raises_when_all_ids_fail(self):
+        with self.assertRaises(ConnectionError):
+            qr_client.find_studies_with_series(
+                self._node(port=1), ['A', 'B'],
+            )
+
+    def test_move_series_end_to_end(self):
+        """Series-level C-MOVE delivers only the requested series."""
+        study_uid = '1.2.3.5'
+        ds1 = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ds2 = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        pacs = _StubPACS([ds1, ds2], move_dest=self.scp_port)
+        try:
+            stats = qr_client.move_series(
+                self._node(port=pacs.port), study_uid,
+                ds1.SeriesInstanceUID, 'MR/25/004771',
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(stats['completed'], 1)
+        self.assertTrue(
+            DICOMInstance.objects.filter(
+                sop_instance_uid=ds1.SOPInstanceUID).exists()
+        )
+        self.assertFalse(
+            DICOMInstance.objects.filter(
+                sop_instance_uid=ds2.SOPInstanceUID).exists()
+        )
+
+    def test_get_series_end_to_end(self):
+        study_uid = '1.2.3.6'
+        ds1 = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ds2 = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        pacs = _StubPACS([ds1, ds2])
+        try:
+            stats = qr_client.get_series(
+                self._node(port=pacs.port), study_uid,
+                ds1.SeriesInstanceUID, 'MR/25/004771',
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(stats['completed'], 1)
+        self.assertTrue(
+            DICOMInstance.objects.filter(
+                sop_instance_uid=ds1.SOPInstanceUID).exists()
+        )
+        self.assertFalse(
+            DICOMInstance.objects.filter(
+                sop_instance_uid=ds2.SOPInstanceUID).exists()
+        )
 
     def test_task_retrieve_studies_skips_cfind_when_study_uids_set(self):
         ds = make_test_dataset(patient_id='MR/25/004771')

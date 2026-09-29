@@ -7,10 +7,14 @@
     {% component "page_header" title="DICOM Server" icon="fas fa-server" %}
         {% fill "actions" %}
             {% if perms.dicom_server.add_retrievaljob %}
-            {% component "button" style="primary" href=retrieve_url icon="fas fa-download" %}Retrieve Studies{% endcomponent %}
+            {% url 'dicom_server:retrieve_bulk' as bulk_url %}
+            {% component "button" style="primary" href=bulk_url icon="fas fa-layer-group" %}Bulk Retrieve{% endcomponent %}
+            {% component "button" style="secondary" href=retrieve_url icon="fas fa-download" %}Retrieve Studies{% endcomponent %}
             {% endif %}
             {% if perms.dicom_server.view_retrievaljob %}
             {% component "button" style="secondary" href=jobs_url icon="fas fa-list" %}Retrieval Jobs{% endcomponent %}
+            {% url 'dicom_server:batch_list' as batches_url %}
+            {% component "button" style="secondary" href=batches_url icon="fas fa-list" %}Batches{% endcomponent %}
             {% endif %}
         {% endfill %}
     {% endcomponent %}

@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Bulk Retrieve DICOM Studies - CHAVI Client{% endblock %}
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    {% url 'dicom_server:dashboard' as dash_url %}
+    {% component "page_header" title="Bulk Retrieve DICOM Studies" icon="fas fa-download" back_url=dash_url back_text="Back to dashboard" %}{% endcomponent %}
+
+    {% csrf_token %}
+
+    {% component "card" extra_class="mb-6" %}
+        {% fill "body" %}
+        {% component "info_box" style="info" %}{% fill "default" %}Select a remote node and one or more patients, run a background query against the node, then pick which studies (or individual series) to retrieve.{% endfill %}{% endcomponent %}
+
+        <div class="mt-4">
+            {{ form.node|as_crispy_field }}
+        </div>
+
+        <div id="node-rules-panel" class="mt-4 hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Patient ID transform rules</label>
+            <p class="text-xs text-gray-500 mb-2">Rules generate remote PatientID candidates for every patient queried — e.g. <code>^MR/(\d+)/(\d+)$ =&gt; \1_\2</code> turns MR/25/004771 into 25_004771.</p>
+            <div id="node-rules-list" class="text-sm space-y-1 font-mono"></div>
+            {% if perms.dicom_server.change_remotedicomnode %}
+            <div class="mt-2">
+                <textarea id="node-rules-edit" rows="3" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700 font-mono text-sm" placeholder="pattern => replacement (one per line)"></textarea>
+                <div class="mt-1 flex items-center space-x-2">
+                    <button type="button" id="save-node-rules" class="text-sm text-chavi-primary hover:underline">Save rules to node</button>
+                    <span id="node-rules-status" class="text-xs text-gray-500"></span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4">
+            <label for="id_patients" class="block text-sm font-medium text-gray-700 mb-1">Patients</label>
+            {{ form.patients }}
+            {% for error in form.patients.errors %}
+                <p class="text-chavi-peach-600 text-sm mt-1">{{ error }}</p>
+            {% endfor %}
+            <p class="text-xs text-gray-500 mt-1">Only consented patients registered in the Patient model can be retrieved.</p>
+        </div>
+
+        <div class="mt-4">
+            {{ form.extra_transforms|as_crispy_field }}
+        </div>
+
+        <div class="mt-6 flex items-center space-x-3">
+            {% component "button" style="primary" type="button" icon="fas fa-search" id="btn-query" %}Query Remote Node{% endcomponent %}
+            <span id="query-status" class="text-sm text-gray-500"></span>
+        </div>
+        {% endfill %}
+    {% endcomponent %}
+
+    <div id="results" class="hidden"></div>
+
+    <div id="submit-bar" class="hidden mt-6">
+        {% component "card" %}
+            {% fill "body" %}
+            <div class="flex items-center justify-between">
+                <div class="space-x-4 text-sm">
+                    <button type="button" id="select-all" class="text-chavi-primary hover:underline">Select all</button>
+                    <button type="button" id="select-none" class="text-chavi-primary hover:underline">Select none</button>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span id="submit-status" class="text-sm text-gray-500"></span>
+                    {% component "button" style="primary" type="button" icon="fas fa-download" id="btn-retrieve" %}Start Retrieval{% endcomponent %}
+                </div>
+            </div>
+            {% endfill %}
+        {% endcomponent %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+const NODE_TRANSFORMS = {{ node_transforms|safe }};
+const CAN_EDIT_RULES = {% if perms.dicom_server.change_remotedicomnode %}true{% else %}false{% endif %};
+const URLS = {
+    query: '{% url "dicom_server:batch_query" %}',
+    status: '{% url "dicom_server:batch_status" 0 %}',
+    alias: '{% url "dicom_server:batch_alias" 0 %}',
+    requery: '{% url "dicom_server:batch_requery" 0 %}',
+    retrieve: '{% url "dicom_server:batch_retrieve" 0 %}',
+    rules: '{% url "dicom_server:node_id_rules" 0 %}',
+};
+let batchId = null;
+let pollTimer = null;
+let lastRendered = {};
+
+function csrf() {
+    return document.querySelector('input[name=csrfmiddlewaretoken]').value;
+}
+function pkUrl(url, pk) { return url.replace('/0/', '/' + pk + '/'); }
+function postJSON(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+        body: JSON.stringify(body || {}),
+    }).then(r => r.json().then(j => ({ok: r.ok, status: r.status, body: j})));
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g,
+        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---- node + rules panel ---- */
+$('#id_patients').select2({
+    placeholder: '-- Search for patients --',
+    allowClear: true,
+    width: '100%',
+    ajax: {
+        url: '{% url "client_app:api_patient_search" %}',
+        dataType: 'json',
+        delay: 300,
+        data: function (params) { return { q: params.term, consented: 1 }; },
+        processResults: function (data) { return { results: data.results }; },
+        cache: true
+    }
+});
+
+function renderNodeRules() {
+    const nodeId = $('#id_node').val();
+    const rules = NODE_TRANSFORMS[nodeId] || [];
+    if (!nodeId) { $('#node-rules-panel').addClass('hidden'); return; }
+    $('#node-rules-panel').removeClass('hidden');
+    if (rules.length === 0) {
+        $('#node-rules-list').html('<p class="text-gray-400 text-xs">No transform rules — only the canonical patient ID and saved aliases are queried.</p>');
+    } else {
+        $('#node-rules-list').html(rules.map(r =>
+            '<div>' + esc(r.pattern) + ' <span class="text-gray-400">=&gt;</span> ' + esc(r.replacement) + '</div>'
+        ).join(''));
+    }
+    if (CAN_EDIT_RULES) {
+        $('#node-rules-edit').val(
+            rules.map(r => r.pattern + ' => ' + r.replacement).join('\n')
+        );
+        $('#node-rules-status').text('');
+    }
+}
+$('#id_node').on('change', renderNodeRules);
+
+$('#save-node-rules').on('click', function () {
+    const nodeId = $('#id_node').val();
+    if (!nodeId) return;
+    $('#node-rules-status').text('Saving…');
+    postJSON(pkUrl(URLS.rules, nodeId), {transforms: $('#node-rules-edit').val()})
+        .then(r => {
+            if (r.ok) {
+                $('#node-rules-status').text('Saved.');
+                const lines = $('#node-rules-edit').val().split('\n')
+                    .map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                NODE_TRANSFORMS[nodeId] = lines.map(l => {
+                    const i = l.indexOf('=>');
+                    return {pattern: i >= 0 ? l.slice(0, i).trim() : l,
+                            replacement: i >= 0 ? l.slice(i + 2).trim() : ''};
+                });
+                renderNodeRules();
+            } else {
+                $('#node-rules-status').text(r.body.error || 'Save failed');
+            }
+        });
+});
+
+/* ---- query phase ---- */
+$('#btn-query').on('click', function () {
+    const nodeId = $('#id_node').val();
+    const patients = $('#id_patients').val();
+    if (!nodeId) { $('#query-status').text('Select a remote node.'); return; }
+    if (!patients || patients.length === 0) { $('#query-status').text('Select at least one patient.'); return; }
+    $('#query-status').text('Starting query…');
+    $('#results').html('').addClass('hidden');
+    $('#submit-bar').addClass('hidden');
+    lastRendered = {};
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    postJSON(URLS.query, {
+        node: nodeId, patients: patients,
+        extra_transforms: $('#id_extra_transforms').val(),
+    }).then(r => {
+        if (!r.ok) { $('#query-status').text(r.body.error || 'Query failed to start'); return; }
+        batchId = r.body.batch_id;
+        $('#query-status').text('Querying — results appear below as they complete.');
+        $('#results').removeClass('hidden');
+        pollTimer = setInterval(pollStatus, 3000);
+        pollStatus();
+    });
+});
+
+function pollStatus() {
+    if (!batchId) return;
+    fetch(pkUrl(URLS.status, batchId))
+        .then(r => r.json())
+        .then(data => {
+            renderResults(data.patients);
+            if (data.status !== 'QUERYING') {
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                $('#query-status').text('Query complete — select items and start retrieval.');
+                $('#submit-bar').removeClass('hidden');
+            }
+        });
+}
+
+function statusBadge(item) {
+    const map = {PENDING: 'gray', QUERYING: 'info', DONE: 'success', ERROR: 'danger'};
+    const label = {PENDING: 'Pending', QUERYING: 'Querying…', DONE: 'Done', ERROR: 'Error'};
+    const style = map[item.query_status] || 'gray';
+    const cls = {
+        gray: 'bg-gray-100 text-gray-700', info: 'bg-blue-100 text-blue-700',
+        success: 'bg-green-100 text-green-700', danger: 'bg-red-100 text-red-700',
+    }[style];
+    return '<span class="px-2 py-0.5 rounded text-xs ' + cls + '">' + label[item.query_status] + '</span>';
+}
+
+function studyRow(p, s) {
+    const uid = s.study_instance_uid;
+    const series = s.series || [];
+    const local = s.already_local;
+    const checked = local ? '' : 'checked';
+    const rows = [];
+    rows.push(
+        '<div class="study-block border-t border-gray-100 py-2" data-suid="' + esc(uid) + '">' +
+        '<div class="flex items-start space-x-2">' +
+        '<input type="checkbox" class="study-check mt-1" data-suid="' + esc(uid) + '" ' + checked + '>' +
+        '<div class="flex-1 text-sm">' +
+        '<span class="font-medium">' + esc(s.study_description || '(no description)') + '</span>' +
+        '<span class="text-gray-500"> — ' + esc(s.study_date || '?') + '</span>' +
+        '<span class="text-gray-500"> · ' + esc(s.modalities || '?') + '</span>' +
+        (s.accession_number ? '<span class="text-gray-400"> · acc ' + esc(s.accession_number) + '</span>' : '') +
+        '<span class="text-gray-400"> · ' + (s.instances == null ? '?' : s.instances) + ' img</span>' +
+        (local ? ' <span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">already imported</span>' : '') +
+        (s.series_error ? ' <span class="px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700" title="' + esc(s.series_error) + '">series list unavailable — whole study only</span>' : '') +
+        '</div></div>'
+    );
+    if (series.length) {
+        rows.push('<details class="ml-6 mt-1"><summary class="text-xs text-chavi-primary cursor-pointer">' +
+            series.length + ' series</summary><div class="mt-1 space-y-1">');
+        series.forEach(function (se) {
+            rows.push(
+                '<div class="flex items-center space-x-2 text-sm text-gray-600">' +
+                '<input type="checkbox" class="series-check" data-seuid="' + esc(se.series_instance_uid) + '" ' + checked + '>' +
+                '<span>' + esc(se.series_description || '(no description)') + '</span>' +
+                '<span class="text-gray-400">· ' + esc(se.modality || '?') + '</span>' +
+                (se.series_number ? '<span class="text-gray-400">· #' + esc(se.series_number) + '</span>' : '') +
+                '<span class="text-gray-400">· ' + (se.instances == null ? '?' : se.instances) + ' img</span>' +
+                '</div>'
+            );
+        });
+        rows.push('</div></details>');
+    }
+    rows.push('</div>');
+    return rows.join('');
+}
+
+function patientBlockHtml(p) {
+    const pid = p.patient_id;
+    const studies = p.studies || [];
+    let inner = '';
+    if (p.query_status === 'DONE' || studies.length) {
+        inner = studies.length
+            ? studies.map(s => studyRow(p, s)).join('')
+            : '<p class="text-sm text-gray-400 py-2">No studies found on the remote node.</p>';
+    } else if (p.query_status === 'ERROR') {
+        inner = '<p class="text-sm text-red-600 py-2">' + esc(p.error || 'Query failed') + '</p>';
+    } else {
+        inner = '<p class="text-sm text-gray-400 py-2">Waiting for query results…</p>';
+    }
+    const ids = (p.remote_patient_ids || []).map(esc).join(', ');
+    return '<div class="patient-block mb-4 bg-white shadow rounded-lg p-4" data-pid="' + esc(pid) + '">' +
+        '<div class="flex items-center justify-between flex-wrap gap-2">' +
+        '<div class="flex items-center space-x-3">' +
+        '<label class="text-sm"><input type="checkbox" class="patient-all" checked> <span class="font-semibold">' + esc(pid) + '</span></label>' +
+        statusBadge(p) +
+        '</div>' +
+        '<div class="flex items-center space-x-2 text-xs">' +
+        '<input type="text" class="alias-input bg-white focus:outline-none border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700" placeholder="add remote ID" size="18">' +
+        '<button type="button" class="alias-add text-chavi-primary hover:underline">Add &amp; re-query</button>' +
+        '</div></div>' +
+        (ids ? '<p class="text-xs text-gray-400 mt-1">IDs tried: ' + ids + '</p>' : '') +
+        (p.error && p.query_status === 'DONE' ? '<p class="text-xs text-yellow-600 mt-1">' + esc(p.error) + '</p>' : '') +
+        inner +
+        '</div>';
+}
+
+function renderResults(patients) {
+    /* Per-patient diff: only re-render rows whose data changed so polls
+     * never wipe checkboxes the user already ticked. */
+    const seen = new Set();
+    patients.forEach(function (p) {
+        const pid = String(p.patient_id);
+        seen.add(pid);
+        const sig = JSON.stringify(p);
+        const existing = $('#results .patient-block').filter(function () {
+            return String($(this).data('pid')) === pid;
+        });
+        if (existing.length && lastRendered[pid] === sig) {
+            return;  // unchanged — keep DOM (and checkbox state) intact
+        }
+        if (existing.length) {
+            existing.replaceWith(patientBlockHtml(p));
+        } else {
+            $('#results').append(patientBlockHtml(p));
+        }
+        lastRendered[pid] = sig;
+    });
+    $('#results .patient-block').each(function () {
+        const pid = String($(this).data('pid'));
+        if (!seen.has(pid)) {
+            $(this).remove();
+            delete lastRendered[pid];
+        }
+    });
+}
+
+/* checkbox cascades */
+$(document).on('change', '.patient-all', function () {
+    $(this).closest('.patient-block').find('input[type=checkbox]').not(this)
+        .prop('checked', this.checked);
+});
+$(document).on('change', '.study-check', function () {
+    $(this).closest('.study-block').find('.series-check').prop('checked', this.checked);
+});
+$(document).on('change', '.series-check', function () {
+    const block = $(this).closest('.study-block');
+    const boxes = block.find('.series-check');
+    block.find('.study-check').prop('checked',
+        boxes.filter(':checked').length === boxes.length);
+});
+
+/* alias add + re-query */
+$(document).on('click', '.alias-add', function () {
+    const block = $(this).closest('.patient-block');
+    const pid = block.data('pid');
+    const input = block.find('.alias-input');
+    const remoteId = input.val().trim();
+    if (!remoteId || !batchId) return;
+    $(this).text('Adding…');
+    postJSON(pkUrl(URLS.alias, batchId), {patient_id: pid, remote_patient_id: remoteId})
+        .then(r => {
+            if (!r.ok) { alert(r.body.error || 'Could not add alias'); $(this).text('Add & re-query'); return; }
+            return postJSON(pkUrl(URLS.requery, batchId), {patient_id: pid}).then(() => {
+                input.val('');
+                $('#query-status').text('Re-querying ' + pid + '…');
+                if (!pollTimer) pollTimer = setInterval(pollStatus, 3000);
+            });
+        });
+});
+
+/* bulk select + submit */
+$('#select-all').on('click', function () {
+    $('#results input[type=checkbox]').prop('checked', true);
+    $('#results .study-block').each(function () {
+        /* re-check disabled/local-excluded? keep user's local exclusion */
+    });
+});
+$('#select-none').on('click', function () {
+    $('#results input[type=checkbox]').prop('checked', false);
+});
+
+function gatherSelections() {
+    const selections = {};
+    $('#results .patient-block').each(function () {
+        const pid = String($(this).data('pid'));
+        const arr = [];
+        $(this).find('.study-block').each(function () {
+            const suid = $(this).data('suid');
+            const seriesBoxes = $(this).find('.series-check');
+            const studyChecked = $(this).find('.study-check').is(':checked');
+            const checkedSeries = seriesBoxes.filter(':checked')
+                .map(function () { return $(this).data('seuid'); }).get();
+            if (seriesBoxes.length === 0) {
+                if (studyChecked) {
+                    arr.push({study_instance_uid: suid, series_instance_uids: null});
+                }
+            } else if (checkedSeries.length === seriesBoxes.length) {
+                arr.push({study_instance_uid: suid, series_instance_uids: null});
+            } else if (checkedSeries.length) {
+                arr.push({study_instance_uid: suid, series_instance_uids: checkedSeries});
+            }
+        });
+        if (arr.length) selections[pid] = arr;
+    });
+    return selections;
+}
+
+$('#btn-retrieve').on('click', function () {
+    const selections = gatherSelections();
+    if (!Object.keys(selections).length) {
+        $('#submit-status').text('Nothing selected.');
+        return;
+    }
+    $('#submit-status').text('Dispatching retrieval…');
+    $(this).prop('disabled', true);
+    postJSON(pkUrl(URLS.retrieve, batchId), {selections: selections})
+        .then(r => {
+            if (r.ok && r.body.detail_url) {
+                window.location.href = r.body.detail_url;
+            } else {
+                $('#submit-status').text(r.body.error || 'Dispatch failed');
+                $(this).prop('disabled', false);
+            }
+        });
+});
+</script>
+{% endblock %}

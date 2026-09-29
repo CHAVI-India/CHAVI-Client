@@ -244,9 +244,11 @@ class TestRetrieveView(DicomFrontendTestCase):
         self.assertEqual(job.patient, self.patient)
         self.assertEqual(job.created_by, self.perm_user)
         self.assertEqual(job.celery_task_id, 'task-123')
+        # remote_patient_ids_for leads with the canonical ID — the task
+        # dedupes it inside find_studies_for_patient.
         mock_delay.assert_called_once_with(
             self.node.pk, self.patient.patient_id, self.perm_user.pk, job.pk,
-            patient_id_aliases=[],
+            patient_id_aliases=['MR/25/004771'],
         )
 
     @mock.patch('dicom_server.views.task_retrieve_studies.delay')

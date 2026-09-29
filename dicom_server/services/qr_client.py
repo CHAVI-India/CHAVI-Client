@@ -173,13 +173,59 @@ def _negotiated_qr_model(assoc, study_root_uid, patient_root_uid,
     )
 
 
+def _find_studies_on_assoc(assoc, model, node, patient_id: str) -> list[dict]:
+    """STUDY-level C-FIND on an open association.
+
+    Returns a list of dicts: study_instance_uid, study_date, study_time,
+    study_description, accession_number, modalities, series_count, instances.
+    Raises ConnectionError if the peer drops the association mid-query."""
+    q = Dataset()
+    q.QueryRetrieveLevel = 'STUDY'
+    q.PatientID = patient_id
+    q.StudyInstanceUID = ''
+    q.StudyDate = ''
+    q.StudyTime = ''
+    q.StudyDescription = ''
+    q.AccessionNumber = ''
+    q.ModalitiesInStudy = ''
+    q.NumberOfStudyRelatedSeries = ''
+    q.NumberOfStudyRelatedInstances = ''
+
+    results = []
+    for status, identifier in assoc.send_c_find(q, model):
+        code = getattr(status, 'Status', None)
+        if status is None or code is None:
+            raise ConnectionError(
+                f'C-FIND on {node} aborted or timed out — the peer '
+                'accepted the association but dropped it during the '
+                'query. The node likely has no Query/Retrieve service '
+                '(common for treatment machines); it can only receive '
+                'data via push (C-STORE).'
+            )
+        if code in (0xFF00, 0xFF01) and identifier:
+            results.append({
+                'study_instance_uid': str(getattr(identifier, 'StudyInstanceUID', '') or ''),
+                'study_date': str(getattr(identifier, 'StudyDate', '') or ''),
+                'study_time': str(getattr(identifier, 'StudyTime', '') or ''),
+                'study_description': str(getattr(identifier, 'StudyDescription', '') or ''),
+                'accession_number': str(getattr(identifier, 'AccessionNumber', '') or ''),
+                'modalities': str(getattr(identifier, 'ModalitiesInStudy', '') or ''),
+                'series_count': getattr(identifier, 'NumberOfStudyRelatedSeries', None),
+                'instances': getattr(identifier, 'NumberOfStudyRelatedInstances', None),
+            })
+        elif code not in (0xFF00, 0xFF01, 0x0000):
+            comment = getattr(status, 'ErrorComment', '') or ''
+            logger.warning(
+                'C-FIND on %s returned status 0x%04X%s',
+                node, code, f' ({comment})' if comment else '',
+            )
+    logger.info('C-FIND %s patient %s: %d studies', node, patient_id, len(results))
+    return results
+
+
 def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
     """C-FIND at STUDY level for a PatientID (Study Root preferred, Patient
-    Root used when the peer accepts only that model).
-
-    Returns a list of dicts: study_instance_uid, study_date, study_description,
-    modalities, instances.
-    """
+    Root used when the peer accepts only that model)."""
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
     ae.add_requested_context(PatientRootQueryRetrieveInformationModelFind)
@@ -191,42 +237,7 @@ def find_studies(node: RemoteDICOMNode, patient_id: str) -> list[dict]:
             PatientRootQueryRetrieveInformationModelFind,
             'C-FIND', node,
         )
-        q = Dataset()
-        q.QueryRetrieveLevel = 'STUDY'
-        q.PatientID = patient_id
-        q.StudyInstanceUID = ''
-        q.StudyDate = ''
-        q.StudyDescription = ''
-        q.ModalitiesInStudy = ''
-        q.NumberOfStudyRelatedInstances = ''
-
-        results = []
-        for status, identifier in assoc.send_c_find(q, model):
-            code = getattr(status, 'Status', None)
-            if status is None or code is None:
-                raise ConnectionError(
-                    f'C-FIND on {node} aborted or timed out — the peer '
-                    'accepted the association but dropped it during the '
-                    'query. The node likely has no Query/Retrieve service '
-                    '(common for treatment machines); it can only receive '
-                    'data via push (C-STORE).'
-                )
-            if code in (0xFF00, 0xFF01) and identifier:
-                results.append({
-                    'study_instance_uid': str(getattr(identifier, 'StudyInstanceUID', '') or ''),
-                    'study_date': str(getattr(identifier, 'StudyDate', '') or ''),
-                    'study_description': str(getattr(identifier, 'StudyDescription', '') or ''),
-                    'modalities': str(getattr(identifier, 'ModalitiesInStudy', '') or ''),
-                    'instances': getattr(identifier, 'NumberOfStudyRelatedInstances', None),
-                })
-            elif code not in (0xFF00, 0xFF01, 0x0000):
-                comment = getattr(status, 'ErrorComment', '') or ''
-                logger.warning(
-                    'C-FIND on %s returned status 0x%04X%s',
-                    node, code, f' ({comment})' if comment else '',
-                )
-        logger.info('C-FIND %s patient %s: %d studies', node, patient_id, len(results))
-        return results
+        return _find_studies_on_assoc(assoc, model, node, patient_id)
     finally:
         assoc.release()
 
@@ -252,6 +263,7 @@ def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> li
                 uid = study.get('study_instance_uid')
                 if uid and uid not in seen:
                     seen.add(uid)
+                    study['remote_patient_id'] = pid
                     results.append(study)
         except Exception as e:
             logger.exception('C-FIND failed for patient ID %r on %s', pid, node)
@@ -262,6 +274,129 @@ def find_studies_for_patient(node: RemoteDICOMNode, patient, aliases=None) -> li
             + '; '.join(errors)
         )
     return results
+
+
+def _find_series_on_assoc(assoc, model, node, study_instance_uid: str,
+                          patient_id: str | None = None) -> tuple[list[dict], str]:
+    """SERIES-level C-FIND on an open association.
+
+    Returns (series, error): on success ([dicts], ''); on peer-level failure
+    ([], reason). Does not raise — a peer that refuses/aborts series queries
+    degrades the study to whole-study selection rather than sinking the
+    batch query.
+    """
+    q = Dataset()
+    q.QueryRetrieveLevel = 'SERIES'
+    if patient_id:
+        q.PatientID = patient_id
+    q.StudyInstanceUID = study_instance_uid
+    q.SeriesInstanceUID = ''
+    q.SeriesDescription = ''
+    q.Modality = ''
+    q.SeriesDate = ''
+    q.SeriesNumber = ''
+    q.NumberOfSeriesRelatedInstances = ''
+
+    results = []
+    try:
+        for status, identifier in assoc.send_c_find(q, model):
+            code = getattr(status, 'Status', None) if status is not None else None
+            if status is None or code is None:
+                return [], 'C-FIND aborted or timed out during series query'
+            if code in (0xFF00, 0xFF01) and identifier:
+                results.append({
+                    'series_instance_uid': str(getattr(identifier, 'SeriesInstanceUID', '') or ''),
+                    'series_description': str(getattr(identifier, 'SeriesDescription', '') or ''),
+                    'modality': str(getattr(identifier, 'Modality', '') or ''),
+                    'series_date': str(getattr(identifier, 'SeriesDate', '') or ''),
+                    'series_number': str(getattr(identifier, 'SeriesNumber', '') or ''),
+                    'instances': getattr(identifier, 'NumberOfSeriesRelatedInstances', None),
+                })
+            elif code not in (0xFF00, 0xFF01, 0x0000):
+                comment = getattr(status, 'ErrorComment', '') or ''
+                return [], f'series query returned status 0x{code:04X} ({comment})'
+    except Exception as e:
+        logger.exception('SERIES C-FIND failed on %s for study %s', node, study_instance_uid)
+        return [], str(e)
+    return results, ''
+
+
+def find_series(node: RemoteDICOMNode, study_instance_uid: str,
+                patient_id: str | None = None) -> tuple[list[dict], str]:
+    """SERIES-level C-FIND for one study on its own association.
+
+    Returns (series, error) like _find_series_on_assoc; raises only if the
+    association or model negotiation itself fails."""
+    ae = _scu_ae()
+    ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
+    ae.add_requested_context(PatientRootQueryRetrieveInformationModelFind)
+    assoc = _connect(ae, node)
+    try:
+        model = _negotiated_qr_model(
+            assoc,
+            StudyRootQueryRetrieveInformationModelFind,
+            PatientRootQueryRetrieveInformationModelFind,
+            'C-FIND', node,
+        )
+        return _find_series_on_assoc(
+            assoc, model, node, study_instance_uid, patient_id,
+        )
+    finally:
+        assoc.release()
+
+
+def find_studies_with_series(node: RemoteDICOMNode,
+                             patient_ids: list[str]) -> tuple[list[dict], list[str]]:
+    """One association: STUDY-level C-FIND for each patient ID, then
+    SERIES-level C-FIND for every discovered study.
+
+    Returns (studies, errors). Studies are deduped by StudyInstanceUID and
+    tagged with remote_patient_id (the ID whose query produced them); each
+    gains 'series' (list of series dicts) and optionally 'series_error'.
+    errors collects per-ID failures. Raises ConnectionError when the
+    association cannot be established or every patient ID's study query
+    failed."""
+    ae = _scu_ae()
+    ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
+    ae.add_requested_context(PatientRootQueryRetrieveInformationModelFind)
+    assoc = _connect(ae, node)
+    try:
+        model = _negotiated_qr_model(
+            assoc,
+            StudyRootQueryRetrieveInformationModelFind,
+            PatientRootQueryRetrieveInformationModelFind,
+            'C-FIND', node,
+        )
+        seen = set()
+        studies = []
+        errors = []
+        for pid in patient_ids:
+            try:
+                for study in _find_studies_on_assoc(assoc, model, node, pid):
+                    uid = study.get('study_instance_uid')
+                    if uid and uid not in seen:
+                        seen.add(uid)
+                        study['remote_patient_id'] = pid
+                        studies.append(study)
+            except Exception as e:
+                logger.exception('C-FIND failed for patient ID %r on %s', pid, node)
+                errors.append(f'{pid}: {e}')
+        if errors and len(errors) == len(patient_ids):
+            raise ConnectionError(
+                f'C-FIND on {node} failed for every patient ID tried: '
+                + '; '.join(errors)
+            )
+        for study in studies:
+            series, series_error = _find_series_on_assoc(
+                assoc, model, node, study['study_instance_uid'],
+                study.get('remote_patient_id'),
+            )
+            study['series'] = series
+            if series_error:
+                study['series_error'] = series_error
+        return studies, errors
+    finally:
+        assoc.release()
 
 
 def _subop_stats(status) -> dict:
@@ -299,12 +434,17 @@ def _collect_subop_stats(responses, operation: str) -> dict:
     return stats
 
 
-def _study_identifier(study_instance_uid: str, patient_id: str | None) -> Dataset:
+def _retrieve_identifier(level: str, study_instance_uid: str,
+                         series_instance_uid: str | None = None,
+                         patient_id: str | None = None) -> Dataset:
+    """Build a C-MOVE/C-GET identifier at STUDY or SERIES level."""
     q = Dataset()
-    q.QueryRetrieveLevel = 'STUDY'
+    q.QueryRetrieveLevel = level
     if patient_id:
         q.PatientID = patient_id
     q.StudyInstanceUID = study_instance_uid
+    if series_instance_uid:
+        q.SeriesInstanceUID = series_instance_uid
     return q
 
 
@@ -315,6 +455,22 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
     The remote must be able to resolve our AE title to host:port (PACS config).
     Returns sub-op stats: status/completed/failed/warning.
     """
+    return _move(node, 'STUDY', study_instance_uid, None, patient_id, destination)
+
+
+def move_series(node: RemoteDICOMNode, study_instance_uid: str,
+                series_instance_uid: str, patient_id: str | None = None,
+                destination: str | None = None) -> dict:
+    """C-MOVE a single series of a study to our own Storage SCP."""
+    return _move(
+        node, 'SERIES', study_instance_uid, series_instance_uid,
+        patient_id, destination,
+    )
+
+
+def _move(node: RemoteDICOMNode, level: str, study_instance_uid: str,
+          series_instance_uid: str | None, patient_id: str | None,
+          destination: str | None) -> dict:
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelMove)
     ae.add_requested_context(PatientRootQueryRetrieveInformationModelMove)
@@ -327,12 +483,17 @@ def move_study(node: RemoteDICOMNode, study_instance_uid: str,
             'C-MOVE', node,
         )
         destination = destination or DICOMServerConfiguration.load().ae_title
-        q = _study_identifier(study_instance_uid, patient_id)
+        q = _retrieve_identifier(
+            level, study_instance_uid, series_instance_uid, patient_id,
+        )
         stats = _collect_subop_stats(
             assoc.send_c_move(q, destination, model),
             f'C-MOVE on {node}',
         )
-        logger.info('C-MOVE %s study %s -> %s: %s', node, study_instance_uid, destination, stats)
+        logger.info(
+            'C-MOVE %s %s %s -> %s: %s', node, level,
+            series_instance_uid or study_instance_uid, destination, stats,
+        )
         return stats
     finally:
         assoc.release()
@@ -368,6 +529,17 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
     Works when the remote cannot open a connection back to us (e.g. NAT).
     Returns sub-op stats: status/completed/failed/warning.
     """
+    return _get(node, 'STUDY', study_instance_uid, None, patient_id)
+
+
+def get_series(node: RemoteDICOMNode, study_instance_uid: str,
+               series_instance_uid: str, patient_id: str | None = None) -> dict:
+    """C-GET a single series of a study (same ingest path as get_study)."""
+    return _get(node, 'SERIES', study_instance_uid, series_instance_uid, patient_id)
+
+
+def _get(node: RemoteDICOMNode, level: str, study_instance_uid: str,
+         series_instance_uid: str | None, patient_id: str | None) -> dict:
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelGet)
     ae.add_requested_context(PatientRootQueryRetrieveInformationModelGet)
@@ -386,12 +558,17 @@ def get_study(node: RemoteDICOMNode, study_instance_uid: str,
             PatientRootQueryRetrieveInformationModelGet,
             'C-GET', node,
         )
-        q = _study_identifier(study_instance_uid, patient_id)
+        q = _retrieve_identifier(
+            level, study_instance_uid, series_instance_uid, patient_id,
+        )
         stats = _collect_subop_stats(
             assoc.send_c_get(q, model),
             f'C-GET on {node}',
         )
-        logger.info('C-GET %s study %s: %s', node, study_instance_uid, stats)
+        logger.info(
+            'C-GET %s %s %s: %s', node, level,
+            series_instance_uid or study_instance_uid, stats,
+        )
         return stats
     finally:
         assoc.release()

@@ -17,8 +17,9 @@ class DICOMServerConfiguration(models.Model):
     frontend (or admin). Cached — always read via DICOMServerConfiguration.load()."""
     ae_title = models.CharField(
         max_length=16, default='CHAVI_CLIENT', validators=[AE_TITLE_VALIDATOR],
-        help_text="This server's AE Title (max 16 chars). Remote PACS must route "
-                  "C-MOVE destinations to this AE title.",
+        help_text="This server's AE Title — max 16 chars, uppercase letters, "
+                  "digits, underscore or hyphen only (e.g. CHAVI_CLIENT). "
+                  "Remote PACS must route C-MOVE destinations to this AE title.",
     )
     port = models.PositiveIntegerField(default=11112)
     bind_address = models.CharField(
@@ -64,7 +65,9 @@ class RemoteDICOMNode(models.Model):
     name = models.CharField(max_length=100, help_text="Friendly name, e.g. 'Hospital PACS'")
     ae_title = models.CharField(
         max_length=16, validators=[AE_TITLE_VALIDATOR],
-        help_text="Called AE Title of the remote node",
+        help_text="Called AE Title of the remote node — max 16 chars, "
+                  "UPPERCASE letters, digits, underscore or hyphen only "
+                  "(e.g. DICOMSRVR, not dicomsrvr).",
     )
     host = models.CharField(max_length=255)
     port = models.PositiveIntegerField(default=104)
@@ -90,6 +93,14 @@ class RemoteDICOMNode(models.Model):
     auto_retrieve_batch_size = models.PositiveIntegerField(
         default=50,
         help_text='Number of patients processed in one batch task during the periodic sweep.'
+    )
+    patient_id_transforms = models.JSONField(
+        default=list, blank=True,
+        help_text='Ordered transform rules applied to the local patient ID to generate '
+                  'remote-ID candidates for C-FIND. Each rule: '
+                  '{"pattern": "<regex>", "replacement": "<replacement>"} — e.g. '
+                  '{"pattern": "^MR/(\\d+)/(\\d+)$", "replacement": "\\1_\\2"} turns '
+                  'MR/25/004771 into 25_004771.',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -124,6 +135,18 @@ class RemoteDICOMNode(models.Model):
             self.patient_aliases.filter(patient=patient)
             .values_list('remote_patient_id', flat=True)
         )
+
+    def remote_patient_ids_for(self, patient, extra_transforms=None):
+        """Ordered, deduped candidate remote PatientIDs for C-FIND:
+        canonical patient_id, then PatientIDAlias rows, then transform outputs."""
+        from dicom_server.services import patient_ids
+        ids = [patient.patient_id]
+        ids += self.patient_id_aliases_for(patient)
+        ids += patient_ids.apply_transforms(
+            patient.patient_id,
+            (self.patient_id_transforms or []) + list(extra_transforms or []),
+        )
+        return list(dict.fromkeys(ids))
 
     def __str__(self):
         return f"{self.name} ({self.ae_title}@{self.host}:{self.port})"
@@ -185,6 +208,21 @@ class RetrievalJob(models.Model):
         null=True, blank=True,
         help_text="Requested Study Instance UIDs (null = all studies found for the patient)",
     )
+    selections = models.JSONField(
+        null=True, blank=True,
+        help_text='[{"study_instance_uid": ..., "series_instance_uids": [...]|null, '
+                  '"remote_patient_id": ...}] — null series list = whole study. '
+                  'Takes precedence over study_uids.',
+    )
+    item_results = models.JSONField(
+        null=True, blank=True,
+        help_text='Per-study/series outcome log: [{study_instance_uid, '
+                  'series_instance_uid|null, status, completed, failed, ...}]',
+    )
+    batch = models.ForeignKey(
+        'RetrievalBatch', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='jobs',
+    )
     studies_found = models.JSONField(
         null=True, blank=True, help_text="Study-level C-FIND results",
     )
@@ -214,7 +252,7 @@ class PatientIDAlias(models.Model):
 
     class Meta:
         unique_together = [
-            ['node', 'patient'],
+            ['node', 'patient', 'remote_patient_id'],
             ['node', 'remote_patient_id'],
         ]
         verbose_name = 'Patient ID alias'
@@ -243,4 +281,94 @@ class AutoRetrievalState(models.Model):
 
     def __str__(self):
         return f'{self.patient.patient_id} / {self.node.name}'
+
+
+class RetrievalBatch(models.Model):
+    """One bulk query -> select -> retrieve session from the bulk retrieval UI.
+
+    Serves both as the transient query session (patients' remote studies are
+    discovered) and as the audit log for the retrieval run."""
+    class Status(models.TextChoices):
+        QUERYING = 'QUERYING', 'Querying remote node'
+        AWAITING_SELECTION = 'AWAITING_SELECTION', 'Awaiting selection'
+        RETRIEVING = 'RETRIEVING', 'Retrieving'
+        SUCCESS = 'SUCCESS', 'Success'
+        PARTIAL = 'PARTIAL', 'Partial'
+        FAILED = 'FAILED', 'Failed'
+
+    node = models.ForeignKey(
+        RemoteDICOMNode, on_delete=models.PROTECT, related_name='retrieval_batches',
+    )
+    created_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.QUERYING,
+    )
+    extra_transforms = models.JSONField(
+        default=list, blank=True,
+        help_text='Ad-hoc transform rules applied to this query only (same '
+                  '{pattern, replacement} shape as node.patient_id_transforms).',
+    )
+    query_group_id = models.CharField(max_length=255, blank=True, default='')
+    retrieve_group_id = models.CharField(max_length=255, blank=True, default='')
+    summary = models.JSONField(
+        null=True, blank=True,
+        help_text='Aggregate counts + patient lists: {total, succeeded, '
+                  'partial, failed, skipped, instances}',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Batch {self.pk} {self.node.name} [{self.status}]'
+
+
+class RetrievalBatchPatient(models.Model):
+    """One patient's query results and linked retrieval job within a batch."""
+    class QueryStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        QUERYING = 'QUERYING', 'Querying'
+        DONE = 'DONE', 'Done'
+        ERROR = 'ERROR', 'Error'
+
+    batch = models.ForeignKey(
+        RetrievalBatch, on_delete=models.CASCADE, related_name='patients',
+    )
+    patient = models.ForeignKey(
+        'client_app.Patient', on_delete=models.PROTECT,
+        related_name='retrieval_batch_rows',
+    )
+    remote_patient_ids = models.JSONField(
+        default=list, blank=True,
+        help_text='Remote PatientIDs actually queried for this patient.',
+    )
+    query_status = models.CharField(
+        max_length=10, choices=QueryStatus.choices,
+        default=QueryStatus.PENDING,
+    )
+    studies = models.JSONField(
+        null=True, blank=True,
+        help_text='Study->series tree: [{study_instance_uid, study_date, '
+                  'study_description, accession_number, modalities, instances, '
+                  'remote_patient_id, already_local, series_error?, series: ['
+                  '{series_instance_uid, series_description, modality, '
+                  'series_number, series_date, instances}]}]',
+    )
+    error = models.TextField(blank=True, default='')
+    selected = models.BooleanField(default=False)
+    job = models.ForeignKey(
+        RetrievalJob, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='batch_rows',
+    )
+
+    class Meta:
+        unique_together = ['batch', 'patient']
+        ordering = ['patient_id']
+
+    def __str__(self):
+        return f'{self.patient_id} @ batch {self.batch_id} [{self.query_status}]'
 

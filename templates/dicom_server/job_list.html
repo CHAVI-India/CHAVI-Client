@@ -6,8 +6,14 @@
     {% url 'dicom_server:dashboard' as dash_url %}
     {% component "page_header" title="Retrieval Jobs" icon="fas fa-download" back_url=dash_url back_text="Back to dashboard" %}
         {% fill "actions" %}
+            {% if perms.dicom_server.view_retrievaljob %}
+            {% url 'dicom_server:batch_list' as batches_url %}
+            {% component "button" style="secondary" href=batches_url icon="fas fa-layer-group" %}Batches{% endcomponent %}
+            {% endif %}
             {% if perms.dicom_server.add_retrievaljob %}
-            {% component "button" style="primary" href=retrieve_url icon="fas fa-download" %}New Retrieval{% endcomponent %}
+            {% url 'dicom_server:retrieve_bulk' as bulk_url %}
+            {% component "button" style="primary" href=bulk_url icon="fas fa-layer-group" %}Bulk Retrieval{% endcomponent %}
+            {% component "button" style="secondary" href=retrieve_url icon="fas fa-download" %}New Retrieval{% endcomponent %}
             {% endif %}
         {% endfill %}
     {% endcomponent %}

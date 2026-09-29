@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Bulk Retrieval Batches - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    {% url 'dicom_server:retrieve_bulk' as bulk_url %}
+    {% url 'dicom_server:dashboard' as dash_url %}
+    {% component "page_header" title="Bulk Retrieval Batches" icon="fas fa-layer-group" back_url=dash_url back_text="Back to dashboard" %}
+        {% fill "actions" %}
+            {% if perms.dicom_server.add_retrievaljob %}
+            {% component "button" style="primary" href=bulk_url icon="fas fa-download" %}New Bulk Retrieval{% endcomponent %}
+            {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+        {% fill "body" %}
+        {% if batches %}
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Batch</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Node</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Patients</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Instances</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Created by</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Created</th>
+            {% endfill %}
+            {% fill "body" %}
+                {% for batch in batches %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm"><a href="{% url 'dicom_server:batch_detail' batch.pk %}" class="text-chavi-primary hover:underline">#{{ batch.pk }}</a></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ batch.node.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ batch.patients.count }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if batch.status == 'SUCCESS' %}{% component "badge" style="success" %}{{ batch.get_status_display }}{% endcomponent %}
+                        {% elif batch.status == 'FAILED' %}{% component "badge" style="danger" %}{{ batch.get_status_display }}{% endcomponent %}
+                        {% elif batch.status == 'PARTIAL' %}{% component "badge" style="warning" %}{{ batch.get_status_display }}{% endcomponent %}
+                        {% elif batch.status == 'RETRIEVING' or batch.status == 'QUERYING' %}{% component "badge" style="info" %}{{ batch.get_status_display }}{% endcomponent %}
+                        {% else %}{% component "badge" style="gray" %}{{ batch.get_status_display }}{% endcomponent %}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ batch.summary.instances|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ batch.created_by|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ batch.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% component "pagination" page_obj=page_obj is_paginated=is_paginated %}{% endcomponent %}
+        {% else %}
+        {% component "empty_state" title="No bulk retrievals yet" description="Run a bulk retrieval to query multiple patients and pick their studies." %}
+            {% fill "action" %}
+                {% if perms.dicom_server.add_retrievaljob %}
+                {% component "button" style="primary" href=bulk_url icon="fas fa-download" %}New Bulk Retrieval{% endcomponent %}
+                {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+</div>
+{% endblock %}
