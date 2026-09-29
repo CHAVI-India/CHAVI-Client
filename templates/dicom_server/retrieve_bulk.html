@@ -35,12 +35,78 @@
         </div>
 
         <div class="mt-4">
-            <label for="id_patients" class="block text-sm font-medium text-gray-700 mb-1">Patients</label>
-            {{ form.patients }}
-            {% for error in form.patients.errors %}
-                <p class="text-chavi-peach-600 text-sm mt-1">{{ error }}</p>
-            {% endfor %}
-            <p class="text-xs text-gray-500 mt-1">Only consented patients registered in the Patient model can be retrieved.</p>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Patients</span>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <input id="flt-q" type="text" placeholder="Patient ID…" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700">
+                <select id="flt-gender" class="pt-sel2" data-placeholder="All genders">
+                    <option value=""></option>
+                    {% for value, label in genders %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+                <select id="flt-project" class="pt-sel2" data-placeholder="All projects">
+                    <option value=""></option>
+                    {% for pk, name in projects %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}
+                </select>
+                <select id="flt-icd" class="pt-sel2-lookup" data-kind="icd" data-placeholder="Diagnosis (ICD)…"></select>
+                <select id="flt-system" class="pt-sel2" data-placeholder="All cancer systems">
+                    <option value=""></option>
+                    {% for code, label in cancer_systems %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                </select>
+                <select id="flt-site" class="pt-sel2-lookup" data-kind="site" data-placeholder="Cancer site…"></select>
+                <select id="flt-side" class="pt-sel2" data-placeholder="All sides">
+                    <option value=""></option>
+                    {% for code, label in sides %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                </select>
+                <select id="flt-presentation" class="pt-sel2" data-placeholder="All presentations">
+                    <option value=""></option>
+                    {% for code, label in presentations %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                </select>
+                <select id="flt-modality" class="pt-sel2" data-placeholder="All diagnostic modalities">
+                    <option value=""></option>
+                    {% for code, label in diag_modalities %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                </select>
+                <input id="flt-created-from" type="date" title="Created from" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700">
+                <input id="flt-created-to" type="date" title="Created to" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700">
+                <input id="flt-updated-from" type="date" title="Updated from" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700">
+                <input id="flt-updated-to" type="date" title="Updated to" class="bg-white focus:outline-none border border-gray-300 rounded-lg py-2 px-4 block w-full appearance-none leading-normal text-gray-700">
+            </div>
+            <div class="mt-2 flex items-center justify-between text-sm flex-wrap gap-2">
+                <label class="inline-flex items-center space-x-2 text-gray-600">
+                    <input type="checkbox" id="flt-consented" checked>
+                    <span>Only consented patients</span>
+                </label>
+                <div class="space-x-3">
+                    <button type="button" id="pt-apply" class="text-chavi-primary hover:underline">Apply filters</button>
+                    <button type="button" id="flt-clear" class="text-gray-500 hover:underline">Clear filters</button>
+                </div>
+            </div>
+            <div class="mt-2 border border-gray-200 rounded-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 w-8"><input type="checkbox" id="check-page" title="Select all on this page"></th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient ID</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Projects</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diagnosis</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pt-body">
+                        <tr><td colspan="7" class="px-4 py-6 text-center text-sm text-gray-400">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-2 flex items-center justify-between text-sm flex-wrap gap-2">
+                <span id="pt-pageinfo" class="text-gray-500"></span>
+                <div class="space-x-3">
+                    <button type="button" id="pt-select-all-matching" class="text-chavi-primary hover:underline">Select all matching</button>
+                    <button type="button" id="pt-clear-sel" class="text-chavi-peach-600 hover:underline">Clear selection</button>
+                    <span id="pt-selected" class="font-medium">0 selected</span>
+                    <button type="button" id="pt-prev" class="text-chavi-primary hover:underline disabled:opacity-40">← Prev</button>
+                    <button type="button" id="pt-next" class="text-chavi-primary hover:underline disabled:opacity-40">Next →</button>
+                </div>
+            </div>
         </div>
 
         <div class="mt-4">
@@ -82,6 +148,8 @@
 const NODE_TRANSFORMS = {{ node_transforms|safe }};
 const CAN_EDIT_RULES = {% if perms.dicom_server.change_remotedicomnode %}true{% else %}false{% endif %};
 const URLS = {
+    patients: '{% url "dicom_server:bulk_patients" %}',
+    lookups: '{% url "dicom_server:bulk_lookups" %}',
     query: '{% url "dicom_server:batch_query" %}',
     status: '{% url "dicom_server:batch_status" 0 %}',
     alias: '{% url "dicom_server:batch_alias" 0 %}',
@@ -109,20 +177,173 @@ function esc(s) {
         c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-/* ---- node + rules panel ---- */
-$('#id_patients').select2({
-    placeholder: '-- Search for patients --',
-    allowClear: true,
-    width: '100%',
-    ajax: {
-        url: '{% url "client_app:api_patient_search" %}',
-        dataType: 'json',
-        delay: 300,
-        data: function (params) { return { q: params.term, consented: 1 }; },
-        processResults: function (data) { return { results: data.results }; },
-        cache: true
-    }
+/* ---- patient table ---- */
+const selectedPids = new Set();
+let ptPage = 1, ptPages = 1;
+
+function ptFilters() {
+    return {
+        q: $('#flt-q').val().trim(),
+        gender: $('#flt-gender').val(),
+        project: $('#flt-project').val(),
+        diagnosis: $('#flt-icd').val(),
+        cancer_system: $('#flt-system').val(),
+        cancer_site: $('#flt-site').val(),
+        cancer_side: $('#flt-side').val(),
+        presentation: $('#flt-presentation').val(),
+        modality: $('#flt-modality').val(),
+        created_from: $('#flt-created-from').val(),
+        created_to: $('#flt-created-to').val(),
+        updated_from: $('#flt-updated-from').val(),
+        updated_to: $('#flt-updated-to').val(),
+        consented: $('#flt-consented').is(':checked') ? '1' : '0',
+    };
+}
+
+function diagCell(d) {
+    const line1 = [d.system, (d.icd_code ? '[' + d.icd_code + '] ' : '') + d.icd]
+        .filter(Boolean).join(' — ');
+    const line2 = [d.site, d.side, d.presentation, d.modality, d.date]
+        .filter(Boolean).join(' · ');
+    return '<div class="text-xs leading-snug">' + esc(line1 || '—') +
+        (line2 ? '<div class="text-gray-400">' + esc(line2) + '</div>' : '') +
+        '</div>';
+}
+
+function renderPatientRows(rows) {
+    const html = rows.map(function (p) {
+        const sel = selectedPids.has(p.patient_id);
+        const dis = p.consented ? '' : ' disabled';
+        const cls = p.consented ? '' : ' opacity-50';
+        const diags = p.diagnoses.length
+            ? p.diagnoses.map(diagCell).join('')
+            : '<span class="text-gray-400 text-xs">—</span>';
+        return '<tr class="border-t border-gray-100 hover:bg-gray-50' + cls + '">' +
+            '<td class="px-4 py-2"><input type="checkbox" class="pt-row-check" data-pid="' + esc(p.patient_id) + '"' +
+                (sel ? ' checked' : '') + dis + '></td>' +
+            '<td class="px-4 py-2 text-sm font-medium">' + esc(p.patient_id) +
+                (p.consented ? '' : ' <span class="px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600">no consent</span>') + '</td>' +
+            '<td class="px-4 py-2 text-sm">' + esc(p.gender || '—') + '</td>' +
+            '<td class="px-4 py-2 text-xs">' + esc(p.projects.join(', ') || '—') + '</td>' +
+            '<td class="px-4 py-2 text-xs text-gray-500">' + esc(p.created_at) + '</td>' +
+            '<td class="px-4 py-2 text-xs text-gray-500">' + esc(p.updated_at) + '</td>' +
+            '<td class="px-4 py-2">' + diags + '</td></tr>';
+    }).join('');
+    $('#pt-body').html(html ||
+        '<tr><td colspan="7" class="px-4 py-6 text-center text-sm text-gray-400">No patients match the filters.</td></tr>');
+}
+
+function updateSelectedCount() {
+    $('#pt-selected').text(selectedPids.size + ' selected');
+}
+function updateCheckAll() {
+    const boxes = $('#pt-body .pt-row-check:not(:disabled)');
+    $('#check-page').prop('checked',
+        boxes.length > 0 && boxes.filter(':checked').length === boxes.length);
+}
+
+function loadPatients(page) {
+    const params = new URLSearchParams(Object.assign({}, ptFilters(), {page: page || 1}));
+    fetch(URLS.patients + '?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+            renderPatientRows(data.results || []);
+            ptPage = data.page;
+            ptPages = data.pages || 1;
+            $('#pt-pageinfo').text(
+                'Page ' + data.page + ' of ' + (data.pages || 1) +
+                ' — ' + data.total + ' patient(s)');
+            $('#pt-prev').prop('disabled', data.page <= 1);
+            $('#pt-next').prop('disabled', data.page >= (data.pages || 1));
+            updateCheckAll();
+        });
+}
+
+$(document).on('change', '.pt-row-check', function () {
+    const pid = $(this).attr('data-pid');
+    if (this.checked) { selectedPids.add(pid); } else { selectedPids.delete(pid); }
+    updateSelectedCount();
+    updateCheckAll();
 });
+$('#check-page').on('change', function () {
+    const c = this.checked;
+    $('#pt-body .pt-row-check:not(:disabled)').each(function () {
+        $(this).prop('checked', c);
+        const pid = $(this).attr('data-pid');
+        if (c) { selectedPids.add(pid); } else { selectedPids.delete(pid); }
+    });
+    updateSelectedCount();
+});
+let ptDebounce = null;
+function queueLoad() {
+    if (ptDebounce) clearTimeout(ptDebounce);
+    ptDebounce = setTimeout(function () { loadPatients(1); }, 150);
+}
+$('#pt-apply').on('click', function () { loadPatients(1); });
+$('#flt-clear').on('click', function () {
+    $('#flt-q').val('');
+    $('.pt-sel2, .pt-sel2-lookup').val(null).trigger('change');
+    $('#flt-created-from, #flt-created-to, #flt-updated-from, #flt-updated-to').val('');
+    $('#flt-consented').prop('checked', true);
+    loadPatients(1);
+});
+$('#pt-clear-sel').on('click', function () {
+    selectedPids.clear();
+    $('.pt-row-check').prop('checked', false);
+    updateSelectedCount();
+    updateCheckAll();
+});
+$('#pt-select-all-matching').on('click', function () {
+    const params = new URLSearchParams(Object.assign({}, ptFilters(), {ids_only: '1'}));
+    const btn = $(this);
+    btn.text('Selecting…');
+    fetch(URLS.patients + '?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+            (data.ids || []).forEach(id => selectedPids.add(id));
+            $('.pt-row-check:not(:disabled)').prop('checked', true);
+            updateSelectedCount();
+            updateCheckAll();
+            btn.text('Select all matching');
+        });
+});
+$('#pt-prev').on('click', function () { loadPatients(ptPage - 1); });
+$('#pt-next').on('click', function () { loadPatients(ptPage + 1); });
+$('#flt-q').on('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); loadPatients(1); }
+});
+$('#flt-created-from, #flt-created-to, #flt-updated-from, #flt-updated-to, #flt-consented')
+    .on('change', queueLoad);
+
+/* select2 filter boxes */
+$('.pt-sel2').each(function () {
+    $(this).select2({
+        allowClear: true,
+        width: '100%',
+        placeholder: $(this).data('placeholder'),
+    });
+});
+$('.pt-sel2-lookup').each(function () {
+    const kind = $(this).data('kind');
+    $(this).select2({
+        allowClear: true,
+        width: '100%',
+        placeholder: $(this).data('placeholder'),
+        minimumInputLength: 0,
+        ajax: {
+            url: URLS.lookups,
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {kind: kind, q: params.term || '', page: params.page || 1};
+            },
+            processResults: function (data) { return data; },
+            cache: true,
+        },
+    });
+});
+$('.pt-sel2, .pt-sel2-lookup').on('change', queueLoad);
+$(function () { loadPatients(1); });
 
 function renderNodeRules() {
     const nodeId = $('#id_node').val();
@@ -170,9 +391,9 @@ $('#save-node-rules').on('click', function () {
 /* ---- query phase ---- */
 $('#btn-query').on('click', function () {
     const nodeId = $('#id_node').val();
-    const patients = $('#id_patients').val();
+    const patients = [...selectedPids];
     if (!nodeId) { $('#query-status').text('Select a remote node.'); return; }
-    if (!patients || patients.length === 0) { $('#query-status').text('Select at least one patient.'); return; }
+    if (!patients.length) { $('#query-status').text('Select at least one patient.'); return; }
     $('#query-status').text('Starting query…');
     $('#results').html('').addClass('hidden');
     $('#submit-bar').addClass('hidden');

@@ -5,6 +5,8 @@ from celery import chord, group
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.views import redirect_to_login
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db.models import Q, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
@@ -16,7 +18,7 @@ from django.views.generic import (
     DetailView, FormView,
 )
 
-from client_app.models import Patient
+from client_app.models import Diagnosis, Patient, Project
 from dicom_server.forms import (
     BulkRetrieveForm, DICOMServerConfigForm, RemoteDICOMNodeForm,
     RetrieveStudiesForm,
@@ -26,6 +28,10 @@ from dicom_server.models import (
     PatientIDAlias, RetrievalBatch, RetrievalBatchPatient, RetrievalJob,
 )
 from dicom_server.services import patient_ids, qr_client
+from lookup.models import (
+    LookupDiagnosticModality, LookupFMACode, LookupICDCode,
+    LookupLaterality, LookupMajorCancerCategory, LookupPresentation,
+)
 from dicom_server.tasks import (
     task_finalize_batch_query, task_finalize_retrieval_batch,
     task_query_patient_studies, task_retrieve_patient_selection,
@@ -282,7 +288,172 @@ class BulkRetrieveView(DicomPermissionRequiredMixin, FormView):
             str(n.pk): n.patient_id_transforms or []
             for n in context['form'].fields['node'].queryset
         })
+        context['genders'] = Patient.Gender.choices
+        context['projects'] = (
+            Project.objects.order_by('project_name')
+            .values_list('chavi_project_id', 'project_name')
+        )
+        context['cancer_systems'] = (
+            LookupMajorCancerCategory.objects.order_by('label')
+            .values_list('code', 'label')
+        )
+        context['sides'] = (
+            LookupLaterality.objects.order_by('label')
+            .values_list('code', 'label')
+        )
+        context['presentations'] = (
+            LookupPresentation.objects.order_by('label')
+            .values_list('code', 'label')
+        )
+        context['diag_modalities'] = (
+            LookupDiagnosticModality.objects.order_by('label')
+            .values_list('code', 'label')
+        )
         return context
+
+
+class BulkLookupSearchView(DicomPermissionRequiredMixin, View):
+    """GET — select2-compatible lookup search for large lookup tables.
+    ?kind=icd|site&q=<term>&page=<n> -> {results, pagination:{more}}"""
+    permission_required = 'dicom_server.add_retrievaljob'
+    per_page = 30
+
+    MODELS = {
+        'icd': LookupICDCode,
+        'site': LookupFMACode,
+    }
+
+    def get(self, request):
+        model = self.MODELS.get(request.GET.get('kind'))
+        if model is None:
+            return JsonResponse({'error': 'unknown lookup kind'}, status=400)
+        qs = model.objects.order_by('label')
+        q = (request.GET.get('q') or '').strip()
+        if q:
+            qs = qs.filter(Q(label__icontains=q) | Q(code__icontains=q))
+        try:
+            page_no = max(1, int(request.GET.get('page', 1)))
+        except (TypeError, ValueError):
+            page_no = 1
+        start = (page_no - 1) * self.per_page
+        rows = list(qs[start:start + self.per_page])
+        return JsonResponse({
+            'results': [
+                {'id': r.code, 'text': f'{r.code} — {r.label}'}
+                for r in rows
+            ],
+            'pagination': {'more': qs.count() > start + len(rows)},
+        })
+
+
+class BulkPatientListView(DicomPermissionRequiredMixin, View):
+    """GET — paginated patient table for the bulk picker.
+
+    Params: q, gender, project, diagnosis (ICD code), cancer_system (code),
+    cancer_site (FMA code), cancer_side (code), presentation (code),
+    modality (code), created_from/to, updated_from/to, consented,
+    ids_only=1, page. Lookup-backed filters take exact codes selected via
+    select2 so labels map precisely. Rows carry per-diagnosis detail so
+    every listed field is both displayable and filterable."""
+    permission_required = 'dicom_server.add_retrievaljob'
+    per_page = 20
+
+    def get(self, request):
+        qs = Patient.objects.all()
+
+        q = (request.GET.get('q') or '').strip()
+        if q:
+            qs = qs.filter(
+                Q(patient_id__icontains=q)
+                | Q(canonical_patient_id__icontains=q)
+            )
+        if request.GET.get('gender'):
+            qs = qs.filter(gender=request.GET['gender'])
+        if request.GET.get('project'):
+            qs = qs.filter(patient_project__pk=request.GET['project'])
+        if request.GET.get('diagnosis'):
+            qs = qs.filter(diagnosis__diagnosis__code=request.GET['diagnosis'])
+        if request.GET.get('cancer_system'):
+            qs = qs.filter(
+                diagnosis__cancer_system__code=request.GET['cancer_system'])
+        if request.GET.get('cancer_site'):
+            qs = qs.filter(
+                diagnosis__cancer_site__code=request.GET['cancer_site'])
+        if request.GET.get('cancer_side'):
+            qs = qs.filter(diagnosis__cancer_side__code=request.GET['cancer_side'])
+        if request.GET.get('presentation'):
+            qs = qs.filter(
+                diagnosis__presentation_type__code=request.GET['presentation'])
+        if request.GET.get('modality'):
+            qs = qs.filter(
+                diagnosis__diagnostic_modality__code=request.GET['modality'])
+        if request.GET.get('created_from'):
+            qs = qs.filter(created_at__date__gte=request.GET['created_from'])
+        if request.GET.get('created_to'):
+            qs = qs.filter(created_at__date__lte=request.GET['created_to'])
+        if request.GET.get('updated_from'):
+            qs = qs.filter(updated_at__date__gte=request.GET['updated_from'])
+        if request.GET.get('updated_to'):
+            qs = qs.filter(updated_at__date__lte=request.GET['updated_to'])
+        if request.GET.get('consented') != '0':
+            qs = qs.filter(chavi_consent=True)
+
+        qs = qs.distinct().order_by('patient_id')
+        if request.GET.get('ids_only') == '1':
+            # Bulk-select helper — only consented patients are selectable.
+            return JsonResponse({'ids': list(
+                qs.filter(chavi_consent=True)
+                .values_list('patient_id', flat=True)
+            )})
+
+        qs = qs.prefetch_related(
+            'patient_project',
+            Prefetch(
+                'diagnosis_set',
+                queryset=Diagnosis.objects.select_related(
+                    'cancer_system', 'diagnosis', 'presentation_type',
+                    'cancer_site', 'cancer_side', 'diagnostic_modality',
+                ),
+            ),
+        )
+
+        paginator = Paginator(qs, self.per_page)
+        try:
+            page = paginator.page(request.GET.get('page', 1))
+        except (PageNotAnInteger, EmptyPage):
+            page = paginator.page(1)
+
+        rows = []
+        for p in page.object_list:
+            rows.append({
+                'patient_id': p.patient_id,
+                'gender': p.gender or '',
+                'consented': bool(p.chavi_consent),
+                'projects': [pr.project_name for pr in p.patient_project.all()],
+                'created_at': p.created_at.strftime('%Y-%m-%d'),
+                'updated_at': p.updated_at.strftime('%Y-%m-%d'),
+                'diagnoses': [{
+                    'system': d.cancer_system.label if d.cancer_system else '',
+                    'icd': d.diagnosis.label if d.diagnosis else '',
+                    'icd_code': d.diagnosis.code if d.diagnosis else '',
+                    'site': d.cancer_site.label if d.cancer_site else '',
+                    'side': d.cancer_side.label if d.cancer_side else '',
+                    'presentation': (
+                        d.presentation_type.label if d.presentation_type else ''
+                    ),
+                    'modality': (
+                        d.diagnostic_modality.label
+                        if d.diagnostic_modality else ''
+                    ),
+                    'date': str(d.diagnosis_date or ''),
+                } for d in p.diagnosis_set.all()],
+            })
+        return JsonResponse({
+            'results': rows,
+            'page': page.number,
+            'pages': paginator.num_pages,
+            'total': paginator.count,
+        })
 
 
 class BatchQueryView(DicomPermissionRequiredMixin, View):

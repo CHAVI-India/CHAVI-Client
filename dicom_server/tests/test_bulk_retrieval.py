@@ -8,7 +8,13 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from client_app.models import Patient, DICOMStudy, SiteConfiguration
+from client_app.models import (
+    Diagnosis, Patient, DICOMStudy, Project, SiteConfiguration,
+)
+from lookup.models import (
+    LookupFMACode, LookupICDCode, LookupLaterality,
+    LookupMajorCancerCategory, LookupPresentation,
+)
 from dicom_server.forms import BulkRetrieveForm
 from dicom_server.models import (
     PatientIDAlias, RemoteDICOMNode, RetrievalBatch, RetrievalBatchPatient,
@@ -573,3 +579,144 @@ class BulkViewTests(BulkRetrievalTestCase):
             reverse('dicom_server:batch_detail', args=[batch.pk]))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'MR/25/004771')
+
+
+class BulkPatientListTests(BulkRetrievalTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = User.objects.create_user('picker', password='pw')
+        cls.user.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='dicom_server',
+            codename__in=['add_retrievaljob'],
+        ))
+        cls.plain = User.objects.create_user('plainpicker', password='pw')
+
+    def setUp(self):
+        self.project = Project.objects.create(
+            chavi_project_id='P1', project_name='Prostate Project',
+        )
+        self.icd = LookupICDCode.objects.create(
+            code='C61', label='Malignant neoplasm of prostate', icd_version=11,
+        )
+        self.system = LookupMajorCancerCategory.objects.create(
+            code='GU', label='Genitourinary',
+        )
+        self.site = LookupFMACode.objects.create(
+            code='FMA:9600', label='Prostate',
+        )
+        self.side = LookupLaterality.objects.create(
+            code='UNPAIRED', label='Unpaired',
+        )
+        self.pres = LookupPresentation.objects.create(
+            code='NEW', label='New presentation',
+        )
+        self.p1 = self._patient('MR/25/000001')
+        self.p2 = self._patient('MR/25/000002')
+        self.p3 = self._patient('MR/25/000003', consent=False)
+        self.p1.patient_project.add(self.project)
+        Diagnosis.objects.create(
+            patient=self.p1, cancer_system=self.system, diagnosis=self.icd,
+            presentation_type=self.pres, cancer_site=self.site,
+            cancer_side=self.side,
+        )
+        self.url = reverse('dicom_server:bulk_patients')
+
+    def _get(self, **params):
+        return self.client.get(self.url, params).json()
+
+    def test_permission_gating(self):
+        self.client.force_login(self.plain)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_default_returns_consented_only(self):
+        self.client.force_login(self.user)
+        data = self._get()
+        ids = [r['patient_id'] for r in data['results']]
+        self.assertIn('MR/25/000001', ids)
+        self.assertNotIn('MR/25/000003', ids)
+        self.assertEqual(data['total'], 2)
+
+    def test_consented_off_shows_all_with_flag(self):
+        self.client.force_login(self.user)
+        data = self._get(consented='0')
+        rows = {r['patient_id']: r for r in data['results']}
+        self.assertEqual(data['total'], 3)
+        self.assertFalse(rows['MR/25/000003']['consented'])
+
+    def test_row_shape_includes_diagnosis_detail(self):
+        self.client.force_login(self.user)
+        data = self._get(q='000001')
+        row = data['results'][0]
+        self.assertEqual(row['patient_id'], 'MR/25/000001')
+        self.assertIn('Prostate Project', row['projects'])
+        self.assertTrue(row['consented'])
+        self.assertEqual(len(row['diagnoses']), 1)
+        diag = row['diagnoses'][0]
+        self.assertEqual(diag['system'], 'Genitourinary')
+        self.assertEqual(diag['icd_code'], 'C61')
+        self.assertEqual(diag['site'], 'Prostate')
+        self.assertEqual(diag['side'], 'Unpaired')
+        self.assertEqual(diag['presentation'], 'New presentation')
+
+    def test_filter_by_diagnosis_and_site(self):
+        self.client.force_login(self.user)
+        data = self._get(diagnosis='C61')
+        self.assertEqual(
+            [r['patient_id'] for r in data['results']], ['MR/25/000001'],
+        )
+        data = self._get(cancer_site='FMA:9600')
+        self.assertEqual(data['total'], 1)
+        data = self._get(cancer_site='FMA:nope')
+        self.assertEqual(data['total'], 0)
+        data = self._get(cancer_system='GU')
+        self.assertEqual(data['total'], 1)
+        data = self._get(cancer_system='OTHER')
+        self.assertEqual(data['total'], 0)
+
+    def test_filter_by_gender_project_presentation_side(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self._get(gender='Female')['total'], 2)
+        self.assertEqual(self._get(gender='Male')['total'], 0)
+        self.assertEqual(self._get(project='P1')['total'], 1)
+        self.assertEqual(self._get(presentation='NEW')['total'], 1)
+        self.assertEqual(self._get(cancer_side='UNPAIRED')['total'], 1)
+
+    def test_ids_only_returns_consented_ids(self):
+        self.client.force_login(self.user)
+        data = self._get(consented='0', ids_only='1')
+        self.assertCountEqual(
+            data['ids'], ['MR/25/000001', 'MR/25/000002'],
+        )
+
+    def test_pagination(self):
+        self.client.force_login(self.user)
+        with mock.patch.object(
+            __import__('dicom_server.views', fromlist=['BulkPatientListView'])
+            .BulkPatientListView, 'per_page', 1
+        ):
+            data = self._get()
+            self.assertEqual(data['pages'], 2)
+            self.assertEqual(data['page'], 1)
+            self.assertEqual(len(data['results']), 1)
+
+    def test_lookup_search_endpoint(self):
+        self.client.force_login(self.user)
+        url = reverse('dicom_server:bulk_lookups')
+        data = self.client.get(url, {'kind': 'icd', 'q': 'prostate'}).json()
+        # lookup tables are seed-populated by migrations — assert our row is
+        # found among the seeded matches rather than exact list equality
+        self.assertIn(
+            {'id': 'C61', 'text': 'C61 — Malignant neoplasm of prostate'},
+            data['results'],
+        )
+        data = self.client.get(url, {'kind': 'site', 'q': '9600'}).json()
+        self.assertEqual(data['results'][0]['id'], 'FMA:9600')
+        resp = self.client.get(url, {'kind': 'bogus'})
+        self.assertEqual(resp.status_code, 400)
+        self.client.force_login(self.plain)
+        self.assertEqual(
+            self.client.get(url, {'kind': 'icd'}).status_code, 403,
+        )
