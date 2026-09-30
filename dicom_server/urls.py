@@ -18,6 +18,7 @@ urlpatterns = [
     path('retrieve/bulk/patients/', views.BulkPatientListView.as_view(), name='bulk_patients'),
     path('retrieve/bulk/lookups/', views.BulkLookupSearchView.as_view(), name='bulk_lookups'),
     path('retrieve/bulk/query/', views.BatchQueryView.as_view(), name='batch_query'),
+    path('retrieve/bulk/<int:pk>/select/', views.BatchSelectView.as_view(), name='batch_select'),
     path('retrieve/bulk/<int:pk>/status/', views.BatchStatusView.as_view(), name='batch_status'),
     path('retrieve/bulk/<int:pk>/alias/', views.PatientAliasCreateView.as_view(), name='batch_alias'),
     path('retrieve/bulk/<int:pk>/requery/', views.PatientRequeryView.as_view(), name='batch_requery'),

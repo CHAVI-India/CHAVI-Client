@@ -396,9 +396,34 @@ class BulkViewTests(BulkRetrievalTestCase):
         self.assertEqual(resp.status_code, 200, resp.content)
         batch = RetrievalBatch.objects.get()
         self.assertEqual(resp.json()['batch_id'], batch.pk)
+        self.assertEqual(
+            resp.json()['select_url'],
+            reverse('dicom_server:batch_select', args=[batch.pk]),
+        )
         self.assertEqual(batch.patients.count(), 1)
         self.assertEqual(batch.status, 'QUERYING')
         mock_chord.assert_called_once()
+
+    def test_batch_select_page(self):
+        batch = RetrievalBatch.objects.create(node=self.node)
+        url = reverse('dicom_server:batch_select', args=[batch.pk])
+        self.client.force_login(self.plain)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.client.force_login(self.user)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'sf-check-all')
+        self.assertContains(resp, 'batch_status')
+
+    def test_batch_detail_links_back_to_select(self):
+        batch = RetrievalBatch.objects.create(
+            node=self.node, status='AWAITING_SELECTION')
+        self.client.force_login(self.user)
+        resp = self.client.get(
+            reverse('dicom_server:batch_detail', args=[batch.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(
+            resp, reverse('dicom_server:batch_select', args=[batch.pk]))
 
     def test_batch_query_rejects_nonconsented(self):
         self._patient('NOC/1', consent=False)

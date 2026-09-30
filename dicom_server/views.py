@@ -503,7 +503,23 @@ class BatchQueryView(DicomPermissionRequiredMixin, View):
             return JsonResponse(
                 {'error': f'Could not dispatch query tasks: {e}'}, status=500,
             )
-        return JsonResponse({'batch_id': batch.pk})
+        return JsonResponse({
+            'batch_id': batch.pk,
+            'select_url': reverse('dicom_server:batch_select', args=[batch.pk]),
+        })
+
+
+class BatchSelectView(DicomPermissionRequiredMixin, DetailView):
+    """GET — dedicated study/series selection page for a query batch.
+
+    Renders the flat filterable results table; all data comes from
+    BatchStatusView's JSON. Viewing only needs view_retrievaljob —
+    dispatching retrieval is separately gated on add_retrievaljob.
+    """
+    model = RetrievalBatch
+    permission_required = 'dicom_server.view_retrievaljob'
+    template_name = 'dicom_server/batch_select.html'
+    context_object_name = 'batch'
 
 
 class BatchStatusView(DicomPermissionRequiredMixin, View):
