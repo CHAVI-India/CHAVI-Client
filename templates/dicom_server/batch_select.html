@@ -297,6 +297,56 @@ function renderPatients() {
     $('#qp-label').text('Querying remote node — ' + done + '/' + patientsData.length + ' patients done');
 }
 
+function approvalBadge(status) {
+    const s = (status || '').toUpperCase();
+    if (!s) return '<span class="text-gray-400">—</span>';
+    const style = s === 'APPROVED' ? 'success' : s === 'REJECTED' ? 'danger' : 'warning';
+    return badge(style, s);
+}
+
+function rtInstanceLabel(i) {
+    const parts = [];
+    const label = i.rt_plan_label || i.structure_set_label;
+    const name = i.rt_plan_name || i.structure_set_name;
+    if (label) parts.push('<span class="font-medium">' + esc(label) + '</span>');
+    if (name && name !== label) parts.push('<span class="text-gray-500">' + esc(name) + '</span>');
+    return parts.join(' ') || '<span class="text-gray-400">(unnamed)</span>';
+}
+
+function rtInstanceRows(se) {
+    /* Nested instance rows under an RT series — one line per structure set /
+     * plan instance, reflecting the study→series→instance hierarchy. */
+    const insts = se.rt_instances || [];
+    const isPlan = (se.modality || '').toUpperCase() === 'RTPLAN';
+    if (!insts.length || (!isPlan && insts.length < 2)) return '';
+    return insts.map(function (i) {
+        return '<tr class="text-xs text-gray-600">' +
+            '<td></td>' +
+            '<td class="px-2 py-1" colspan="5"><span class="text-gray-300 mr-1">└</span>' +
+                rtInstanceLabel(i) + '</td>' +
+            '<td class="px-2 py-1">' + (isPlan ? approvalBadge(i.approval_status) : '') + '</td>' +
+            '</tr>';
+    }).join('');
+}
+
+function rtDetailsCell(se) {
+    const mod = (se.modality || '').toUpperCase();
+    if (se.rt_error) return badge('warning', 'RT details unavailable');
+    const insts = se.rt_instances || [];
+    if (!insts.length) return '<span class="text-gray-400">—</span>';
+    if (mod === 'RTSTRUCT') {
+        const labels = [...new Set(insts.map(rtInstanceLabel))];
+        return labels.join(', ');
+    }
+    if (mod === 'RTPLAN') {
+        const approved = insts.filter(
+            i => (i.approval_status || '').toUpperCase() === 'APPROVED').length;
+        return esc(insts.length + ' plan' + (insts.length > 1 ? 's' : '') +
+            (approved ? ' · ' + approved + ' approved' : ''));
+    }
+    return '<span class="text-gray-400">—</span>';
+}
+
 function seriesSubRows(pid, s, f) {
     const key = keyOf(pid, s.study_instance_uid);
     const v = sel.get(key);
@@ -308,12 +358,43 @@ function seriesSubRows(pid, s, f) {
             '<td class="px-2 py-1">' + esc(se.modality || '—') + '</td>' +
             '<td class="px-2 py-1">' + esc(se.series_number || '—') + '</td>' +
             '<td class="px-2 py-1">' + esc(dcmDate(se.series_date) || '—') + '</td>' +
-            '<td class="px-2 py-1 text-right">' + (se.instances == null ? '?' : se.instances) + '</td></tr>';
+            '<td class="px-2 py-1 text-right">' + (se.instances == null ? '?' : se.instances) + '</td>' +
+            '<td class="px-2 py-1">' + rtDetailsCell(se) + '</td></tr>' +
+            rtInstanceRows(se);
     }).join('');
+    const head = '<thead><tr class="text-xs text-gray-400 uppercase">' +
+        '<th class="px-2 py-1 w-6"></th>' +
+        '<th class="px-2 py-1 text-left font-medium">Description</th>' +
+        '<th class="px-2 py-1 text-left font-medium">Modality</th>' +
+        '<th class="px-2 py-1 text-left font-medium">Series #</th>' +
+        '<th class="px-2 py-1 text-left font-medium">Date</th>' +
+        '<th class="px-2 py-1 text-right font-medium">Instances</th>' +
+        '<th class="px-2 py-1 text-left font-medium">Details</th>' +
+        '</tr></thead>';
     return '<tr class="bg-gray-50"><td></td><td colspan="8" class="px-4 py-2">' +
-        '<table class="w-full"><tbody>' + rows +
-        (rows ? '' : '<tr><td class="px-2 py-1 text-gray-400 text-xs">No series match the filters.</td></tr>') +
+        '<table class="w-full">' + head + '<tbody>' + rows +
+        (rows ? '' : '<tr><td colspan="7" class="px-2 py-1 text-gray-400 text-xs">No series match the filters.</td></tr>') +
         '</tbody></table></td></tr>';
+}
+
+function studyRtSummary(s) {
+    let structs = 0, plans = 0, approved = 0;
+    (s.series || []).forEach(function (se) {
+        const mod = (se.modality || '').toUpperCase();
+        if (mod === 'RTSTRUCT') structs += (se.rt_instances || []).length;
+        if (mod === 'RTPLAN') {
+            plans += (se.rt_instances || []).length;
+            approved += (se.rt_instances || []).filter(
+                i => (i.approval_status || '').toUpperCase() === 'APPROVED').length;
+        }
+    });
+    if (!structs && !plans) return '';
+    const parts = [];
+    if (structs) parts.push(structs + ' structure set' + (structs > 1 ? 's' : ''));
+    if (plans) parts.push(plans + ' plan' + (plans > 1 ? 's' : '') +
+        (plans ? ' (' + approved + ' approved)' : ''));
+    const style = plans ? (approved === plans ? 'success' : 'warning') : 'info';
+    return ' ' + badge(style, parts.join(' · '));
 }
 
 function renderStudies() {
@@ -345,6 +426,7 @@ function renderStudies() {
             if (s.already_local) badges += ' ' + badge('gray', 'imported');
             if (s.series_error) badges += ' ' + badge('warning', 'whole study only');
             if (partial && checked) badges += ' ' + badge('accent', 'partial');
+            badges += studyRtSummary(s);
             rows.push(
                 '<tr class="hover:bg-gray-50 transition-colors duration-150' + (s.already_local ? ' opacity-60' : '') + '">' +
                 '<td class="px-4 py-3"><input type="checkbox" class="st-check h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary" data-key="' + esc(key) + '"' +

@@ -27,7 +27,7 @@ from dicom_server.models import RemoteDICOMNode, RetrievalJob
 from dicom_server.services import qr_client
 from dicom_server.scp.server import build_ae, HANDLERS
 from dicom_server.tasks import task_retrieve_studies
-from dicom_server.tests.utils import make_test_dataset
+from dicom_server.tests.utils import make_test_dataset, make_rt_dataset
 
 
 class _StubPACS:
@@ -39,9 +39,13 @@ class _StubPACS:
     """
 
     def __init__(self, datasets, move_dest=None, patient_root=False,
-                 echo_only=False, abort_on_find=False):
+                 echo_only=False, abort_on_find=False,
+                 abort_on_image_find=False, sparse_find=False):
         self.datasets = datasets
         self.move_dest = move_dest
+        self.abort_on_image_find = abort_on_image_find
+        self.sparse_find = sparse_find
+        self.find_queries = []  # (level, study_uid, series_uid) per C-FIND
         self.ae = AE(ae_title='STUBPACS')
         self.ae.supported_contexts = StoragePresentationContexts
 
@@ -116,16 +120,39 @@ class _StubPACS:
         level = str(getattr(event.identifier, 'QueryRetrieveLevel', '') or '').upper()
         q_pid = getattr(event.identifier, 'PatientID', '') or ''
         q_suid = getattr(event.identifier, 'StudyInstanceUID', '') or ''
+        q_seuid = getattr(event.identifier, 'SeriesInstanceUID', '') or ''
+        self.find_queries.append((level, q_suid, q_seuid))
+        if level == 'IMAGE' and self.abort_on_image_find:
+            event.assoc.abort()
+            yield 0xFF00, Dataset()  # pragma: no cover — unreachable after abort
+            return
         seen = set()
         for ds in self.datasets:
             if q_pid and ds.PatientID != q_pid:
                 continue
+            if q_suid and ds.StudyInstanceUID != q_suid:
+                continue
             if event.is_cancelled:
                 yield 0xFE00, None
                 return
-            if level == 'SERIES':
-                if q_suid and ds.StudyInstanceUID != q_suid:
+            if level == 'IMAGE':
+                if q_seuid and ds.SeriesInstanceUID != q_seuid:
                     continue
+                rsp = Dataset()
+                rsp.QueryRetrieveLevel = 'IMAGE'
+                rsp.PatientID = getattr(ds, 'PatientID', '')
+                rsp.StudyInstanceUID = ds.StudyInstanceUID
+                rsp.SeriesInstanceUID = ds.SeriesInstanceUID
+                rsp.SOPInstanceUID = getattr(ds, 'SOPInstanceUID', '')
+                for kw in ('InstanceNumber', 'Modality', 'SeriesDate',
+                           'AccessionNumber', 'StructureSetLabel',
+                           'StructureSetName', 'RTPlanLabel', 'RTPlanName',
+                           'ApprovalStatus'):
+                    val = getattr(ds, kw, None)
+                    if val is not None:
+                        setattr(rsp, kw, val)
+                yield 0xFF00, rsp
+            elif level == 'SERIES':
                 uid = ds.SeriesInstanceUID
                 if uid in seen:
                     continue
@@ -138,6 +165,13 @@ class _StubPACS:
                 rsp.SeriesDescription = getattr(ds, 'SeriesDescription', '')
                 rsp.Modality = getattr(ds, 'Modality', '')
                 rsp.SeriesNumber = getattr(ds, 'SeriesNumber', '')
+                if not self.sparse_find:
+                    rsp.SeriesDate = getattr(ds, 'SeriesDate', '')
+                    rsp.AccessionNumber = getattr(ds, 'AccessionNumber', '')
+                    rsp.NumberOfSeriesRelatedInstances = sum(
+                        1 for d in self.datasets
+                        if d.SeriesInstanceUID == uid
+                    )
                 yield 0xFF00, rsp
             else:
                 uid = ds.StudyInstanceUID
@@ -150,7 +184,9 @@ class _StubPACS:
                 rsp.StudyInstanceUID = uid
                 rsp.StudyDate = getattr(ds, 'StudyDate', '')
                 rsp.StudyDescription = getattr(ds, 'StudyDescription', '')
-                rsp.ModalitiesInStudy = getattr(ds, 'Modality', '')
+                if not self.sparse_find:
+                    rsp.ModalitiesInStudy = getattr(ds, 'Modality', '')
+                    rsp.AccessionNumber = getattr(ds, 'AccessionNumber', '')
                 yield 0xFF00, rsp
 
     def shutdown(self):
@@ -490,6 +526,127 @@ class QRClientTests(TransactionTestCase):
             qr_client.find_studies_with_series(
                 self._node(port=1), ['A', 'B'],
             )
+
+    def test_find_studies_with_series_fetches_rt_details(self):
+        """RTSTRUCT/RTPLAN series get an IMAGE-level C-FIND; the per-instance
+        attributes land on rt_instances."""
+        study_uid = '1.2.9.1'
+        plan_series = '9.8.7'
+        datasets = [
+            make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid),
+            make_rt_dataset(
+                patient_id='MR/25/004771', study_uid=study_uid,
+                modality='RTSTRUCT', structure_set_label='CTsim1',
+                structure_set_name='PTV Structures',
+            ),
+            make_rt_dataset(
+                patient_id='MR/25/004771', study_uid=study_uid,
+                series_uid=plan_series, modality='RTPLAN', instance_number=1,
+                rt_plan_label='P1', rt_plan_name='Plan A',
+                approval_status='APPROVED',
+            ),
+            make_rt_dataset(
+                patient_id='MR/25/004771', study_uid=study_uid,
+                series_uid=plan_series, modality='RTPLAN', instance_number=2,
+                rt_plan_label='P2', rt_plan_name='Plan B',
+                approval_status='UNAPPROVED',
+            ),
+        ]
+        pacs = _StubPACS(datasets)
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        by_mod = {s['modality']: s for s in studies[0]['series']}
+        rtss = by_mod['RTSTRUCT']['rt_instances']
+        self.assertEqual(len(rtss), 1)
+        self.assertEqual(rtss[0]['structure_set_label'], 'CTsim1')
+        self.assertEqual(rtss[0]['structure_set_name'], 'PTV Structures')
+        plans = {
+            i['rt_plan_label']: i for i in by_mod['RTPLAN']['rt_instances']
+        }
+        self.assertEqual(len(plans), 2)
+        self.assertEqual(plans['P1']['approval_status'], 'APPROVED')
+        self.assertEqual(plans['P1']['rt_plan_name'], 'Plan A')
+        self.assertEqual(plans['P2']['approval_status'], 'UNAPPROVED')
+
+    def test_instance_query_skipped_when_series_complete(self):
+        """A series that already has a count and a date — and is not an RT
+        modality — must not trigger an extra IMAGE-level C-FIND."""
+        study_uid = '1.2.9.2'
+        ds = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ds.SeriesDate = '20240115'
+        pacs = _StubPACS([ds])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(studies[0]['series'][0]['instances'], 1)
+        levels = [level for level, _, _ in pacs.find_queries]
+        self.assertNotIn('IMAGE', levels)
+
+    def test_find_studies_with_series_backfills_from_instances(self):
+        """A peer that omits optional study/series keys: modalities derive
+        from the series, accession from instances, and counts/dates are
+        filled by the IMAGE-level pass."""
+        study_uid = '1.2.9.3'
+        ct1 = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ct1.SeriesDate = '20240110'
+        ct1.AccessionNumber = 'ACC77'
+        ct2 = make_test_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+        )
+        pacs = _StubPACS([ct1, ct2], sparse_find=True)
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        study = studies[0]
+        self.assertEqual(study['modalities'], 'CT')
+        self.assertEqual(study['accession_number'], 'ACC77')
+        self.assertEqual(study['series_count'], 2)
+        self.assertEqual(study['instances'], 2)
+        series_by_uid = {
+            s['series_instance_uid']: s for s in study['series']
+        }
+        se1 = series_by_uid[ct1.SeriesInstanceUID]
+        self.assertEqual(se1['instances'], 1)
+        self.assertEqual(se1['series_date'], '20240110')
+        self.assertNotIn('rt_instances', se1)
+
+    def test_find_studies_with_series_image_abort_degrades(self):
+        """A peer that aborts IMAGE-level queries still returns the series
+        tree — the RT series just carries rt_error instead of details."""
+        study_uid = '1.2.9.4'
+        rtstruct = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTSTRUCT', structure_set_label='SS1',
+        )
+        pacs = _StubPACS([rtstruct], abort_on_image_find=True)
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        se = studies[0]['series'][0]
+        self.assertEqual(se['modality'], 'RTSTRUCT')
+        self.assertIn('rt_error', se)
+        self.assertNotIn('rt_instances', se)
 
     def test_move_series_end_to_end(self):
         """Series-level C-MOVE delivers only the requested series."""

@@ -53,6 +53,38 @@ def make_test_dataset(
     return ds
 
 
+def make_rt_dataset(
+    patient_id='TEST001', patient_name='Test^Patient',
+    study_uid=None, series_uid=None, sop_uid=None,
+    modality='RTPLAN', instance_number=1,
+    series_date='', accession_number='',
+    rt_plan_label='', rt_plan_name='', approval_status='',
+    structure_set_label='', structure_set_name='',
+):
+    """Build a minimal RTPLAN/RTSTRUCT-like dataset carrying the RT attributes
+    the bulk query enriches via IMAGE-level C-FIND."""
+    ds = Dataset()
+    ds.SOPInstanceUID = sop_uid or generate_uid()
+    ds.StudyInstanceUID = study_uid or generate_uid()
+    ds.SeriesInstanceUID = series_uid or generate_uid()
+    ds.Modality = modality
+    ds.PatientID = patient_id
+    ds.PatientName = patient_name
+    ds.InstanceNumber = instance_number
+    for keyword, value in [
+        ('SeriesDate', series_date),
+        ('AccessionNumber', accession_number),
+        ('RTPlanLabel', rt_plan_label),
+        ('RTPlanName', rt_plan_name),
+        ('ApprovalStatus', approval_status),
+        ('StructureSetLabel', structure_set_label),
+        ('StructureSetName', structure_set_name),
+    ]:
+        if value:
+            setattr(ds, keyword, value)
+    return ds
+
+
 def push_dataset(host, port, called_aet, ds, calling_aet='TESTSCU', timeout=20):
     """Test-only storage SCU helper — pushes one dataset to a peer.
 

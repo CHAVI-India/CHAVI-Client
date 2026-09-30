@@ -294,7 +294,9 @@ def _find_series_on_assoc(assoc, model, node, study_instance_uid: str,
     q.SeriesDescription = ''
     q.Modality = ''
     q.SeriesDate = ''
+    q.SeriesTime = ''
     q.SeriesNumber = ''
+    q.AccessionNumber = ''
     q.NumberOfSeriesRelatedInstances = ''
 
     results = []
@@ -310,6 +312,7 @@ def _find_series_on_assoc(assoc, model, node, study_instance_uid: str,
                     'modality': str(getattr(identifier, 'Modality', '') or ''),
                     'series_date': str(getattr(identifier, 'SeriesDate', '') or ''),
                     'series_number': str(getattr(identifier, 'SeriesNumber', '') or ''),
+                    'accession_number': str(getattr(identifier, 'AccessionNumber', '') or ''),
                     'instances': getattr(identifier, 'NumberOfSeriesRelatedInstances', None),
                 })
             elif code not in (0xFF00, 0xFF01, 0x0000):
@@ -319,6 +322,144 @@ def _find_series_on_assoc(assoc, model, node, study_instance_uid: str,
         logger.exception('SERIES C-FIND failed on %s for study %s', node, study_instance_uid)
         return [], str(e)
     return results, ''
+
+
+def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
+                             series_instance_uid: str,
+                             patient_id: str | None = None) -> tuple[list[dict], str]:
+    """IMAGE-level C-FIND for one series on an open association.
+
+    Two purposes: instance-level attributes that series queries never return
+    (RTSTRUCT StructureSetLabel/Name, RTPLAN RTPlanLabel/Name/ApprovalStatus)
+    and backfilling values the peer omits at series level (instance count,
+    SeriesDate, AccessionNumber).
+
+    Returns (instances, error): on success ([dicts], ''); on peer-level
+    failure ([], reason). Does not raise — like _find_series_on_assoc, a
+    peer that refuses/aborts instance queries degrades the series rather
+    than sinking the batch query.
+    """
+    q = Dataset()
+    q.QueryRetrieveLevel = 'IMAGE'
+    if patient_id:
+        q.PatientID = patient_id
+    q.StudyInstanceUID = study_instance_uid
+    q.SeriesInstanceUID = series_instance_uid
+    q.SOPInstanceUID = ''
+    q.InstanceNumber = ''
+    q.Modality = ''
+    q.SeriesDate = ''
+    q.AccessionNumber = ''
+    q.StructureSetLabel = ''
+    q.StructureSetName = ''
+    q.RTPlanLabel = ''
+    q.RTPlanName = ''
+    q.ApprovalStatus = ''
+
+    results = []
+    try:
+        for status, identifier in assoc.send_c_find(q, model):
+            code = getattr(status, 'Status', None) if status is not None else None
+            if status is None or code is None:
+                return [], 'C-FIND aborted or timed out during instance query'
+            if code in (0xFF00, 0xFF01) and identifier:
+                results.append({
+                    'sop_instance_uid': str(getattr(identifier, 'SOPInstanceUID', '') or ''),
+                    'instance_number': str(getattr(identifier, 'InstanceNumber', '') or ''),
+                    'modality': str(getattr(identifier, 'Modality', '') or ''),
+                    'series_date': str(getattr(identifier, 'SeriesDate', '') or ''),
+                    'accession_number': str(getattr(identifier, 'AccessionNumber', '') or ''),
+                    'structure_set_label': str(getattr(identifier, 'StructureSetLabel', '') or ''),
+                    'structure_set_name': str(getattr(identifier, 'StructureSetName', '') or ''),
+                    'rt_plan_label': str(getattr(identifier, 'RTPlanLabel', '') or ''),
+                    'rt_plan_name': str(getattr(identifier, 'RTPlanName', '') or ''),
+                    'approval_status': str(getattr(identifier, 'ApprovalStatus', '') or ''),
+                })
+            elif code not in (0xFF00, 0xFF01, 0x0000):
+                comment = getattr(status, 'ErrorComment', '') or ''
+                return [], f'instance query returned status 0x{code:04X} ({comment})'
+    except Exception as e:
+        logger.exception(
+            'IMAGE C-FIND failed on %s for series %s', node, series_instance_uid,
+        )
+        return [], str(e)
+    return results, ''
+
+
+# Modalities whose instances carry attributes worth showing on the selection
+# page — they always get an IMAGE-level query during batch queries.
+_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN'}
+
+
+def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
+    """Run the per-series IMAGE-level C-FIND on an open association and fold
+    the results back into the study→series tree.
+
+    A series gets an instance query when it can yield something new:
+    RT modalities (label/name/approval attributes), a missing instance
+    count, or a missing series date. Results backfill those gaps; RT series
+    additionally keep the raw per-instance dicts as 'rt_instances'.
+
+    Failures degrade per-series ('rt_error'/'instances_error'). Once an
+    instance query fails at the association level the peer is presumed dead
+    to IMAGE queries and no further ones are issued.
+    """
+    instance_queries_ok = True
+    for study in studies:
+        for se in study.get('series') or []:
+            needs_rt = (se.get('modality') or '').upper() in _RT_DETAIL_MODALITIES
+            needs_backfill = se.get('instances') is None or not se.get('series_date')
+            # An empty SeriesInstanceUID would be a wildcard match key.
+            if not (needs_rt or needs_backfill) or not instance_queries_ok \
+                    or not se.get('series_instance_uid'):
+                continue
+            instances, error = _find_instances_on_assoc(
+                assoc, model, node, study['study_instance_uid'],
+                se.get('series_instance_uid') or '',
+                study.get('remote_patient_id'),
+            )
+            if error:
+                instance_queries_ok = False
+                if needs_rt:
+                    se['rt_error'] = error
+                else:
+                    se['instances_error'] = error
+                continue
+            if se.get('instances') is None:
+                se['instances'] = len(instances)
+            if not se.get('series_date'):
+                se['series_date'] = next(
+                    (i['series_date'] for i in instances if i['series_date']), '',
+                )
+            if not study.get('accession_number'):
+                study['accession_number'] = next(
+                    (i['accession_number'] for i in instances
+                     if i['accession_number']), '',
+                )
+            if needs_rt:
+                se['rt_instances'] = instances
+
+
+def _backfill_study_fields(study: dict) -> None:
+    """Fill optional study-level keys the peer omitted using the series list:
+    modalities as the union of series modalities, accession number from any
+    series that reported one, and series/instance counts when fully known."""
+    series = study.get('series') or []
+    if not study.get('modalities'):
+        study['modalities'] = '\\'.join(dict.fromkeys(
+            se.get('modality') for se in series if se.get('modality')
+        ))
+    if not study.get('accession_number'):
+        study['accession_number'] = next(
+            (se['accession_number'] for se in series
+             if se.get('accession_number')), '',
+        )
+    if study.get('series_count') is None:
+        study['series_count'] = len(series)
+    if study.get('instances') is None and series:
+        counts = [se.get('instances') for se in series]
+        if all(c is not None for c in counts):
+            study['instances'] = sum(counts)
 
 
 def find_series(node: RemoteDICOMNode, study_instance_uid: str,
@@ -353,6 +494,9 @@ def find_studies_with_series(node: RemoteDICOMNode,
     Returns (studies, errors). Studies are deduped by StudyInstanceUID and
     tagged with remote_patient_id (the ID whose query produced them); each
     gains 'series' (list of series dicts) and optionally 'series_error'.
+    A final IMAGE-level pass enriches RTSTRUCT/RTPLAN series with
+    'rt_instances' and backfills optional keys the peer omitted (series
+    instance counts, series dates, accession number, modalities).
     errors collects per-ID failures. Raises ConnectionError when the
     association cannot be established or every patient ID's study query
     failed."""
@@ -394,6 +538,11 @@ def find_studies_with_series(node: RemoteDICOMNode,
             study['series'] = series
             if series_error:
                 study['series_error'] = series_error
+        # Instance-level pass last: peers that abort IMAGE queries (common on
+        # storage-only nodes) must not cost later studies their series tree.
+        _enrich_series_instances(assoc, model, node, studies)
+        for study in studies:
+            _backfill_study_fields(study)
         return studies, errors
     finally:
         assoc.release()

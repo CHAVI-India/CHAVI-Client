@@ -356,7 +356,11 @@ class RetrievalBatchPatient(models.Model):
                   'study_description, accession_number, modalities, instances, '
                   'remote_patient_id, already_local, series_error?, series: ['
                   '{series_instance_uid, series_description, modality, '
-                  'series_number, series_date, instances}]}]',
+                  'series_number, series_date, accession_number, instances, '
+                  'rt_error?, instances_error?, rt_instances?: [{'
+                  'sop_instance_uid, instance_number, structure_set_label, '
+                  'structure_set_name, rt_plan_label, rt_plan_name, '
+                  'approval_status}]}]}]',
     )
     error = models.TextField(blank=True, default='')
     selected = models.BooleanField(default=False)
