@@ -413,7 +413,8 @@ class BulkViewTests(BulkRetrievalTestCase):
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'sf-check-all')
-        self.assertContains(resp, 'batch_status')
+        self.assertContains(
+            resp, reverse('dicom_server:batch_status', args=[0]))
 
     def test_batch_detail_links_back_to_select(self):
         batch = RetrievalBatch.objects.create(
