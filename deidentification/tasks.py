@@ -1,13 +1,16 @@
 import logging
 import os
 import time as _time
+from pathlib import Path
 
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 from celery_progress.backend import ProgressRecorder
+from django.conf import settings
+from django.db import close_old_connections
 from django.utils import timezone
 
-from client_app.models import DICOMStudy, TaskRun
+from client_app.models import DICOMStudy, TaskRun, Notification
 from client_app.tasks import (
     _create_task_run,
     _update_task_run,
@@ -27,39 +30,209 @@ from deidentification.services.dicom_deidentification_flow import deidentify_stu
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, soft_time_limit=3600)
-def deidentify_dicom_study_task(self, study_id, user_id=None):
+# ---------------------------------------------------------------------------
+# Serial per-study deidentification
+#
+# The bulk entry point is only a dispatcher: it stores the study roster on a
+# parent TaskRun and dispatches one small Celery task per study. Each link
+# records its outcome on the parent run, then dispatches the next link — so no
+# single task runs longer than one study, per-study failures are captured in
+# between, and a hard-killed link is redelivered and resumed from its on-disk
+# manifest without losing the rest of the batch.
+#
+# A self-perpetuating chain is used instead of celery.chain so broker messages
+# stay small no matter how many studies are queued.
+# ---------------------------------------------------------------------------
+
+_DEID_TERMINAL_STATUSES = (
+    TaskRun.Status.SUCCESS,
+    TaskRun.Status.FAILURE,
+    TaskRun.Status.CANCELLED,
+)
+
+
+def _deid_run_study_ids(parent_run):
+    """Read the study roster off the parent TaskRun's stored dispatch args."""
+    try:
+        return list(parent_run.task_args[0] or [])
+    except (TypeError, IndexError):
+        return []
+
+
+def _deid_record_result(run_id, index, entry):
+    """Replace-not-append a per-study outcome on the parent TaskRun, so a
+    redelivered link never duplicates its entry. Returns completed count."""
+    parent = TaskRun.objects.filter(task_id=run_id).first()
+    if not parent:
+        return 0
+    summary = parent.result_summary if isinstance(parent.result_summary, dict) else {}
+    results = dict(summary.get('results') or {})
+    results[str(index)] = entry
+    summary['results'] = results
+    parent.result_summary = summary
+    parent.save(update_fields=['result_summary', 'updated_at'])
+    return len(results)
+
+
+def _deid_dispatch_next(run_id, index, total, user_id):
+    """Advance the serial chain: dispatch the next study link, or finalize."""
+    try:
+        if index + 1 < total:
+            deidentify_dicom_study_task.delay(run_id, index + 1, user_id=user_id)
+        else:
+            finalize_deidentification_batch_task.delay(run_id)
+    except Exception as e:
+        logger.error(
+            f"Deid chain broken at index {index}: dispatch failed: {e}",
+            exc_info=True,
+        )
+        parent = TaskRun.objects.filter(task_id=run_id).first()
+        if parent and parent.status not in _DEID_TERMINAL_STATUSES:
+            _fail_task_run(
+                parent,
+                f"Dispatch failed after study {index + 1}/{total}: {e}. "
+                f"Resume this task to continue from where it stopped.",
+            )
+
+
+@shared_task(bind=True)
+def deidentify_dicom_studies_bulk_task(self, study_ids, user_id=None):
+    """Dispatcher: creates the parent TaskRun and kicks off the first
+    per-study link. Idempotent — on resume it skips ahead to the first study
+    with no recorded result."""
     progress_recorder = ProgressRecorder(self)
     task_run = None
-    manifest_path = None
 
     try:
-        manifest_path = manifest_path_for_task(self.request.id, 'DEIDENTIFICATION')
         task_run = _create_task_run(
-            task_name='deidentify_dicom_study',
+            task_name='deidentify_dicom_studies_bulk',
             task_type=TaskRun.TaskType.DEIDENTIFICATION,
             user_id=user_id,
             celery_task_id=self.request.id,
-            manifest_path=manifest_path,
             task_args=self.request.args,
             task_kwargs=self.request.kwargs,
         )
 
-        study = DICOMStudy.objects.get(study_instance_uid=study_id)
+        total = len(study_ids)
+        summary = task_run.result_summary if isinstance(task_run.result_summary, dict) else {}
+        results = summary.get('results') or {}
+        if 'results' not in summary:
+            summary['results'] = {}
+            task_run.result_summary = summary
+            task_run.save(update_fields=['result_summary', 'updated_at'])
 
-        job = DeidentificationJob.objects.create(
+        next_index = next((i for i in range(total) if str(i) not in results), None)
+
+        _update_task_run(
+            task_run, progress_recorder, len(results), total,
+            description=f"Dispatching deidentification for {total} studies",
+            throttle_key=self.request.id,
+        )
+
+        if next_index is None:
+            finalize_deidentification_batch_task.delay(self.request.id)
+        else:
+            deidentify_dicom_study_task.delay(self.request.id, next_index, user_id=user_id)
+
+        return {'status': 'dispatched', 'run_id': self.request.id, 'total': total}
+
+    except Exception as e:
+        logger.error(f"Deidentification dispatcher failed: {e}", exc_info=True)
+        if task_run:
+            _fail_task_run(task_run, str(e))
+        raise
+
+
+# Keep the soft limit below the global CELERY_TASK_TIME_LIMIT (3600s hard
+# kill) so the auto-continue handler actually gets a window to run.
+@shared_task(bind=True, soft_time_limit=3300)
+def deidentify_dicom_study_task(self, run_id, index, user_id=None):
+    """Serial chain link: deidentify ONE study, record the outcome on the
+    parent TaskRun, then dispatch the next link (or the finalize task).
+
+    Never propagates per-study errors — a failure is recorded on the parent
+    run and on this link's own TaskRun, then the chain advances. Hitting the
+    soft time limit redispatches THIS link via auto-continue; the manifest is
+    keyed on the stable (run_id, index) pair so the continuation resumes
+    mid-study, and the next study is dispatched only after this one finishes —
+    keeping the batch strictly serial.
+    """
+    close_old_connections()
+
+    progress_recorder = ProgressRecorder(self)
+    parent = TaskRun.objects.filter(task_id=run_id).first()
+    if parent is None:
+        logger.error(f"Deid link {index}: parent TaskRun {run_id} not found — aborting")
+        return {'status': 'aborted', 'reason': 'parent task run missing'}
+
+    study_ids = _deid_run_study_ids(parent)
+    total = len(study_ids)
+    if index >= total:
+        return {'status': 'skipped', 'reason': 'index out of range'}
+
+    study_id = study_ids[index]
+    manifest_path = manifest_path_for_task(f"{run_id}-deid-{index}", 'DEIDENTIFICATION')
+    child_run = _create_task_run(
+        task_name='deidentify_dicom_study',
+        task_type=TaskRun.TaskType.DEIDENTIFICATION,
+        user_id=user_id,
+        celery_task_id=self.request.id,
+        manifest_path=manifest_path,
+        task_args=self.request.args,
+        task_kwargs=self.request.kwargs,
+    )
+
+    summary = parent.result_summary if isinstance(parent.result_summary, dict) else {}
+    results = summary.get('results') or {}
+    if str(index) in results or parent.status in _DEID_TERMINAL_STATUSES:
+        # Another execution of this link already finished it (or the batch is
+        # over) — don't reprocess, don't spawn a duplicate chain.
+        child_run.status = TaskRun.Status.SUCCESS
+        child_run.completed_at = timezone.now()
+        child_run.result_summary = {'skipped': 'already recorded or batch finished'}
+        child_run.save(update_fields=[
+            'status', 'completed_at', 'result_summary', 'updated_at',
+        ])
+        return {'status': 'skipped', 'reason': 'already recorded'}
+
+    _last_parent_write = [0.0]
+
+    def parent_progress(cur, desc, force=False):
+        """Mirror study-level progress onto the parent TaskRun (throttled) and
+        under the parent's celery-progress key so its progress page works."""
+        now = _time.time()
+        if not force and now - _last_parent_write[0] < 2.0:
+            return
+        _last_parent_write[0] = now
+        _update_task_run(parent, None, cur, total, description=desc)
+        try:
+            percent = round(cur * 100.0 / total, 2) if total else 0
+            self.update_state(task_id=run_id, state='PROGRESS', meta={
+                'pending': False, 'current': cur, 'total': total,
+                'percent': percent, 'description': desc,
+            })
+        except Exception:
+            pass
+
+    try:
+        study = DICOMStudy.objects.get(study_instance_uid=study_id)
+        job, _ = DeidentificationJob.objects.get_or_create(
             study=study,
-            status=DeidentificationJob.Status.PENDING,
-            task_run=task_run,
+            task_run=child_run,
+            defaults={'status': DeidentificationJob.Status.PENDING},
         )
 
         completed_items = read_manifest(manifest_path)
 
-        def progress_callback(phase, current, total):
+        def progress_callback(phase, cur, tot):
             _update_task_run(
-                task_run, progress_recorder, current, total,
-                description=f"{phase} — {current}/{total}",
+                child_run, progress_recorder, cur, tot,
+                description=f"{phase} — {cur}/{tot}",
                 throttle_key=self.request.id,
+            )
+            parent_progress(
+                len(results),
+                f"[{index + 1}/{total}] Study {study_id[:40]} — {phase} {cur}/{tot}",
             )
 
         def manifest_write_callback(item_id):
@@ -73,157 +246,143 @@ def deidentify_dicom_study_task(self, study_id, user_id=None):
         )
 
         cleanup_manifest(manifest_path)
-        _complete_task_run(
-            task_run,
-            f"Deidentification complete: {processed} processed, {failed} failed",
-        )
 
-        return {
+        entry = {
+            'index': index,
+            'study_id': study_id,
             'processed': processed,
             'failed': failed,
             'job_id': job.id,
         }
+        done_count = _deid_record_result(run_id, index, entry)
 
-    except SoftTimeLimitExceeded:
-        logger.warning("Soft time limit exceeded for deidentification task — auto-continuing")
-        if task_run:
-            _auto_continue_task(
-                task_run, deidentify_dicom_study_task,
-                [study_id], {'user_id': user_id},
-                reason="approaching soft time limit",
-            )
-        return {'status': 'auto_continued'}
-
-    except Exception as e:
-        logger.error(f"Deidentification task failed: {e}", exc_info=True)
-        if task_run:
-            _fail_task_run(task_run, str(e))
-        raise
-
-
-@shared_task(bind=True, soft_time_limit=3600)
-def deidentify_dicom_studies_bulk_task(self, study_ids, user_id=None):
-    progress_recorder = ProgressRecorder(self)
-    task_run = None
-    manifest_path = None
-
-    try:
-        manifest_path = manifest_path_for_task(self.request.id, 'DEIDENTIFICATION')
-        task_run = _create_task_run(
-            task_name='deidentify_dicom_studies_bulk',
-            task_type=TaskRun.TaskType.DEIDENTIFICATION,
-            user_id=user_id,
-            celery_task_id=self.request.id,
-            manifest_path=manifest_path,
-            task_args=self.request.args,
-            task_kwargs=self.request.kwargs,
-        )
-
-        completed_items = read_manifest(manifest_path)
-        total = len(study_ids)
-        results = []
-
-        for idx, study_id in enumerate(study_ids, 1):
-            if f"study:{study_id}" in completed_items:
-                logger.info(f"Skipping already-completed study {study_id}")
-                results.append({'study_id': study_id, 'status': 'skipped'})
-                continue
-
-            _update_task_run(
-                task_run, progress_recorder, idx, total,
-                description=f"Processing study {idx}/{total}",
-                throttle_key=self.request.id,
-            )
-
-            try:
-                study = DICOMStudy.objects.get(study_instance_uid=study_id)
-                job = DeidentificationJob.objects.create(
-                    study=study,
-                    status=DeidentificationJob.Status.PENDING,
-                    task_run=task_run,
-                )
-
-                def progress_callback(phase, current, total):
-                    _update_task_run(
-                        task_run, progress_recorder, current, total,
-                        description=f"{phase} — {current}/{total}",
-                        throttle_key=self.request.id,
-                    )
-
-                def manifest_write_callback(item_id):
-                    if item_id not in completed_items:
-                        write_manifest_entry(manifest_path, item_id)
-                        completed_items.add(item_id)
-
-                processed, failed = deidentify_study(
-                    study, job, progress_callback, manifest_write_callback,
-                    completed_items=completed_items,
-                )
-
-                write_manifest_entry(manifest_path, f"study:{study_id}")
-                completed_items.add(f"study:{study_id}")
-
-                results.append({
-                    'study_id': study_id,
-                    'processed': processed,
-                    'failed': failed,
-                    'job_id': job.id,
-                })
-
-            except Exception as e:
-                logger.error(f"Failed to deidentify study {study_id}: {e}", exc_info=True)
-                results.append({'study_id': study_id, 'error': str(e)})
-
-        cleanup_manifest(manifest_path)
-
-        total_processed = sum(r.get('processed', 0) for r in results)
-        total_failed = sum(r.get('failed', 0) for r in results)
-        has_errors = any('error' in r for r in results)
-
-        if total_failed > 0 or has_errors:
-            error_lines = []
-            error_lines.append(f"Deidentification completed with issues: {total_processed} processed, {total_failed} failed")
-            error_lines.append("")
-            for r in results:
-                if 'error' in r:
-                    error_lines.append(f"  • Study {r['study_id'][:60]}: {r['error']}")
-                elif r.get('failed', 0) > 0:
-                    error_lines.append(f"  • Study {r['study_id'][:60]}: {r['failed']} file(s) failed during processing")
-            summary = "\n".join(error_lines)
-            if task_run:
-                task_run.status = TaskRun.Status.FAILURE
-                task_run.error_log = summary
-                task_run.completed_at = timezone.now()
-                task_run.save(update_fields=['status', 'error_log', 'completed_at', 'updated_at'])
-                if task_run.user:
-                    from client_app.models import Notification
-                    Notification.objects.create(
-                        user=task_run.user,
-                        notification_type=Notification.NotificationType.TASK_FAILED,
-                        title=f"Task completed with issues: {task_run.task_name}",
-                        message=summary,
-                        task_run=task_run,
-                    )
+        if failed == 0:
+            child_run.status = TaskRun.Status.SUCCESS
+            child_run.completed_at = timezone.now()
+            child_run.result_summary = {
+                'processed': processed, 'failed': failed, 'job_id': job.id,
+            }
+            child_run.save(update_fields=[
+                'status', 'completed_at', 'result_summary', 'updated_at',
+            ])
         else:
-            _complete_task_run(task_run, f"Bulk deidentification complete: {total_processed} files processed across {len(results)} studies")
+            # Per-study failure is surfaced but does not stop the batch.
+            _fail_task_run(
+                child_run,
+                f"{failed} file(s) failed during deidentification",
+            )
 
-        return {'results': results}
+        parent_progress(done_count, f"Completed study {index + 1}/{total}", force=True)
+        _deid_dispatch_next(run_id, index, total, user_id)
+        return entry
 
     except SoftTimeLimitExceeded:
-        logger.warning("Soft time limit exceeded for bulk deidentification — auto-continuing")
-        if task_run:
-            _auto_continue_task(
-                task_run, deidentify_dicom_studies_bulk_task,
-                [study_ids], {'user_id': user_id},
-                reason="approaching soft time limit",
-            )
+        logger.warning(
+            f"Deid link {index} approaching soft time limit — auto-continuing"
+        )
+        new_result = _auto_continue_task(
+            child_run, deidentify_dicom_study_task,
+            [run_id, index], {'user_id': user_id},
+            reason="approaching soft time limit",
+        )
+        if new_result is None:
+            # Auto-continue cap hit — record the failure and move on.
+            _deid_record_result(run_id, index, {
+                'index': index, 'study_id': study_id,
+                'error': 'auto-continue attempts exhausted',
+                'processed': 0, 'failed': 0,
+            })
+            _deid_dispatch_next(run_id, index, total, user_id)
         return {'status': 'auto_continued'}
 
     except Exception as e:
-        logger.error(f"Bulk deidentification task failed: {e}", exc_info=True)
-        if task_run:
-            _fail_task_run(task_run, str(e))
-        raise
+        logger.error(
+            f"Deid link {index} failed for study {study_id}: {e}", exc_info=True
+        )
+        try:
+            _deid_record_result(run_id, index, {
+                'index': index, 'study_id': study_id, 'error': str(e),
+                'processed': 0, 'failed': 0,
+            })
+        except Exception:
+            logger.error("Failed to record deid result on parent run", exc_info=True)
+        if child_run:
+            _fail_task_run(child_run, str(e))
+        _deid_dispatch_next(run_id, index, total, user_id)
+        return {'status': 'failed', 'error': str(e)}
+
+
+@shared_task(bind=True)
+def finalize_deidentification_batch_task(self, run_id):
+    """Last step of the serial chain: aggregate the per-study results recorded
+    on the parent TaskRun into the final verdict + notification, and clean up
+    any leftover batch manifests."""
+    parent = TaskRun.objects.filter(task_id=run_id).first()
+    if parent is None:
+        logger.error(f"Finalize deid batch: parent TaskRun {run_id} not found")
+        return {'status': 'aborted', 'reason': 'parent task run missing'}
+
+    summary = parent.result_summary if isinstance(parent.result_summary, dict) else {}
+    results_map = summary.get('results') or {}
+    results = [results_map[k] for k in sorted(results_map, key=lambda x: int(x))]
+
+    total_processed = sum(r.get('processed', 0) for r in results)
+    total_failed = sum(r.get('failed', 0) for r in results)
+    has_errors = any('error' in r for r in results)
+
+    if total_failed > 0 or has_errors:
+        error_lines = [
+            f"Deidentification completed with issues: {total_processed} processed, {total_failed} failed",
+            "",
+        ]
+        for r in results:
+            if 'error' in r:
+                error_lines.append(f"  • Study {r['study_id'][:60]}: {r['error']}")
+            elif r.get('failed', 0) > 0:
+                error_lines.append(f"  • Study {r['study_id'][:60]}: {r['failed']} file(s) failed during processing")
+        summary['message'] = "\n".join(error_lines)
+        parent.result_summary = summary
+        parent.status = TaskRun.Status.FAILURE
+        parent.error_log = summary['message']
+        parent.completed_at = timezone.now()
+        parent.save(update_fields=[
+            'status', 'error_log', 'result_summary', 'completed_at', 'updated_at',
+        ])
+        if parent.user:
+            Notification.objects.create(
+                user=parent.user,
+                notification_type=Notification.NotificationType.TASK_FAILED,
+                title=f"Task completed with issues: {parent.task_name}",
+                message=summary['message'],
+                task_run=parent,
+            )
+    else:
+        summary['message'] = (
+            f"Bulk deidentification complete: {total_processed} files "
+            f"processed across {len(results)} studies"
+        )
+        _complete_task_run(parent, summary)
+
+    # Links mirror progress under the parent's celery-progress key — write the
+    # terminal state so the progress page stops polling.
+    try:
+        self.update_state(
+            task_id=run_id,
+            state='FAILURE' if (total_failed > 0 or has_errors) else 'SUCCESS',
+            meta=summary['message'],
+        )
+    except Exception:
+        pass
+
+    manifest_dir = Path(settings.MEDIA_ROOT) / 'task_manifests'
+    if manifest_dir.exists():
+        for f in manifest_dir.glob(f"{run_id}-deid-*.jsonl"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+
+    return {'results': results}
 
 
 @shared_task(bind=True, soft_time_limit=600)

@@ -26,6 +26,10 @@ from .tasks import (
     task_process_unprocessed_dicom,
     task_associate_dicom_to_project,
 )
+from deidentification.tasks import (
+    deidentify_dicom_studies_bulk_task,
+    deidentify_dicom_study_task,
+)
 from django.db import transaction
 from django.db.models import Q
 from rapidfuzz import process as fuzz_process, fuzz
@@ -1280,6 +1284,8 @@ TASK_REGISTRY = {
     'task_process_bulk_dicom': task_process_bulk_dicom,
     'task_process_unprocessed_dicom': task_process_unprocessed_dicom,
     'task_associate_dicom_to_project': task_associate_dicom_to_project,
+    'deidentify_dicom_studies_bulk': deidentify_dicom_studies_bulk_task,
+    'deidentify_dicom_study': deidentify_dicom_study_task,
 }
 
 

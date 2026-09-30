@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 
 import pydicom
+from celery.exceptions import SoftTimeLimitExceeded
 from django.conf import settings
 from django.utils import timezone
 
@@ -113,6 +114,8 @@ def pass0_extract_metadata(study: DICOMStudy, progress_callback=None) -> int:
             )
 
             count += 1
+        except SoftTimeLimitExceeded:
+            raise
         except Exception as e:
             logger.warning(f"Pass 0: Failed to extract metadata from {file_path}: {e}")
             continue
@@ -183,6 +186,8 @@ def pass1_generate_mappings(study: DICOMStudy, progress_callback=None) -> int:
             deidentify_instance_data(deid_series, dicom_instance)
 
             count += 1
+        except SoftTimeLimitExceeded:
+            raise
         except Exception as e:
             logger.error(f"Pass 1: Failed for {file_path}: {e}")
             continue
@@ -201,6 +206,8 @@ def _group_files_by_series(
             series_uid = getattr(dcm, 'SeriesInstanceUID', '')
             if series_uid:
                 groups[series_uid].append(f)
+        except SoftTimeLimitExceeded:
+            raise
         except Exception:
             logger.warning(f"Could not read series UID from {f}")
     return dict(groups)
@@ -386,6 +393,8 @@ def pass2_deidentify_files(
                     else:
                         raise RuntimeError("Deidentification returned None")
 
+                except SoftTimeLimitExceeded:
+                    raise
                 except Exception as e:
                     msg = f"File {file_path.name} (series {series_uid}): {e}"
                     logger.error(f"Pass 2: {msg}")
@@ -484,6 +493,11 @@ def deidentify_study(
         ])
 
         return processed, failed
+
+    except SoftTimeLimitExceeded:
+        # Let the task-level auto-continue handle this; the job stays in
+        # PROCESSING and is resumed by the follow-up link execution.
+        raise
 
     except Exception as e:
         import traceback
