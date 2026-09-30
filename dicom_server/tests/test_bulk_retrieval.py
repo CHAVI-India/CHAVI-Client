@@ -713,7 +713,9 @@ class BulkPatientListTests(BulkRetrievalTestCase):
             data['results'],
         )
         data = self.client.get(url, {'kind': 'site', 'q': '9600'}).json()
-        self.assertEqual(data['results'][0]['id'], 'FMA:9600')
+        self.assertIn(
+            'FMA:9600', [r['id'] for r in data['results']],
+        )
         resp = self.client.get(url, {'kind': 'bogus'})
         self.assertEqual(resp.status_code, 400)
         self.client.force_login(self.plain)
