@@ -147,7 +147,9 @@ class _StubPACS:
                 for kw in ('InstanceNumber', 'Modality', 'SeriesDate',
                            'AccessionNumber', 'StructureSetLabel',
                            'StructureSetName', 'RTPlanLabel', 'RTPlanName',
-                           'ApprovalStatus'):
+                           'ApprovalStatus', 'ReferencedRTPlanSequence',
+                           'ReferencedStructureSetSequence',
+                           'ReferencedFrameOfReferenceSequence'):
                     val = getattr(ds, kw, None)
                     if val is not None:
                         setattr(rsp, kw, val)
@@ -647,6 +649,73 @@ class QRClientTests(TransactionTestCase):
         self.assertEqual(se['modality'], 'RTSTRUCT')
         self.assertIn('rt_error', se)
         self.assertNotIn('rt_instances', se)
+
+    def test_find_studies_with_series_links_rt_hierarchy(self):
+        """Instance references resolve to parent_series_uids so the UI can
+        nest dose → plan → structure set → image."""
+        study_uid = '1.3.0.1'
+        ct = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ct.SeriesDate = '20240101'
+        rtstruct = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTSTRUCT', structure_set_label='SS1',
+            referenced_series_uids=[ct.SeriesInstanceUID],
+        )
+        plan = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTPLAN', rt_plan_label='P1',
+            approval_status='APPROVED',
+            referenced_structure_set_uids=[rtstruct.SOPInstanceUID],
+        )
+        dose = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTDOSE',
+            referenced_plan_uids=[plan.SOPInstanceUID],
+        )
+        pacs = _StubPACS([ct, rtstruct, plan, dose])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        by_uid = {s['series_instance_uid']: s for s in studies[0]['series']}
+        self.assertNotIn('parent_series_uids', by_uid[ct.SeriesInstanceUID])
+        self.assertEqual(
+            by_uid[rtstruct.SeriesInstanceUID]['parent_series_uids'],
+            [ct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[plan.SeriesInstanceUID]['parent_series_uids'],
+            [rtstruct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[dose.SeriesInstanceUID]['parent_series_uids'],
+            [plan.SeriesInstanceUID],
+        )
+
+    def test_find_studies_with_series_unresolved_refs(self):
+        """A reference pointing at an object not present on this node marks
+        the series unresolved instead of silently dropping the link."""
+        study_uid = '1.3.0.2'
+        dose = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTDOSE', referenced_plan_uids=['9.9.9.9'],
+        )
+        pacs = _StubPACS([dose])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        se = studies[0]['series'][0]
+        self.assertTrue(se['unresolved_refs'])
+        self.assertNotIn('parent_series_uids', se)
 
     def test_move_series_end_to_end(self):
         """Series-level C-MOVE delivers only the requested series."""

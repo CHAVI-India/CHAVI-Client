@@ -22,7 +22,7 @@
             {% for fr in file_rows %}
             <div class="flex items-center gap-3 border border-gray-200 rounded-lg px-4 py-2.5">
                 {% if perms.extractor.add_extractionjob %}
-                <input type="checkbox" name="processed_files" value="{{ fr.processed_file.id }}" form_id="extract-form"
+                <input type="checkbox" name="processed_files" value="{{ fr.processed_file.id }}" form="extract-form"
                        class="rounded border-gray-300 text-chavi-primary"
                        {% if deid_enabled %}
                            {% if not fr.processed_file.deidentified %}disabled title="Deidentification required before extraction"{% endif %}
@@ -101,7 +101,7 @@
         </div>
         {% if perms.extractor.add_extractionjob %}
         <div class="flex items-center gap-3">
-            <select name="response_model" required form_id="extract-form"
+            <select name="response_model" required form="extract-form"
                     class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="">Select extraction model…</option>
                 {% for rm in response_models %}

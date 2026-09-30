@@ -357,10 +357,12 @@ class RetrievalBatchPatient(models.Model):
                   'remote_patient_id, already_local, series_error?, series: ['
                   '{series_instance_uid, series_description, modality, '
                   'series_number, series_date, accession_number, instances, '
-                  'rt_error?, instances_error?, rt_instances?: [{'
-                  'sop_instance_uid, instance_number, structure_set_label, '
-                  'structure_set_name, rt_plan_label, rt_plan_name, '
-                  'approval_status}]}]}]',
+                  'rt_error?, instances_error?, parent_series_uids?, '
+                  'unresolved_refs?, rt_instances?: [{sop_instance_uid, '
+                  'instance_number, structure_set_label, structure_set_name, '
+                  'rt_plan_label, rt_plan_name, approval_status, '
+                  'referenced_series_uids, referenced_structure_set_uids, '
+                  'referenced_plan_uids}]}]}]',
     )
     error = models.TextField(blank=True, default='')
     selected = models.BooleanField(default=False)

@@ -324,6 +324,29 @@ def _find_series_on_assoc(assoc, model, node, study_instance_uid: str,
     return results, ''
 
 
+def _ref_sop_uids(identifier, seq_keyword: str) -> list[str]:
+    """ReferencedSOPInstanceUIDs inside a reference sequence return key."""
+    return [
+        str(item.ReferencedSOPInstanceUID)
+        for item in getattr(identifier, seq_keyword, [])
+        if getattr(item, 'ReferencedSOPInstanceUID', '')
+    ]
+
+
+def _ref_series_uids(identifier) -> list[str]:
+    """SeriesInstanceUIDs referenced by an RTSTRUCT instance via
+    ReferencedFrameOfReferenceSequence > RTReferencedStudySequence >
+    RTReferencedSeriesSequence."""
+    uids = []
+    for ref_for in getattr(identifier, 'ReferencedFrameOfReferenceSequence', []):
+        for ref_study in getattr(ref_for, 'RTReferencedStudySequence', []):
+            for ref_series in getattr(ref_study, 'RTReferencedSeriesSequence', []):
+                uid = str(getattr(ref_series, 'SeriesInstanceUID', '') or '')
+                if uid:
+                    uids.append(uid)
+    return uids
+
+
 def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
                              series_instance_uid: str,
                              patient_id: str | None = None) -> tuple[list[dict], str]:
@@ -355,6 +378,22 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
     q.RTPlanLabel = ''
     q.RTPlanName = ''
     q.ApprovalStatus = ''
+    # Reference sequences — sequence return keys are requested with a single
+    # item holding empty sub-keys; peers that don't support them return the
+    # sequence empty (or omit it).
+    ref_dose_item = Dataset()
+    ref_dose_item.ReferencedSOPInstanceUID = ''
+    q.ReferencedRTPlanSequence = [ref_dose_item]
+    ref_ss_item = Dataset()
+    ref_ss_item.ReferencedSOPInstanceUID = ''
+    q.ReferencedStructureSetSequence = [ref_ss_item]
+    ref_series_item = Dataset()
+    ref_series_item.SeriesInstanceUID = ''
+    ref_study_item = Dataset()
+    ref_study_item.RTReferencedSeriesSequence = [ref_series_item]
+    ref_for_item = Dataset()
+    ref_for_item.RTReferencedStudySequence = [ref_study_item]
+    q.ReferencedFrameOfReferenceSequence = [ref_for_item]
 
     results = []
     try:
@@ -374,6 +413,11 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
                     'rt_plan_label': str(getattr(identifier, 'RTPlanLabel', '') or ''),
                     'rt_plan_name': str(getattr(identifier, 'RTPlanName', '') or ''),
                     'approval_status': str(getattr(identifier, 'ApprovalStatus', '') or ''),
+                    'referenced_plan_uids': _ref_sop_uids(
+                        identifier, 'ReferencedRTPlanSequence'),
+                    'referenced_structure_set_uids': _ref_sop_uids(
+                        identifier, 'ReferencedStructureSetSequence'),
+                    'referenced_series_uids': _ref_series_uids(identifier),
                 })
             elif code not in (0xFF00, 0xFF01, 0x0000):
                 comment = getattr(status, 'ErrorComment', '') or ''
@@ -388,7 +432,7 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
 
 # Modalities whose instances carry attributes worth showing on the selection
 # page — they always get an IMAGE-level query during batch queries.
-_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN'}
+_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN', 'RTDOSE'}
 
 
 def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
@@ -438,6 +482,60 @@ def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
                 )
             if needs_rt:
                 se['rt_instances'] = instances
+
+
+def _link_series_references(studies: list[dict]) -> None:
+    """Resolve RT instance references into series links.
+
+    Each RT series gains 'parent_series_uids' — the series it depends on
+    within the same study (RTDOSE → RTPLAN, RTPLAN → RTSTRUCT, RTSTRUCT →
+    image series). References that exist but resolve to nothing (parent on
+    another node or in another study) set 'unresolved_refs' so the UI can
+    show the series unlinked rather than silently flat.
+    """
+    for study in studies:
+        series = study.get('series') or []
+        series_uids = {se.get('series_instance_uid') for se in series}
+        sop_to_series = {}
+        for se in series:
+            for inst in se.get('rt_instances') or []:
+                sop = inst.get('sop_instance_uid')
+                if sop:
+                    sop_to_series[sop] = se.get('series_instance_uid')
+        for se in series:
+            mod = (se.get('modality') or '').upper()
+            insts = se.get('rt_instances') or []
+            if mod == 'RTSTRUCT':
+                refs = [u for inst in insts
+                        for u in inst.get('referenced_series_uids', [])]
+                resolved = [u for u in dict.fromkeys(refs) if u in series_uids]
+                had_refs = bool(refs)
+            elif mod == 'RTPLAN':
+                refs = [u for inst in insts
+                        for u in inst.get('referenced_structure_set_uids', [])]
+                resolved = [
+                    sop_to_series[u] for u in dict.fromkeys(refs)
+                    if sop_to_series.get(u) in series_uids
+                ]
+                had_refs = bool(refs)
+            elif mod == 'RTDOSE':
+                refs = [u for inst in insts
+                        for u in inst.get('referenced_plan_uids', [])]
+                resolved = [
+                    sop_to_series[u] for u in dict.fromkeys(refs)
+                    if sop_to_series.get(u) in series_uids
+                ]
+                had_refs = bool(refs)
+            else:
+                continue
+            resolved = [
+                u for u in dict.fromkeys(resolved)
+                if u != se.get('series_instance_uid')
+            ]
+            if resolved:
+                se['parent_series_uids'] = resolved
+            elif had_refs:
+                se['unresolved_refs'] = True
 
 
 def _backfill_study_fields(study: dict) -> None:
@@ -541,6 +639,7 @@ def find_studies_with_series(node: RemoteDICOMNode,
         # Instance-level pass last: peers that abort IMAGE queries (common on
         # storage-only nodes) must not cost later studies their series tree.
         _enrich_series_instances(assoc, model, node, studies)
+        _link_series_references(studies)
         for study in studies:
             _backfill_study_fields(study)
         return studies, errors

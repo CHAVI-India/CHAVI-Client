@@ -418,6 +418,8 @@ class BulkViewTests(BulkRetrievalTestCase):
         # RT detail rendering + labeled series sub-table are wired in the JS
         self.assertContains(resp, 'rt_instances')
         self.assertContains(resp, 'approvalBadge')
+        self.assertContains(resp, 'sf-approval')
+        self.assertContains(resp, 'parent_series_uids')
 
     def test_batch_detail_links_back_to_select(self):
         batch = RetrievalBatch.objects.create(

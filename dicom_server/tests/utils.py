@@ -53,6 +53,12 @@ def make_test_dataset(
     return ds
 
 
+def _ref_sop_item(uid):
+    item = Dataset()
+    item.ReferencedSOPInstanceUID = uid
+    return item
+
+
 def make_rt_dataset(
     patient_id='TEST001', patient_name='Test^Patient',
     study_uid=None, series_uid=None, sop_uid=None,
@@ -60,9 +66,13 @@ def make_rt_dataset(
     series_date='', accession_number='',
     rt_plan_label='', rt_plan_name='', approval_status='',
     structure_set_label='', structure_set_name='',
+    referenced_series_uids=None,
+    referenced_structure_set_uids=None,
+    referenced_plan_uids=None,
 ):
-    """Build a minimal RTPLAN/RTSTRUCT-like dataset carrying the RT attributes
-    the bulk query enriches via IMAGE-level C-FIND."""
+    """Build a minimal RTPLAN/RTSTRUCT/RTDOSE-like dataset carrying the RT
+    attributes and reference sequences the bulk query enriches via
+    IMAGE-level C-FIND."""
     ds = Dataset()
     ds.SOPInstanceUID = sop_uid or generate_uid()
     ds.StudyInstanceUID = study_uid or generate_uid()
@@ -82,6 +92,25 @@ def make_rt_dataset(
     ]:
         if value:
             setattr(ds, keyword, value)
+    if referenced_series_uids:
+        ref_series = []
+        for uid in referenced_series_uids:
+            item = Dataset()
+            item.SeriesInstanceUID = uid
+            ref_series.append(item)
+        ref_study = Dataset()
+        ref_study.RTReferencedSeriesSequence = ref_series
+        ref_for = Dataset()
+        ref_for.RTReferencedStudySequence = [ref_study]
+        ds.ReferencedFrameOfReferenceSequence = [ref_for]
+    if referenced_structure_set_uids:
+        ds.ReferencedStructureSetSequence = [
+            _ref_sop_item(u) for u in referenced_structure_set_uids
+        ]
+    if referenced_plan_uids:
+        ds.ReferencedRTPlanSequence = [
+            _ref_sop_item(u) for u in referenced_plan_uids
+        ]
     return ds
 
 

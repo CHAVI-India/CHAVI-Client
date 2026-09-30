@@ -79,6 +79,14 @@
                     <label class="block text-xs font-medium text-gray-600 mb-1" for="sf-to">Study date to</label>
                     <input id="sf-to" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary transition-colors text-sm">
                 </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1" for="sf-approval">Plan approval</label>
+                    <select id="sf-approval" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:border-chavi-primary transition-colors text-sm">
+                        <option value="">Any approval</option>
+                        <option value="approved">Approved only</option>
+                        <option value="unapproved">Not approved</option>
+                    </select>
+                </div>
                 <div class="flex items-end">
                     <label class="inline-flex items-center gap-2 pb-2">
                         <input id="sf-hide-local" type="checkbox" class="h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
@@ -201,6 +209,7 @@ function filters() {
         from: $('#sf-from').val() || '',
         to: $('#sf-to').val() || '',
         hideLocal: $('#sf-hide-local').is(':checked'),
+        approval: $('#sf-approval').val() || '',
     };
 }
 function studyMods(s) {
@@ -214,7 +223,42 @@ function seriesVisible(se, s, f) {
         if (!studyMatch && !(se.series_description || '').toLowerCase().includes(f.q))
             return false;
     }
+    if (f.approval && !approvalVisible(s, se, f.approval)) return false;
     return true;
+}
+function planApprovalState(se) {
+    /* 'approved' | 'unapproved' — indeterminate (no instance data, peer didn't
+     * return the attribute) counts as not approved so the filter never
+     * vouches for a plan it cannot verify. */
+    return (se.rt_instances || []).some(
+        i => (i.approval_status || '').toUpperCase() === 'APPROVED')
+        ? 'approved' : 'unapproved';
+}
+function seriesPassesApproval(s, se, approval) {
+    const mod = (se.modality || '').toUpperCase();
+    if (mod === 'RTPLAN') {
+        return planApprovalState(se) === 'approved'
+            ? approval === 'approved' : approval === 'unapproved';
+    }
+    if (mod === 'RTDOSE' && (se.parent_series_uids || []).length) {
+        /* A dose inherits its parent plan's verdict. */
+        const parents = (s.series || []).filter(
+            x => (se.parent_series_uids || []).includes(x.series_instance_uid));
+        return parents.some(p => seriesPassesApproval(s, p, approval));
+    }
+    /* Images, structure sets and unlinked doses always pass — they are the
+     * upstream context that must stay visible regardless of approval. */
+    return true;
+}
+function approvalVisible(s, se, approval) {
+    /* A series stays visible if it passes the approval filter itself OR an
+     * approved downstream series needs it (structure set of an approved
+     * plan, image of that structure set). */
+    if (seriesPassesApproval(s, se, approval)) return true;
+    return descendantsOf(s, se.series_instance_uid).some(function (uid) {
+        const child = (s.series || []).find(x => x.series_instance_uid === uid);
+        return child && seriesPassesApproval(s, child, approval);
+    });
 }
 function studyVisible(s, f) {
     if (f.hideLocal && s.already_local) return false;
@@ -235,7 +279,9 @@ function studyVisible(s, f) {
     }
     return true;
 }
-function seriesFilterActive(f) { return f.mods.length > 0 || f.q.length > 0; }
+function seriesFilterActive(f) {
+    return f.mods.length > 0 || f.q.length > 0 || f.approval.length > 0;
+}
 
 /* ---------- selection ---------- */
 function selectStudy(pid, s, on) {
@@ -246,6 +292,10 @@ function selectStudy(pid, s, on) {
         const seuids = new Set(
             (s.series || []).filter(se => seriesVisible(se, s, f))
                 .map(se => se.series_instance_uid));
+        /* A child series is useless without its parents (a plan needs its
+         * structure set, a dose its plan) — pull in ancestors even when the
+         * series filters hide them. */
+        [...seuids].forEach(uid => ancestorsOf(s, uid).forEach(a => seuids.add(a)));
         sel.set(key, seuids);
     } else {
         sel.set(key, 'all');
@@ -329,32 +379,104 @@ function rtInstanceRows(se) {
     }).join('');
 }
 
+function seriesHierarchy(s) {
+    /* DFS order over the series list following parent_series_uids —
+     * image → structure set → plan → dose — with nesting depth per row.
+     * Series without resolved parents render at depth 0. */
+    const byUid = {};
+    (s.series || []).forEach(function (se) { byUid[se.series_instance_uid] = se; });
+    const children = {};
+    const roots = [];
+    (s.series || []).forEach(function (se) {
+        const parents = (se.parent_series_uids || []).filter(u => byUid[u]);
+        if (parents.length) {
+            (children[parents[0]] = children[parents[0]] || []).push(se);
+        } else {
+            roots.push(se);
+        }
+    });
+    const out = [];
+    const seen = new Set();
+    (function walk(list, depth) {
+        list.forEach(function (se) {
+            if (seen.has(se.series_instance_uid)) return;
+            seen.add(se.series_instance_uid);
+            out.push({se: se, depth: depth});
+            walk(children[se.series_instance_uid] || [], depth + 1);
+        });
+    })(roots, 0);
+    return out;
+}
+
+function ancestorsOf(s, seuid) {
+    const byUid = {};
+    (s.series || []).forEach(function (se) { byUid[se.series_instance_uid] = se; });
+    const out = [];
+    const seen = new Set([seuid]);
+    const queue = [seuid];
+    while (queue.length) {
+        const cur = queue.shift();
+        ((byUid[cur] || {}).parent_series_uids || []).forEach(function (p) {
+            if (byUid[p] && !seen.has(p)) { seen.add(p); out.push(p); queue.push(p); }
+        });
+    }
+    return out;
+}
+
+function descendantsOf(s, seuid) {
+    const children = {};
+    (s.series || []).forEach(function (se) {
+        (se.parent_series_uids || []).forEach(function (p) {
+            (children[p] = children[p] || []).push(se.series_instance_uid);
+        });
+    });
+    const out = [];
+    const seen = new Set([seuid]);
+    const queue = [seuid];
+    while (queue.length) {
+        const cur = queue.shift();
+        (children[cur] || []).forEach(function (c) {
+            if (!seen.has(c)) { seen.add(c); out.push(c); queue.push(c); }
+        });
+    }
+    return out;
+}
+
 function rtDetailsCell(se) {
     const mod = (se.modality || '').toUpperCase();
     if (se.rt_error) return badge('warning', 'RT details unavailable');
+    const unlinked = se.unresolved_refs ? ' ' + badge('gray', 'references missing') : '';
     const insts = se.rt_instances || [];
-    if (!insts.length) return '<span class="text-gray-400">—</span>';
+    if (!insts.length) return '<span class="text-gray-400">—</span>' + unlinked;
     if (mod === 'RTSTRUCT') {
         const labels = [...new Set(insts.map(rtInstanceLabel))];
-        return labels.join(', ');
+        return labels.join(', ') + unlinked;
     }
     if (mod === 'RTPLAN') {
         const approved = insts.filter(
             i => (i.approval_status || '').toUpperCase() === 'APPROVED').length;
         return esc(insts.length + ' plan' + (insts.length > 1 ? 's' : '') +
-            (approved ? ' · ' + approved + ' approved' : ''));
+            (approved ? ' · ' + approved + ' approved' : '')) + unlinked;
     }
-    return '<span class="text-gray-400">—</span>';
+    if (mod === 'RTDOSE') {
+        return esc(insts.length + ' dose' + (insts.length > 1 ? 's' : '')) + unlinked;
+    }
+    return '<span class="text-gray-400">—</span>' + unlinked;
 }
 
 function seriesSubRows(pid, s, f) {
     const key = keyOf(pid, s.study_instance_uid);
     const v = sel.get(key);
-    const rows = (s.series || []).filter(se => seriesVisible(se, s, f)).map(function (se) {
+    const rows = seriesHierarchy(s).filter(h => seriesVisible(h.se, s, f)).map(function (h) {
+        const se = h.se;
         const checked = v === 'all' || (v instanceof Set && v.has(se.series_instance_uid));
+        const indent = h.depth
+            ? ' style="padding-left:' + (8 + h.depth * 18) + 'px"'
+            : '';
+        const marker = h.depth ? '<span class="text-gray-300 mr-1">└</span>' : '';
         return '<tr class="text-xs">' +
             '<td class="px-2 py-1"><input type="checkbox" class="se-check h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary" data-key="' + esc(key) + '" data-seuid="' + esc(se.series_instance_uid) + '"' + (checked ? ' checked' : '') + '></td>' +
-            '<td class="px-2 py-1">' + esc(se.series_description || '(no description)') + '</td>' +
+            '<td class="px-2 py-1"' + indent + '>' + marker + esc(se.series_description || '(no description)') + '</td>' +
             '<td class="px-2 py-1">' + esc(se.modality || '—') + '</td>' +
             '<td class="px-2 py-1">' + esc(se.series_number || '—') + '</td>' +
             '<td class="px-2 py-1">' + esc(dcmDate(se.series_date) || '—') + '</td>' +
@@ -378,7 +500,7 @@ function seriesSubRows(pid, s, f) {
 }
 
 function studyRtSummary(s) {
-    let structs = 0, plans = 0, approved = 0;
+    let structs = 0, plans = 0, approved = 0, doses = 0;
     (s.series || []).forEach(function (se) {
         const mod = (se.modality || '').toUpperCase();
         if (mod === 'RTSTRUCT') structs += (se.rt_instances || []).length;
@@ -387,12 +509,14 @@ function studyRtSummary(s) {
             approved += (se.rt_instances || []).filter(
                 i => (i.approval_status || '').toUpperCase() === 'APPROVED').length;
         }
+        if (mod === 'RTDOSE') doses += (se.rt_instances || []).length;
     });
-    if (!structs && !plans) return '';
+    if (!structs && !plans && !doses) return '';
     const parts = [];
     if (structs) parts.push(structs + ' structure set' + (structs > 1 ? 's' : ''));
     if (plans) parts.push(plans + ' plan' + (plans > 1 ? 's' : '') +
-        (plans ? ' (' + approved + ' approved)' : ''));
+        ' (' + approved + ' approved)');
+    if (doses) parts.push(doses + ' dose' + (doses > 1 ? 's' : ''));
     const style = plans ? (approved === plans ? 'success' : 'warning') : 'info';
     return ' ' + badge(style, parts.join(' · '));
 }
@@ -523,10 +647,11 @@ $(function () { poll(); pollTimer = setInterval(poll, 3000); });
 /* ---------- events ---------- */
 $('#fb form').on('submit', function (e) { e.preventDefault(); });
 $('#sf-q').on('input', renderStudies);
-$('#sf-from, #sf-to, #sf-hide-local').on('change', renderStudies);
+$('#sf-from, #sf-to, #sf-hide-local, #sf-approval').on('change', renderStudies);
 $('#sf-mod').on('change', renderStudies);
 $('#sf-clear').on('click', function () {
     $('#sf-q, #sf-from, #sf-to').val('');
+    $('#sf-approval').val('');
     $('#sf-hide-local').prop('checked', false);
     $('#sf-mod').val(null);
     if (modSel2) $('#sf-mod').trigger('change');
@@ -557,20 +682,29 @@ $(document).on('change', '.st-check', function () {
 $(document).on('change', '.se-check', function () {
     const key = $(this).data('key');
     const seuid = $(this).data('seuid');
+    const [pid, suid] = key.split('|');
+    let study = null;
+    patientsData.forEach(function (p) {
+        (p.studies || []).forEach(function (s) {
+            if (p.patient_id === pid && s.study_instance_uid === suid) study = s;
+        });
+    });
     let v = sel.get(key);
     if (v === 'all' || v === undefined) {
         /* 'all' → materialise as every seuid minus this one */
-        const [pid, suid] = key.split('|');
         const all = new Set();
-        patientsData.forEach(function (p) {
-            (p.studies || []).forEach(function (s) {
-                if (p.patient_id === pid && s.study_instance_uid === suid)
-                    (s.series || []).forEach(se => all.add(se.series_instance_uid));
-            });
-        });
+        (study ? study.series || [] : []).forEach(se => all.add(se.series_instance_uid));
         v = all;
     }
-    if (this.checked) v.add(seuid); else v.delete(seuid);
+    if (this.checked) {
+        v.add(seuid);
+        if (study) ancestorsOf(study, seuid).forEach(a => v.add(a));
+    } else {
+        v.delete(seuid);
+        /* A deselected parent must take its dependents with it — no dose
+         * without its plan, no plan without its structure set. */
+        if (study) descendantsOf(study, seuid).forEach(d => v.delete(d));
+    }
     if (v.size) sel.set(key, v); else sel.delete(key);
     renderStudies();
 });
