@@ -18,6 +18,7 @@ from dicom_server.tasks import (
     _aggregate_retrieval_batch, _prepare_bulk_schedule_batch,
     task_bulk_schedule_run,
 )
+from dicom_server.tasks import task_bulk_schedule_finalize_query
 from dicom_server.services import bulk_selection
 from dicom_server.services.bulk_selection import (
     SelectionCriteria, build_selections_for_patient, select_study,
@@ -271,3 +272,63 @@ class BulkSelectionTests(TestCase):
                                                SelectionCriteria(modalities=['MR']))
         self.assertEqual([e['study_instance_uid'] for e in entries], ['ST-2'])
         self.assertEqual(entries[0]['series_instance_uids'], ['S2'])
+
+
+class FinalizeQueryTests(ModelSetupMixin, TestCase):
+    def _schedule(self, **kw):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=1),
+        )
+        for k, v in kw.items():
+            setattr(s, k, v)
+        s.save()
+        return s
+
+    def _row(self, batch, pid, studies):
+        p = self._patient(pid)
+        row = RetrievalBatchPatient.objects.create(
+            batch=batch, patient=p, query_status='DONE',
+        )
+        row.studies = studies
+        row.save(update_fields=['studies'])
+        return row
+
+    @mock.patch('dicom_server.tasks._dispatch_retrieval_chunk')
+    def test_no_criteria_selects_whole_study(self, mock_dispatch):
+        batch = RetrievalBatch.objects.create(node=self.node, status='QUERYING')
+        self._row(batch, 'P001', [_rt_study()])
+        s = self._schedule(retrieve_new_only=True)
+        task_bulk_schedule_finalize_query(results=[], batch_id=batch.pk, schedule_id=s.pk)
+        j = batch.jobs.first()
+        self.assertIsNotNone(j)
+        self.assertIsNone(j.selections[0]['series_instance_uids'])
+        self.assertEqual(j.selections[0]['study_instance_uid'], 'ST-1')
+        mock_dispatch.assert_called_once()
+        args = mock_dispatch.call_args[0]
+        self.assertEqual(args[0].pk, batch.pk)
+        self.assertEqual(args[2], 0)   # start
+        self.assertEqual(args[4], 1)   # total jobs
+
+    @mock.patch('dicom_server.tasks._dispatch_retrieval_chunk')
+    def test_new_only_skips_local(self, mock_dispatch):
+        batch = RetrievalBatch.objects.create(node=self.node, status='QUERYING')
+        self._row(batch, 'P001', [_rt_study(already_local=True)])
+        s = self._schedule(retrieve_new_only=True)
+        task_bulk_schedule_finalize_query(results=[], batch_id=batch.pk, schedule_id=s.pk)
+        batch.refresh_from_db()
+        self.assertEqual(batch.status, 'SUCCESS')
+        self.assertEqual(batch.jobs.count(), 0)
+        mock_dispatch.assert_not_called()
+
+    @mock.patch('dicom_server.tasks._dispatch_retrieval_chunk')
+    def test_modality_criteria_selects_series(self, mock_dispatch):
+        batch = RetrievalBatch.objects.create(node=self.node, status='QUERYING')
+        self._row(batch, 'P001', [_rt_study()])
+        s = self._schedule(retrieve_new_only=False, select_modalities='RTDOSE')
+        task_bulk_schedule_finalize_query(results=[], batch_id=batch.pk, schedule_id=s.pk)
+        sel = batch.jobs.first().selections[0]
+        self.assertEqual(
+            set(sel['series_instance_uids']),
+            {'S-DOSE', 'S-PLAN', 'S-STRUCT', 'S-IMG'},
+        )

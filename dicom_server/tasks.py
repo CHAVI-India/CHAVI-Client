@@ -659,3 +659,90 @@ def task_bulk_schedule_run(self, schedule_id):
 
     _complete_task_run(task_run, {'batch': batch.pk, 'patients': len(patients)})
     return {'schedule': schedule_id, 'batch': batch.pk, 'patients': len(patients)}
+
+
+def _record_schedule_run(schedule, status):
+    schedule.last_status = status
+    schedule.last_run_at = timezone.now()
+    schedule.save(update_fields=['last_status', 'last_run_at', 'updated_at'])
+
+
+def _dispatch_retrieval_chunk(batch, schedule, start, cap, total):
+    """Dispatch one chunk (cap patients) of retrieval as a chord. The chord
+    body is the next-chunk relay, or the finalizer when this is the last
+    chunk. Because only one chunk is ever in flight, at most `cap` patients
+    are retrieved concurrently."""
+    chunk = batch.jobs.order_by('pk')[start:start + cap]
+    if not chunk:
+        return None
+    if start + cap >= total:
+        body = task_bulk_schedule_finalize_retrieval.s(batch.pk, schedule.pk)
+    else:
+        body = task_bulk_schedule_chunk_done.s(batch.pk, start + cap, total, cap, schedule.pk)
+    return chord(group(task_retrieve_patient_selection.s(j.pk) for j in chunk))(body)
+
+
+@shared_task(bind=True)
+def task_bulk_schedule_finalize_query(self, results, batch_id, schedule_id):
+    """Chord body for the query phase of a scheduled bulk run. Selects
+    studies/series via bulk_selection (per the schedule's criteria) into
+    per-patient RetrievalJobs, then starts the bounded retrieve phase."""
+    from dicom_server.services import bulk_selection
+    task_run = _create_task_run(
+        task_name='dicom_server.tasks.task_bulk_schedule_finalize_query',
+        task_type='DICOM_IMPORT', user_id=None, celery_task_id=self.request.id,
+    )
+    try:
+        batch = RetrievalBatch.objects.get(pk=batch_id)
+        schedule = BulkRetrievalSchedule.objects.get(pk=schedule_id)
+    except (RetrievalBatch.DoesNotExist, BulkRetrievalSchedule.DoesNotExist) as e:
+        _fail_task_run(task_run, e)
+        return {'batch': batch_id, 'status': 'ERROR', 'error': str(e)}
+    if batch.created_by_id:
+        task_run.user_id = batch.created_by_id
+        task_run.save(update_fields=['user_id', 'updated_at'])
+
+    if batch.status != RetrievalBatch.Status.QUERYING:
+        _finish_task_run_quiet(task_run, {'skipped': True, 'status': batch.status})
+        return {'batch': batch_id, 'status': batch.status, 'skipped': True}
+
+    criteria = schedule.selection_criteria()
+    new_only = schedule.retrieve_new_only
+    for row in batch.patients.select_related('patient'):
+        if row.query_status != RetrievalBatchPatient.QueryStatus.DONE:
+            continue
+        entries = bulk_selection.build_selections_for_patient(
+            row.studies or [], criteria, new_only=new_only,
+        )
+        if not entries:
+            continue
+        chosen_uids = {e['study_instance_uid'] for e in entries}
+        found_subset = [
+            s for s in (row.studies or [])
+            if s.get('study_instance_uid') in chosen_uids
+        ]
+        job = RetrievalJob.objects.create(
+            node=batch.node, patient=row.patient, created_by=batch.created_by,
+            selections=entries, studies_found=found_subset, batch=batch,
+        )
+        row.selected = True
+        row.job = job
+        row.save(update_fields=['selected', 'job'])
+
+    total_jobs = batch.jobs.count()
+    if total_jobs == 0:
+        final, summary = _aggregate_retrieval_batch(batch)
+        batch.summary = summary
+        batch.status = final
+        batch.completed_at = timezone.now()
+        batch.save(update_fields=['status', 'summary', 'completed_at'])
+        _record_schedule_run(schedule, final)
+        _complete_task_run(task_run, summary)
+        return {'batch': batch_id, 'status': final, **summary}
+
+    batch.status = RetrievalBatch.Status.RETRIEVING
+    batch.save(update_fields=['status'])
+    cap = schedule.max_concurrent_patients or 2
+    _dispatch_retrieval_chunk(batch, schedule, 0, cap, total_jobs)
+    _complete_task_run(task_run, {'dispatched': True, 'jobs': total_jobs, 'cap': cap})
+    return {'batch': batch_id, 'status': batch.status, 'jobs': total_jobs}
