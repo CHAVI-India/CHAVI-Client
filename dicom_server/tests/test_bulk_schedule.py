@@ -18,6 +18,10 @@ from dicom_server.tasks import (
     _aggregate_retrieval_batch, _prepare_bulk_schedule_batch,
     task_bulk_schedule_run,
 )
+from dicom_server.services import bulk_selection
+from dicom_server.services.bulk_selection import (
+    SelectionCriteria, build_selections_for_patient, select_study,
+)
 
 
 class ModelSetupMixin:
@@ -154,3 +158,116 @@ class RunTaskTests(ModelSetupMixin, TestCase):
         res = task_bulk_schedule_run(schedule_id=s.pk)
         self.assertTrue(res.get('skipped'))
         self.assertFalse(RetrievalBatch.objects.exists())
+
+
+def _series(uid, mod, desc='', parents=(), rt=None):
+    se = {
+        'series_instance_uid': uid, 'modality': mod,
+        'series_description': desc, 'series_number': '',
+        'series_date': '20240101', 'instances': 1,
+    }
+    if parents:
+        se['parent_series_uids'] = list(parents)
+    if rt is not None:
+        se['rt_instances'] = rt
+    return se
+
+
+def _study(uid, series, already_local=False):
+    mods = sorted({(s.get('modality') or '') for s in series if s.get('modality')})
+    return {
+        'study_instance_uid': uid, 'study_date': '20240101',
+        'study_description': 'Study', 'accession_number': 'A1',
+        'modalities': '\\'.join(mods) if mods else 'OT',
+        'instances': sum(s.get('instances') or 0 for s in series),
+        'remote_patient_id': 'P001', 'already_local': already_local,
+        'series': series,
+    }
+
+
+def _rt_study(uid='ST-1', already_local=False):
+    img = _series('S-IMG', 'CT', 'Images')
+    struct = _series('S-STRUCT', 'RTSTRUCT', 'Structures', parents=('S-IMG',),
+                     rt=[{'sop_instance_uid': 'SOP-SS', 'structure_set_label': 'Body',
+                          'structure_set_name': 'Body',
+                          'referenced_series_uids': ['S-IMG']}])
+    plan = _series('S-PLAN', 'RTPLAN', 'Plan A', parents=('S-STRUCT',),
+                   rt=[{'sop_instance_uid': 'SOP-PLAN', 'rt_plan_label': 'PlanA',
+                        'rt_plan_name': 'Plan A', 'approval_status': 'APPROVED',
+                        'referenced_structure_set_uids': ['SOP-SS']}])
+    plan_bad = _series('S-PLAN2', 'RTPLAN', 'Plan B', parents=('S-STRUCT',),
+                       rt=[{'sop_instance_uid': 'SOP-PLAN2', 'rt_plan_label': 'PlanB',
+                            'approval_status': 'REJECTED',
+                            'referenced_structure_set_uids': ['SOP-SS']}])
+    dose = _series('S-DOSE', 'RTDOSE', 'Dose', parents=('S-PLAN',),
+                   rt=[{'sop_instance_uid': 'SOP-DOSE',
+                        'referenced_plan_uids': ['SOP-PLAN']}])
+    return _study(uid, [img, struct, plan, plan_bad, dose], already_local)
+
+
+class SelectionCriteriaParseTests(ModelSetupMixin, TestCase):
+    def test_model_builds_criteria(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='x', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=1),
+            select_modalities='CT, MR', select_approval='approved',
+            select_rt_label='Body', select_series_description='Dose',
+        )
+        c = s.selection_criteria()
+        self.assertEqual(c.modalities, ['CT', 'MR'])
+        self.assertEqual(c.approval, 'approved')
+        self.assertEqual(c.rt_label, 'Body')
+        self.assertTrue(c.series_filter_active())
+
+
+class BulkSelectionTests(TestCase):
+    def test_no_criteria_selects_whole_study(self):
+        self.assertEqual(select_study(_rt_study(), SelectionCriteria()),
+                         ('ST-1', None))
+
+    def test_new_only_skips_local(self):
+        st = _rt_study(already_local=True)
+        self.assertEqual(build_selections_for_patient([st], SelectionCriteria(),
+                                                         new_only=True), [])
+
+    def test_modality_filter_no_ancestors(self):
+        sel = select_study(_rt_study(), SelectionCriteria(modalities=['CT']))
+        self.assertEqual(sel, ('ST-1', ['S-IMG']))
+
+    def test_dose_pulls_plan_and_struct(self):
+        sel = select_study(_rt_study(), SelectionCriteria(modalities=['RTDOSE']))
+        self.assertIsNotNone(sel)
+        self.assertEqual(set(sel[1]), {'S-DOSE', 'S-PLAN', 'S-STRUCT', 'S-IMG'})
+
+    def test_approval_approved_excludes_unapproved_plan(self):
+        sel = select_study(_rt_study(), SelectionCriteria(approval='approved'))
+        chosen = set(sel[1])
+        self.assertIn('S-PLAN', chosen)
+        self.assertNotIn('S-PLAN2', chosen)
+
+    def test_approval_unapproved_only(self):
+        sel = select_study(_rt_study(), SelectionCriteria(approval='unapproved'))
+        self.assertIn('S-PLAN2', sel[1])
+        self.assertNotIn('S-PLAN', set(sel[1]))
+
+    def test_rt_label_match_pulls_struct(self):
+        sel = select_study(_rt_study(), SelectionCriteria(rt_label='PlanA'))
+        self.assertIn('S-PLAN', sel[1])
+        self.assertIn('S-STRUCT', set(sel[1]))
+        self.assertNotIn('S-PLAN2', set(sel[1]))
+
+    def test_series_description_match(self):
+        sel = select_study(_rt_study(), SelectionCriteria(series_description='Dose'))
+        self.assertEqual(set(sel[1]), {'S-STRUCT', 'S-DOSE', 'S-PLAN', 'S-IMG'})
+
+    def test_no_matching_series_yields_none(self):
+        self.assertIsNone(
+            select_study(_rt_study(), SelectionCriteria(modalities=['MR'])))
+
+    def test_build_selections_multiple_studies(self):
+        a = _rt_study('ST-1')
+        b = _study('ST-2', [_series('S2', 'MR', 'MRI')])
+        entries = build_selections_for_patient([a, b],
+                                               SelectionCriteria(modalities=['MR']))
+        self.assertEqual([e['study_instance_uid'] for e in entries], ['ST-2'])
+        self.assertEqual(entries[0]['series_instance_uids'], ['S2'])
