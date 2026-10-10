@@ -56,6 +56,79 @@ Bind the UNC path directly (no host-side mount needed), again in BOTH
 Create the location with: `name: nas-archive, storage_type: MOUNT,
 path: /archive/dicom`.
 
+## Scenario 4 — Docker-managed share volume (no host-side mount)
+
+Docker itself mounts the share as a named volume; credentials and the share
+path come from `.env`. `docker_install/example_docker-compose.yml` contains
+these ready to uncomment — mount the volume as
+`chaviclient_archive:/archive/dicom` in BOTH the worker and the web service
+(commented lines are in the example compose), then create the location with
+path `/archive/dicom`.
+
+**SMB/CIFS** (Linux hosts and Docker Desktop on Windows):
+
+    volumes:
+      chaviclient_archive:
+        driver_opts:
+          type: cifs
+          o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"
+          device: ${NETWORK_PATH}        # e.g. //nas.example.com/chavi-archive
+
+`NETWORK_USER`, `NETWORK_DOMAIN`, `NETWORK_PASSWORD`, `NETWORK_PATH` live in
+`.env` (permissions 600, never committed). If the mount fails silently,
+add `vers=3.0` (or `vers=2.1`) to `o:` and ensure the CIFS client is
+installed on Linux hosts (`apt-get install cifs-utils`; Docker Desktop on
+Windows needs nothing extra). Hardening variant: keep the credentials in a
+file on the host (`/etc/docker-smb-credentials` with `username=`,
+`password=`, `domain=`, chmod 600) and use
+`o: "credentials=/etc/docker-smb-credentials,rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"`.
+
+**NFS** (Linux hosts; `apt-get install nfs-common` / `dnf install nfs-utils`):
+
+    volumes:
+      chaviclient_archive:
+        driver: local
+        driver_opts:
+          type: nfs
+          o: addr=${NAS_IP},nfsvers=4.1,hard,noatime
+          device: ":${NAS_PATH}"          # e.g. :/volume1/chavi-archive
+
+`hard` (default) retries I/O forever — integrity-safe, but a dead NAS stalls
+archive operations; `soft` makes I/O return errors so the archive task fails
+per-study instead of blocking. `noatime` is a small performance win for
+large file copies.
+
+**A specific local folder** (e.g. `D:\chavi-archive` on a Windows host):
+
+    volumes:
+      chaviclient_archive:
+        driver: local
+        driver_opts:
+          o: bind
+          type: none
+          device: "D:/chavi-archive"
+
+**Why `uid=0,gid=0` + `0666/0777` (and not the common `uid=1000,gid=1000`).**
+This image runs the app as a non-root system user (`appuser`) whose uid is
+*not pinned* — check with `docker compose exec chaviclient-django id`. With
+`uid=1000,gid=1000,dir_mode=0770` the app user would not be able to write the
+share at all. `uid=0,gid=0` with world-rw modes inside the container is
+harmless here (only Django/Celery run in these containers) and the share
+itself stays protected by the SMB/NFS credentials. Do **not** pin
+`appuser` to uid 1000 in the Dockerfile to "fix" the mapping: existing
+deployments' `app_data` volume and `./media` bind are owned by the current
+uid and would become unwritable after the rebuild.
+
+Caveats:
+
+- `driver_opts` are fixed when the volume is *created*. To change options:
+  `docker volume rm chaviclient_archive` and start again (only Docker's mount
+  metadata is removed; the data on the share is untouched).
+- If the share is unreachable when the containers start, the mount fails and
+  the containers will not start. After a NAS reboot, restart the stack
+  (`docker compose down && docker compose up -d`) if mounts have gone stale
+  ("Host is down").
+
 ## Why the django container needs the mount too
 
 `ArchiveLocationForm.clean()` calls `prepare_location()`, which creates the

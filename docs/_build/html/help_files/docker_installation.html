@@ -127,6 +127,11 @@ Inside this folder, create the following three files:</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">      </span><span class="c1"># DICOM archive (optional — same mount path as the worker; needed for</span>
+<span class="w">      </span><span class="c1"># the location write-probe and the "Test location" button. Uncomment</span>
+<span class="w">      </span><span class="c1"># together with one of the chaviclient_archive definitions in the</span>
+<span class="w">      </span><span class="c1"># top-level volumes: section):</span>
+<span class="w">      </span><span class="c1"># - chaviclient_archive:/archive/dicom</span>
 <span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"./entrypoint.docker.sh"</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="c1"># If a remote DICOM node can't be resolved by DNS, pin it here</span>
 <span class="w">    </span><span class="c1"># (e.g. a node with only a static IP):</span>
@@ -152,6 +157,9 @@ Inside this folder, create the following three files:</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">      </span><span class="c1"># DICOM archive (optional — uncomment together with one of the</span>
+<span class="w">      </span><span class="c1"># chaviclient_archive definitions in the top-level volumes: section):</span>
+<span class="w">      </span><span class="c1"># - chaviclient_archive:/archive/dicom</span>
 <span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"celery"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-A"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"chavi_client"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"worker"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-l"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"info"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--concurrency=2"</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="c1"># Pin remote DICOM node hostnames to IPs here if container DNS fails:</span>
 <span class="w">    </span><span class="c1">#extra_hosts:</span>
@@ -222,6 +230,51 @@ Inside this folder, create the following three files:</p>
 <span class="w">  </span><span class="nt">chaviclient_postgres_data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">chaviclient_app_data</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">chaviclient_rabbitmq_data</span><span class="p">:</span>
+
+<span class="w">  </span><span class="c1"># --- DICOM archive storage (optional) -------------------------------------</span>
+<span class="w">  </span><span class="c1"># Uncomment ONE of the two chaviclient_archive definitions below, fill in</span>
+<span class="w">  </span><span class="c1"># the parameters (in .env for option A), and uncomment the</span>
+<span class="w">  </span><span class="c1"># "- chaviclient_archive:/archive/dicom" line in BOTH the</span>
+<span class="w">  </span><span class="c1"># chaviclient-celery-worker and chaviclient-django services (same mount</span>
+<span class="w">  </span><span class="c1"># path in both).</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option A — network share (SMB/CIFS). Requires NETWORK_USER,</span>
+<span class="w">  </span><span class="c1"># NETWORK_DOMAIN, NETWORK_PASSWORD and NETWORK_PATH in .env, e.g.</span>
+<span class="w">  </span><span class="c1"># NETWORK_PATH=//nas.example.com/chavi-archive</span>
+<span class="w">  </span><span class="c1"># NOTE: uid=0,gid=0 + 0666/0777 is deliberate — this image runs the app as</span>
+<span class="w">  </span><span class="c1"># a non-root system user (appuser) whose uid is not pinned, so the share</span>
+<span class="w">  </span><span class="c1"># must be world-writable inside the container. Access to the share itself</span>
+<span class="w">  </span><span class="c1"># is still protected by the SMB credentials above.</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     type: cifs</span>
+<span class="w">  </span><span class="c1">#     o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"</span>
+<span class="w">  </span><span class="c1">#     device: ${NETWORK_PATH}</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option B — a specific local folder instead (on a Windows host with</span>
+<span class="w">  </span><span class="c1"># Docker Desktop, e.g. the archive lives on D:\chavi-archive; on Linux use</span>
+<span class="w">  </span><span class="c1"># the absolute host path):</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver: local</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     o: bind</span>
+<span class="w">  </span><span class="c1">#     type: none</span>
+<span class="w">  </span><span class="c1">#     device: "D:/chavi-archive"</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option C — NFS share on a Linux host (host needs the NFS client:</span>
+<span class="w">  </span><span class="c1"># apt-get install nfs-common). Requires NAS_IP and NAS_PATH in .env,</span>
+<span class="w">  </span><span class="c1"># e.g. NAS_PATH=/volume1/chavi-archive. "hard" retries I/O forever (data</span>
+<span class="w">  </span><span class="c1"># integrity); use "soft" to let archive tasks fail per-study if the NAS</span>
+<span class="w">  </span><span class="c1"># drops.</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver: local</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     type: nfs</span>
+<span class="w">  </span><span class="c1">#     o: addr=${NAS_IP},nfsvers=4.1,hard,noatime</span>
+<span class="w">  </span><span class="c1">#     device: ":${NAS_PATH}"</span>
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sets the max number of simultaneous connections that can be opened by a worker process</span>
@@ -305,6 +358,16 @@ http<span class="w"> </span><span class="o">{</span>
 <span class="nv">RABBITMQ_DEFAULT_USER</span><span class="o">=</span>chaviuser
 <span class="nv">RABBITMQ_DEFAULT_PASS</span><span class="o">=</span>chavipassword
 <span class="nv">RABBITMQ_DEFAULT_VHOST</span><span class="o">=</span>chavi_vhost
+
+<span class="c1"># DICOM archive on a network share (only needed for the CIFS/NFS options in</span>
+<span class="c1"># example_docker-compose.yml; keep this file's permissions at 600 and never</span>
+<span class="c1"># commit it to version control)</span>
+<span class="c1"># NETWORK_USER = your-smb-user</span>
+<span class="c1"># NETWORK_DOMAIN = your-smb-domain</span>
+<span class="c1"># NETWORK_PASSWORD = your-smb-password</span>
+<span class="c1"># NETWORK_PATH = //server/share-name</span>
+<span class="c1"># NAS_IP = 192.168.1.100</span>
+<span class="c1"># NAS_PATH = /volume1/chavi-archive</span>
 </pre></div>
 </div>
 <p>After these files have been created you can start editing the .env file. Ensure that the password fields are properly set. If a proxy is used for network access, please ensure that the proxy settings are configured correctly in the .env file.</p>
@@ -356,17 +419,18 @@ table and verification commands.</p>
 <p>If you use the DICOM Archive (see <a class="reference internal" href="dicom_archive.html"><span class="doc">DICOM Archive</span></a>), remember that the
 app’s media root inside the containers is <code class="docutils literal notranslate"><span class="pre">/app/media</span></code> and study folders
 live at <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom/&lt;patient</span> <span class="pre">ID&gt;/&lt;study</span> <span class="pre">UID&gt;</span></code>. A location’s
-path is therefore always a path <strong>inside the containers</strong> — the host path you
-mount determines what it points at on disk. Three common setups:</p>
+path is therefore always a path <strong>inside the containers</strong> — what it points
+at on disk depends on how the storage is mounted. Four common setups:</p>
 <ul>
 <li><p><strong>Another folder in the app’s media volume</strong> — no compose change. Create the
 location with a relative path, for example <code class="docutils literal notranslate"><span class="pre">dicom_archive</span></code>; it resolves to
 <code class="docutils literal notranslate"><span class="pre">/app/media/dicom_archive</span></code> (host: <code class="docutils literal notranslate"><span class="pre">&lt;compose</span> <span class="pre">dir&gt;/media/dicom_archive</span></code>).
 Caveat: the archive then lives on the same physical disk as the source data.</p></li>
 <li><p><strong>NAS/LAN share mounted on the Docker host</strong> — mount the share on the host
-first (NFS or SMB, for example at <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code>), then add the
-bind mount to the <code class="docutils literal notranslate"><span class="pre">volumes:</span></code> of <strong>both</strong> <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code> and
-<code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code>:</p>
+first (NFS or SMB, for example at <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code> — when you put
+the mount in <code class="docutils literal notranslate"><span class="pre">/etc/fstab</span></code>, use the <code class="docutils literal notranslate"><span class="pre">_netdev</span></code> option so the mount waits
+for the network), then add the bind mount to the <code class="docutils literal notranslate"><span class="pre">volumes:</span></code> of <strong>both</strong>
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code> and <code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
   <span class="o">-</span> <span class="n">chaviclient_app_data</span><span class="p">:</span><span class="o">/</span><span class="n">app</span>
   <span class="o">-</span> <span class="o">./</span><span class="n">media</span><span class="p">:</span><span class="o">/</span><span class="n">app</span><span class="o">/</span><span class="n">media</span>
@@ -397,6 +461,87 @@ directly, no host-side mount needed, again in <strong>both</strong> services:</p
 </div>
 <p>Create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
 </li>
+<li><p><strong>Docker-managed share volume — no host-side mount at all</strong> — Docker itself
+mounts the share as a named volume; the credentials and the share path come
+from <code class="docutils literal notranslate"><span class="pre">.env</span></code>. <code class="docutils literal notranslate"><span class="pre">example_docker-compose.yml</span></code> contains this ready to
+uncomment. Mount the volume as <code class="docutils literal notranslate"><span class="pre">chaviclient_archive:/archive/dicom</span></code> in
+<strong>both</strong> the worker and the web service (commented lines are included in
+the example compose), then create the location with type <em>Mounted share</em>
+and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+<p><strong>SMB/CIFS share</strong> (works on Linux hosts and Docker Desktop on Windows):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>volumes:
+  chaviclient_archive:
+    driver_opts:
+      type: cifs
+      o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"
+      device: ${NETWORK_PATH}        # e.g. //nas.example.com/chavi-archive
+</pre></div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">NETWORK_USER</span></code>, <code class="docutils literal notranslate"><span class="pre">NETWORK_DOMAIN</span></code>, <code class="docutils literal notranslate"><span class="pre">NETWORK_PASSWORD</span></code> and
+<code class="docutils literal notranslate"><span class="pre">NETWORK_PATH</span></code> in <code class="docutils literal notranslate"><span class="pre">.env</span></code> (keep the <code class="docutils literal notranslate"><span class="pre">.env</span></code> at permissions <code class="docutils literal notranslate"><span class="pre">600</span></code> and
+never commit it). If the NAS only speaks SMB and the mount fails silently,
+add <code class="docutils literal notranslate"><span class="pre">vers=3.0</span></code> (or <code class="docutils literal notranslate"><span class="pre">vers=2.1</span></code>) to the <code class="docutils literal notranslate"><span class="pre">o:</span></code> options and make sure the
+CIFS client is installed on a Linux host (<code class="docutils literal notranslate"><span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">cifs-utils</span></code>;
+Docker Desktop on Windows needs nothing extra).</p>
+<p>Hardening variant: instead of putting the username and password in the
+compose options, keep them in a credentials file on the Docker host —
+<code class="docutils literal notranslate"><span class="pre">/etc/docker-smb-credentials</span></code> containing <code class="docutils literal notranslate"><span class="pre">username=</span></code>, <code class="docutils literal notranslate"><span class="pre">password=</span></code> and
+<code class="docutils literal notranslate"><span class="pre">domain=</span></code>, set to <code class="docutils literal notranslate"><span class="pre">chmod</span> <span class="pre">600</span></code> — and use
+<code class="docutils literal notranslate"><span class="pre">o:</span> <span class="pre">&quot;credentials=/etc/docker-smb-credentials,rw,uid=0,gid=0,file_mode=0666,dir_mode=0777&quot;</span></code>.</p>
+<p><strong>NFS share</strong> (Linux hosts; the host needs the NFS client —
+<code class="docutils literal notranslate"><span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nfs-common</span></code> on Debian/Ubuntu, <code class="docutils literal notranslate"><span class="pre">dnf</span> <span class="pre">install</span> <span class="pre">nfs-utils</span></code>
+on RHEL-based distros):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="n">chaviclient_archive</span><span class="p">:</span>
+    <span class="n">driver</span><span class="p">:</span> <span class="n">local</span>
+    <span class="n">driver_opts</span><span class="p">:</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">nfs</span>
+      <span class="n">o</span><span class="p">:</span> <span class="n">addr</span><span class="o">=</span><span class="mf">192.168.1.100</span><span class="p">,</span><span class="n">nfsvers</span><span class="o">=</span><span class="mf">4.1</span><span class="p">,</span><span class="n">hard</span><span class="p">,</span><span class="n">noatime</span>
+      <span class="n">device</span><span class="p">:</span> <span class="s2">":/volume1/chavi-archive"</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">hard</span></code> (the default) retries I/O forever — data-integrity safe, but a
+dead NAS will stall archive operations; use <code class="docutils literal notranslate"><span class="pre">soft</span></code> instead if you would
+rather have the archive task fail per-study than block, which this
+application is built to record and recover from. <code class="docutils literal notranslate"><span class="pre">noatime</span></code> skips
+access-time updates and is a small performance win for large file copies.</p>
+<p><strong>A specific local folder</strong> (e.g. the archive lives on <code class="docutils literal notranslate"><span class="pre">D:\chavi-archive</span></code>
+with Docker Desktop on Windows, or a data disk on a Linux host):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="n">chaviclient_archive</span><span class="p">:</span>
+    <span class="n">driver</span><span class="p">:</span> <span class="n">local</span>
+    <span class="n">driver_opts</span><span class="p">:</span>
+      <span class="n">o</span><span class="p">:</span> <span class="n">bind</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">none</span>
+      <span class="n">device</span><span class="p">:</span> <span class="s2">"D:/chavi-archive"</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">uid=0,gid=0</span></code> with <code class="docutils literal notranslate"><span class="pre">file_mode=0666,dir_mode=0777</span></code> in the CIFS
+example is deliberate: this image runs the app as a non-root system user
+(<code class="docutils literal notranslate"><span class="pre">appuser</span></code>) whose uid is <em>not</em> pinned, so the share must be
+world-writable <strong>inside the container</strong> — check yours with
+<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">exec</span> <span class="pre">chaviclient-django</span> <span class="pre">id</span></code>. Do not use
+<code class="docutils literal notranslate"><span class="pre">uid=1000,gid=1000</span></code> (a common copy-paste) unless the app really runs
+as uid 1000; with <code class="docutils literal notranslate"><span class="pre">dir_mode=0770</span></code> that user would not be able to
+write the share at all. Access to the share itself remains protected by
+the SMB/NFS credentials either way, and the only processes in these
+containers are Django and Celery.</p>
+</div>
+<p>Caveats of Docker-managed shares:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">driver_opts</span></code> are fixed when the volume is <em>created</em>. To change the
+options, remove the volume first (<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">volume</span> <span class="pre">rm</span> <span class="pre">chaviclient_archive</span></code>)
+and start again — only Docker’s mount metadata is removed, the data on
+the share itself is untouched.</p></li>
+<li><p>If the share is unreachable when the containers start, the volume mount
+fails and the containers will not start. Start the stack with the NAS up;
+after a NAS reboot that happened while the stack was running, restart the
+containers (<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">down</span> <span class="pre">&amp;&amp;</span> <span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span> <span class="pre">-d</span></code>) if mounts
+have gone stale (“Host is down”).</p></li>
+</ul>
+</li>
 </ul>
 <p>The <code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code> (web) container needs the mount too: when a location
 is saved, the form probes the path for write access in the web container — a
@@ -409,8 +554,10 @@ neither of them needs the mount.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">ls</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
 </pre></div>
 </div>
-<p>then create the mounted location in the UI (it must pass validation), archive
-one study, and confirm the files under the share:</p>
+<p>then create the mounted location in the UI (it must pass validation) — or
+better, press the <strong>Test location</strong> button, which writes a small
+<code class="docutils literal notranslate"><span class="pre">chavi_archive_write_test.txt</span></code> you can open on the share to prove the write
+landed there — then archive one study, and confirm the files under the share:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">find</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span> <span class="o">-</span><span class="n">name</span> <span class="s1">'*.dcm'</span> <span class="o">|</span> <span class="n">head</span>
 </pre></div>
 </div>

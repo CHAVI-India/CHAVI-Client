@@ -48,6 +48,11 @@ services:
       - ./media:/app/media
       - ./static:/app/static
       - ./logs:/app/logs
+      # DICOM archive (optional — same mount path as the worker; needed for
+      # the location write-probe and the "Test location" button. Uncomment
+      # together with one of the chaviclient_archive definitions in the
+      # top-level volumes: section):
+      # - chaviclient_archive:/archive/dicom
     command: ["./entrypoint.docker.sh"]
     # If a remote DICOM node can't be resolved by DNS, pin it here
     # (e.g. a node with only a static IP):
@@ -73,6 +78,9 @@ services:
       - ./media:/app/media
       - ./static:/app/static
       - ./logs:/app/logs
+      # DICOM archive (optional — uncomment together with one of the
+      # chaviclient_archive definitions in the top-level volumes: section):
+      # - chaviclient_archive:/archive/dicom
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "--concurrency=2"]
     # Pin remote DICOM node hostnames to IPs here if container DNS fails:
     #extra_hosts:
@@ -143,4 +151,49 @@ volumes:
   chaviclient_postgres_data:
   chaviclient_app_data:
   chaviclient_rabbitmq_data:
+
+  # --- DICOM archive storage (optional) -------------------------------------
+  # Uncomment ONE of the two chaviclient_archive definitions below, fill in
+  # the parameters (in .env for option A), and uncomment the
+  # "- chaviclient_archive:/archive/dicom" line in BOTH the
+  # chaviclient-celery-worker and chaviclient-django services (same mount
+  # path in both).
+  #
+  # Option A — network share (SMB/CIFS). Requires NETWORK_USER,
+  # NETWORK_DOMAIN, NETWORK_PASSWORD and NETWORK_PATH in .env, e.g.
+  # NETWORK_PATH=//nas.example.com/chavi-archive
+  # NOTE: uid=0,gid=0 + 0666/0777 is deliberate — this image runs the app as
+  # a non-root system user (appuser) whose uid is not pinned, so the share
+  # must be world-writable inside the container. Access to the share itself
+  # is still protected by the SMB credentials above.
+  #
+  # chaviclient_archive:
+  #   driver_opts:
+  #     type: cifs
+  #     o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"
+  #     device: ${NETWORK_PATH}
+  #
+  # Option B — a specific local folder instead (on a Windows host with
+  # Docker Desktop, e.g. the archive lives on D:\chavi-archive; on Linux use
+  # the absolute host path):
+  #
+  # chaviclient_archive:
+  #   driver: local
+  #   driver_opts:
+  #     o: bind
+  #     type: none
+  #     device: "D:/chavi-archive"
+  #
+  # Option C — NFS share on a Linux host (host needs the NFS client:
+  # apt-get install nfs-common). Requires NAS_IP and NAS_PATH in .env,
+  # e.g. NAS_PATH=/volume1/chavi-archive. "hard" retries I/O forever (data
+  # integrity); use "soft" to let archive tasks fail per-study if the NAS
+  # drops.
+  #
+  # chaviclient_archive:
+  #   driver: local
+  #   driver_opts:
+  #     type: nfs
+  #     o: addr=${NAS_IP},nfsvers=4.1,hard,noatime
+  #     device: ":${NAS_PATH}"
 
