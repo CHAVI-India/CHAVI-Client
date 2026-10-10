@@ -28,4 +28,10 @@ urlpatterns = [
     path('batches/<int:pk>/', views.BatchDetailView.as_view(), name='batch_detail'),
     path('jobs/', views.RetrievalJobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', views.RetrievalJobDetailView.as_view(), name='job_detail'),
+    path('schedules/', views.ScheduleListView.as_view(), name='schedule_list'),
+    path('schedules/new/', views.ScheduleCreateView.as_view(), name='schedule_create'),
+    path('schedules/<int:pk>/edit/', views.ScheduleUpdateView.as_view(), name='schedule_edit'),
+    path('schedules/<int:pk>/delete/', views.ScheduleDeleteView.as_view(), name='schedule_delete'),
+    path('schedules/<int:pk>/toggle/', views.ScheduleToggleView.as_view(), name='schedule_toggle'),
+    path('schedules/<int:pk>/run/', views.ScheduleRunNowView.as_view(), name='schedule_run_now'),
 ]

@@ -7,7 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.auth.views import redirect_to_login
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Q, Prefetch
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -20,12 +20,13 @@ from django.views.generic import (
 
 from client_app.models import Diagnosis, Patient, Project
 from dicom_server.forms import (
-    BulkRetrieveForm, DICOMServerConfigForm, RemoteDICOMNodeForm,
-    RetrieveStudiesForm,
+    BulkRetrieveForm, BulkScheduleForm, DICOMServerConfigForm,
+    RemoteDICOMNodeForm, RetrieveStudiesForm,
 )
 from dicom_server.models import (
-    DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
-    PatientIDAlias, RetrievalBatch, RetrievalBatchPatient, RetrievalJob,
+    BulkRetrievalSchedule, DICOMServerConfiguration, RemoteDICOMNode,
+    InboundDICOMInstance, PatientIDAlias, RetrievalBatch,
+    RetrievalBatchPatient, RetrievalJob,
 )
 from dicom_server.services import patient_ids, qr_client
 from lookup.models import (
@@ -33,9 +34,9 @@ from lookup.models import (
     LookupLaterality, LookupMajorCancerCategory, LookupPresentation,
 )
 from dicom_server.tasks import (
-    task_finalize_batch_query, task_finalize_retrieval_batch,
-    task_query_patient_studies, task_retrieve_patient_selection,
-    task_retrieve_studies,
+    task_bulk_schedule_run, task_finalize_batch_query,
+    task_finalize_retrieval_batch, task_query_patient_studies,
+    task_retrieve_patient_selection, task_retrieve_studies,
 )
 
 logger = logging.getLogger(__name__)
@@ -740,3 +741,80 @@ class NodeIDRulesView(DicomPermissionRequiredMixin, View):
         node.patient_id_transforms = transforms or []
         node.save(update_fields=['patient_id_transforms', 'updated_at'])
         return JsonResponse({'ok': True})
+
+
+class ScheduleListView(DicomPermissionRequiredMixin, ListView):
+    model = BulkRetrievalSchedule
+    template_name = 'dicom_server/schedule_list.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
+    context_object_name = 'schedules'
+    paginate_by = 25
+
+    def get_queryset(self):
+        return BulkRetrievalSchedule.objects.all().order_by('-created_at')
+
+
+class ScheduleCreateView(DicomPermissionRequiredMixin, CreateView):
+    model = BulkRetrievalSchedule
+    form_class = BulkScheduleForm
+    template_name = 'dicom_server/schedule_form.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def form_valid(self, form):
+        schedule = form.save(commit=False)
+        schedule.created_by = self.request.user
+        schedule = form.save()  # post_save -> sync_bulk_schedule (one-off eta / periodic)
+        messages.success(self.request, 'Schedule created.')
+        return HttpResponseRedirect(
+            reverse('dicom_server:schedule_list'))
+
+
+class ScheduleUpdateView(DicomPermissionRequiredMixin, UpdateView):
+    model = BulkRetrievalSchedule
+    form_class = BulkScheduleForm
+    template_name = 'dicom_server/schedule_form.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def form_valid(self, form):
+        form.save()  # post_save -> sync_bulk_schedule
+        messages.success(self.request, 'Schedule updated.')
+        return HttpResponseRedirect(
+            reverse('dicom_server:schedule_list'))
+
+
+class ScheduleDeleteView(DicomPermissionRequiredMixin, DeleteView):
+    model = BulkRetrievalSchedule
+    template_name = 'dicom_server/schedule_confirm_delete.html'
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def get_success_url(self):
+        return reverse('dicom_server:schedule_list')
+
+    def post(self, request, *args, **kwargs):
+        # post_delete signal removes the beat task + revokes any pending one-off.
+        result = super().post(request, *args, **kwargs)
+        messages.success(request, 'Schedule deleted.')
+        return result
+
+
+class ScheduleToggleView(DicomPermissionRequiredMixin, View):
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def post(self, request, pk):
+        schedule = get_object_or_404(BulkRetrievalSchedule, pk=pk)
+        schedule.is_active = not schedule.is_active
+        schedule.save(update_fields=['is_active', 'updated_at'])  # post_save -> sync
+        messages.success(request, f"Schedule {'enabled' if schedule.is_active else 'disabled'}.")
+        return HttpResponseRedirect(request.POST.get('next')
+                                or reverse('dicom_server:schedule_list'))
+
+
+class ScheduleRunNowView(DicomPermissionRequiredMixin, View):
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def post(self, request, pk):
+        schedule = get_object_or_404(BulkRetrievalSchedule, pk=pk)
+        task_bulk_schedule_run.apply_async(kwargs={'schedule_id': schedule.pk})
+        messages.success(request, 'Immediate run dispatched.')
+        return HttpResponseRedirect(
+            reverse('dicom_server:schedule_list'))
