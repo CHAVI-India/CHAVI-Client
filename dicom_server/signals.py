@@ -5,8 +5,9 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django_celery_beat.models import PeriodicTask
 
-from dicom_server.models import RemoteDICOMNode
+from dicom_server.models import BulkRetrievalSchedule, RemoteDICOMNode
 from dicom_server.services.schedule_sync import sync_node_schedule
+from dicom_server.services.schedule_bulk import sync_bulk_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -19,3 +20,19 @@ def _sync_node_schedule_on_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=RemoteDICOMNode)
 def _disable_node_schedule_on_delete(sender, instance, **kwargs):
     PeriodicTask.objects.filter(name=f'dicom-auto-retrieve-node-{instance.pk}').delete()
+
+
+@receiver(post_save, sender=BulkRetrievalSchedule)
+def _sync_bulk_schedule_on_save(sender, instance, **kwargs):
+    sync_bulk_schedule(instance)
+
+
+@receiver(post_delete, sender=BulkRetrievalSchedule)
+def _disable_bulk_schedule_on_delete(sender, instance, **kwargs):
+    PeriodicTask.objects.filter(name=instance.beat_name).delete()
+    if instance.one_off_task_id:
+        from celery import current_app
+        try:
+            current_app.control.revoke(instance.one_off_task_id, terminate=False)
+        except Exception:
+            logger.exception('Failed to revoke one-off task on delete')

@@ -5,10 +5,12 @@ from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
 
+import json
 from unittest import mock
 
 from django.test import override_settings
 
+from django_celery_beat.models import PeriodicTask
 from client_app.models import Patient, SiteConfiguration
 from dicom_server.models import (
     BulkRetrievalSchedule, RemoteDICOMNode, RetrievalBatch,
@@ -26,6 +28,13 @@ from dicom_server.services import bulk_selection
 from dicom_server.services.bulk_selection import (
     SelectionCriteria, build_selections_for_patient, select_study,
 )
+from dicom_server.services.schedule_bulk import sync_bulk_schedule
+
+
+def _fake_result():
+    r = mock.MagicMock()
+    r.id = 'oneoff-id'
+    return r
 
 
 class ModelSetupMixin:
@@ -37,6 +46,14 @@ class ModelSetupMixin:
         cls.node = RemoteDICOMNode.objects.create(
             name='Stub PACS', ae_title='STUBPACS', host='127.0.0.1', port=104,
         )
+
+    def setUp(self):
+        super().setUp()
+        # Never touch the broker when a schedule is saved (post_save dispatches).
+        patcher = mock.patch('dicom_server.tasks.task_bulk_schedule_run.apply_async')
+        self.mock_apply = patcher.start()
+        self.mock_apply.return_value = _fake_result()
+        self.addCleanup(patcher.stop)
 
     def _patient(self, patient_id='P001', consent=True):
         p = Patient.objects.create(patient_id=patient_id, gender='Female')
@@ -415,3 +432,63 @@ class ScheduledRunIntegrationTests(ModelSetupMixin, TestCase):
         self.assertEqual(s.last_status, 'SUCCESS')
         self.assertEqual(
             sorted(batch.summary['succeeded']), ['A', 'B', 'C'])
+
+
+class OneOffScheduleTests(ModelSetupMixin, TestCase):
+    def test_dispatch_with_eta_on_create(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=3),
+        )
+        s.refresh_from_db()
+        self.assertEqual(s.one_off_task_id, 'oneoff-id')
+        self.mock_apply.assert_called_once()
+        kwargs = self.mock_apply.call_args.kwargs
+        self.assertEqual(kwargs['kwargs'], {'schedule_id': s.pk})
+        self.assertEqual(kwargs['eta'], s.run_at)
+
+    @mock.patch('celery.app.control.Control.revoke')
+    def test_deactivate_revokes(self, mock_revoke):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=3),
+        )
+        s.is_active = False
+        s.save()
+        s.refresh_from_db()
+        self.assertEqual(s.one_off_task_id, '')
+        mock_revoke.assert_called_once()
+
+    def test_delete_clears_state(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=3),
+        )
+        s.one_off_task_id = ''  # skip broker revoke on delete
+        s.save()
+        pk = s.pk
+        s.delete()
+        self.assertFalse(BulkRetrievalSchedule.objects.filter(pk=pk).exists())
+
+
+class PeriodicScheduleTests(ModelSetupMixin, TestCase):
+    def test_creates_periodic_task(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='PERIODIC',
+            minute='15', hour='3', day_of_week='*',
+            day_of_month='*', month_of_year='*',
+        )
+        pt = PeriodicTask.objects.get(name=s.beat_name)
+        self.assertEqual(pt.task, 'dicom_server.tasks.task_bulk_schedule_run')
+        self.assertEqual(pt.args, json.dumps([s.pk]))
+        self.assertTrue(pt.enabled)
+        self.assertEqual(pt.crontab.minute, '15')
+        self.assertEqual(pt.crontab.hour, '3')
+
+    def test_deactivate_disables_periodic(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='PERIODIC',
+        )
+        s.is_active = False
+        s.save()
+        self.assertFalse(PeriodicTask.objects.get(name=s.beat_name).enabled)
