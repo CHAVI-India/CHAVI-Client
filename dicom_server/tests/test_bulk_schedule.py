@@ -29,6 +29,7 @@ from dicom_server.services.bulk_selection import (
     SelectionCriteria, build_selections_for_patient, select_study,
 )
 from dicom_server.services.schedule_bulk import sync_bulk_schedule
+from dicom_server.forms import BulkScheduleForm
 
 
 def _fake_result():
@@ -492,3 +493,61 @@ class PeriodicScheduleTests(ModelSetupMixin, TestCase):
         s.is_active = False
         s.save()
         self.assertFalse(PeriodicTask.objects.get(name=s.beat_name).enabled)
+
+
+class BulkScheduleFormTests(ModelSetupMixin, TestCase):
+    def _base(self, **over):
+        data = {
+            'name': 'night pull',
+            'node': self.node.pk,
+            'mode': 'ONE_OFF',
+            'patients': [self._patient('P001').pk],
+            'run_at': '2099-01-01T12:00',
+            'minute': '0', 'hour': '2', 'day_of_week': '*',
+            'day_of_month': '*', 'month_of_year': '*',
+            'max_concurrent_patients': 2,
+            'retrieve_new_only': 'on',
+            'extra_transforms': '',
+            'select_modalities': 'CT', 'select_approval': 'approved',
+            'select_series_description': '', 'select_rt_label': '',
+            'study_date_from': '', 'study_date_to': '',
+        }
+        data.update(over)
+        return data
+
+    def test_valid_one_off(self):
+        form = BulkScheduleForm(data=self._base())
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_one_off_requires_run_at(self):
+        form = BulkScheduleForm(data=self._base(run_at=''))
+        self.assertFalse(form.is_valid())
+        self.assertIn('run_at', form.errors)
+
+    def test_one_off_rejects_past_run_at(self):
+        form = BulkScheduleForm(data=self._base(run_at='2000-01-01T12:00'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('run_at', form.errors)
+
+    def test_periodic_rejects_bad_cron(self):
+        form = BulkScheduleForm(data=self._base(mode='PERIODIC', run_at='', minute='61x'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('minute', form.errors)
+
+    def test_transforms_parsed(self):
+        form = BulkScheduleForm(data=self._base(
+            extra_transforms='^MR/(\\d+)/(\\d+)$ => \\1_\\2',
+        ))
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['extra_transforms'],
+                         [{'pattern': r'^MR/(\d+)/(\d+)$', 'replacement': r'\1_\2'}])
+
+    def test_non_consent_patient_rejected(self):
+        p = self._patient('NOC', consent=False)
+        form = BulkScheduleForm(data=self._base(patients=[p.pk]))
+        self.assertFalse(form.is_valid())
+
+    def test_invalid_approval_choice_rejected(self):
+        form = BulkScheduleForm(data=self._base(select_approval='bogus'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('select_approval', form.errors)
