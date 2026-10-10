@@ -8,7 +8,10 @@ from datetime import timedelta
 import json
 from unittest import mock
 
+from django.contrib.auth.models import Permission, User
 from django.test import override_settings
+from django.urls import reverse
+from django.utils import timezone
 
 from django_celery_beat.models import PeriodicTask
 from client_app.models import Patient, SiteConfiguration
@@ -551,3 +554,113 @@ class BulkScheduleFormTests(ModelSetupMixin, TestCase):
         form = BulkScheduleForm(data=self._base(select_approval='bogus'))
         self.assertFalse(form.is_valid())
         self.assertIn('select_approval', form.errors)
+
+
+class BulkScheduleViewTests(ModelSetupMixin, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.user = User.objects.create_user('schedop', password='pw')
+        cls.user.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='dicom_server',
+            codename__in=['view_remotedicomnode', 'add_retrievaljob',
+                          'view_retrievaljob'],
+        ))
+        cls.plain = User.objects.create_user('plainuser2', password='pw')
+
+    def _form_data(self, **over):
+        p = self._patient('VP')
+        data = {
+            'name': 'sched', 'node': self.node.pk, 'mode': 'ONE_OFF',
+            'patients': [p.pk],
+            'run_at': '2099-01-01T12:00',
+            'minute': '0', 'hour': '2', 'day_of_week': '*',
+            'day_of_month': '*', 'month_of_year': '*',
+            'max_concurrent_patients': 2, 'retrieve_new_only': 'on',
+            'extra_transforms': '', 'select_modalities': '',
+            'select_approval': '', 'select_series_description': '',
+            'select_rt_label': '', 'study_date_from': '', 'study_date_to': '',
+        }
+        data.update(over)
+        return data
+
+    def test_create_dispatches_and_redirects(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(
+            reverse('dicom_server:schedule_create'), self._form_data(),
+        )
+        self.assertEqual(resp.status_code, 302)
+        s = BulkRetrievalSchedule.objects.get()
+        self.assertEqual(s.one_off_task_id, 'oneoff-id')
+        self.assertEqual(s.created_by_id, self.user.pk)
+
+    def test_list_requires_permission(self):
+        self.client.force_login(self.plain)
+        self.assertEqual(
+            self.client.get(reverse('dicom_server:schedule_list')).status_code,
+            403)
+        self.client.force_login(self.user)
+        self.assertEqual(
+            self.client.get(reverse('dicom_server:schedule_list')).status_code,
+            200)
+
+    def test_run_now(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at='2099-01-01T12:00', one_off_task_id='old',
+        )
+        s.one_off_task_id = ''
+        s.save()
+        self.mock_apply.reset_mock()
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('dicom_server:schedule_run_now', args=[s.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.mock_apply.assert_called_once()
+        self.assertEqual(self.mock_apply.call_args.kwargs.get('kwargs'), {'schedule_id': s.pk})
+
+    def test_toggle_flips_active(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at='2099-01-01T12:00', one_off_task_id='', is_active=False,
+        )
+        self.client.force_login(self.user)
+        self.client.post(reverse('dicom_server:schedule_toggle', args=[s.pk]))
+        s.refresh_from_db()
+        self.assertTrue(s.is_active)
+
+    def test_delete(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at='2099-01-01T12:00', one_off_task_id='', is_active=False,
+        )
+        self.client.force_login(self.user)
+        pk = s.pk
+        self.client.post(reverse('dicom_server:schedule_delete', args=[pk]))
+        self.assertFalse(BulkRetrievalSchedule.objects.filter(pk=pk).exists())
+
+
+class BulkScheduleTemplateTests(BulkScheduleViewTests):
+    def test_list_renders_schedule(self):
+        s = BulkRetrievalSchedule.objects.create(
+            name='visible-name', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=1), one_off_task_id='',
+            is_active=False,
+        )
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('dicom_server:schedule_list'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'visible-name')
+        self.assertContains(resp, s.schedule_display)
+
+    def test_create_page_renders_form(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('dicom_server:schedule_create'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'id_name')
+        self.assertContains(resp, 'id_node')
+
+    def test_bulk_page_links_to_schedules(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('dicom_server:retrieve_bulk'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, reverse('dicom_server:schedule_list'))

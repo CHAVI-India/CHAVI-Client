@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Bulk Retrieval Schedules - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    {% url 'dicom_server:schedule_create' as add_url %}
+    {% url 'dicom_server:dashboard' as dash_url %}
+    {% component "page_header" title="Bulk Retrieval Schedules" icon="fas fa-clock" back_url=dash_url back_text="Back to dashboard" %}
+        {% fill "actions" %}
+            {% if perms.dicom_server.view_remotedicomnode %}
+            {% component "button" style="primary" href=add_url icon="fas fa-plus" %}New Schedule{% endcomponent %}
+            {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+        {% fill "body" %}
+        {% if schedules %}
+        {% component "table" %}
+            {% fill "head" %}
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Node</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Mode</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">When</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Patients</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Active</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>
+            {% endfill %}
+            {% fill "body" %}
+                {% for schedule in schedules %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ schedule.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ schedule.node.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{% if schedule.mode == 'PERIODIC' %}Periodic{% else %}One-off{% endif %}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ schedule.schedule_display }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ schedule.patients.count }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if schedule.is_active %}{% component "badge" style="success" %}Yes{% endcomponent %}{% else %}{% component "badge" style="danger" %}No{% endcomponent %}{% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        {% url 'dicom_server:schedule_toggle' schedule.pk as toggle_url %}
+                        {% url 'dicom_server:schedule_run_now' schedule.pk as run_url %}
+                        {% url 'dicom_server:schedule_edit' schedule.pk as edit_url %}
+                        {% url 'dicom_server:schedule_delete' schedule.pk as del_url %}
+                        {% if perms.dicom_server.view_remotedicomnode %}
+                        <form method="post" action="{% url 'dicom_server:schedule_toggle' schedule.pk %}" class="inline">
+                            {% csrf_token %}
+                            {% component "icon_button" icon="fas fa-power-off" type="submit" aria_label="Toggle" title="{% if schedule.is_active %}Disable{% else %}Enable{% endif %}" %}{% endcomponent %}
+                        </form>
+                        <form method="post" action="{% url 'dicom_server:schedule_run_now' schedule.pk %}" class="inline">
+                            {% csrf_token %}
+                            {% component "icon_button" icon="fas fa-play" type="submit" aria_label="Run now" title="Run now" %}{% endcomponent %}
+                        </form>
+                        {% endif %}
+                        {% component "icon_button" icon="fas fa-edit" aria_label="Edit" href=edit_url title="Edit" %}{% endcomponent %}
+                        {% component "icon_button" icon="fas fa-trash" style="danger" aria_label="Delete" href=del_url title="Delete" %}{% endcomponent %}
+                    </td>
+                </tr>
+                {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        {% component "empty_state" title="No bulk retrieval schedules yet" description="Create a schedule to retrieve DICOM objects on a fixed time or recurring off-peak window." %}
+            {% fill "action" %}
+                {% if perms.dicom_server.view_remotedicomnode %}
+                {% component "button" style="primary" href=add_url icon="fas fa-plus" %}New Schedule{% endcomponent %}
+                {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+</div>
+{% endblock %}

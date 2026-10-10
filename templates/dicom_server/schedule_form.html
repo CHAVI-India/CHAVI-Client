@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if object %}Edit{% else %}New{% endif %} Bulk Retrieval Schedule - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    {% url 'dicom_server:schedule_list' as back_url %}
+    {% if object %}
+    {% component "page_header" title="Edit Bulk Retrieval Schedule" icon="fas fa-clock" back_url=back_url back_text="Back to schedules" %}{% endcomponent %}
+    {% else %}
+    {% component "page_header" title="New Bulk Retrieval Schedule" icon="fas fa-clock" back_url=back_url back_text="Back to schedules" %}{% endcomponent %}
+    {% endif %}
+    {% component "card" %}{% fill "body" %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="mt-6 flex space-x-3">
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Save{% endcomponent %}
+                {% component "button" style="secondary" href=back_url %}Cancel{% endcomponent %}
+            </div>
+        </form>
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

@@ -9,6 +9,8 @@
     {% url 'dicom_server:dashboard' as dash_url %}
     {% component "page_header" title="Bulk Retrieve DICOM Studies" icon="fas fa-download" back_url=dash_url back_text="Back to dashboard" %}{% endcomponent %}
 
+    <p class="mb-4 text-sm"><a class="text-chavi-primary hover:underline" href="{% url 'dicom_server:schedule_list' %}">Manage scheduled bulk retrievals &rarr;</a></p>
+
     {% csrf_token %}
 
     {% component "card" extra_class="mb-6" %}
