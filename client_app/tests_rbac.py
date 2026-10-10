@@ -101,6 +101,33 @@ class RoleGroupTests(TestCase):
             self.assertIsNotNone(group, name)
             self.assertGreater(group.permissions.count(), 0, name)
 
+    def test_dicom_administrator_has_archive_permissions(self):
+        """Migration 0031 wires the archive permission set into the
+        existing DICOM Administrator role (no new group)."""
+        group = Group.objects.get(name='DICOM Administrator')
+        held = set(group.permissions.filter(
+            content_type__app_label='dicom_archive',
+        ).values_list('codename', flat=True))
+        for codename in (
+            'view_archiveconfiguration', 'change_archiveconfiguration',
+            'view_archivelocation', 'add_archivelocation',
+            'change_archivelocation', 'delete_archivelocation',
+            'view_archivedstudy', 'add_archivedstudy',
+        ):
+            self.assertIn(codename, held, codename)
+
+    def test_dicom_administrator_can_use_archive_ui(self):
+        self._user_in_group('DICOM Administrator', 'dicomadmin-archive')
+        for url_name in (
+            'dicom_archive:dashboard',
+            'dicom_archive:config_edit',
+            'dicom_archive:location_list',
+            'dicom_archive:browse',
+            'dicom_archive:archived_list',
+        ):
+            resp = self.client.get(reverse(url_name))
+            self.assertEqual(resp.status_code, 200, url_name)
+
     def test_clinical_viewer_can_read_but_not_write(self):
         self._user_in_group('Clinical Data Viewer', 'cv')
         for url_name in (

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}DICOM Archive - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    {% url 'dicom_archive:browse' as browse_url %}
+    {% url 'dicom_archive:archived_list' as archived_url %}
+    {% url 'dicom_archive:location_list' as locations_url %}
+    {% url 'dicom_archive:config_edit' as config_url %}
+    {% component "page_header" title="DICOM Archive" icon="fas fa-warehouse" subtitle="Archive local DICOM study folders to a configurable location and restore them on demand" %}
+        {% fill "actions" %}
+        {% if perms.dicom_archive.view_archivedstudy %}
+        {% component "button" style="primary" href=browse_url icon="fas fa-folder-open" %}Browse Studies{% endcomponent %}
+        {% component "button" style="secondary" href=archived_url icon="fas fa-list" %}Archived Studies{% endcomponent %}
+        {% endif %}
+        {% if perms.dicom_archive.view_archivelocation %}
+        {% component "button" style="secondary" href=locations_url icon="fas fa-server" %}Locations{% endcomponent %}
+        {% endif %}
+        {% if perms.dicom_archive.change_archiveconfiguration %}
+        {% component "button" style="secondary" href=config_url icon="fas fa-edit" %}Configuration{% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {% component "stat_card" icon="fas fa-database" style="primary" label="Total archive records" value=total_records %}{% endcomponent %}
+        {% component "stat_card" icon="fas fa-inbox" style="success" label="Archived" value=status_counts.ARCHIVED %}{% endcomponent %}
+        {% component "stat_card" icon="fas fa-hourglass-half" style="warning" label="Archiving / Restoring" value=in_flight_count %}{% endcomponent %}
+        {% component "stat_card" icon="fas fa-undo" style="gray" label="De-archived" value=status_counts.DEARCHIVED %}{% endcomponent %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {% component "card" title="Archive Configuration" accent="charcoal" %}
+            {% fill "body" %}
+            <dl class="text-sm space-y-1">
+                <div class="flex justify-between"><dt class="text-gray-500">Scheduled archival</dt><dd>{% if config.enabled %}{% component "badge" style="success" %}Enabled{% endcomponent %}{% else %}{% component "badge" style="danger" %}Disabled{% endcomponent %}{% endif %}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Archive studies older than</dt><dd>{{ config.archive_after_days }} days</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">After archiving</dt><dd>{% if config.delete_local_after_archive %}Local files are deleted{% else %}Local copy is kept{% endif %}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Schedule</dt><dd class="font-mono text-xs">{{ config.archive_minute }} {{ config.archive_hour }} {{ config.archive_day_of_week }} {{ config.archive_day_of_month }} {{ config.archive_month_of_year }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Batch limit per run</dt><dd>{{ config.batch_limit }} studies</dd></div>
+            </dl>
+            {% endfill %}
+            {% if perms.dicom_archive.change_archiveconfiguration %}
+            {% fill "footer" %}
+                {% component "button" style="link" size="sm" href=config_url icon="fas fa-edit" %}Edit configuration{% endcomponent %}
+            {% endfill %}
+            {% endif %}
+        {% endcomponent %}
+
+        {% component "card" title="Default Archive Location" accent="charcoal" %}
+            {% fill "body" %}
+            {% if default_location %}
+            <dl class="text-sm space-y-1">
+                <div class="flex justify-between"><dt class="text-gray-500">Name</dt><dd class="font-medium">{{ default_location.name }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ default_location.get_storage_type_display }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Path</dt><dd class="font-mono text-xs break-all text-right max-w-[70%]">{{ default_location.resolved_path }}</dd></div>
+            </dl>
+            {% else %}
+            <p class="text-sm text-gray-500">No default archive location configured. The scheduled sweep needs a default active location.</p>
+            {% endif %}
+            {% endfill %}
+            {% if perms.dicom_archive.view_archivelocation %}
+            {% fill "footer" %}
+                {% component "button" style="link" size="sm" href=locations_url icon="fas fa-server" %}Manage locations{% endcomponent %}
+            {% endfill %}
+            {% endif %}
+        {% endcomponent %}
+    </div>
+
+    {% component "card" title="Recent Archived Studies" accent="primary" extra_class="mb-8" %}
+        {% fill "body" %}
+        {% if recent_archived %}
+        {% component "table" compact=True %}
+            {% fill "head" %}
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Study UID</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Patient</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Location</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Archived</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">By</th>
+            {% endfill %}
+            {% fill "body" %}
+            {% for record in recent_archived %}
+            <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-mono text-xs">{{ record.study.study_instance_uid|truncatechars:24 }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ record.study.patient.patient_id }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">
+                    {% if record.status == 'ARCHIVED' %}{% component "badge" style="success" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% elif record.status == 'DEARCHIVED' %}{% component "badge" style="gray" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% else %}{% component "badge" style="warning" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ record.location.name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ record.archived_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ record.archived_by|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        <p class="text-sm text-gray-500">No studies have been archived yet.</p>
+        {% endif %}
+        {% endfill %}
+        {% if perms.dicom_archive.view_archivedstudy %}
+        {% fill "footer" %}
+            {% component "button" style="link" size="sm" href=archived_url icon="fas fa-list" %}View all archived studies{% endcomponent %}
+        {% endfill %}
+        {% endif %}
+    {% endcomponent %}
+</div>
+{% endblock %}

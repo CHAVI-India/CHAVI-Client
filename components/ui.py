@@ -50,6 +50,11 @@ class KwargComponent(Component):
         data = dict(kwargs)
         for attr in _ATTR_KWARGS:
             data.setdefault(attr, None)
+        # Default extra_class to None so a NESTED component never inherits
+        # the outer component's extra_class via template context fallback
+        # (e.g. a badge inside a card with extra_class="mb-8" would pick up
+        # the card's margin and shift out of alignment in tables).
+        data.setdefault("extra_class", None)
         data_attrs = {
             k[6:].replace("_", "-"): v
             for k, v in kwargs.items()
@@ -257,6 +262,7 @@ class Pagination(KwargComponent):
             qs = "search={}".format(kwargs["search_term"])
         data = dict(kwargs)
         data["qs"] = qs
+        data.setdefault("extra_class", None)
         return data
 
 
@@ -306,7 +312,7 @@ class Stepper(KwargComponent):
                 else:
                     state = "pending"
                 computed.append({"label": label, "state": state})
-        return {"computed_steps": computed}
+        return {"computed_steps": computed, "extra_class": kwargs.get("extra_class")}
 
 
 @register("progress")
@@ -444,6 +450,7 @@ class FileTypeBadge(KwargComponent):
             "color": color,
             "label": kwargs.get("label") or ext.upper() or "FILE",
             "show_label": kwargs.get("show_label", True),
+            "extra_class": kwargs.get("extra_class"),
         }
 
 

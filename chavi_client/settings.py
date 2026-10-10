@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     'celery_progress',
     'deidentification',
     'dicom_server',
+    'dicom_archive',
 ]
 
 MIDDLEWARE = [

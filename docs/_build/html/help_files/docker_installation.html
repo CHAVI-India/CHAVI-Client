@@ -351,6 +351,73 @@ the remote cannot connect back.</p></li>
 <p>See <code class="docutils literal notranslate"><span class="pre">docker_install/README.md</span></code> in the repository for the full networking
 table and verification commands.</p>
 </section>
+<section id="dicom-archive-storage-nas-lan">
+<h2>DICOM Archive Storage (NAS/LAN)<a class="headerlink" href="#dicom-archive-storage-nas-lan" title="Link to this heading">¶</a></h2>
+<p>If you use the DICOM Archive (see <a class="reference internal" href="dicom_archive.html"><span class="doc">DICOM Archive</span></a>), remember that the
+app’s media root inside the containers is <code class="docutils literal notranslate"><span class="pre">/app/media</span></code> and study folders
+live at <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom/&lt;patient</span> <span class="pre">ID&gt;/&lt;study</span> <span class="pre">UID&gt;</span></code>. A location’s
+path is therefore always a path <strong>inside the containers</strong> — the host path you
+mount determines what it points at on disk. Three common setups:</p>
+<ul>
+<li><p><strong>Another folder in the app’s media volume</strong> — no compose change. Create the
+location with a relative path, for example <code class="docutils literal notranslate"><span class="pre">dicom_archive</span></code>; it resolves to
+<code class="docutils literal notranslate"><span class="pre">/app/media/dicom_archive</span></code> (host: <code class="docutils literal notranslate"><span class="pre">&lt;compose</span> <span class="pre">dir&gt;/media/dicom_archive</span></code>).
+Caveat: the archive then lives on the same physical disk as the source data.</p></li>
+<li><p><strong>NAS/LAN share mounted on the Docker host</strong> — mount the share on the host
+first (NFS or SMB, for example at <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code>), then add the
+bind mount to the <code class="docutils literal notranslate"><span class="pre">volumes:</span></code> of <strong>both</strong> <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code> and
+<code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="o">-</span> <span class="n">chaviclient_app_data</span><span class="p">:</span><span class="o">/</span><span class="n">app</span>
+  <span class="o">-</span> <span class="o">./</span><span class="n">media</span><span class="p">:</span><span class="o">/</span><span class="n">app</span><span class="o">/</span><span class="n">media</span>
+  <span class="o">-</span> <span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">nas</span><span class="o">/</span><span class="n">chavi</span><span class="o">-</span><span class="n">archive</span><span class="p">:</span><span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>Create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code> inside the containers does <strong>not</strong> need to be created
+beforehand — the app creates it (with a write probe) when the location
+is saved, and again at the start of every archive run. But the <em>host</em>
+side needs a check: if <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code> does not exist on the
+Docker host, Docker silently creates it as an empty directory and mounts
+<strong>that</strong> — archiving then succeeds, but the data lands on the host disk
+instead of the NAS. Before starting the containers, confirm the share is
+really mounted on the host (<code class="docutils literal notranslate"><span class="pre">df</span> <span class="pre">-h</span> <span class="pre">/mnt/nas/chavi-archive</span></code> should show
+the NAS, and on Windows the SMB share must be reachable); after start,
+<code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">exec</span> <span class="pre">chaviclient-celery-worker</span> <span class="pre">ls</span> <span class="pre">-ld</span> <span class="pre">/archive/dicom</span></code>
+should show the share, not an empty fresh directory.</p>
+</div>
+</li>
+<li><p><strong>Windows host with an SMB share (Docker Desktop)</strong> — bind the UNC path
+directly, no host-side mount needed, again in <strong>both</strong> services:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="o">-</span> <span class="o">//</span><span class="n">NAS_HOST</span><span class="o">/</span><span class="n">chavi</span><span class="o">-</span><span class="n">archive</span><span class="p">:</span><span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>Create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+</li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code> (web) container needs the mount too: when a location
+is saved, the form probes the path for write access in the web container — a
+path mounted only in the worker fails that validation with “location path is
+not writable”. The actual archiving and de-archiving run in
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code>; <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-beat</span></code> only dispatches the
+scheduled sweep and <code class="docutils literal notranslate"><span class="pre">chaviclient-dicom</span></code> never touches the archive path, so
+neither of them needs the mount.</p>
+<p>Verification after a change:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">ls</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>then create the mounted location in the UI (it must pass validation), archive
+one study, and confirm the files under the share:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">find</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span> <span class="o">-</span><span class="n">name</span> <span class="s1">'*.dcm'</span> <span class="o">|</span> <span class="n">head</span>
+</pre></div>
+</div>
+<p>When the “delete local copy after archiving” option is on, the study’s folder
+under <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom</span></code> disappears after the archive succeeds; de-
+archiving restores it to the original path.</p>
+</section>
 </section>
 
 
@@ -380,6 +447,7 @@ table and verification commands.</p>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#updating-the-software">Updating the Software</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#dicom-query-retrieve-networking">DICOM Query/Retrieve Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dicom-archive-storage-nas-lan">DICOM Archive Storage (NAS/LAN)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
@@ -435,6 +503,7 @@ table and verification commands.</p>
 <p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Archive Locations - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    {% url 'dicom_archive:dashboard' as dash_url %}
+    {% url 'dicom_archive:location_create' as add_url %}
+    {% component "page_header" title="Archive Locations" icon="fas fa-server" back_url=dash_url back_text="Back to archive" %}
+        {% fill "actions" %}
+        {% if perms.dicom_archive.add_archivelocation %}
+        {% component "button" style="primary" href=add_url icon="fas fa-plus" %}Add Location{% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+        {% fill "body" %}
+        {% if locations %}
+        {% component "table" %}
+            {% fill "head" %}
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Path</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Default</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Active</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Archived Studies</th>
+            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>
+            {% endfill %}
+            {% fill "body" %}
+            {% for loc in locations %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ loc.name }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">{{ loc.get_storage_type_display }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-xs text-gray-500">{{ loc.resolved_path }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">{% if loc.is_default %}{% component "badge" style="success" %}Yes{% endcomponent %}{% else %}{% component "badge" style="gray" %}No{% endcomponent %}{% endif %}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">{% if loc.is_active %}{% component "badge" style="success" %}Yes{% endcomponent %}{% else %}{% component "badge" style="danger" %}No{% endcomponent %}{% endif %}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">{{ loc.study_count }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                    {% if perms.dicom_archive.change_archivelocation %}
+                    {% url 'dicom_archive:location_update' loc.pk as edit_url %}
+                    {% component "icon_button" icon="fas fa-edit" aria_label="Edit" href=edit_url title="Edit" %}{% endcomponent %}
+                    {% endif %}
+                    {% if perms.dicom_archive.delete_archivelocation %}
+                    <form method="post" action="{% url 'dicom_archive:location_delete' loc.pk %}" class="inline"
+                          onsubmit="return confirm('Delete archive location {{ loc.name|escapejs }}? Locations that still hold archived studies cannot be deleted.');">
+                        {% csrf_token %}
+                        {% component "icon_button" icon="fas fa-trash" style="danger" type="submit" aria_label="Delete" title="Delete" %}{% endcomponent %}
+                    </form>
+                    {% endif %}
+                    {% component "icon_button" icon="fas fa-plug" aria_label="Test" title="Test location (writes a small test file)" data__testid=loc.pk data__testname=loc.name extra_class="location-test-btn" %}{% endcomponent %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        {% component "empty_state" title="No archive locations configured" description="Add a location (local folder or mounted NAS/LAN share) to enable archiving." %}
+            {% fill "action" %}
+            {% if perms.dicom_archive.add_archivelocation %}
+            {% component "button" style="primary" href=add_url icon="fas fa-plus" %}Add Location{% endcomponent %}
+            {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+        {% endif %}
+        <div id="location-test-result" class="mt-4 hidden"></div>
+        {% endfill %}
+    {% endcomponent %}
+</div>
+<script>
+(function () {
+    'use strict';
+    const TEST_URL = '{% url "dicom_archive:location_test" %}';
+    const box = document.getElementById('location-test-result');
+    const btns = Array.from(document.querySelectorAll('.location-test-btn'));
+    if (!box || !btns.length) return;
+    function csrf() {
+        const input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function postJSON(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+            body: JSON.stringify(body || {}),
+        }).then(r => r.text().then(t => {
+            let j; try { j = JSON.parse(t); } catch (e) { j = null; }
+            return {ok: r.ok, status: r.status, body: j};
+        }));
+    }
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+        });
+    }
+    function show(html) { box.innerHTML = html; box.classList.remove('hidden'); }
+    function render(body, label) {
+        let html = '<div class="rounded-md border border-gray-200 p-4 text-sm">';
+        html += '<p class="font-medium mb-2">Location test' + (label ? ' &mdash; ' + esc(label) : '') + '</p>';
+        if (body.path) {
+            html += '<p class="text-xs text-gray-500 mb-2">Path: <code class="font-mono">' + esc(body.path) + '</code>'
+                + (body.created ? ' <span class="text-gray-400">(directory created by this test)</span>' : '') + '</p>';
+        }
+        (body.checks || []).forEach(function (c) {
+            html += '<p class="mb-1">' + (c.ok ? '\u2705' : '\u274c')
+                + ' <span class="font-medium">' + esc(c.name) + '</span> &mdash; ' + esc(c.detail) + '</p>';
+        });
+        if (body.test_file) {
+            html += '<p class="mt-2 text-xs text-gray-600">Verification file (visible on the share, safe to delete): <code class="font-mono">' + esc(body.test_file) + '</code></p>';
+        }
+        if (!body.ok) {
+            html += '<p class="mt-2 text-xs" style="color:#b91c1c;">' + esc(body.error || 'Test failed.') + '</p>';
+        }
+        html += '</div>';
+        show(html);
+    }
+    btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            show('<div class="rounded-md border border-gray-200 p-4 text-sm text-gray-500">Testing &ldquo;' + esc(btn.dataset.testname) + '&rdquo;&hellip;</div>');
+            postJSON(TEST_URL, {location_id: parseInt(btn.dataset.testid, 10)})
+                .then(function (r) {
+                    if (r.ok && r.body) render(r.body, btn.dataset.testname);
+                    else show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">' + esc((r.body && r.body.error) || ('Request failed (HTTP ' + r.status + ').')) + '</div>');
+                })
+                .catch(function () {
+                    show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">Request failed.</div>');
+                })
+                .then(function () { btn.disabled = false; });
+        });
+    });
+})();
+</script>
+{% endblock %}

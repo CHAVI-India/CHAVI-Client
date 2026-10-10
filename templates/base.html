@@ -37,6 +37,7 @@
                         {% url 'client_app:bulk_dicom_upload' as nav_dicom_up %}
                         {% url 'client_app:bulk_dicom_session_list' as nav_dicom_sessions %}
                         {% url 'dicom_server:dashboard' as nav_dicom_srv %}
+                        {% url 'dicom_archive:dashboard' as nav_archive %}
                         {% url 'extractor:extraction_dashboard' as nav_ex_dash %}
                         {% url 'extractor:extraction_results_list' as nav_ex_results %}
                         {% url 'extractor:file_upload_list' as nav_ex_files %}
@@ -55,8 +56,8 @@
 
                         {% if user.is_authenticated %}
                         <!-- Data Import Dropdown -->
-                        {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode %}
-                        {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,dicom_server,bulk_dicom" %}
+                        {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode or perms.dicom_archive.view_archiveconfiguration %}
+                        {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,dicom_server,dicom_archive,bulk_dicom" %}
                             {% fill "items" %}
                             {% if perms.data_import.view_fileimportsession %}
                             {% component "nav_dropdown_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
@@ -69,6 +70,9 @@
                             {% endif %}
                             {% if perms.dicom_server.view_remotedicomnode %}
                             {% component "nav_dropdown_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.dicom_archive.view_archiveconfiguration %}
+                            {% component "nav_dropdown_item" href=nav_archive icon="fa-box-archive" label="DICOM Archive" %}{% endcomponent %}
                             {% endif %}
                             {% endfill %}
                         {% endcomponent %}
@@ -220,7 +224,7 @@
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-black bg-opacity-20">
                 {% component "nav_mobile_item" href=nav_home icon="fa-home" label="Home" active_on="homepage" %}{% endcomponent %}
                 {% if user.is_authenticated %}
-                {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode %}
+                {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode or perms.dicom_archive.view_archiveconfiguration %}
                 {% component "nav_mobile_item" section="DATA IMPORT" %}{% endcomponent %}
                 {% if perms.data_import.view_fileimportsession %}
                 {% component "nav_mobile_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
@@ -233,6 +237,9 @@
                 {% endif %}
                 {% if perms.dicom_server.view_remotedicomnode %}
                 {% component "nav_mobile_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
+                {% endif %}
+                {% if perms.dicom_archive.view_archiveconfiguration %}
+                {% component "nav_mobile_item" href=nav_archive icon="fa-box-archive" label="DICOM Archive" %}{% endcomponent %}
                 {% endif %}
                 {% endif %}
                 {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}

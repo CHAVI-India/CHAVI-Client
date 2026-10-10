@@ -79,6 +79,7 @@ Please note that the organization of the data may be different from the usual wa
    :caption: For administrators
 
    help_files/dicom_server_setup
+   help_files/dicom_archive
    help_files/deidentification
    help_files/legacy_mapping_import
    help_files/extraction_setup

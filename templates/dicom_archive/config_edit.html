@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}DICOM Archive Configuration - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    {% url 'dicom_archive:dashboard' as dash_url %}
+    {% component "page_header" title="DICOM Archive Configuration" icon="fas fa-warehouse" back_url=dash_url back_text="Back to archive" %}{% endcomponent %}
+    {% component "card" %}{% fill "body" %}
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="mt-6 flex space-x-3">
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Save{% endcomponent %}
+                {% component "button" style="secondary" href=dash_url %}Cancel{% endcomponent %}
+            </div>
+        </form>
+        {% component "info_box" style="info" %}
+            {% fill "default" %}
+            Saving updates the django-celery-beat schedule for the periodic sweep automatically (post-save signal in dicom_archive). Cron fields accept digits, commas, dashes, asterisks and forward slashes.
+            {% endfill %}
+        {% endcomponent %}
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

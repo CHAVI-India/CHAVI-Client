@@ -115,11 +115,20 @@ Task Runs page.</p></td>
 <tr class="row-even"><td><p><strong>DICOM Administrator</strong></p></td>
 <td><p>Manages the DICOM server configuration, remote nodes (add, edit,
 delete, echo test), patient ID aliases and auto-retrieval settings, and
-monitors retrieval jobs. Cannot itself trigger retrievals or see patient
+monitors retrieval jobs. Also manages the DICOM archive (migration
+<code class="docutils literal notranslate"><span class="pre">client_app.0031</span></code>): archive configuration and scheduled sweep,
+archive locations, manual archive/de-archive of studies and the
+archived-study list. Cannot itself trigger retrievals or see patient
 clinical data.</p></td>
 </tr>
 </tbody>
 </table>
+<p>The DICOM archive permission set was added to the <em>DICOM Administrator</em> role
+by migration <code class="docutils literal notranslate"><span class="pre">client_app.0031_dicom_administrator_archive_permissions</span></code>
+(rather than as a separate group). Users who need only part of the archive
+feature — for example operators who may archive but not reconfigure — can
+still be given individual permissions directly (see
+<a class="reference internal" href="dicom_archive.html"><span class="doc">DICOM Archive</span></a>).</p>
 <p>A user may belong to several groups at once — the permissions add up.
 Superusers (<code class="docutils literal notranslate"><span class="pre">is_superuser</span></code>) bypass all checks, and the <strong>Admin</strong> link only
 appears for users with <code class="docutils literal notranslate"><span class="pre">is_staff</span></code>.</p>
@@ -182,6 +191,19 @@ overwritten unless you deliberately re-run that migration.</p>
 </tr>
 <tr class="row-even"><td><p>DICOM server config, nodes, echo</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">dicom_server.change_dicomserverconfiguration</span></code>, <code class="docutils literal notranslate"><span class="pre">*_remotedicomnode</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DICOM archive dashboard / browse / archived list</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dicom_archive.view_archivedstudy</span></code> (nav entry also needs
+<code class="docutils literal notranslate"><span class="pre">dicom_archive.view_archiveconfiguration</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p>Manual archive / de-archive (trigger buttons)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dicom_archive.add_archivedstudy</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Archive configuration page</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dicom_archive.change_archiveconfiguration</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Archive locations (list / add / edit / delete)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dicom_archive.view_archivelocation</span></code>, <code class="docutils literal notranslate"><span class="pre">add/change/delete_archivelocation</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Query/retrieve from a remote node</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">dicom_server.add_retrievaljob</span></code></p></td>
@@ -282,6 +304,7 @@ overwritten unless you deliberately re-run that migration.</p>
 <p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>

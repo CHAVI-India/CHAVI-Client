@@ -46,6 +46,8 @@ urlpatterns = [
     path('deidentification/', include('deidentification.urls')),
     # DICOM server URLs
     path('dicom-server/', include('dicom_server.urls')),
+    # DICOM archive URLs
+    path('dicom-archive/', include('dicom_archive.urls')),
     # UI styleguide (living component reference)
     path('styleguide/', include('styleguide.urls')),
     # Include client_app URLs with namespace

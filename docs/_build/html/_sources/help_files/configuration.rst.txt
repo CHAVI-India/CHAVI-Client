@@ -36,65 +36,30 @@ Initial Site Configuration
 User Groups and Permissions
 ------------------------------
 
-The system requires two main user groups with specific permissions:
+You do not need to create permission groups by hand. The application ships
+with ready-made roles — *Clinical Data Viewer*, *Clinical Data Entry*,
+*Data Import Operator*, *LLM Extraction Operator*, *LLM Configuration*,
+*Deidentification Operator* and *DICOM Administrator* — created
+automatically by the database migration. The *DICOM Administrator* role
+also covers the DICOM archive (configuration, locations, manual
+archive/de-archive).
 
-1. Create Data Entry Operator Group:
-   
-   * In Django Admin, go to "Groups"
-   * Click "Add Group"
-   * Name: "Data Entry Operators"
-   * Permissions: Add the following permissions:
-     
-     View/Add/Change permissions for:
-     
-     - Patients
-     - Lesions
-     - Lesion Responses
-     - Diagnosis
-     - Pathology
-     - Immunohistochemistry
-     - Cytogenetics
-     - Somatic Genomic Alterations
-     - Surgery
-     - Radiotherapy
-     - Systemic Therapy
-     - Patient Outcomes
-     - Laboratory Results
-     - DICOM Studies
-     - Symptoms
-     - Comorbidities
-     - Patient Reported Outcomes
-     - Concomitant Medications
-     - Other Treatment
-     - Cancer Outcomes
-     - Adverse Effects
-     - Radiation Volume
-     - Radiation Dose Volume Data
-     
-     Note: Do NOT grant delete permissions or access to lookup tables
+.. note::
+   The full description of each role, how to assign roles to users, and the
+   permission checked by every page is documented on the
+   :doc:`roles_and_permissions` page — use that as the reference.
 
-     .. tip::
-        You can search for the tables by searching for 'client_app' in the search bar. 
-        Please DO NOT grant delete permissions or access to lookup tables.
+In short:
 
-     If you are unsure about the permissions, please ask the CHAVI team for help.
+1. Create the users you need (below).
+2. In Django Admin, open **Users → (user) → Groups** and move the wanted
+   role(s) into *Chosen groups* — a user may hold several roles at once.
 
-2. Create Clinical Staff Group:
-   
-   * Create another group named "Clinical Staff"
-   * Grant the same permissions as Data Entry Operators
-   * Add additional view permissions for lookup tables
-
-3. Restricted Tables (Superuser Only):
-   
-   The following tables should only be accessible to superusers:
-   
-   * All Lookup tables
-   * Site Configuration
-   * Projects
+Restricted data (lookup tables, site configuration, projects) stays
+superuser-only; there is no role that grants it.
 
 Creating Users
--------------
+--------------
 
 1. Create New User:
    
@@ -103,11 +68,11 @@ Creating Users
    * Enter username and password
    * Fill in required user information
 
-2. Assign Group:
+2. Assign a role:
    
    * In the user edit page
-   * Under "Permissions"
-   * Select appropriate group (Data Entry Operators or Clinical Staff)
+   * Under "Groups"
+   * Select the appropriate shipped role (see :doc:`roles_and_permissions`)
    * Save the user
 
 Security Recommendations
@@ -129,5 +94,5 @@ Security Recommendations
 
 For additional help please contact CHAVI support team. 
 
-You can raise tickets for support at https://gitlab.com/chavi/chavi-2.0/-/issues
+You can raise tickets for support at https://github.com/CHAVI-India/CHAVI-Client/issues
 

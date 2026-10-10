@@ -34,9 +34,9 @@ For each node you set:
 * **Name** — a friendly label, like "Hospital PACS"
 * **AE Title**, **Host** and **Port** — how to reach it
 * **Active** — untick to pause a node without deleting it
-* **Prefer C-GET** — tick this when the remote system cannot open a connection back to this server, for example when this server is behind a firewall or NAT. When in doubt, tick it.
+* **Prefer C-GET** — tick this when the remote system cannot open a connection back to this server, for example when this server is behind a firewall or NAT. C-MOVE (the default) needs two things on the remote side: this server's AE title registered as a destination, and a network path back to this server's port. When in doubt, tick it.
 
-The **Echo** button next to each node tests the connection — use it after adding a node to check the details are right.
+The **Echo** button next to each node tests the connection — use it after adding a node to check the details are right. The **Test Q/R capabilities** button (checklist icon) goes further: it reports which of C-FIND, C-MOVE and C-GET the remote system actually supports, so you can set **Prefer C-GET** correctly. Some systems — treatment machines and data-management systems in particular — are storage-only: they can receive scans sent to them but cannot be queried or fetched from. The capability test reports these as "negotiated but aborts queries"; for those, arrange for the system to *push* scans to this server's AE title instead.
 
 Fetching scans automatically
 -----------------------------

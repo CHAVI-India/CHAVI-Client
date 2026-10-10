@@ -2300,6 +2300,8 @@ class TaskRun(models.Model):
         ASSOCIATE = 'ASSOCIATE', 'Associate to Project'
         UNPROCESSED = 'UNPROCESSED', 'Process Unprocessed DICOM'
         DEIDENTIFICATION = 'DEIDENTIFICATION', 'Deidentification'
+        DICOM_ARCHIVE = 'DICOM_ARCHIVE', 'DICOM Archive'
+        DICOM_DEARCHIVE = 'DICOM_DEARCHIVE', 'DICOM De-archive'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'

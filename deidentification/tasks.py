@@ -27,6 +27,12 @@ from client_app.services.task_checkpoint import (
 from deidentification.models import DeidentificationJob
 from deidentification.services.dicom_deidentification_flow import deidentify_study
 
+from dicom_archive.services.dearchive import (
+    dearchival_required_for_studies,
+    dearchive_studies,
+    ensure_studies_local,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,6 +135,37 @@ def deidentify_dicom_studies_bulk_task(self, study_ids, user_id=None):
             throttle_key=self.request.id,
         )
 
+        if next_index == 0:
+            # De-archival hook (dicom_archive): any study in this roster that
+            # is currently archived must be restored to its local folder
+            # before the serial deid chain is allowed to touch it.
+            # In-process call — NOT a celery subtask: result.get() inside a
+            # task is forbidden (deadlocks the worker pool when the
+            # de-archive waits for a slot the dispatcher itself occupies,
+            # and raises outright under task_always_eager). Same pattern as
+            # the ensure_studies_local() safety net in each link below.
+            required = dearchival_required_for_studies(list(study_ids))
+            if required:
+                result = dearchive_studies(required)
+                failed = (result or {}).get('failed') or {}
+                if failed:
+                    message = (
+                        f"De-archival failed for {len(failed)} of {len(required)} "
+                        f"archived study(s); deidentification not started. Details: "
+                        + "; ".join(
+                            f"{uid} — {err}" for uid, err in sorted(failed.items())
+                        )
+                    )
+                    _fail_task_run(task_run, message)
+                    return {
+                        'status': 'failed', 'run_id': self.request.id,
+                        'error': message,
+                    }
+                logger.info(
+                    f"De-archival complete for {len(required)} archived study(s) "
+                    f"ahead of deidentification run {self.request.id}"
+                )
+
         if next_index is None:
             finalize_deidentification_batch_task.delay(self.request.id)
         else:
@@ -223,6 +260,36 @@ def deidentify_dicom_study_task(self, run_id, index, user_id=None):
         )
 
         completed_items = read_manifest(manifest_path)
+
+        # Per-study archive safety net: the dispatcher restores the whole
+        # roster up front, but a study can be archived between dispatch and
+        # execution (e.g. by the nightly sweep). Ensure the local folder is
+        # available before deidentify_study() reads it.
+        state = ensure_studies_local([study_id]).get(study_id)
+        if state == 'failed':
+            guard_error = (
+                f"Study {study_id} is archived and its local copy could not "
+                f"be restored (de-archival failed) — deidentification skipped"
+            )
+            done_count = _deid_record_result(run_id, index, {
+                'index': index,
+                'study_id': study_id,
+                'error': guard_error,
+                'processed': 0,
+                'failed': 0,
+            })
+            job.status = DeidentificationJob.Status.FAILURE
+            job.error_log = guard_error
+            job.completed_at = timezone.now()
+            job.save(update_fields=['status', 'error_log', 'completed_at', 'updated_at'])
+            _fail_task_run(child_run, guard_error)
+            parent_progress(
+                done_count,
+                f"[{index + 1}/{total}] Study {study_id[:40]} — skipped (de-archival failed)",
+                force=True,
+            )
+            _deid_dispatch_next(run_id, index, total, user_id)
+            return {'status': 'failed', 'error': guard_error}
 
         def progress_callback(phase, cur, tot):
             _update_task_run(

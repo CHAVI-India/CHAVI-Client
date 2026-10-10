@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Local Studies - DICOM Archive{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    {% url 'dicom_archive:dashboard' as dash_url %}
+    {% url 'dicom_archive:archived_list' as archived_url %}
+    {% url 'dicom_archive:location_list' as locations_url %}
+    {% component "page_header" title="Local Studies" icon="fas fa-folder-open" subtitle="Studies with a local folder — select to archive" back_url=dash_url back_text="Back to archive" %}
+        {% fill "actions" %}
+        {% if perms.dicom_archive.view_archivedstudy %}
+        {% component "button" style="secondary" href=archived_url icon="fas fa-list" %}Archived Studies{% endcomponent %}
+        {% endif %}
+        {% if perms.dicom_archive.view_archivelocation %}
+        {% component "button" style="secondary" href=locations_url icon="fas fa-server" %}Locations{% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+        {% fill "body" %}
+        <form method="get" class="flex flex-wrap items-center gap-3 mb-4">
+            <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search patient ID or study UID"
+                   class="w-72 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-chavi-primary focus:border-chavi-primary">
+            <button type="submit" class="px-4 py-2 text-sm font-medium bg-chavi-primary-600 text-white rounded-md hover:bg-chavi-primary-700">
+                <i class="fas fa-search mr-2"></i>Search
+            </button>
+            {% if request.GET.q %}
+            <a href="{% url 'dicom_archive:browse' %}" class="text-sm text-chavi-primary hover:underline">Clear</a>
+            {% endif %}
+        </form>
+
+        {% if perms.dicom_archive.add_archivedstudy %}
+        <div class="flex items-center justify-between mb-3">
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                Archive to:
+                <select id="archive-location" class="px-2 py-1 text-sm border border-gray-300 rounded-md">
+                    {% for loc in locations %}
+                    <option value="{{ loc.pk }}" {% if loc.is_default %}selected{% endif %}>{{ loc.name }} ({{ loc.get_storage_type_display }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="button" id="archive-selected-btn" disabled
+                    class="px-4 py-2 text-sm font-medium bg-chavi-primary-600 text-white rounded-md hover:bg-chavi-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                <i class="fas fa-upload mr-2"></i>Archive Selected
+            </button>
+        </div>
+        {% endif %}
+
+        {% if studies %}
+        {% component "table" %}
+            {% fill "head" %}
+            <th class="px-4 py-2 w-8"><input type="checkbox" id="select-all-studies" class="align-middle" title="Select all on this page"></th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Patient</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Study UID</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Date</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Local folder</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Archive status</th>
+            {% endfill %}
+            {% fill "body" %}
+            {% for study in studies %}
+            <tr>
+                <td class="px-4 py-2">
+                    <input type="checkbox" class="study-uid-check" value="{{ study.study_instance_uid }}"
+                        {% if study.archive_record and study.archive_record.status == 'ARCHIVED' %}disabled title="Already archived — de-archive it first from the Archived list"{% endif %}>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium">{{ study.patient.patient_id }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-mono text-xs">{{ study.study_instance_uid|truncatechars:24 }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ study.study_date|date:"Y-m-d"|default:"—" }}</td>
+                <td class="px-4 py-2 text-sm font-mono text-xs text-gray-500">{{ study.folder_path|truncatechars:48 }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">
+                    {% with rec=study.archive_record %}
+                    {% if rec is None %}
+                    {% component "badge" style="info" %}Local{% endcomponent %}
+                    {% elif rec.status == 'ARCHIVING' %}
+                    {% component "badge" style="warning" %}Archiving…{% endcomponent %}
+                    {% elif rec.status == 'ARCHIVED' %}
+                    {% component "badge" style="success" %}Archived{% endcomponent %}
+                    {% elif rec.status == 'DEARCHIVING' %}
+                    {% component "badge" style="warning" %}Restoring…{% endcomponent %}
+                    {% else %}
+                    {% component "badge" style="gray" %}De-archived{% endcomponent %}
+                    {% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        <p class="text-sm text-gray-500">No local studies found.</p>
+        {% endif %}
+
+        {% component "pagination" page_obj=page_obj query_string=query_string is_paginated=True %}{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% if perms.dicom_archive.add_archivedstudy %}
+    <div id="task-status-box" class="hidden mt-4 rounded-md border border-chavi-primary-200 bg-chavi-primary-50 p-4">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+        <div class="flex items-center justify-between text-sm gap-3">
+            <span id="task-status-msg" class="text-gray-700">Working…</span>
+            <a id="task-run-link" href="{% url 'client_app:taskrun_list' %}" class="text-chavi-primary hover:underline whitespace-nowrap">View task runs</a>
+        </div>
+        <div id="task-status-track" class="hidden mt-2 h-2 rounded bg-chavi-primary-100">
+            <div id="task-status-progress" class="h-2 rounded bg-chavi-primary-500" style="width:0%"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+{% if perms.dicom_archive.add_archivedstudy %}
+<script>
+(function () {
+    'use strict';
+    const ARCHIVE_URL = '{% url "dicom_archive:archive_trigger" %}';
+    const TASK_STATUS_URL = '{% url "dicom_archive:task_status" task_run_id="0" %}';
+    const TERMINAL = ['SUCCESS', 'FAILURE', 'STALLED', 'CANCELLED'];
+    let pollTimer = null;
+
+    function csrf() {
+        const input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function pkUrl(url, pk) { return url.replace('/0/', '/' + pk + '/'); }
+    function postJSON(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+            body: JSON.stringify(body || {}),
+        }).then(r => r.text().then(t => {
+            let j; try { j = JSON.parse(t); } catch (e) { j = null; }
+            return {ok: r.ok, status: r.status, body: j, raw: t};
+        }));
+    }
+    function selectedUids() {
+        return Array.from(
+            document.querySelectorAll('.study-uid-check:not(:disabled):checked')
+        ).map(c => c.value);
+    }
+    function setBusy(msg) {
+        document.getElementById('task-status-box').classList.remove('hidden');
+        document.getElementById('task-status-msg').textContent = msg;
+        document.getElementById('archive-selected-btn').disabled = true;
+    }
+    function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+    function finish(body) {
+        stopPoll();
+        const msg = document.getElementById('task-status-msg');
+        if (body.status === 'SUCCESS') {
+            msg.textContent = 'Archive run finished. ' + (body.progress_description || '');
+        } else {
+            msg.textContent = 'Task ended: ' + body.status +
+                (body.error_log ? ' — ' + body.error_log : '');
+        }
+        document.getElementById('archive-selected-btn')
+            .disabled = selectedUids().length === 0;
+    }
+    function pollTask(taskId) {
+        fetch(pkUrl(TASK_STATUS_URL, taskId))
+            .then(r => r.ok ? r.json() : null)
+            .then(body => {
+                if (!body) return; // TaskRun row not created yet — keep polling
+                if (body.progress_total > 0) {
+                    document.getElementById('task-status-track')
+                        .classList.remove('hidden');
+                    document.getElementById('task-status-progress')
+                        .style.width = body.progress_percent + '%';
+                }
+                if (TERMINAL.includes(body.status)) finish(body);
+            })
+            .catch(() => {});
+    }
+    function archiveSelected() {
+        const uids = selectedUids();
+        if (!uids.length) return;
+        const locationId = parseInt(
+            document.getElementById('archive-location').value, 10);
+        setBusy('Dispatching archive for ' + uids.length + ' study(s)…');
+        postJSON(ARCHIVE_URL, {study_uids: uids, location_id: locationId})
+            .then(res => {
+                if (!res.ok) {
+                    setBusy(res.body && res.body.error ? res.body.error
+                        : 'Request failed (HTTP ' + res.status + ')');
+                    document.getElementById('archive-selected-btn')
+                        .disabled = false;
+                    return;
+                }
+                document.getElementById('task-run-link')
+                    .href = res.body.redirect_url;
+                document.getElementById('task-status-msg')
+                    .textContent = res.body.message;
+                stopPoll();
+                pollTask(res.body.task_id);
+                pollTimer = setInterval(
+                    () => pollTask(res.body.task_id), 3000);
+            });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const btn = document.getElementById('archive-selected-btn');
+        if (!btn) return;
+        btn.addEventListener('click', archiveSelected);
+        const all = document.getElementById('select-all-studies');
+        if (all) {
+            all.addEventListener('change', function () {
+                document.querySelectorAll('.study-uid-check:not(:disabled)')
+                    .forEach(c => { c.checked = all.checked; });
+                btn.disabled = selectedUids().length === 0;
+            });
+        }
+        document.querySelectorAll('.study-uid-check').forEach(function (c) {
+            c.addEventListener('change', function () {
+                btn.disabled = selectedUids().length === 0;
+            });
+        });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

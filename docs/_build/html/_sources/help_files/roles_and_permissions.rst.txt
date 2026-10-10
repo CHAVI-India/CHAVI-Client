@@ -58,8 +58,18 @@ Seven groups are created automatically by the database migration
    * - **DICOM Administrator**
      - Manages the DICOM server configuration, remote nodes (add, edit,
        delete, echo test), patient ID aliases and auto-retrieval settings, and
-       monitors retrieval jobs. Cannot itself trigger retrievals or see patient
+       monitors retrieval jobs. Also manages the DICOM archive (migration
+       ``client_app.0031``): archive configuration and scheduled sweep,
+       archive locations, manual archive/de-archive of studies and the
+       archived-study list. Cannot itself trigger retrievals or see patient
        clinical data.
+
+The DICOM archive permission set was added to the *DICOM Administrator* role
+by migration ``client_app.0031_dicom_administrator_archive_permissions``
+(rather than as a separate group). Users who need only part of the archive
+feature — for example operators who may archive but not reconfigure — can
+still be given individual permissions directly (see
+:doc:`dicom_archive`).
 
 A user may belong to several groups at once — the permissions add up.
 Superusers (``is_superuser``) bypass all checks, and the **Admin** link only
@@ -113,6 +123,15 @@ Common permission checks
      - ``client_app.add/view/change_bulkdicomuploadsession``
    * - DICOM server config, nodes, echo
      - ``dicom_server.change_dicomserverconfiguration``, ``*_remotedicomnode``
+   * - DICOM archive dashboard / browse / archived list
+     - ``dicom_archive.view_archivedstudy`` (nav entry also needs
+       ``dicom_archive.view_archiveconfiguration``)
+   * - Manual archive / de-archive (trigger buttons)
+     - ``dicom_archive.add_archivedstudy``
+   * - Archive configuration page
+     - ``dicom_archive.change_archiveconfiguration``
+   * - Archive locations (list / add / edit / delete)
+     - ``dicom_archive.view_archivelocation``, ``add/change/delete_archivelocation``
    * - Query/retrieve from a remote node
      - ``dicom_server.add_retrievaljob``
    * - LLM extraction (files, jobs, review)

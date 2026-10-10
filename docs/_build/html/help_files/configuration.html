@@ -98,66 +98,27 @@
 </section>
 <section id="user-groups-and-permissions">
 <h2>User Groups and Permissions<a class="headerlink" href="#user-groups-and-permissions" title="Link to this heading">¶</a></h2>
-<p>The system requires two main user groups with specific permissions:</p>
-<ol class="arabic">
-<li><p>Create Data Entry Operator Group:</p>
-<ul>
-<li><p>In Django Admin, go to “Groups”</p></li>
-<li><p>Click “Add Group”</p></li>
-<li><p>Name: “Data Entry Operators”</p></li>
-<li><p>Permissions: Add the following permissions:</p>
-<p>View/Add/Change permissions for:</p>
-<ul class="simple">
-<li><p>Patients</p></li>
-<li><p>Lesions</p></li>
-<li><p>Lesion Responses</p></li>
-<li><p>Diagnosis</p></li>
-<li><p>Pathology</p></li>
-<li><p>Immunohistochemistry</p></li>
-<li><p>Cytogenetics</p></li>
-<li><p>Somatic Genomic Alterations</p></li>
-<li><p>Surgery</p></li>
-<li><p>Radiotherapy</p></li>
-<li><p>Systemic Therapy</p></li>
-<li><p>Patient Outcomes</p></li>
-<li><p>Laboratory Results</p></li>
-<li><p>DICOM Studies</p></li>
-<li><p>Symptoms</p></li>
-<li><p>Comorbidities</p></li>
-<li><p>Patient Reported Outcomes</p></li>
-<li><p>Concomitant Medications</p></li>
-<li><p>Other Treatment</p></li>
-<li><p>Cancer Outcomes</p></li>
-<li><p>Adverse Effects</p></li>
-<li><p>Radiation Volume</p></li>
-<li><p>Radiation Dose Volume Data</p></li>
-</ul>
-<p>Note: Do NOT grant delete permissions or access to lookup tables</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>You can search for the tables by searching for ‘client_app’ in the search bar.
-Please DO NOT grant delete permissions or access to lookup tables.</p>
+<p>You do not need to create permission groups by hand. The application ships
+with ready-made roles — <em>Clinical Data Viewer</em>, <em>Clinical Data Entry</em>,
+<em>Data Import Operator</em>, <em>LLM Extraction Operator</em>, <em>LLM Configuration</em>,
+<em>Deidentification Operator</em> and <em>DICOM Administrator</em> — created
+automatically by the database migration. The <em>DICOM Administrator</em> role
+also covers the DICOM archive (configuration, locations, manual
+archive/de-archive).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The full description of each role, how to assign roles to users, and the
+permission checked by every page is documented on the
+<a class="reference internal" href="roles_and_permissions.html"><span class="doc">Roles and Permissions</span></a> page — use that as the reference.</p>
 </div>
-<p>If you are unsure about the permissions, please ask the CHAVI team for help.</p>
-</li>
-</ul>
-</li>
-<li><p>Create Clinical Staff Group:</p>
-<ul class="simple">
-<li><p>Create another group named “Clinical Staff”</p></li>
-<li><p>Grant the same permissions as Data Entry Operators</p></li>
-<li><p>Add additional view permissions for lookup tables</p></li>
-</ul>
-</li>
-<li><p>Restricted Tables (Superuser Only):</p>
-<p>The following tables should only be accessible to superusers:</p>
-<ul class="simple">
-<li><p>All Lookup tables</p></li>
-<li><p>Site Configuration</p></li>
-<li><p>Projects</p></li>
-</ul>
-</li>
+<p>In short:</p>
+<ol class="arabic simple">
+<li><p>Create the users you need (below).</p></li>
+<li><p>In Django Admin, open <strong>Users → (user) → Groups</strong> and move the wanted
+role(s) into <em>Chosen groups</em> — a user may hold several roles at once.</p></li>
 </ol>
+<p>Restricted data (lookup tables, site configuration, projects) stays
+superuser-only; there is no role that grants it.</p>
 </section>
 <section id="creating-users">
 <h2>Creating Users<a class="headerlink" href="#creating-users" title="Link to this heading">¶</a></h2>
@@ -170,11 +131,11 @@ Please DO NOT grant delete permissions or access to lookup tables.</p>
 <li><p>Fill in required user information</p></li>
 </ul>
 </li>
-<li><p>Assign Group:</p>
+<li><p>Assign a role:</p>
 <ul class="simple">
 <li><p>In the user edit page</p></li>
-<li><p>Under “Permissions”</p></li>
-<li><p>Select appropriate group (Data Entry Operators or Clinical Staff)</p></li>
+<li><p>Under “Groups”</p></li>
+<li><p>Select the appropriate shipped role (see <a class="reference internal" href="roles_and_permissions.html"><span class="doc">Roles and Permissions</span></a>)</p></li>
 <li><p>Save the user</p></li>
 </ul>
 </li>
@@ -199,7 +160,7 @@ Please DO NOT grant delete permissions or access to lookup tables.</p>
 </li>
 </ol>
 <p>For additional help please contact CHAVI support team.</p>
-<p>You can raise tickets for support at <a class="reference external" href="https://gitlab.com/chavi/chavi-2.0/-/issues">https://gitlab.com/chavi/chavi-2.0/-/issues</a></p>
+<p>You can raise tickets for support at <a class="reference external" href="https://github.com/CHAVI-India/CHAVI-Client/issues">https://github.com/CHAVI-India/CHAVI-Client/issues</a></p>
 </section>
 </section>
 
@@ -285,6 +246,7 @@ Please DO NOT grant delete permissions or access to lookup tables.</p>
 <p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
 <li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>

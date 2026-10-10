@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Archived Studies - DICOM Archive{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    {% url 'dicom_archive:dashboard' as dash_url %}
+    {% url 'dicom_archive:browse' as browse_url %}
+    {% component "page_header" title="Archived Studies" icon="fas fa-database" subtitle="Studies stored in an archive location" back_url=dash_url back_text="Back to archive" %}
+        {% fill "actions" %}
+        {% if perms.dicom_archive.view_archivedstudy %}
+        {% component "button" style="secondary" href=browse_url icon="fas fa-folder-open" %}Local Studies{% endcomponent %}
+        {% endif %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}
+        {% fill "body" %}
+        <form method="get" class="flex flex-wrap items-center gap-3 mb-4">
+            <select name="status" class="px-2 py-1 text-sm border border-gray-300 rounded-md">
+                <option value="" {% if active_status == '' %}selected{% endif %}>All statuses</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if active_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="location_id" class="px-2 py-1 text-sm border border-gray-300 rounded-md">
+                <option value="">All locations</option>
+                {% for loc in locations %}
+                <option value="{{ loc.pk }}" {% if request.GET.location_id == loc.pk|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-4 py-2 text-sm font-medium bg-chavi-primary-600 text-white rounded-md hover:bg-chavi-primary-700">
+                <i class="fas fa-filter mr-2"></i>Apply
+            </button>
+            {% if request.GET.status or request.GET.location_id %}
+            <a href="{% url 'dicom_archive:archived_list' %}" class="text-sm text-chavi-primary hover:underline">Clear</a>
+            {% endif %}
+        </form>
+
+        {% if perms.dicom_archive.add_archivedstudy %}
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm text-gray-500">Select archived studies to de-archive (restore locally)</span>
+            <button type="button" id="dearchive-selected-btn" disabled
+                    class="px-4 py-2 text-sm font-medium bg-chavi-primary-600 text-white rounded-md hover:bg-chavi-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                <i class="fas fa-download mr-2"></i>De-archive Selected
+            </button>
+        </div>
+        {% endif %}
+
+        {% if records %}
+        {% component "table" %}
+            {% fill "head" %}
+            <th class="px-4 py-2 w-8"><input type="checkbox" id="select-all-archived" class="align-middle" title="Select all archived on this page"></th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Patient</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Study UID</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Location</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Size</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Instances</th>
+            <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider">Archived</th>
+            {% endfill %}
+            {% fill "body" %}
+            {% for record in records %}
+            <tr>
+                <td class="px-4 py-2">
+                    {% if record.status == 'ARCHIVED' and perms.dicom_archive.add_archivedstudy %}
+                    <input type="checkbox" class="archived-uid-check" value="{{ record.study.study_instance_uid }}">
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium">{{ record.study.patient.patient_id }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-mono text-xs">{{ record.study.study_instance_uid|truncatechars:24 }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">
+                    {% if record.status == 'ARCHIVING' %}
+                    {% component "badge" style="warning" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% elif record.status == 'ARCHIVED' %}
+                    {% component "badge" style="success" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% elif record.status == 'DEARCHIVING' %}
+                    {% component "badge" style="warning" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% else %}
+                    {% component "badge" style="gray" %}{{ record.get_status_display }}{% endcomponent %}
+                    {% endif %}
+                    {% if record.error_log %}
+                    <i class="fas fa-exclamation-triangle text-chavi-peach-500 ml-1" title="{{ record.error_log }}"></i>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ record.location.name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ record.size_bytes|filesizeformat }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm">{{ record.instance_count }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ record.archived_at|date:"Y-m-d H:i"|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        <p class="text-sm text-gray-500">No archived studies match the current filters.</p>
+        {% endif %}
+
+        {% component "pagination" page_obj=page_obj query_string=query_string is_paginated=True %}{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% if perms.dicom_archive.add_archivedstudy %}
+    <div id="task-status-box" class="hidden mt-4 rounded-md border border-chavi-primary-200 bg-chavi-primary-50 p-4">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+        <div class="flex items-center justify-between text-sm gap-3">
+            <span id="task-status-msg" class="text-gray-700">Working…</span>
+            <a id="task-run-link" href="{% url 'client_app:taskrun_list' %}" class="text-chavi-primary hover:underline whitespace-nowrap">View task runs</a>
+        </div>
+        <div id="task-status-track" class="hidden mt-2 h-2 rounded bg-chavi-primary-100">
+            <div id="task-status-progress" class="h-2 rounded bg-chavi-primary-500" style="width:0%"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+{% if perms.dicom_archive.add_archivedstudy %}
+<script>
+(function () {
+    'use strict';
+    const DEARCHIVE_URL = '{% url "dicom_archive:dearchive_trigger" %}';
+    const TASK_STATUS_URL = '{% url "dicom_archive:task_status" task_run_id="0" %}';
+    const TERMINAL = ['SUCCESS', 'FAILURE', 'STALLED', 'CANCELLED'];
+    let pollTimer = null;
+
+    function csrf() {
+        const input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function pkUrl(url, pk) { return url.replace('/0/', '/' + pk + '/'); }
+    function postJSON(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+            body: JSON.stringify(body || {}),
+        }).then(r => r.text().then(t => {
+            let j; try { j = JSON.parse(t); } catch (e) { j = null; }
+            return {ok: r.ok, status: r.status, body: j, raw: t};
+        }));
+    }
+    function selectedUids() {
+        return Array.from(
+            document.querySelectorAll('.archived-uid-check:checked')
+        ).map(c => c.value);
+    }
+    function setBusy(msg) {
+        document.getElementById('task-status-box').classList.remove('hidden');
+        document.getElementById('task-status-msg').textContent = msg;
+        document.getElementById('dearchive-selected-btn').disabled = true;
+    }
+    function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+    function finish(body) {
+        stopPoll();
+        const msg = document.getElementById('task-status-msg');
+        if (body.status === 'SUCCESS') {
+            msg.textContent = 'De-archive run finished. ' + (body.progress_description || '');
+        } else {
+            msg.textContent = 'Task ended: ' + body.status +
+                (body.error_log ? ' — ' + body.error_log : '');
+        }
+        document.getElementById('dearchive-selected-btn')
+            .disabled = selectedUids().length === 0;
+    }
+    function pollTask(taskId) {
+        fetch(pkUrl(TASK_STATUS_URL, taskId))
+            .then(r => r.ok ? r.json() : null)
+            .then(body => {
+                if (!body) return; // TaskRun row not created yet — keep polling
+                if (body.progress_total > 0) {
+                    document.getElementById('task-status-track')
+                        .classList.remove('hidden');
+                    document.getElementById('task-status-progress')
+                        .style.width = body.progress_percent + '%';
+                }
+                if (TERMINAL.includes(body.status)) finish(body);
+            })
+            .catch(() => {});
+    }
+    function dearchiveSelected() {
+        const uids = selectedUids();
+        if (!uids.length) return;
+        setBusy('Dispatching de-archive for ' + uids.length + ' study(s)…');
+        postJSON(DEARCHIVE_URL, {study_uids: uids})
+            .then(res => {
+                if (!res.ok) {
+                    setBusy(res.body && res.body.error ? res.body.error
+                        : 'Request failed (HTTP ' + res.status + ')');
+                    document.getElementById('dearchive-selected-btn')
+                        .disabled = false;
+                    return;
+                }
+                document.getElementById('task-run-link')
+                    .href = res.body.redirect_url;
+                document.getElementById('task-status-msg')
+                    .textContent = res.body.message;
+                stopPoll();
+                pollTask(res.body.task_id);
+                pollTimer = setInterval(
+                    () => pollTask(res.body.task_id), 3000);
+            });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const btn = document.getElementById('dearchive-selected-btn');
+        if (!btn) return;
+        btn.addEventListener('click', dearchiveSelected);
+        const all = document.getElementById('select-all-archived');
+        if (all) {
+            all.addEventListener('change', function () {
+                document.querySelectorAll('.archived-uid-check')
+                    .forEach(c => { c.checked = all.checked; });
+                btn.disabled = selectedUids().length === 0;
+            });
+        }
+        document.querySelectorAll('.archived-uid-check').forEach(function (c) {
+            c.addEventListener('change', function () {
+                btn.disabled = selectedUids().length === 0;
+            });
+        });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}
