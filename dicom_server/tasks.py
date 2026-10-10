@@ -1,7 +1,7 @@
 """Celery tasks for DICOM query/retrieve operations."""
 import logging
 
-from celery import shared_task
+from celery import chord, group, shared_task
 from django.utils import timezone
 
 from client_app.models import Patient, DICOMStudy, TaskRun
@@ -9,8 +9,8 @@ from client_app.tasks import (
     _create_task_run, _update_task_run, _complete_task_run, _fail_task_run,
 )
 from dicom_server.models import (
-    AutoRetrievalState, RemoteDICOMNode, RetrievalBatch,
-    RetrievalBatchPatient, RetrievalJob,
+    AutoRetrievalState, BulkRetrievalSchedule, RemoteDICOMNode,
+    RetrievalBatch, RetrievalBatchPatient, RetrievalJob,
 )
 from dicom_server.services import qr_client
 
@@ -558,3 +558,104 @@ def task_auto_retrieve_patient(self, patient_id):
         task_auto_retrieve_patient_node.delay(node.pk, patient.patient_id, force=True)
 
     return {'patient': patient_id, 'nodes': list(nodes.values_list('pk', flat=True))}
+
+
+# ---------------------------------------------------------------------------
+# Scheduled bulk retrieval
+# ---------------------------------------------------------------------------
+
+def _aggregate_retrieval_batch(batch):
+    """Compute (final_status, summary) for a retrieve-phase batch. Same shape as
+    task_finalize_retrieval_batch uses. Returns RetrievalBatch.Status values."""
+    jobs = list(batch.jobs.select_related('patient'))
+    succeeded = [j.patient_id for j in jobs if j.status == RetrievalJob.Status.SUCCESS]
+    partial = [j.patient_id for j in jobs if j.status == RetrievalJob.Status.PARTIAL]
+    failed = [j.patient_id for j in jobs if j.status == RetrievalJob.Status.FAILED]
+    running = [j.patient_id for j in jobs if j.status in (
+        RetrievalJob.Status.PENDING, RetrievalJob.Status.RUNNING,
+    )]
+    skipped = list(
+        batch.patients.filter(selected=False).values_list('patient_id', flat=True)
+    )
+    if running:
+        final = batch.status
+    elif not failed and not partial:
+        final = RetrievalBatch.Status.SUCCESS
+    elif succeeded or partial:
+        final = RetrievalBatch.Status.PARTIAL
+    else:
+        final = RetrievalBatch.Status.FAILED
+    summary = {
+        'total': len(jobs), 'succeeded': succeeded, 'partial': partial,
+        'failed': failed, 'skipped': skipped,
+        'instances': sum(j.instances_received for j in jobs),
+    }
+    return final, summary
+
+
+def _prepare_bulk_schedule_batch(schedule):
+    """Create the RetrievalBatch + one row per consented schedule patient.
+    Returns (batch, patients)."""
+    patients = list(schedule.patients.filter(chavi_consent=True))
+    batch = RetrievalBatch.objects.create(
+        node=schedule.node, created_by=schedule.created_by,
+        extra_transforms=schedule.extra_transforms,
+    )
+    if patients:
+        RetrievalBatchPatient.objects.bulk_create(
+            RetrievalBatchPatient(batch=batch, patient=p) for p in patients
+        )
+    return batch, patients
+
+
+@shared_task(bind=True)
+def task_bulk_schedule_run(self, schedule_id):
+    """Entry task for a scheduled bulk retrieval (one-off eta or beat).
+    Builds a RetrievalBatch, runs the per-patient C-FIND query chord, and hands
+    off to task_bulk_schedule_finalize_query which auto-selects + retrieves."""
+    task_run = _create_task_run(
+        task_name='dicom_server.tasks.task_bulk_schedule_run',
+        task_type='DICOM_IMPORT', user_id=None, celery_task_id=self.request.id,
+    )
+    try:
+        schedule = BulkRetrievalSchedule.objects.select_related('node').get(
+            pk=schedule_id, is_active=True,
+        )
+    except BulkRetrievalSchedule.DoesNotExist as e:
+        _fail_task_run(task_run, e)
+        return {'schedule': schedule_id, 'skipped': True, 'error': str(e)}
+    if schedule.created_by_id:
+        task_run.user_id = schedule.created_by_id
+        task_run.save(update_fields=['user_id', 'updated_at'])
+
+    if not schedule.node.is_active:
+        _complete_task_run(task_run, {'skipped': True, 'reason': 'node inactive'})
+        return {'schedule': schedule_id, 'skipped': True, 'reason': 'node inactive'}
+
+    batch, patients = _prepare_bulk_schedule_batch(schedule)
+    schedule.last_batch = batch
+    schedule.save(update_fields=['last_batch', 'updated_at'])
+
+    if not patients:
+        schedule.last_status = 'SKIPPED'
+        schedule.last_run_at = timezone.now()
+        schedule.save(update_fields=['last_status', 'last_run_at', 'updated_at'])
+        _complete_task_run(task_run, {'skipped': True, 'reason': 'no consented patients'})
+        return {'schedule': schedule_id, 'skipped': True, 'reason': 'no consented patients'}
+
+    try:
+        header = group(
+            task_query_patient_studies.s(batch.pk, p.patient_id) for p in patients
+        )
+        result = chord(header)(task_bulk_schedule_finalize_query.s(batch.pk, schedule.pk))
+        batch.query_group_id = str(result.id or '')
+        batch.save(update_fields=['query_group_id'])
+    except Exception as e:
+        logger.exception('Failed to dispatch scheduled bulk query')
+        batch.status = RetrievalBatch.Status.FAILED
+        batch.save(update_fields=['status'])
+        _fail_task_run(task_run, e)
+        raise
+
+    _complete_task_run(task_run, {'batch': batch.pk, 'patients': len(patients)})
+    return {'schedule': schedule_id, 'batch': batch.pk, 'patients': len(patients)}
