@@ -746,3 +746,41 @@ def task_bulk_schedule_finalize_query(self, results, batch_id, schedule_id):
     _dispatch_retrieval_chunk(batch, schedule, 0, cap, total_jobs)
     _complete_task_run(task_run, {'dispatched': True, 'jobs': total_jobs, 'cap': cap})
     return {'batch': batch_id, 'status': batch.status, 'jobs': total_jobs}
+
+
+@shared_task(bind=True)
+def task_bulk_schedule_chunk_done(self, results, batch_id, next_start, total, cap, schedule_id):
+    """Chord body for a non-final retrieve chunk — dispatch the next chunk so
+    the next `cap` patients start only after this chunk has completed."""
+    batch = RetrievalBatch.objects.get(pk=batch_id)
+    schedule = BulkRetrievalSchedule.objects.get(pk=schedule_id)
+    _dispatch_retrieval_chunk(batch, schedule, next_start, cap, total)
+    return {'batch': batch_id, 'next_start': next_start}
+
+
+@shared_task(bind=True)
+def task_bulk_schedule_finalize_retrieval(self, results, batch_id, schedule_id):
+    """Final chord body for a scheduled bulk run — aggregate job statuses onto
+    the batch, record the run on the schedule, and notify the owner."""
+    task_run = _create_task_run(
+        task_name='dicom_server.tasks.task_bulk_schedule_finalize_retrieval',
+        task_type='DICOM_IMPORT', user_id=None, celery_task_id=self.request.id,
+    )
+    try:
+        batch = RetrievalBatch.objects.get(pk=batch_id)
+        schedule = BulkRetrievalSchedule.objects.get(pk=schedule_id)
+    except (RetrievalBatch.DoesNotExist, BulkRetrievalSchedule.DoesNotExist) as e:
+        _fail_task_run(task_run, e)
+        return {'batch': batch_id, 'status': 'ERROR', 'error': str(e)}
+    if batch.created_by_id:
+        task_run.user_id = batch.created_by_id
+        task_run.save(update_fields=['user_id', 'updated_at'])
+
+    final, summary = _aggregate_retrieval_batch(batch)
+    batch.summary = summary
+    batch.status = final
+    batch.completed_at = timezone.now()
+    batch.save(update_fields=['status', 'summary', 'completed_at'])
+    _record_schedule_run(schedule, final)
+    _complete_task_run(task_run, summary)
+    return {'batch': batch_id, 'schedule': schedule_id, 'status': final, **summary}

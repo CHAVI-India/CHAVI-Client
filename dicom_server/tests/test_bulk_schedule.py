@@ -19,6 +19,9 @@ from dicom_server.tasks import (
     task_bulk_schedule_run,
 )
 from dicom_server.tasks import task_bulk_schedule_finalize_query
+from dicom_server.tasks import (
+    task_bulk_schedule_chunk_done, task_bulk_schedule_finalize_retrieval,
+)
 from dicom_server.services import bulk_selection
 from dicom_server.services.bulk_selection import (
     SelectionCriteria, build_selections_for_patient, select_study,
@@ -332,3 +335,83 @@ class FinalizeQueryTests(ModelSetupMixin, TestCase):
             set(sel['series_instance_uids']),
             {'S-DOSE', 'S-PLAN', 'S-STRUCT', 'S-IMG'},
         )
+
+
+class ChunkRelayTests(ModelSetupMixin, TestCase):
+    @mock.patch('dicom_server.tasks._dispatch_retrieval_chunk')
+    def test_dispatches_next_chunk(self, mock_dispatch):
+        batch = RetrievalBatch.objects.create(node=self.node, status='RETRIEVING')
+        s = BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=1),
+        )
+        task_bulk_schedule_chunk_done(
+            results=[], batch_id=batch.pk, next_start=2, total=6,
+            cap=2, schedule_id=s.pk,
+        )
+        mock_dispatch.assert_called_once_with(batch, s, 2, 2, 6)
+
+
+class FinalizeRetrievalTests(ModelSetupMixin, TestCase):
+    def _schedule(self):
+        return BulkRetrievalSchedule.objects.create(
+            name='s', node=self.node, mode='ONE_OFF',
+            run_at=timezone.now() + timedelta(hours=1),
+        )
+
+    def test_aggregates_and_records(self):
+        batch = RetrievalBatch.objects.create(node=self.node, status='RETRIEVING')
+        s = self._schedule()
+        for pid, status, inst in [('A', 'SUCCESS', 5), ('B', 'FAILED', 0)]:
+            p = self._patient(pid)
+            j = RetrievalJob.objects.create(
+                node=self.node, patient=p, status=status,
+                instances_received=inst, batch=batch,
+            )
+            RetrievalBatchPatient.objects.create(
+                batch=batch, patient=p, selected=True, job=j,
+            )
+        task_bulk_schedule_finalize_retrieval(results=[], batch_id=batch.pk, schedule_id=s.pk)
+        batch.refresh_from_db()
+        s.refresh_from_db()
+        self.assertEqual(batch.status, 'PARTIAL')
+        self.assertEqual(batch.summary['instances'], 5)
+        self.assertEqual(s.last_status, 'PARTIAL')
+        self.assertIsNotNone(s.last_run_at)
+
+
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+class ScheduledRunIntegrationTests(ModelSetupMixin, TestCase):
+    """End-to-end scheduled run (query chord -> auto-select -> chunked
+    retrieve -> finalize) with Q/R mocked."""
+
+    def _studies_for(self, pid):
+        return ([
+            {'study_instance_uid': f'1.2.{pid}', 'study_date': '20240101',
+             'study_description': '', 'modalities': 'CT', 'instances': 1,
+             'remote_patient_id': pid, 'already_local': False},
+        ]), []
+
+    def test_end_to_end_retrieves_all_patients(self):
+        p1 = self._patient('A'); p2 = self._patient('B'); p3 = self._patient('C')
+        with mock.patch('dicom_server.tasks.qr_client.find_studies_with_series') as mf, \
+                mock.patch('dicom_server.tasks.qr_client.move_study') as mm:
+            mf.side_effect = lambda node, ids: self._studies_for(ids[0])
+            mm.return_value = {'status': '0000', 'completed': 1, 'failed': 0}
+            s = BulkRetrievalSchedule.objects.create(
+                name='e2e', node=self.node, mode='ONE_OFF',
+                run_at=timezone.now() + timedelta(hours=1),
+                max_concurrent_patients=1, retrieve_new_only=True,
+            )
+            s.patients.set([p1, p2, p3])
+            task_bulk_schedule_run(schedule_id=s.pk)
+
+        s.refresh_from_db()
+        batch = s.last_batch
+        batch.refresh_from_db()
+        self.assertEqual(batch.jobs.count(), 3)
+        self.assertEqual(batch.status, 'SUCCESS')
+        self.assertEqual(batch.summary['instances'], 3)
+        self.assertEqual(s.last_status, 'SUCCESS')
+        self.assertEqual(
+            sorted(batch.summary['succeeded']), ['A', 'B', 'C'])
