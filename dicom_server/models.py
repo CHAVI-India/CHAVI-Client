@@ -378,3 +378,136 @@ class RetrievalBatchPatient(models.Model):
     def __str__(self):
         return f'{self.patient_id} @ batch {self.batch_id} [{self.query_status}]'
 
+
+class BulkRetrievalSchedule(models.Model):
+    """A saved, off-peak plan to bulk-query + retrieve a set of patients from a
+    node. Runs either once (ONE_OFF, dispatched with an eta) or repeatedly
+    (PERIODIC, a django_celery_beat.PeriodicTask). Retrieval is capped at
+    ``max_concurrent_patients`` so remote nodes are not stressed."""
+    class Mode(models.TextChoices):
+        ONE_OFF = 'ONE_OFF', 'One-off (run once at a set time)'
+        PERIODIC = 'PERIODIC', 'Periodic (repeats on a schedule)'
+
+    name = models.CharField(max_length=200)
+    node = models.ForeignKey(
+        RemoteDICOMNode, on_delete=models.PROTECT, related_name='bulk_schedules',
+    )
+    patients = models.ManyToManyField(
+        'client_app.Patient', related_name='bulk_schedules',
+    )
+    extra_transforms = models.JSONField(default=list, blank=True)
+    mode = models.CharField(
+        max_length=10, choices=Mode.choices, default=Mode.ONE_OFF,
+    )
+    # One-off timing
+    run_at = models.DateTimeField(null=True, blank=True)
+    # Periodic crontab (same field format as RemoteDICOMNode)
+    minute = models.CharField(max_length=20, default='0')
+    hour = models.CharField(max_length=20, default='2')
+    day_of_week = models.CharField(max_length=20, default='*')
+    day_of_month = models.CharField(max_length=20, default='*')
+    month_of_year = models.CharField(max_length=20, default='*')
+    max_concurrent_patients = models.PositiveIntegerField(
+        default=2,
+        help_text='Max patients retrieved at the same time (per chunk).',
+    )
+    retrieve_new_only = models.BooleanField(
+        default=True,
+        help_text='When set, only retrieve studies not already stored locally.',
+    )
+    # ---- Declarative selection criteria (empty = no constraint on that axis) ----
+    select_modalities = models.CharField(
+        max_length=200, blank=True, default='',
+        help_text='Comma-separated modalities to retrieve, e.g. "CT,MR,RTPLAN". Empty = all.',
+    )
+    select_approval = models.CharField(
+        max_length=12, blank=True, default='',
+        choices=[('', 'Any'), ('approved', 'Approved only'), ('unapproved', 'Not approved')],
+        help_text='RT plan approval filter (RTDOSE inherits its parent plan\'s verdict).',
+    )
+    select_series_description = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text='Only series whose description contains this text (case-insensitive).',
+    )
+    select_rt_label = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text='Only RT series whose plan/structure-set label or name contains this text.',
+    )
+    study_date_from = models.DateField(null=True, blank=True)
+    study_date_to = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    one_off_task_id = models.CharField(max_length=255, blank=True, default='')
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=20, blank=True, default='')
+    last_batch = models.ForeignKey(
+        'RetrievalBatch', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='schedule_runs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    _CRON_FIELD_RE = re.compile(r'^[\d\-\,\*/]+$')
+
+    @property
+    def crontab_tuple(self):
+        return (
+            self.minute, self.hour, self.day_of_week,
+            self.day_of_month, self.month_of_year,
+        )
+
+    @property
+    def beat_name(self):
+        return f'dicom-bulk-schedule-{self.pk}'
+
+    @property
+    def schedule_display(self):
+        if self.mode == self.Mode.ONE_OFF:
+            return (
+                f"once at {self.run_at:%Y-%m-%d %H:%M %Z}" if self.run_at
+                else 'one-off (no time set)'
+            )
+        return (
+            f"cron: {self.minute} {self.hour} {self.day_of_month} "
+            f"{self.month_of_year} {self.day_of_week}"
+        )
+
+    def selection_criteria(self):
+        from dicom_server.services import bulk_selection
+        mods = [
+            m.strip()
+            for m in (self.select_modalities or '').replace(',', ' ').split()
+            if m.strip()
+        ]
+        return bulk_selection.SelectionCriteria(
+            modalities=mods,
+            approval=self.select_approval or '',
+            series_description=(self.select_series_description or '').strip(),
+            rt_label=(self.select_rt_label or '').strip(),
+            study_date_from=self.study_date_from.isoformat() if self.study_date_from else '',
+            study_date_to=self.study_date_to.isoformat() if self.study_date_to else '',
+        )
+
+    def clean(self):
+        super().clean()
+        for name, value in [
+            ('minute', self.minute), ('hour', self.hour),
+            ('day_of_week', self.day_of_week),
+            ('day_of_month', self.day_of_month),
+            ('month_of_year', self.month_of_year),
+        ]:
+            if not self._CRON_FIELD_RE.match(value or ''):
+                raise ValidationError({name: 'Invalid cron field value.'})
+        if self.mode == self.Mode.ONE_OFF and not self.run_at:
+            raise ValidationError({'run_at': 'Required for one-off schedules.'})
+
+    def __str__(self):
+        return f'{self.name} [{self.get_mode_display()}]'
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Bulk retrieval schedule'
+        verbose_name_plural = 'Bulk retrieval schedules'
+
