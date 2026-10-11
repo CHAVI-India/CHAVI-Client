@@ -449,3 +449,22 @@ extractor/
 - Django Model Meta API: https://docs.djangoproject.com/en/6.0/ref/models/meta/
 - Pydantic Documentation: https://docs.pydantic.dev/
 - Ollama API: https://github.com/ollama/ollama/blob/main/docs/api.md
+
+---
+
+## Split Stage-2 Extraction (2026-10-12)
+
+Stage-2 extraction now runs as multiple small LLM calls instead of one:
+per table, lookup (choice) fields are answered in their own calls before
+the free-text/numeric/boolean fields. Calls run sequentially,
+parents before children; child calls receive the already-extracted parent
+records and attach via `parent_index`.
+
+- New client setting: `extraction_fields_per_call` (default 10) — how many
+  fields one extraction call answers. Lower it for small local models.
+- Completed tables are saved even when later calls fail; such jobs finish
+  as `partial` with the failing calls listed in `extraction_error`.
+- The approval gate, the review flow, and the shape of saved results are
+  unchanged. Mining stays a single batched call.
+- Legacy single-call jobs (no `extraction_plan_version` in the config
+  snapshot) keep working through the unchanged path in `stage_extract`.
