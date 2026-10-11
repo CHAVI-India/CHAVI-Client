@@ -151,6 +151,17 @@ Values stay scalar numbers/booleans/null. Put explanations ONLY in field_assessm
 Assessments belong to this record, not to another record or its nested children.
 Do not create records or fields merely to provide assessments."""
 
+    MISSING_RULE_ASSESSMENT = (
+        "If information is missing or unclear and no supported inference applies, return null.")
+    MISSING_RULE_PLAIN = (
+        "If a field's information is absent or unclear, return null for that field.")
+    NEGATION_RULE_ASSESSMENT = (
+        "Represent negation in the field's required type; use the assessment rules below\n"
+        "   for numbers/booleans, not a text phrase in a scalar field.")
+    NEGATION_RULE_PLAIN = (
+        'Negation: if the document says something is absent/normal/not done, record\n'
+        '   what the document states (e.g. "no evidence of") — do not invent values.')
+
     @staticmethod
     def uses_field_assessments(extraction_job: ExtractionJob) -> bool:
         version = (extraction_job.config_snapshot or {}).get('field_assessment_version')
@@ -196,16 +207,12 @@ Do not create records or fields merely to provide assessments."""
         )
         assessment_rules = (InstructorExtractionService.ASSESSMENT_RULES
                             if include_field_assessments else '')
-        missing_rule = (
-            "If information is missing or unclear and no supported inference applies, return null."
-            if include_field_assessments else
-            "If a field's information is absent or unclear, return null for that field.")
-        negation_rule = (
-            "Represent negation in the field's required type; use the assessment rules below\n"
-            "   for numbers/booleans, not a text phrase in a scalar field."
-            if include_field_assessments else
-            'Negation: if the document says something is absent/normal/not done, record\n'
-            '   what the document states (e.g. "no evidence of") — do not invent values.')
+        missing_rule = (InstructorExtractionService.MISSING_RULE_ASSESSMENT
+                        if include_field_assessments
+                        else InstructorExtractionService.MISSING_RULE_PLAIN)
+        negation_rule = (InstructorExtractionService.NEGATION_RULE_ASSESSMENT
+                         if include_field_assessments
+                         else InstructorExtractionService.NEGATION_RULE_PLAIN)
 
         # Add the user message with field schema and processed content
         user_content = f"""Extract the following information from the document.

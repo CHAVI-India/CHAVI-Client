@@ -2264,3 +2264,76 @@ class ExtractionPlanTests(TestCase):
             response_model_table=self.rmt_d, field=f, order=0)
         plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
         self.assertEqual(plan, [])
+
+
+class ChunkPromptTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        for i in range(4):
+            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True)
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        for i in range(3):
+            f = make_field(self.diagnosis, f'plain_{i}', field_type='int')
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=4 + i)
+        f = make_field(self.pathology, 'date_pathology')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f, order=0)
+
+    def _plan(self, batch=2):
+        from extractor.services.extraction_split import plan_extraction_calls
+        return plan_extraction_calls(self.rm, batch)
+
+    def _tables_chunk_count(self, plan, model_table):
+        return sum(1 for c in plan if c['model_table'] == model_table)
+
+    def test_prompt_lists_only_chunk_fields_and_warns_about_partial_table(self):
+        from extractor.services.extraction_split import build_chunk_prompt
+        plan = self._plan()
+        call = plan[0]  # first lookup chunk of diagnosis: site_0, site_1
+        msgs = build_chunk_prompt(
+            self.rm, call, 'DOC', resolved_options={},
+            table_chunk_count=self._tables_chunk_count(plan, call['model_table']))
+        content = msgs[-1]['content']
+        self.assertIn('site_0', content)
+        self.assertIn('site_1', content)
+        self.assertNotIn('site_2', content)
+        self.assertNotIn('plain_0', content)
+        self.assertIn('ONLY PART', content)
+        self.assertIn('<document>', content)
+        self.assertIn('DOC', content)
+
+    def test_plain_chunk_carries_assessment_rules_lookup_chunk_does_not(self):
+        from extractor.services.extraction_split import build_chunk_prompt
+        plan = self._plan()
+        lookup_call = plan[0]
+        plain_call = next(c for c in plan if c['kind'] == 'plain')
+        lookup_content = build_chunk_prompt(
+            self.rm, lookup_call, 'DOC', resolved_options={})[-1]['content']
+        plain_content = build_chunk_prompt(
+            self.rm, plain_call, 'DOC', resolved_options={})[-1]['content']
+        self.assertNotIn('NUMERIC AND BOOLEAN ASSESSMENT', lookup_content)
+        self.assertIn('NUMERIC AND BOOLEAN ASSESSMENT', plain_content)
+
+    def test_child_prompt_carries_parent_context_and_parent_index(self):
+        from extractor.services.extraction_split import build_chunk_prompt
+        plan = self._plan(batch=10)
+        child_call = next(c for c in plan if c['model_table'] == self.rmt_p)
+        msgs = build_chunk_prompt(
+            self.rm, child_call, 'DOC', resolved_options={},
+            ancestor_records={'diagnosis': [{'site_0': 'tongue'}]},
+            table_chunk_count=1)
+        content = msgs[-1]['content']
+        self.assertIn('PARENT RECORDS ALREADY EXTRACTED', content)
+        self.assertIn('"site_0"', content)
+        self.assertIn('"parent_index"', content)
+        self.assertNotIn('ONLY PART', content)
