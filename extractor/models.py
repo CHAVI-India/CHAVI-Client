@@ -4,7 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_delete
-from django.core.validators import FileExtensionValidator,URLValidator
+from django.core.validators import FileExtensionValidator,URLValidator,MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
@@ -76,6 +76,15 @@ class ClientConfiguration(models.Model):
                   "Leave empty to use the model default. Available values "
                   "depend on the model (e.g. low/medium/high for OpenAI, "
                   "enabled/disabled for Ollama, budget for Anthropic).")
+    extraction_fields_per_call = models.PositiveIntegerField(
+        default=10,
+        validators=[MinValueValidator(1)],
+        help_text="How many fields one extraction LLM call answers. Stage-2 "
+                  "extraction is split into small calls: per table, lookup "
+                  "(choice) fields run in their own calls before the free-text, "
+                  "numeric and boolean fields, so choice fields and reasoning "
+                  "fields are never mixed. Lower the value for small local "
+                  "models (5-10); raise it (15-20) for large API models.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

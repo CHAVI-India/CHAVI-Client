@@ -1276,10 +1276,10 @@ class InferenceReviewContractTests(SimpleTestCase):
             'batch': SimpleNamespace(status='approved'),
             'snapshot': {'records': [{'model': 'example', 'operation': 'create', 'rows': rows}]},
         }))
-        self.assertIn('text-gray-900">0</td>', html)
-        self.assertIn('text-gray-900">False</td>', html)
-        self.assertIn('text-gray-900">0.00</td>', html)
-        self.assertEqual(html.count('text-gray-900">—</td>'), 2)
+        self.assertIn('field-value-text">0</span>', html)
+        self.assertIn('field-value-text">False</span>', html)
+        self.assertIn('field-value-text">0.00</span>', html)
+        self.assertEqual(html.count('field-value-text">—</span>'), 4)
         self.assertIn('not explicitly reported', html)
         self.assertIn('&lt;script&gt;note&lt;/script&gt;', html)
         self.assertIn('&lt;b&gt;source&lt;/b&gt;', html)
@@ -2171,3 +2171,29 @@ class DeidUnshiftOnSaveTests(TestCase):
         kept = TextDeidentificationService._filter_results(text, results)
         self.assertEqual(len(kept), 1)
         self.assertEqual(kept[0].entity_type, 'DATE_TIME')
+
+
+class SplitSettingTests(TestCase):
+    def _post_create(self, **extra):
+        user = User.objects.create_superuser('admin', 'a@example.com', 'pw')
+        self.client.force_login(user)
+        data = {
+            'llm_model_name': 'test-model',
+            'model_provider': 'Ollama',
+            'model_api_key': 'x',
+            'model_base_url': 'http://localhost:11434',
+        }
+        data.update(extra)
+        return self.client.post(
+            '/extractor/client-configurations/create/', data)
+
+    def test_default_fields_per_call_is_10(self):
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='m', model_provider='ollama',
+            model_api_key='x', model_base_url='http://localhost:11434')
+        self.assertEqual(cfg.extraction_fields_per_call, 10)
+
+    def test_create_view_persists_fields_per_call(self):
+        resp = self._post_create(extraction_fields_per_call='7')
+        cfg = ClientConfiguration.objects.get(llm_model_name='test-model')
+        self.assertEqual(cfg.extraction_fields_per_call, 7)
