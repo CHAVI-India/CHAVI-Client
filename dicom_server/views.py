@@ -787,12 +787,17 @@ class ScheduleCreateView(DicomPermissionRequiredMixin, CreateView):
     def get_initial(self):
         initial = super().get_initial() or {}
         draft = self.request.session.pop('bulk_schedule_draft', None)
+        patient_ids = (draft or {}).get('patient_ids', '')
         if draft:
             initial.update({
                 'node': draft.get('node'),
-                'patient_ids': draft.get('patient_ids', ''),
+                'patient_ids': patient_ids,
                 'extra_transforms': draft.get('extra_transforms', ''),
             })
+        count = len([x for x in patient_ids.split(',') if x.strip()])
+        if not initial.get('name'):
+            initial['name'] = 'Scheduled bulk retrieve — {} patient{}'.format(
+                count, '' if count == 1 else 's')
         return initial
 
     def get_form_kwargs(self):

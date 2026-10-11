@@ -264,6 +264,15 @@ class BulkSelectionTests(TestCase):
         self.assertIsNotNone(sel)
         self.assertEqual(set(sel[1]), {'S-DOSE', 'S-PLAN', 'S-STRUCT', 'S-IMG'})
 
+    def test_rtreg_pulls_referenced_image(self):
+        img = _series('S-IMG', 'CT', 'Images')
+        reg = _series('S-REG', 'RTREG', 'Registration', parents=('S-IMG',),
+                      rt=[{'sop_instance_uid': 'SOP-REG',
+                           'referenced_image_uids': ['SOP-IMG']}])
+        st = _study('ST-1', [img, reg])
+        sel = select_study(st, SelectionCriteria(modalities=['RTREG']))
+        self.assertEqual(set(sel[1]), {'S-REG', 'S-IMG'})
+
     def test_approval_approved_excludes_unapproved_plan(self):
         sel = select_study(_rt_study(), SelectionCriteria(approval='approved'))
         chosen = set(sel[1])
@@ -724,3 +733,20 @@ class BulkScheduleTemplateTests(BulkScheduleViewTests):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'id="btn-schedule"')
         self.assertContains(resp, reverse('dicom_server:schedule_prepare'))
+
+    def test_create_page_prefills_name_from_patients(self):
+        p1 = self._patient('NA1')
+        p2 = self._patient('NA2')
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse('dicom_server:schedule_prepare'),
+            data=json.dumps({
+                'node': self.node.pk,
+                'patients': [p1.patient_id, p2.patient_id],
+                'extra_transforms': '',
+            }),
+            content_type='application/json',
+        )
+        page = self.client.get(reverse('dicom_server:schedule_create'))
+        self.assertContains(page, 'Scheduled bulk retrieve \u2014 2 patients')
+        self.assertContains(page, 'id_name')

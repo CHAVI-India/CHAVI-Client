@@ -35,3 +35,58 @@
     {% endfill %}{% endcomponent %}
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var SCHEDULE_PATIENTS = {{ selected_count|default:0 }};
+    var nameEl = document.getElementById('id_name');
+    if (!nameEl) return;
+    var nameEdited = false;
+
+    function currentMode() {
+        var m = document.querySelector('input[name="mode"]:checked');
+        return m ? m.value : 'ONE_OFF';
+    }
+    function fmtRunAt() {
+        var v = document.getElementById('id_run_at').value; // YYYY-MM-DDTHH:MM
+        if (!v) return null;
+        var p = v.split('T');
+        var d = p[0] || '';
+        var t = (p[1] || '').slice(0, 5); // HH:MM
+        return d + (t ? ' ' + t : '');
+    }
+    function fmtCron() {
+        var ids = ['id_minute', 'id_hour', 'id_day_of_month',
+                   'id_month_of_year', 'id_day_of_week'];
+        return 'cron ' + ids.map(function (id) {
+            var el = document.getElementById(id);
+            return el ? el.value : '';
+        }).join(' ');
+    }
+    function buildName() {
+        var n = SCHEDULE_PATIENTS;
+        var nText = n + (n === 1 ? ' patient' : ' patients');
+        var when = (currentMode() === 'PERIODIC') ? fmtCron() : fmtRunAt();
+        var name = 'Scheduled bulk retrieve';
+        if (when) name += ' — ' + when;
+        name += ' — ' + nText;
+        return name;
+    }
+    function maybeAuto() { if (!nameEdited) nameEl.value = buildName(); }
+
+    nameEl.addEventListener('input', function () {
+        nameEdited = nameEl.value.trim() !== '';
+    });
+    ['id_run_at', 'id_minute', 'id_hour', 'id_day_of_month',
+     'id_month_of_year', 'id_day_of_week'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', maybeAuto);
+    });
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+        r.addEventListener('change', maybeAuto);
+    });
+    maybeAuto();
+})();
+</script>
+{% endblock %}
