@@ -1180,6 +1180,13 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
         extraction_job.save()
 
+        # Split-extraction jobs (frozen per-call plan) run the sequential
+        # chunked path; everything else keeps the legacy single call
+        if (extraction_job.config_snapshot or {}).get(
+                'extraction_plan_version') == 2:
+            return InstructorExtractionService._run_chunked_extraction(
+                extraction_job, processed_content)
+
         client = InstructorExtractionService._get_llm_client(response_model)
         include_assessments = InstructorExtractionService.uses_field_assessments(extraction_job)
         PydanticModel = PydanticModelBuilder.build_extraction_model(
@@ -1302,6 +1309,238 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
         return InstructorExtractionService._job_result(
             True, data=clinical_data, tokens=tokens, raw=clinical_data)
+
+    @staticmethod
+    def _model_table_by_name(response_model, table_name):
+        from extractor.models import ResponseModelTable
+        return ResponseModelTable.objects.filter(
+            response_model=response_model,
+            database_table__clientapp_content_type__model=table_name,
+        ).first()
+
+    @staticmethod
+    def _run_chunked_extraction(extraction_job, processed_content):
+        """
+        Sequential execution of the frozen per-call plan. Completed
+        tables are kept when later calls fail; child calls whose
+        ancestors failed are skipped. Always returns a result dict.
+        """
+        from django.db import transaction
+        from django.db.models import Count
+
+        from extractor.services.extraction_split import (
+            TableMergeError, merge_table_chunks, nest_children)
+        from extractor.services.model_hierarchy import child_key
+
+        client_config = extraction_job.response_model.client
+        response_model = extraction_job.response_model
+        include_assessments = \
+            InstructorExtractionService.uses_field_assessments(extraction_job)
+
+        entries = [e for e in (extraction_job.stage_trace or [])
+                   if e.get('stage') == 'extraction'
+                   and e.get('kind') == 'prompt']
+        mine_entry = next(
+            (e for e in reversed(extraction_job.stage_trace or [])
+             if e.get('stage') == 'mining' and e.get('kind') == 'result'),
+            {}) or {}
+        resolved_options = {
+            int(k): v for k, v in mine_entry.get('resolved_options', {}).items()}
+        if not entries:
+            entries = InstructorExtractionService.build_extraction_plan_entries(
+                response_model, processed_content, client_config,
+                resolved_options)
+        if not entries:
+            return InstructorExtractionService._stage_fail(
+                extraction_job, 'No extraction calls planned.')
+
+        client = InstructorExtractionService._get_llm_client(response_model)
+        lookup_rules = InstructorExtractionService.build_lookup_rules(
+            response_model, resolved_options)
+        validation_context = {
+            PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules}
+        if include_assessments:
+            validation_context['source_text'] = processed_content
+
+        table_chunks = {}
+        failed_calls = []
+        skipped_calls = []
+        failed_tables = set()
+        call_tokens = 0
+
+        for entry in entries:
+            table = entry['table']
+            if any(anc in failed_tables for anc in entry.get('ancestry', [])):
+                skipped_calls.append(f"{table} (call {entry['index']})")
+                log.warning(
+                    f"Extraction job {extraction_job.id}: skipping "
+                    f"{table} — ancestor table failed")
+                continue
+
+            model_table = InstructorExtractionService._model_table_by_name(
+                response_model, table)
+            fields = [
+                tf.field for tf in ResponseModelTableField.objects.filter(
+                    response_model_table=model_table,
+                    field__clientapp_field_name__in=entry['fields'],
+                    field__is_active=True).order_by('order')]
+            wrapper, _ = PydanticModelBuilder.build_chunk_response_model(
+                model_table, fields,
+                include_field_assessments=include_assessments,
+                with_parent_index=bool(entry.get('ancestry')))
+
+            create_kwargs = dict(
+                model=client_config.llm_model_name,
+                response_model=wrapper,
+                messages=entry['messages'],
+                timeout=client_config.request_timeout,
+                **InstructorExtractionService._build_reasoning_kwargs(
+                    client_config),
+            )
+            if client_config.model_max_tokens:
+                create_kwargs['max_tokens'] = client_config.model_max_tokens
+
+            result = None
+            completion = None
+            try:
+                result, completion = \
+                    client.chat.completions.create_with_completion(
+                        context=validation_context, **create_kwargs)
+            except InstructorRetryException as e:
+                if not e.failed_attempts:
+                    raise
+                log.warning(
+                    f"Extraction job {extraction_job.id}: {table} call "
+                    f"{entry['index']} validation retries exhausted; "
+                    "repairing")
+                try:
+                    result, completion, validation_context = \
+                        InstructorExtractionService._repair_failed_extraction(
+                            client, e, wrapper, create_kwargs,
+                            validation_context, extraction_job.id)
+                except Exception as repair_err:
+                    log.error(f"{repair_err}", exc_info=True)
+            except Exception as e:
+                log.error(
+                    f"Extraction job {extraction_job.id}: {table} call "
+                    f"{entry['index']} failed: {e}", exc_info=True)
+
+            if result is None:
+                failed_calls.append(
+                    f"{table} (call {entry['index']})")
+                failed_tables.add(table)
+                continue
+
+            if include_assessments:
+                try:
+                    result = wrapper.model_validate(
+                        result.model_dump(), context=validation_context)
+                except ValidationError:
+                    log.error(
+                        f"Extraction job {extraction_job.id}: {table} "
+                        f"(call {entry['index']}) evidence failed "
+                        "validation; dropping the call")
+                    failed_calls.append(
+                        f"{table} (call {entry['index']}, validation)")
+                    failed_tables.add(table)
+                    continue
+
+            table_chunks.setdefault(table, []).append({
+                'fields': entry['fields'],
+                'records': [r.model_dump(mode='json')
+                            for r in result.records],
+            })
+            usage = getattr(completion, 'usage', None)
+            call_tokens += int(getattr(usage, 'total_tokens', 0) or 0)
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'call_result',
+                index=entry['index'], table=table,
+                records=len(result.records),
+                tokens=getattr(usage, 'total_tokens', 0))
+
+        # Merge per table, then nest children under their parents
+        merged = {}
+        for table, chunks in table_chunks.items():
+            try:
+                merged[table] = merge_table_chunks(chunks)
+            except TableMergeError as e:
+                failed_calls.append(f"{table} ({e})")
+                failed_tables.add(table)
+                merged[table] = None
+
+        data = {}
+        dropped_orphans = 0
+        nested_children = set()
+        for entry in entries:
+            table = entry['table']
+            records = merged.get(table)
+            if records is None:
+                continue
+            ancestry = entry.get('ancestry') or []
+            if not ancestry:
+                if table not in data:
+                    data[table] = records
+                continue
+            parent = ancestry[-1]
+            if table in nested_children:
+                continue
+            if merged.get(parent) is None:
+                dropped_orphans += len(records)
+                continue
+            # nest in place under the parent records; data keeps only
+            # root tables so raw_llm_response keeps its legacy shape
+            _, dropped = nest_children(
+                data[parent], records, child_key(
+                    InstructorExtractionService._model_table_by_name(
+                        response_model, table).database_table))
+            dropped_orphans += dropped
+            nested_children.add(table)
+
+        total_tokens = call_tokens + int(mine_entry.get('tokens') or 0)
+        root_tables = [e['table'] for e in entries if not e.get('ancestry')]
+        if not any(data.get(t) for t in root_tables):
+            message = ('; '.join(failed_calls)
+                       or 'Extraction produced no data')
+            return InstructorExtractionService._stage_fail(
+                extraction_job, message)
+
+        clinical_data = None
+        with transaction.atomic():
+            InstructorExtractionService.save_extraction_results(
+                extraction_job, data, extraction_job.extracted_by,
+                content=processed_content)
+            coverage = {
+                row['result_state']: row['n']
+                for row in ExtractionResult.objects.filter(
+                    extraction_job=extraction_job)
+                .values('result_state').annotate(n=Count('id'))
+            }
+            clinical_data = InstructorExtractionService.clinical_values_only(
+                response_model, data)
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'result',
+                data=clinical_data, tokens=total_tokens, coverage=coverage,
+                failed_calls=failed_calls, skipped_calls=skipped_calls,
+                dropped_orphans=dropped_orphans)
+            extraction_job.extraction_end_datetime = timezone.now()
+            extraction_job.raw_llm_response = json.dumps(data)
+            extraction_job.tokens_used = total_tokens
+            if failed_calls or skipped_calls or dropped_orphans:
+                extraction_job.extraction_status = \
+                    ExtractionStatusChoices.PARTIAL
+                extraction_job.extraction_error = '; '.join(
+                    failed_calls + [f'skipped: {s}' for s in skipped_calls]
+                    + ([f'{dropped_orphans} unattributed child record(s)']
+                       if dropped_orphans else []))
+            else:
+                extraction_job.extraction_status = \
+                    ExtractionStatusChoices.COMPLETED
+                extraction_job.extraction_error = None
+            extraction_job.save()
+
+        return InstructorExtractionService._job_result(
+            extraction_job.extraction_status == ExtractionStatusChoices.COMPLETED,
+            data=clinical_data, tokens=total_tokens, raw=clinical_data)
 
     REPAIR_PROMPT = (
         'The previous response is shown above; fields set to null failed '

@@ -1,5 +1,6 @@
 import json
 import os
+from contextlib import nullcontext
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -9,7 +10,8 @@ from django.test import SimpleTestCase, TestCase
 
 from extractor.models import (
     ClientConfiguration, DatabaseField, DatabaseTable, EntityTypeChoices,
-    ExtractedRecord, ExtractionJob, ExtractionResult, FileUpload, ProcessedText,
+    ExtractedRecord, ExtractionJob, ExtractionResult, ExtractionStatusChoices,
+    FileUpload, ProcessedText,
     RecordCreation, ResponseModel, ResponseModelTable, ResponseModelTableField,
 )
 from extractor.services.model_hierarchy import (
@@ -2571,3 +2573,175 @@ class StagePlanningTests(TestCase):
         self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
         self.assertEqual(job.extraction_status,
                          ExtractionStatusChoices.AWAITING_EXTRACTION)
+
+
+class ChunkedStageExtractTests(TestCase):
+    def setUp(self):
+        import hashlib
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        make_field(self.diagnosis, 'site_0', lookup_field=True)
+        make_field(self.diagnosis, 'plain_0', field_type='int')
+        f_date = make_field(self.pathology, 'date_pathology')
+        rmtf = ResponseModelTableField.objects
+        rmtf.create(response_model_table=self.rmt_d,
+                    field=DatabaseField.objects.get(
+                        clientapp_field_name='site_0',
+                        clientapp_database_table=self.diagnosis), order=0)
+        rmtf.create(response_model_table=self.rmt_d,
+                    field=DatabaseField.objects.get(
+                        clientapp_field_name='plain_0',
+                        clientapp_database_table=self.diagnosis), order=1)
+        rmtf.create(response_model_table=self.rmt_p, field=f_date, order=0)
+
+        self.user = User.objects.create(username='runner')
+        self.upload = FileUpload.objects.create(file='s.pdf')
+        self.source = 'PATHOLOGY REPORT. 1 node involved.'
+        self.processed = ProcessedText.objects.create(
+            file_upload=self.upload, content_length=len(self.source))
+        digest = hashlib.sha256(self.source.encode('utf-8')).hexdigest()
+        self.job = ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user,
+            extraction_status=ExtractionStatusChoices.AWAITING_EXTRACTION,
+            input_content_hash=digest,
+            config_snapshot={'field_assessment_version': 1,
+                             'extraction_plan_version': 2})
+        # Trace the real plan exactly as stage_mine would (mining is
+        # patched out) and freeze the job
+        with patch.object(InstructorExtractionService, 'mine_lookup_snippets',
+                          return_value=({}, 0)), \
+             patch.object(InstructorExtractionService,
+                          'recheck_empty_snippets',
+                          return_value=({}, 0, ['diagnosis.site_0'])), \
+             patch.object(InstructorExtractionService, '_get_llm_client',
+                          return_value=Mock()):
+            self.job.extraction_status = \
+                ExtractionStatusChoices.AWAITING_MINING
+            InstructorExtractionService.stage_mine(self.job, self.source)
+        self.job.refresh_from_db()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+    def _record_for(self, wrapper, entry):
+        table = entry['table']
+        if table == 'diagnosis' and entry['call_kind'] == 'lookup':
+            return wrapper(records=[{'site_0': 'Left'}])
+        if table == 'diagnosis':
+            return wrapper(records=[{
+                'plain_0': 1,
+                'field_assessments': [{
+                    'field': 'plain_0', 'basis': 'explicit',
+                    'quotes': ['1 node involved.'],
+                    'rationale': 'stated'}],
+            }])
+        if table == 'pathology':
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}])
+        if table == 'lesion':
+            return wrapper(records=[{'lesion_size': 'tumor mass'}])
+        raise AssertionError(f'unexpected call for {table}')
+
+    def _run(self, fail_table=None):
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=11))
+        state = {'i': 0}
+
+        def create(**kwargs):
+            i = state['i']
+            state['i'] += 1
+            if fail_table and self.entries[i]['table'] == fail_table:
+                raise Exception('provider down')
+            return self._record_for(kwargs['response_model'],
+                                    self.entries[i]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+    def test_chunked_extraction_saves_merged_nested_result(self):
+        self._run()
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            len(self.entries))
+        self.saved.assert_called_once()
+        data = self.saved.call_args.args[1]
+        self.assertEqual(set(data), {'diagnosis'})
+        rec = data['diagnosis'][0]
+        self.assertEqual(rec['site_0'], 'Left')
+        self.assertEqual(rec['plain_0'], 1)
+        self.assertEqual(rec['pathology'][0]['date_pathology'], '2024-01-02')
+        self.assertNotIn('parent_index', rec['pathology'][0])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.COMPLETED)
+        self.assertEqual(
+            json.loads(self.job.raw_llm_response)['diagnosis'][0]['site_0'],
+            'Left')
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['kind'], 'result')
+        self.assertEqual(final.get('failed_calls'), [])
+
+    def test_partial_save_when_a_call_fails(self):
+        # Second independent root table (lesion, parent Patient) so a
+        # failing diagnosis root can still leave saved data -> PARTIAL
+        self.lesion = make_table('lesion', [PATIENT_STEP])
+        self.rmt_l = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.lesion)
+        f_lesion = make_field(self.lesion, 'lesion_size')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_l, field=f_lesion, order=0)
+        # Replace the traced extraction prompts with a plan that includes
+        # the new lesion table
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+        self._run(fail_table='diagnosis')
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.PARTIAL)
+        self.assertIn('diagnosis', self.job.extraction_error)
+        calls = self._client.chat.completions.create_with_completion
+        self.assertEqual(calls.call_count, 3)
+        # diagnosis lookup + diagnosis plain both charged & failed, lesion
+        # ran, pathology skipped (not charged)
+        self.saved.assert_called_once()
+        data = self.saved.call_args.args[1]
+        self.assertEqual(data.get('diagnosis', []), [])
+        self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
