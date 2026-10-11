@@ -439,6 +439,68 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 </document>"""
 
     @staticmethod
+    def _build_reasoning_kwargs(client_config) -> dict:
+        """
+        Build provider-specific reasoning kwargs to pass alongside the
+        standard create() parameters.
+
+        Returns a dict that can be unpacked into create_with_completion():
+          - OpenAI:      {"reasoning_effort": "medium"}
+          - Ollama:      {"extra_body": {"think": "high"}}  (OpenAI-compat)
+          - Anthropic:   {"thinking": {"type": "adaptive"}, "output_config": {...}}
+          - No reasoning: {}
+        """
+        effort = (client_config.reasoning_effort or '').strip()
+        if not effort:
+            return {}  # Use model default — no param needed
+
+        caps = client_config.model_capabilities or {}
+        provider_hint = caps.get('provider_hint')
+        provider = (client_config.model_provider or '').lower()
+
+        # --- Ollama (OpenAI-compatible endpoint) ---
+        if provider_hint == 'ollama_think' or 'ollama' in provider or 'local' in provider:
+            # `think` is not a standard OpenAI param — must go in extra_body
+            # Values: boolean (true/false) or named level string
+            levels = caps.get('reasoning_levels', [])
+            if effort.lower() in ('true', 'enabled', 'on'):
+                think_value = True
+            elif effort.lower() in ('false', 'disabled', 'off'):
+                think_value = False
+            elif levels and any(
+                    str(v).lower() == effort.lower() for v in levels):
+                think_value = effort  # named level like "low", "medium", "high"
+            else:
+                # Default to True if model supports thinking
+                think_value = True if (True in levels or 'true' in [str(v).lower() for v in levels]) else effort
+            return {'extra_body': {'think': think_value}}
+
+        # --- Anthropic ---
+        if provider_hint == 'anthropic_adaptive':
+            # Claude 4.6+: adaptive thinking with effort level
+            thinking_config = {'type': 'adaptive'}
+            output_config = {'effort': effort.lower()}
+            return {'thinking': thinking_config, 'output_config': output_config}
+
+        if provider_hint == 'anthropic_budget':
+            # Claude 4.5 and earlier: budget_tokens mode
+            # Map effort levels to token budgets
+            budget_map = {
+                'enabled': 8000, 'low': 4000, 'medium': 12000, 'high': 24000,
+            }
+            budget = budget_map.get(effort.lower(), 8000)
+            return {'thinking': {'type': 'enabled', 'budget_tokens': budget}}
+
+        # --- OpenAI / OpenAI-compatible ---
+        if provider_hint == 'openai_reasoning_effort' or 'openai' in provider \
+                or 'azure' in provider or not provider_hint:
+            # reasoning_effort is a standard Chat Completions param
+            return {'reasoning_effort': effort.lower()}
+
+        # Fallback: try reasoning_effort (most common pattern)
+        return {'reasoning_effort': effort.lower()}
+
+    @staticmethod
     def _snippet_call(
         client,
         prompt: str,
@@ -460,6 +522,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             # a hard 2048 cap truncates them before the JSON finishes.
             max_tokens=client_config.model_max_tokens,
             timeout=client_config.request_timeout,
+            **InstructorExtractionService._build_reasoning_kwargs(client_config),
         )
 
         usage = getattr(completion, 'usage', None)
@@ -1110,6 +1173,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             messages=messages,
             max_tokens=client_config.model_max_tokens,
             timeout=client_config.request_timeout,
+            **InstructorExtractionService._build_reasoning_kwargs(client_config),
         )
         validation_context = {PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules}
         if include_assessments:

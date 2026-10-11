@@ -63,6 +63,17 @@ class ClientConfiguration(models.Model):
                   "Reasoning models (gpt-oss, o-series, deepseek-r1) spend "
                   "part of this budget on hidden thinking tokens, so use "
                   "8192-16384; non-reasoning models are usually fine at 4096.")
+    model_capabilities = models.JSONField(
+        null=True, blank=True,
+        help_text="Discovered model capabilities (reasoning support, context "
+                  "length, vision, etc.) from the provider API. Populated "
+                  "automatically when 'Discover Capabilities' is run.")
+    reasoning_effort = models.CharField(
+        max_length=50, blank=True, default='',
+        help_text="Reasoning/thinking level to use during extraction. "
+                  "Leave empty to use the model default. Available values "
+                  "depend on the model (e.g. low/medium/high for OpenAI, "
+                  "enabled/disabled for Ollama, budget for Anthropic).")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

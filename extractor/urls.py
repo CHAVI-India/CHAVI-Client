@@ -25,6 +25,8 @@ urlpatterns = [
     path('client-configurations/<int:config_id>/edit/', views.client_configuration_edit, name='client_configuration_edit'),
     path('client-configurations/<int:config_id>/delete/', views.client_configuration_delete, name='client_configuration_delete'),
     path('client-configurations/<int:config_id>/test-connection/', views.client_configuration_test_connection, name='client_configuration_test_connection'),
+    path('client-configurations/<int:config_id>/discover-capabilities/', views.client_configuration_discover_capabilities, name='client_configuration_discover_capabilities'),
+    path('client-configurations/<int:config_id>/set-reasoning/', views.client_configuration_set_reasoning, name='client_configuration_set_reasoning'),
     
     path('files/', views.file_upload_list, name='file_upload_list'),
     path('files/upload/', views.file_upload_create, name='file_upload_create'),

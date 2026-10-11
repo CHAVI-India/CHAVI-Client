@@ -821,6 +821,91 @@ def client_configuration_test_connection(request, config_id):
         }, status=500)
 
 
+@login_required
+@permission_required('extractor.change_clientconfiguration', raise_exception=True)
+@require_http_methods(["POST"])
+def client_configuration_discover_capabilities(request, config_id):
+    """
+    Discover model capabilities by querying the provider API.
+    Stores the result on the configuration and returns it as JSON.
+    """
+    configuration = get_object_or_404(ClientConfiguration, id=config_id)
+
+    if configuration.api_key_expired():
+        return JsonResponse({
+            'success': False,
+            'message': f"API key expired on {configuration.model_api_key_validity:%Y-%m-%d}. Update the key first.",
+        }, status=400)
+
+    try:
+        from extractor.services.model_capabilities import discover_capabilities
+
+        capabilities = discover_capabilities(
+            model_provider=configuration.model_provider,
+            model_name=configuration.llm_model_name,
+            model_base_url=configuration.model_base_url,
+            model_api_key=configuration.model_api_key,
+            request_timeout=configuration.request_timeout,
+        )
+
+        # Store on the model
+        configuration.model_capabilities = capabilities
+        configuration.save(update_fields=['model_capabilities', 'updated_at'])
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Capabilities discovered successfully.',
+            'capabilities': capabilities,
+        })
+
+    except Exception as e:
+        log.error(f"Capability discovery failed for config {config_id}: {type(e).__name__}: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Discovery failed: {type(e).__name__}: {str(e)[:200]}',
+            'details': {'error': str(e)[:300]},
+        }, status=500)
+
+
+@login_required
+@permission_required('extractor.change_clientconfiguration', raise_exception=True)
+@require_http_methods(["POST"])
+def client_configuration_set_reasoning(request, config_id):
+    """
+    Set the reasoning effort/level for a configuration.
+    Accepts POST JSON: {"reasoning_effort": "medium"}
+    """
+    configuration = get_object_or_404(ClientConfiguration, id=config_id)
+
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        body = {}
+
+    reasoning_effort = body.get('reasoning_effort', '').strip()
+
+    # Validate against discovered capabilities if available
+    caps = configuration.model_capabilities or {}
+    valid_levels = caps.get('reasoning_levels', [])
+    if valid_levels and reasoning_effort:
+        # Allow both string levels and boolean values
+        allowed = [str(v).lower() for v in valid_levels]
+        if reasoning_effort.lower() not in allowed:
+            return JsonResponse({
+                'success': False,
+                'message': f"Invalid reasoning level '{reasoning_effort}'. "
+                           f"Valid options: {', '.join(allowed)}",
+            }, status=400)
+
+    configuration.reasoning_effort = reasoning_effort
+    configuration.save(update_fields=['reasoning_effort', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'message': f"Reasoning effort set to: {reasoning_effort or 'model default'}",
+    })
+
+
 # File Upload Views
 
 @login_required

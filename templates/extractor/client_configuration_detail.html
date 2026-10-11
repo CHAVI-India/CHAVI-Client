@@ -77,6 +77,128 @@
             {% endfill %}
         {% endcomponent %}
 
+        {% component "card" title="Model Capabilities" %}
+            {% fill "body" %}
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-sm text-gray-600">
+                        {% if configuration.model_capabilities %}
+                            Discovered at: {{ configuration.model_capabilities.discovered_at|date:"M d, Y H:i" }}
+                            (source: {{ configuration.model_capabilities.source }})
+                        {% else %}
+                            No capabilities discovered yet.
+                        {% endif %}
+                    </p>
+                    {% component "button" style="secondary" icon="fas fa-search" id="discover-btn" onclick="discoverCapabilities()" %}Discover Capabilities{% endcomponent %}
+                </div>
+
+                {% if configuration.model_capabilities %}
+                <div id="capabilities-display" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {% with caps=configuration.model_capabilities %}
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs font-medium text-gray-500 uppercase mb-1">Reasoning</p>
+                        <p class="text-lg">
+                            {% if caps.reasoning %}
+                                <i class="fas fa-brain text-chavi-primary-600 mr-1"></i>
+                                <span class="text-gray-800">Yes</span>
+                            {% else %}
+                                <i class="fas fa-minus text-gray-400 mr-1"></i>
+                                <span class="text-gray-400">No</span>
+                            {% endif %}
+                        </p>
+                        {% if caps.reasoning_default %}
+                        <p class="text-xs text-gray-500">default: {{ caps.reasoning_default }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs font-medium text-gray-500 uppercase mb-1">Context Length</p>
+                        <p class="text-lg text-gray-800">
+                            {% if caps.context_length %}
+                                {{ caps.context_length|floatformat:"0" }}
+                            {% else %}
+                                <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs font-medium text-gray-500 uppercase mb-1">Vision</p>
+                        <p class="text-lg">
+                            {% if caps.vision %}
+                                <i class="fas fa-eye text-chavi-primary-600 mr-1"></i>
+                                <span class="text-gray-800">Yes</span>
+                            {% else %}
+                                <i class="fas fa-eye-slash text-gray-400 mr-1"></i>
+                                <span class="text-gray-400">No</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs font-medium text-gray-500 uppercase mb-1">Tools</p>
+                        <p class="text-lg">
+                            {% if caps.tools %}
+                                <i class="fas fa-wrench text-chavi-primary-600 mr-1"></i>
+                                <span class="text-gray-800">Yes</span>
+                            {% else %}
+                                <i class="fas fa-wrench text-gray-400 mr-1"></i>
+                                <span class="text-gray-400">No</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% if caps.model_details %}
+                    {% if caps.model_details.family %}
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs font-medium text-gray-500 uppercase mb-1">Model Family</p>
+                        <p class="text-lg text-gray-800">{{ caps.model_details.family }}</p>
+                        {% if caps.model_details.parameter_size %}
+                        <p class="text-xs text-gray-500">{{ caps.model_details.parameter_size }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+
+                {% if configuration.model_capabilities.reasoning %}
+                <div class="mt-6 border-t border-gray-200 pt-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-700">Reasoning Level</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Controls how much the model thinks before answering.
+                                Higher = better quality but slower and more tokens.
+                            </p>
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="reasoning-select"
+                                    class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary text-sm w-40">
+                                <option value="" {% if not configuration.reasoning_effort %}selected{% endif %}>Model default</option>
+                                {% for level in configuration.model_capabilities.reasoning_levels %}
+                                <option value="{{ level }}"
+                                        {% if configuration.reasoning_effort|lower == level|lower %}selected{% endif %}>
+                                    {{ level }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% component "button" style="primary" size="sm" icon="fas fa-save" onclick="setReasoning()" %}Apply{% endcomponent %}
+                        </div>
+                    </div>
+                    {% if configuration.reasoning_effort %}
+                    <p class="text-xs text-chavi-primary-600 mt-2">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        Currently set to: <strong>{{ configuration.reasoning_effort }}</strong>
+                    </p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div id="capabilities-empty" class="text-center py-8">
+                    <i class="fas fa-microscope text-4xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500">Click “Discover Capabilities” to query the model API</p>
+                    <p class="text-sm text-gray-400">This will detect reasoning support, context length, vision, and tools.</p>
+                </div>
+                {% endif %}
+            {% endfill %}
+        {% endcomponent %}
+
         {% if response_models %}
         {% component "card" title="Response Models Using This Configuration" %}
             {% fill "body" %}
@@ -273,6 +395,125 @@ async function testConnection() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Test Connection';
+    }
+}
+
+async function discoverCapabilities() {
+    const btn = document.getElementById('discover-btn');
+    const display = document.getElementById('capabilities-display');
+    const empty = document.getElementById('capabilities-empty');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Discovering...';
+
+    try {
+        const response = await fetch('{% url "extractor:client_configuration_discover_capabilities" configuration.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            const caps = data.capabilities;
+            // Remove empty state
+            if (empty) empty.style.display = 'none';
+
+            // Rebuild the capabilities grid
+            if (display) {
+                const cards = [];
+                cards.push(capCard('Reasoning', caps.reasoning ? 'Yes' : 'No', caps.reasoning, caps.reasoning_default ? `default: ${caps.reasoning_default}` : null));
+                cards.push(capCard('Context Length', caps.context_length ? caps.context_length.toLocaleString() : '—', null, null));
+                cards.push(capCard('Vision', caps.vision ? 'Yes' : 'No', caps.vision, null));
+                cards.push(capCard('Tools', caps.tools ? 'Yes' : 'No', caps.tools, null));
+                if (caps.model_details && caps.model_details.family) {
+                    cards.push(capCard('Model', caps.model_details.family, null, caps.model_details.parameter_size));
+                }
+                display.innerHTML = cards.join('');
+            }
+
+            // Show reasoning selector if supported
+            let reasoningSection = document.getElementById('reasoning-section');
+            if (caps.reasoning) {
+                if (!reasoningSection) {
+                    reasoningSection = document.createElement('div');
+                    reasoningSection.id = 'reasoning-section';
+                    reasoningSection.className = 'mt-6 border-t border-gray-200 pt-4';
+                    display.parentElement.appendChild(reasoningSection);
+                }
+                const levels = caps.reasoning_levels || [];
+                let options = '<option value="">Model default</option>';
+                for (const level of levels) {
+                    options += `<option value="${level}">${level}</option>`;
+                }
+                reasoningSection.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-700">Reasoning Level</p>
+                            <p class="text-xs text-gray-500 mt-1">Controls how much the model thinks before answering.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="reasoning-select" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary text-sm w-40">
+                                ${options}
+                            </select>
+                            <button onclick="setReasoning()" class="px-3 py-2 bg-chavi-primary text-white text-sm font-medium rounded-lg hover:bg-chavi-primary-700">
+                                <i class="fas fa-save mr-1"></i>Apply
+                            </button>
+                        </div>
+                    </div>`;
+            } else if (reasoningSection) {
+                reasoningSection.remove();
+            }
+
+        } else {
+            alert(data.message || 'Discovery failed');
+        }
+    } catch (error) {
+        alert('Discovery failed: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search mr-2"></i>Discover Capabilities';
+    }
+}
+
+function capCard(label, value, isPositive, sub) {
+    const icon = isPositive === true ? 'text-chavi-primary-600' : isPositive === false ? 'text-gray-400' : '';
+    return `<div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+        <p class="text-xs font-medium text-gray-500 uppercase mb-1">${label}</p>
+        <p class="text-lg text-gray-800">${value}</p>
+        ${sub ? `<p class="text-xs text-gray-500">${sub}</p>` : ''}
+    </div>`;
+}
+
+async function setReasoning() {
+    const select = document.getElementById('reasoning-select');
+    if (!select) return;
+    const value = select.value;
+
+    const response = await fetch('{% url "extractor:client_configuration_set_reasoning" configuration.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reasoning_effort: value }),
+    });
+    const data = await response.json();
+
+    if (data.success) {
+        // Update the status indicator
+        const section = document.getElementById('reasoning-section');
+        let status = section.querySelector('.reasoning-status');
+        if (!status) {
+            status = document.createElement('p');
+            status.className = 'reasoning-status text-xs text-chavi-primary-600 mt-2';
+            section.appendChild(status);
+        }
+        status.innerHTML = `<i class="fas fa-check-circle mr-1"></i>Currently set to: <strong>${value || 'model default'}</strong>`;
+    } else {
+        alert(data.message || 'Failed to set reasoning level');
     }
 }
 </script>
