@@ -347,6 +347,20 @@ def _ref_series_uids(identifier) -> list[str]:
     return uids
 
 
+def _rtreg_image_series_uids(identifier) -> list[str]:
+    """SeriesInstanceUIDs an RTREG/RTIMAGE points at directly, via
+    RealWorldTransformSequence > TransformToImageSequence
+    (TransformToImageSeriesInstanceUID) — usable without SOP resolution when
+    the peer populates it."""
+    uids = []
+    for twt in getattr(identifier, 'RealWorldTransformSequence', []):
+        for tti in getattr(twt, 'TransformToImageSequence', []):
+            uid = str(getattr(tti, 'TransformToImageSeriesInstanceUID', '') or '')
+            if uid:
+                uids.append(uid)
+    return uids
+
+
 def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
                              series_instance_uid: str,
                              patient_id: str | None = None) -> tuple[list[dict], str]:
@@ -394,6 +408,9 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
     ref_for_item = Dataset()
     ref_for_item.RTReferencedStudySequence = [ref_study_item]
     q.ReferencedFrameOfReferenceSequence = [ref_for_item]
+    ref_img_item = Dataset()
+    ref_img_item.ReferencedSOPInstanceUID = ''
+    q.ReferencedImageSequence = [ref_img_item]
 
     results = []
     try:
@@ -418,6 +435,10 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
                     'referenced_structure_set_uids': _ref_sop_uids(
                         identifier, 'ReferencedStructureSetSequence'),
                     'referenced_series_uids': _ref_series_uids(identifier),
+                    'referenced_image_uids': _ref_sop_uids(
+                        identifier, 'ReferencedImageSequence'),
+                    'referenced_image_series_uids': _rtreg_image_series_uids(
+                        identifier),
                 })
             elif code not in (0xFF00, 0xFF01, 0x0000):
                 comment = getattr(status, 'ErrorComment', '') or ''
@@ -432,7 +453,7 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
 
 # Modalities whose instances carry attributes worth showing on the selection
 # page — they always get an IMAGE-level query during batch queries.
-_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN', 'RTDOSE'}
+_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN', 'RTDOSE', 'RTREG', 'RTIMAGE'}
 
 
 def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
@@ -484,14 +505,47 @@ def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
                 se['rt_instances'] = instances
 
 
-def _link_series_references(studies: list[dict]) -> None:
+def _resolve_image_series(assoc, model, node, study_uid, sop_uids) -> list[str]:
+    """Map reference-image SOP UIDs to SeriesInstanceUIDs via a small
+    IMAGE-level C-FIND (one per unique SOP). The base image is a non-RT series,
+    so its instances are not otherwise enumerated in the study tree. Returns
+    the series UIDs found; empty when a reference cannot be resolved."""
+    if not sop_uids:
+        return []
+    out = []
+    for sop in sop_uids:
+        if not sop:
+            continue
+        q = Dataset()
+        q.QueryRetrieveLevel = 'IMAGE'
+        q.StudyInstanceUID = study_uid or ''
+        q.SeriesInstanceUID = ''
+        q.SOPInstanceUID = sop
+        try:
+            for status, identifier in assoc.send_c_find(q, model):
+                code = getattr(status, 'Status', None) if status is not None else None
+                if code in (0xFF00, 0xFF01) and identifier:
+                    if str(getattr(identifier, 'SOPInstanceUID', '') or '') == sop:
+                        suid = str(getattr(identifier, 'SeriesInstanceUID', '') or '')
+                        if suid:
+                            out.append(suid)
+        except Exception:
+            logger.exception(
+                'IMAGE C-FIND failed resolving reference image %s on %s',
+                sop, node,
+            )
+    return out
+
+
+def _link_series_references(assoc, model, node, studies: list[dict]) -> None:
     """Resolve RT instance references into series links.
 
     Each RT series gains 'parent_series_uids' — the series it depends on
     within the same study (RTDOSE → RTPLAN, RTPLAN → RTSTRUCT, RTSTRUCT →
-    image series). References that exist but resolve to nothing (parent on
-    another node or in another study) set 'unresolved_refs' so the UI can
-    show the series unlinked rather than silently flat.
+    image series, RTREG/RTIMAGE → base image series). References that exist
+    but resolve to nothing (parent on another node or in another study) set
+    'unresolved_refs' so the UI can show the series unlinked rather than
+    silently flat.
     """
     for study in studies:
         series = study.get('series') or []
@@ -526,6 +580,24 @@ def _link_series_references(studies: list[dict]) -> None:
                     if sop_to_series.get(u) in series_uids
                 ]
                 had_refs = bool(refs)
+            elif mod in ('RTREG', 'RTIMAGE'):
+                # Pull the referenced base-image series so a REG/RT image is
+                # usable on its own. Direct series refs need no lookup; SOP
+                # refs are resolved with a C-FIND (the base image is a non-RT
+                # series whose instances are not otherwise in the tree).
+                direct = [u for inst in insts
+                          for u in inst.get('referenced_image_series_uids', [])]
+                sop_refs = [u for inst in insts
+                            for u in inst.get('referenced_image_uids', [])]
+                had_refs = bool(direct or sop_refs)
+                resolved = [u for u in direct if u in series_uids]
+                if sop_refs:
+                    resolved.extend(_resolve_image_series(
+                        assoc, model, node,
+                        study.get('study_instance_uid'),
+                        list(dict.fromkeys(sop_refs)),
+                    ))
+                resolved = [u for u in resolved if u in series_uids]
             else:
                 continue
             resolved = [
@@ -639,7 +711,7 @@ def find_studies_with_series(node: RemoteDICOMNode,
         # Instance-level pass last: peers that abort IMAGE queries (common on
         # storage-only nodes) must not cost later studies their series tree.
         _enrich_series_instances(assoc, model, node, studies)
-        _link_series_references(studies)
+        _link_series_references(assoc, model, node, studies)
         for study in studies:
             _backfill_study_fields(study)
         return studies, errors

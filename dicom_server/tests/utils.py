@@ -69,6 +69,7 @@ def make_rt_dataset(
     referenced_series_uids=None,
     referenced_structure_set_uids=None,
     referenced_plan_uids=None,
+    referenced_image_uids=None,
 ):
     """Build a minimal RTPLAN/RTSTRUCT/RTDOSE-like dataset carrying the RT
     attributes and reference sequences the bulk query enriches via
@@ -110,6 +111,10 @@ def make_rt_dataset(
     if referenced_plan_uids:
         ds.ReferencedRTPlanSequence = [
             _ref_sop_item(u) for u in referenced_plan_uids
+        ]
+    if referenced_image_uids:
+        ds.ReferencedImageSequence = [
+            _ref_sop_item(u) for u in referenced_image_uids
         ]
     return ds
 

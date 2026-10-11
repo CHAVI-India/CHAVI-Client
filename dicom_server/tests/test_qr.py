@@ -149,7 +149,8 @@ class _StubPACS:
                            'StructureSetName', 'RTPlanLabel', 'RTPlanName',
                            'ApprovalStatus', 'ReferencedRTPlanSequence',
                            'ReferencedStructureSetSequence',
-                           'ReferencedFrameOfReferenceSequence'):
+                           'ReferencedFrameOfReferenceSequence',
+                           'ReferencedImageSequence'):
                     val = getattr(ds, kw, None)
                     if val is not None:
                         setattr(rsp, kw, val)
@@ -695,6 +696,54 @@ class QRClientTests(TransactionTestCase):
             by_uid[dose.SeriesInstanceUID]['parent_series_uids'],
             [plan.SeriesInstanceUID],
         )
+
+    def test_find_studies_with_series_links_rtreg_to_image(self):
+        """An RTREG (real-world registration) series pulls in its referenced
+        base-image series via parent_series_uids so the REG is usable on its
+        own (works for both the manual and scheduled selection paths)."""
+        study_uid = '1.3.0.3'
+        ct = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        reg = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTREG',
+            referenced_image_uids=[ct.SOPInstanceUID],
+        )
+        pacs = _StubPACS([ct, reg])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        by_uid = {s['series_instance_uid']: s for s in studies[0]['series']}
+        self.assertEqual(
+            by_uid[reg.SeriesInstanceUID].get('parent_series_uids'),
+            [ct.SeriesInstanceUID],
+        )
+        self.assertNotIn('unresolved_refs', by_uid[reg.SeriesInstanceUID])
+
+    def test_find_studies_with_series_rtreg_unresolved(self):
+        """An RTREG referencing an image not present on this node is marked
+        unresolved instead of silently dropping the link."""
+        study_uid = '1.3.0.4'
+        reg = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTREG', referenced_image_uids=['9.9.9.9'],
+        )
+        pacs = _StubPACS([reg])
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        se = studies[0]['series'][0]
+        self.assertTrue(se['unresolved_refs'])
+        self.assertNotIn('parent_series_uids', se)
 
     def test_find_studies_with_series_unresolved_refs(self):
         """A reference pointing at an object not present on this node marks
