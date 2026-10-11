@@ -31,7 +31,7 @@ Data Collection Fields
      - The specific diagnosis using ICD-11 classification. If the patient has multiple diagnoses, each should be entered separately
    * - Diagnosis Date
      - diagnosis_date
-     - When the diagnosis was first made or confirmed. This can be a date when the patient came to the hospital for the first time or when pathological proof was obtained
+     - Date the diagnosis was made. Prefer the pathological confirmation (biopsy) date; if only a clinical diagnosis exists, use the first definitive clinical assessment. (DD/MM/YYYY)
    * - Presentation Type
      - presentation_type
      - How the disease presented (e.g., New diagnosis, Recurrence, Metastasis)

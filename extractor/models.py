@@ -56,13 +56,15 @@ class ClientConfiguration(models.Model):
                   "(OLLAMA_CONTEXT_LENGTH) — it is a budget check here, it "
                   "does not change the server's window.")
     model_max_tokens = models.PositiveIntegerField(
-        default=4096,
-        help_text="Maximum tokens in a single provider response. If "
-                  "extraction output is cut off mid-response ('output is "
-                  "incomplete due to a max_token length limit'), raise this. "
-                  "Reasoning models (gpt-oss, o-series, deepseek-r1) spend "
-                  "part of this budget on hidden thinking tokens, so use "
-                  "8192-16384; non-reasoning models are usually fine at 4096.")
+        null=True, blank=True,
+        help_text="Upper bound on response tokens sent to the provider. "
+                  "Leave empty to let the model use its own default — "
+                  "recommended unless you need to cap output for cost or "
+                  "latency. Setting this too low causes truncated output "
+                  "('output is incomplete due to a max_token length limit'). "
+                  "Reasoning models spend part of the budget on hidden "
+                  "thinking tokens, so use a higher value (e.g. 16384) "
+                  "if you set one.")
     model_capabilities = models.JSONField(
         null=True, blank=True,
         help_text="Discovered model capabilities (reasoning support, context "

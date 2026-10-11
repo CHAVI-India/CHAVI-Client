@@ -581,7 +581,8 @@ def client_configuration_create(request):
         try:
             request_timeout = int(request.POST.get('request_timeout') or 60)
             context_size = int(request.POST.get('context_size') or 8192)
-            model_max_tokens = int(request.POST.get('model_max_tokens') or 4096)
+            model_max_tokens_raw = request.POST.get('model_max_tokens', '').strip()
+            model_max_tokens = int(model_max_tokens_raw) if model_max_tokens_raw else None
         except ValueError:
             messages.error(request, "Timeout, context size and max tokens must be numbers.")
             return redirect('extractor:client_configuration_create')
@@ -652,7 +653,8 @@ def client_configuration_edit(request, config_id):
         try:
             configuration.request_timeout = int(request.POST.get('request_timeout') or 60)
             configuration.context_size = int(request.POST.get('context_size') or 8192)
-            configuration.model_max_tokens = int(request.POST.get('model_max_tokens') or 4096)
+            model_max_tokens_raw = request.POST.get('model_max_tokens', '').strip()
+            configuration.model_max_tokens = int(model_max_tokens_raw) if model_max_tokens_raw else None
         except ValueError:
             messages.error(request, "Timeout, context size and max tokens must be numbers.")
             return redirect('extractor:client_configuration_edit', config_id=configuration.id)

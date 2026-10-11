@@ -517,10 +517,10 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             response_model=LookupSnippetMap,
             messages=[{'role': 'user', 'content': prompt}],
             max_retries=2,
-            # The response body is small (<=5 snippets per lookup field) but
-            # reasoning models spend part of the budget on thinking tokens;
-            # a hard 2048 cap truncates them before the JSON finishes.
-            max_tokens=client_config.model_max_tokens,
+            # Only pass max_tokens when explicitly configured; otherwise
+            # the model uses its own default maximum output.
+            **({'max_tokens': client_config.model_max_tokens}
+                if client_config.model_max_tokens else {}),
             timeout=client_config.request_timeout,
             **InstructorExtractionService._build_reasoning_kwargs(client_config),
         )
@@ -1167,14 +1167,17 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         log.info(f"Starting extraction job {extraction_job.id} with model: {client_config.llm_model_name}")
 
         # Call Instructor; create_with_completion exposes usage stats
+        # Only pass max_tokens when explicitly configured; otherwise
+        # the model uses its own default maximum output.
         create_kwargs = dict(
             model=client_config.llm_model_name,
             response_model=PydanticModel,
             messages=messages,
-            max_tokens=client_config.model_max_tokens,
             timeout=client_config.request_timeout,
             **InstructorExtractionService._build_reasoning_kwargs(client_config),
         )
+        if client_config.model_max_tokens:
+            create_kwargs['max_tokens'] = client_config.model_max_tokens
         validation_context = {PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules}
         if include_assessments:
             validation_context['source_text'] = processed_content

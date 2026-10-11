@@ -39,22 +39,22 @@ Data Collection Fields
      - Indicates which side of the body the lesion is on (e.g., "Left", "Right", "Bilateral")
    * - Lesion Size X-Axis
      - lesion_size_x_axis
-     - The width (x-axis measurement) of the lesion in the specified unit of measurement
+     - First dimension of the lesion as reported (when a report gives 'a × b × c' or 'L × W × H', take the first value). In the unit from the Lesion Size Unit field (usually mm). Blank if no size given.
    * - Lesion Size Y-Axis
      - lesion_size_y_axis
-     - The length (y-axis measurement) of the lesion in the specified unit of measurement
+     - Second reported dimension (middle value of 'a × b × c'). Blank if the report gives fewer than two dimensions.
    * - Lesion Size Z-Axis
      - lesion_size_z_axis
-     - The depth (z-axis measurement) of the lesion in the specified unit of measurement
+     - Third reported dimension (last value of 'a × b × c'). Blank if not reported.
    * - Lesion Size Unit
      - lesion_size_unit
-     - The unit of measurement used for the lesion dimensions (e.g., "millimeters", "centimeters")
+     - Unit of the three size fields (mm, cm). Reports usually use mm.
    * - Lesion Volume
      - lesion_volume
-     - The total volume of the lesion, calculated from the three-dimensional measurements
+     - Volume of the lesion if stated in the report (e.g. 'volume 12.3 cc'). In the unit from the Lesion Volume Unit field. Blank if not stated.
    * - Lesion Volume Unit
      - lesion_volume_unit
-     - The unit of measurement used for the lesion volume (e.g., "cubic millimeters", "cubic centimeters")
+     - Unit of the lesion volume (e.g. mm³, cm³/cc).
    * - Lesion Detection Modality
      - lesion_detection_modality
      - The imaging modality used to detect the lesion (e.g., "CT", "MRI", "PET", "US")

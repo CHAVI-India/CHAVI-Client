@@ -54,7 +54,7 @@ class DateValidationMixin:
 class SiteConfiguration(models.Model):
     '''This form allows the user to add infomration regarding the site at which the client is installed. The center code will be provided by the CHAVI team for the site.'''
     chavi_center_id = models.CharField(max_length=255,help_text="Site ID. This will be provided to you at the time of installation.",primary_key=True)
-    center_name = models.CharField(max_length=255, help_text="Your Hospital")
+    center_name = models.CharField(max_length=255, help_text="Full official name of the hospital/institution where this CHAVI client is installed.")
 
     def save(self, *args, **kwargs):
         if self.__class__.objects.count():
@@ -79,8 +79,8 @@ def get_default_site():
 
 class Project(models.Model):
     ''' This is a table which will contain the details of the Projects in which the data will be collected. Projects have a unique ID which is generated at the CHAVI server. However your institutional IRB approvals may be different for the projects. '''
-    chavi_project_id = models.CharField(max_length=255,unique=True, primary_key=True,help_text="A unique identifier for the project.")
-    project_name = models.CharField(max_length=600,help_text="The name of the project.")
+    chavi_project_id = models.CharField(max_length=255,unique=True, primary_key=True,help_text="CHAVI-assigned unique identifier for the project (provided by the CHAVI team; not derived from local documents).")
+    project_name = models.CharField(max_length=600,help_text="Name of the research project/study, as named in the protocol or IRB approval.")
     center = models.ForeignKey(SiteConfiguration, on_delete=models.CASCADE,  null=True, blank=True,default=get_default_site, related_name="project_center")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -112,17 +112,17 @@ class Patient(DateValidationMixin, models.Model):
         null=True,
         blank=True,
         default=False,
-        help_text="Indicates whether the patient has provided consent for their data to be used in the CHAVI project. This field is required and must be set to True for the patient's data to be included in the project."
+        help_text="True if the patient (or guardian) gave documented consent for CHAVI data use. Leave blank if consent is not documented."
     )
     date_chavi_consent = models.DateField(
         null=True,
         blank=True,
-        help_text="The date when the patient provided consent for their data to be used in the CHAVI project. This field is required if chavi_consent is True." 
+        help_text="Date written consent was obtained. Set when consent is True. (DD/MM/YYYY)" 
     )
     patient_id = models.CharField(
         max_length=255, 
         primary_key=True,
-        help_text="This should be your institution's medical record number or another consistent identifier used by your center."
+        help_text="The patient's unique identifier at this institution — usually the Medical Record Number. In records it may appear as 'MRN', 'MR No', 'hospital number', or 'admission number'. Must match the identifier used on imaging and reports for the same patient."
     )
     canonical_patient_id = models.CharField(
         max_length=255, db_index=True, blank=True, default='', editable=False,
@@ -140,23 +140,23 @@ class Patient(DateValidationMixin, models.Model):
         blank=True,
         choices=Gender.choices,
         default=Gender.Female,
-        help_text="The patient's gender"
+        help_text="Patient's gender as documented (Male, Female, Transgender, Non-Binary). May be recorded as 'sex'. Leave blank only if unknown."
     )
     date_of_birth = models.DateField(
         null=True,
         blank=True,
-        help_text="The patient's date of birth in DD/MM/YYYY format."
+        help_text="Patient's date of birth. Appears as 'DOB' in records. (DD/MM/YYYY)"
     )
     date_of_registration = models.DateField(
         null=True,
         blank=True,
-        help_text="Date of registration in hospital."
+        help_text="Date the patient was first registered/admitted at this institution; may appear as 'registration date' or 'first visit date'. Cannot be earlier than date of birth."
     )
     patient_project = models.ManyToManyField(
         'Project',
         blank = True, 
         related_name="patient_project",
-        help_text="The project(s) that the patient is enrolled in."
+        help_text="Project(s) the patient is enrolled in. A patient may be in more than one."
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -195,7 +195,7 @@ class PatientDicomFile(models.Model):
     file = models.FileField(
         upload_to='dicom_files',
         validators=[FileExtensionValidator(allowed_extensions=["zip"])],
-        help_text="Please upload a single zip file having the DICOM studies for a single patients. You can choose to upload multiple studies at the same time."
+        help_text="ZIP archive of DICOM studies belonging to ONE patient; multiple studies per archive are allowed. (.zip only)"
     ) 
     processed = models.BooleanField(
         default=False,
@@ -234,31 +234,31 @@ class DICOMStudy(models.Model):
         Patient, 
         on_delete=models.CASCADE,
         related_name='patient',
-        help_text="Reference to the patient that this imaging study belongs to. When a patient record is deleted, all associated imaging studies will also be deleted."
+        help_text="Patient this imaging study belongs to."
     )
     study_instance_uid= models.CharField(
         max_length=255,
         unique = True,
         primary_key=True,
-        help_text="A unique identifier for this specific imaging study. This is like a serial number - no two imaging studies anywhere should have the same Study Instance UID. This helps prevent any confusion between different studies."
+        help_text="DICOM tag (0020,000D) Study Instance UID — globally unique identifier of this imaging study. Copy it exactly as written; never invent or truncate it."
     )
     study_date = models.DateField(
         null = True,
         blank = True,
-        help_text="The date when this imaging study was performed. This is recorded as DD/MM/YYYY format (for example: 2023-12-25)."
+        help_text="Date the imaging study was performed (DICOM tag (0008,0020) Study Date). (DD/MM/YYYY)"
     )
     study_description = models.CharField(
         max_length = 255,
         null = True,
         blank = True, 
-        help_text = "Description of the study Provided in the DICOM Data"
+        help_text = "Free-text study description from DICOM metadata (tag (0008,103E)); often names the body region and exam, e.g. 'CT NECK 3 PHASE'."
     )
     study_type = models.CharField(
         max_length = 255,
         choices = StudyTypeChoices.choices,
         null = True,
         blank = True,
-        help_text = "The type of study. This is a choice field that can be selected from the list of study types."
+        help_text = "Where the study sits in the treatment timeline: pre-treatment diagnostic, planning, on-treatment verification, planning for adaptive treatment, post-treatment response, therapy delivery, therapy QA, post-treatment diagnostic, or other."
     )
 
     study_type_source = models.CharField(
@@ -272,12 +272,12 @@ class DICOMStudy(models.Model):
         max_length = 255,
         null = True,
         blank = True,
-        help_text = "The modalities inside the the study. "
+        help_text = "DICOM modality codes contained in the study (e.g. CT, MR, PT, RTDOSE, US); comma-separated if several."
     )
     series_descriptions = models.TextField(
         null = True,
         blank = True,
-        help_text = "Description of the series in the study. This is a text field that can store multiple series descriptions, separated by commas."
+        help_text = "Descriptions of all series in the study (DICOM tag (0008,103E) per series), comma-separated."
     )
     folder_path = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -330,21 +330,21 @@ class StudyTypeRule(models.Model):
     )
     enabled = models.BooleanField(default=True)
 
-    match_modality = models.CharField(max_length=255, blank=True, default='')
+    match_modality = models.CharField(max_length=255, blank=True, default='', help_text="Study/modality/series-description text this rule matches.")
     modality_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
 
-    match_study_description = models.CharField(max_length=255, blank=True, default='')
+    match_study_description = models.CharField(max_length=255, blank=True, default='', help_text="Study/modality/series-description text this rule matches.")
     study_description_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
 
-    match_series_description = models.CharField(max_length=255, blank=True, default='')
+    match_series_description = models.CharField(max_length=255, blank=True, default='', help_text="Study/modality/series-description text this rule matches.")
     series_description_operator = models.CharField(max_length=20, choices=Operator.choices, default=Operator.CONTAINS)
 
     reference_event = models.CharField(
         max_length=40, choices=ReferenceEvent.choices, default=ReferenceEvent.NONE,
         help_text='Optional clinical date used for a date-window check.'
     )
-    date_window_start_days = models.IntegerField(default=-7)
-    date_window_end_days = models.IntegerField(default=7)
+    date_window_start_days = models.IntegerField(default=-7, help_text="Days before/after the reference event for which the rule may fire (negative = before).")
+    date_window_end_days = models.IntegerField(default=7, help_text="Days before/after the reference event for which the rule may fire (negative = before).")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -362,24 +362,24 @@ class StudyTypeRule(models.Model):
 class Diagnosis(models.Model):
     ''' This is a table which stores the diagnosis of the patient. The diagnosis is a key table which will have links to treatment and pathology.'''
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
-    help_text="Select the patient")
+    help_text="Patient to whom this diagnosis belongs")
     chavi_diagnosis_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cancer_system = models.ForeignKey('lookup.LookupMajorCancerCategory', on_delete=models.PROTECT,related_name='diagnosis_major_cancer_category',
-                                              help_text="Select the major cancer category")
+                                              help_text="Major cancer system/organ the cancer belongs to (e.g. breast, lung, cervix).")
     diagnosis = models.ForeignKey('lookup.LookupICDCode',related_name= 'diagnosis_code', on_delete=models.PROTECT,
-    help_text="Select the diagbnosis ICD code. If the patient has multiple diagnoses then you can add another instance of the form.")
+    help_text="ICD-11 code for the diagnosed cancer. Create a separate Diagnosis record per distinct cancer.")
     diagnosis_date = models.DateField(null=True, blank=True,
-    help_text="Select the data at which the diagnosis was made. This can be a date when the patient came to the hospital for the first time or when a pathological proof was obtained")
+    help_text="Date the diagnosis was made. Prefer the pathological confirmation (biopsy) date; if only a clinical diagnosis exists, use the first definitive clinical assessment. (DD/MM/YYYY)")
     presentation_type = models.ForeignKey('lookup.LookupPresentation', on_delete=models.PROTECT,
-    help_text="Select the type of presentation. This can be a new presentation or a recurrence or a metastasis.")
+    help_text="How the disease presented: new primary, recurrence, or metastasis.")
     cancer_site = models.ForeignKey('lookup.LookupFMACode', on_delete=models.PROTECT,
-    help_text="Select the cancer site. This can be a site where the cancer was first diagnosed or a site where the cancer was recurred or metastasized.")
+    help_text="Anatomical location of the cancer (FMA code) — first-diagnosis site, or recurrence/metastasis site.")
     cancer_side = models.ForeignKey('lookup.LookupLaterality', on_delete=models.PROTECT,
-    help_text="Select the side at which the cancer was present.")
+    help_text="Side of the body where the cancer is (left/right/bilateral/midline).")
     diagnostic_modality = models.ForeignKey('lookup.LookupDiagnosticModality',on_delete=models.PROTECT,null=True, blank=True,
-    help_text="If the cancer was diagnosed with a method like cytology, biopsy etc then the modality can be entered here. Please ensure that the modality is spelled correctly.")
-    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, help_text="Select the DICOM studies that were used to diagnose the cancer. You can select multiple studies.")
-    diagnosis_project = models.ManyToManyField('Project', blank = True, help_text="Select the project that was used to diagnose the cancer. You can select multiple projects.")
+    help_text="Method used to establish the diagnosis (biopsy, cytology, FNA, imaging, endoscopy…).")
+    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, help_text="Imaging studies that supported or confirmed this diagnosis.")
+    diagnosis_project = models.ManyToManyField('Project', blank = True, help_text="CHAVI project(s) this diagnosis belongs to.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -393,12 +393,12 @@ class Diagnosis(models.Model):
 class Outcome(models.Model):
     '''This table stores information related to the outcome of the cancer treatment for the disease. Note that the patient outcome table is separate.'''
     chavi_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE)
+    diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE, help_text="Disease (diagnosis record) for which this treatment outcome was assessed.")
     date_outcome_assessed = models.DateField(null=True, blank=True,
-    help_text = "Date this Outcome was assessed or documented or confirmed.")
+    help_text = "Date the outcome was assessed, documented, or confirmed (e.g. imaging review date). (DD/MM/YYYY)")
     outcome_type = models.ForeignKey('lookup.LookupOutcomeType', on_delete=models.PROTECT,
-    help_text = "Select the Type of Outcome. If you wish to add another outcome then please create another instance of the form.")
-    study_instance_uid = models.ManyToManyField('DICOMStudy',blank = True, related_name = "outcome_dicom_study",help_text = "Select all DICOM Studies for this Disease Outcome")
+    help_text = "Outcome category observed for this disease. Add a new Outcome record for each later assessment.")
+    study_instance_uid = models.ManyToManyField('DICOMStudy',blank = True, related_name = "outcome_dicom_study",help_text = "Imaging studies on which this outcome was assessed.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -450,17 +450,17 @@ class Lesion(models.Model):
     date_lesion_assessed = models.DateField(
         null=True, 
         blank=True,
-        help_text="The date when this lesion was first identified or assessed by a medical professional"
+        help_text="Date the lesion was assessed/measured (report date of the imaging or exam where it was described). (DD/MM/YYYY)"
     )
     lesion_site = models.ForeignKey(
         'lookup.LookupFMACode', 
         on_delete=models.PROTECT,
-        help_text="The anatomical location where the lesion is found (e.g., 'Left Breast', 'Right Lung')"
+        help_text="Anatomical location of the lesion (FMA code), e.g. left breast, right lung, liver."
     )
     lesion_type = models.ForeignKey(
         'lookup.LookupLesionType', 
         on_delete=models.PROTECT,
-        help_text="The type or category of the lesion (e.g., 'Primary Tumor', 'Metastatic Lesion')"
+        help_text="Category of the lesion: primary/gross tumor, nodal disease, or distant metastasis."
     )
     lesion_laterality = models.ForeignKey(
         'lookup.LookupLaterality', 
@@ -473,7 +473,7 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The width (x-axis measurement) of the lesion in the specified unit of measurement"
+        help_text="First dimension of the lesion as reported (when a report gives 'a × b × c' or 'L × W × H', take the first value). Numeric, in lesion_size_unit (usually mm). Blank if no size given."
     )
     lesion_size_y_axis = models.DecimalField(
         max_digits=10, 
@@ -481,7 +481,7 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The length (y-axis measurement) of the lesion in the specified unit of measurement"
+        help_text="Second reported dimension (middle value of 'a × b × c'). Blank if the report gives fewer than two dimensions."
     )
     lesion_size_z_axis = models.DecimalField(
         max_digits=10, 
@@ -489,7 +489,7 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The depth (z-axis measurement) of the lesion in the specified unit of measurement"
+        help_text="Third reported dimension (last value of 'a × b × c'). Blank if not reported."
     )
     lesion_size_unit = models.ForeignKey(
         'lookup.LookupSizeUnits', 
@@ -497,7 +497,7 @@ class Lesion(models.Model):
         on_delete=models.PROTECT, 
         null=True, 
         blank=True,
-        help_text="The unit of measurement used for the lesion dimensions (e.g., 'millimeters', 'centimeters')"
+        help_text="Unit of the three size fields (mm, cm). Reports usually use mm."
     )
     lesion_volume = models.DecimalField(
         max_digits=10, 
@@ -505,7 +505,7 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The total volume of the lesion, calculated from the three-dimensional measurements"
+        help_text="Volume of the lesion if stated in the report (e.g. 'volume 12.3 cc'). In lesion_volume_unit. Blank if not stated."
     )
     lesion_volume_unit = models.ForeignKey(
         'lookup.LookupVolumeUnits', 
@@ -513,14 +513,14 @@ class Lesion(models.Model):
         on_delete=models.PROTECT, 
         null=True, 
         blank=True,
-        help_text="The unit of measurement used for the lesion volume (e.g., 'cubic millimeters', 'cubic centimeters')"
+        help_text="Unit of the lesion volume (e.g. mm³, cm³/cc)."
     )
     lesion_detection_modality = models.CharField(
         max_length=255,
         choices=ModalityChoices.choices,
         null=True,
         blank=True,
-        help_text="The modality used to detect the lesion"
+        help_text="Modality that detected or describes this lesion (CT, MRI, PET, US, endoscopy, clinical exam…)."
     )
     lesion_suv_max = models.DecimalField(
         max_digits=10, 
@@ -528,9 +528,9 @@ class Lesion(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The maximum SUV value of the lesion"
+        help_text="Maximum standardized uptake value (SUVmax) of the lesion on PET. Unitless."
     )
-    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Select all the DICOM Studies associated with this Lesion")
+    study_instance_uid = models.ManyToManyField('DICOMStudy', blank = True, related_name = 'lesion_dicom_study',help_text = "Imaging study/studies in which this lesion was detected or assessed.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -553,12 +553,12 @@ class LesionResponse(models.Model):
     lesion_response_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="The date when the lesion's response to treatment was evaluated"
+        help_text="The date when the lesion's response to treatment was evaluated. (DD/MM/YYYY)"
     )
     lesion_response = models.ForeignKey(
         'lookup.LookupResponseType', 
         on_delete=models.CASCADE,
-        help_text="How the lesion has responded to treatment (e.g., complete response, partial response, stable disease, etc.)"
+        help_text="Response category at this assessment (e.g. complete response, partial response, stable disease, progression)."
     )
     residual_lesion_size_x_axis = models.DecimalField(
         max_digits=10, 
@@ -566,7 +566,7 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The width (left to right measurement) of any remaining lesion after treatment"
+        help_text="First dimension of the REMAINING disease at this assessment (first value of 'a × b × c'). In residual_lesion_size_unit. Blank if no residual disease or no size given."
     )
     residual_lesion_size_y_axis = models.DecimalField(
         max_digits=10, 
@@ -574,7 +574,7 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The length (front to back measurement) of any remaining lesion after treatment"
+        help_text="Second dimension of the remaining disease at this assessment (middle value of 'a × b × c'). In residual_lesion_size_unit. Blank if the report gives fewer than two dimensions."
     )
     residual_lesion_size_z_axis = models.DecimalField(
         max_digits=10, 
@@ -582,14 +582,14 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The height (top to bottom measurement) of any remaining lesion after treatment"
+        help_text="Third dimension of the remaining disease at this assessment (last value of 'a × b × c'). In residual_lesion_size_unit. Blank if not reported."
     )
     residual_lesion_size_unit = models.ForeignKey(
         'lookup.LookupSizeUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="The unit of measurement used for the residual lesion size (e.g., 'millimeters', 'centimeters')"
+        help_text="Unit of the residual size fields (mm, cm)."
     )
     residual_lesion_volume = models.DecimalField(
         max_digits=10, 
@@ -597,14 +597,14 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The total volume (size in three dimensions) of any remaining lesion after treatment"
+        help_text="Volume of remaining disease at this assessment, in residual_lesion_volume_unit. Blank if none."
     )
     residual_lesion_volume_unit = models.ForeignKey(
         'lookup.LookupVolumeUnits',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="The unit of measurement used for the residual lesion volume (e.g., 'millimeters', 'centimeters')"
+        help_text="Unit of the residual volume (mm³, cm³/cc)."
     )
 
     lesion_response_suv_max = models.DecimalField(
@@ -613,18 +613,19 @@ class LesionResponse(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
+        help_text="SUVmax of the residual lesion at the response assessment on PET. Blank if no residual uptake reported.",
     )
     lesion_response_modality = models.CharField(
         max_length=255,
         choices=ModalityChoices.choices,
         null=True,
         blank=True,
-        help_text="The modality used to detect the lesion response"
+        help_text="Modality used to assess the response (CT, MRI, PET…)."
     )
     study_instance_uid = models.ManyToManyField(
         'DICOMStudy', blank = True, 
         related_name = 'lesion_response_dicom_study', 
-        help_text="The DICOM study associated with the lesion response"
+        help_text="Imaging study used for this response assessment."
     )    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -639,13 +640,13 @@ class LesionResponse(models.Model):
 class Symptom(models.Model):
     ''' This table will store information on the symptoms for the patient.'''
     chavi_symptom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    symptom = models.ForeignKey('lookup.LookupSymptoms', on_delete=models.PROTECT)
-    date_onset = models.DateField(null=True, blank=True, help_text="The date when the symptom first appeared")
-    date_symptom_assessment = models.DateField(null=True, blank=True, help_text="The date when the symptom was first assessed")
-    duration_of_symptom = models.PositiveIntegerField(null=True, blank=True, help_text="The duration of the symptom in months")
-    date_resolution = models.DateField(null=True, blank=True, help_text="The date when the symptom resolved")
-    severity = models.ForeignKey('lookup.LookupSeverity', on_delete=models.PROTECT, null=True, blank=True, help_text="The severity of the symptom")
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, help_text="Patient who has this symptom.")
+    symptom = models.ForeignKey('lookup.LookupSymptoms', on_delete=models.PROTECT, help_text="The symptom recorded (from the symptom list), e.g. pain, dyspnoea, weight loss.")
+    date_onset = models.DateField(null=True, blank=True, help_text="Date the symptom first started. If not stated but assessment date + duration are given, it is derived as assessment date minus duration. (DD/MM/YYYY)")
+    date_symptom_assessment = models.DateField(null=True, blank=True, help_text="Date the symptom was assessed/documented. (DD/MM/YYYY)")
+    duration_of_symptom = models.PositiveIntegerField(null=True, blank=True, help_text="How long the symptom had been present before assessment, in whole months.")
+    date_resolution = models.DateField(null=True, blank=True, help_text="Date the symptom resolved or improved, if applicable.")
+    severity = models.ForeignKey('lookup.LookupSeverity', on_delete=models.PROTECT, null=True, blank=True, help_text="Severity/grade of the symptom.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -668,15 +669,15 @@ class Symptom(models.Model):
 class GermlineGenomicAlterations(models.Model):
     ''' This table will store information on the germline genomic alterations for the patient.'''
     chavi_germline_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    date_test = models.DateField(null=True, blank=True)
-    cosmic_gene_name = models.ForeignKey('lookup.LookupGene', on_delete=models.PROTECT)
-    reference_sequence = models.CharField(max_length=255, null=True, blank=True)
-    protein_modification = models.CharField(max_length=255, null=True, blank=True)
-    variant_type = models.CharField(max_length=255, null=True, blank=True)
-    allele_frequency = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    read_depth = models.IntegerField(null=True, blank=True)
-    clinical_significance = models.ForeignKey('lookup.LookupClinicalSignificance', on_delete=models.PROTECT, related_name='germline_genomic_clinical_significance',null = True, blank = True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, help_text="Patient who underwent this germline (inherited) genetic test.")
+    date_test = models.DateField(null=True, blank=True, help_text="Date the germline genetic test was performed. (DD/MM/YYYY)")
+    cosmic_gene_name = models.ForeignKey('lookup.LookupGene', on_delete=models.PROTECT, help_text="Gene in which the germline variant was found (COSMIC gene nomenclature), e.g. BRCA1, BRCA2.")
+    reference_sequence = models.CharField(max_length=255, null=True, blank=True, help_text="Reference transcript identifier (e.g. NM_007294.3).")
+    protein_modification = models.CharField(max_length=255, null=True, blank=True, help_text="Protein-level change (e.g. p.R42Q, c.123G>A).")
+    variant_type = models.CharField(max_length=255, null=True, blank=True, help_text="Variant type (e.g. missense, nonsense, frameshift, deletion, insertion, splice-site).")
+    allele_frequency = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Variant allele frequency as a decimal (0.05 = 5%).")
+    read_depth = models.IntegerField(null=True, blank=True, help_text="Sequencing read depth (coverage) at the variant.")
+    clinical_significance = models.ForeignKey('lookup.LookupClinicalSignificance', on_delete=models.PROTECT, related_name='germline_genomic_clinical_significance',null = True, blank = True, help_text="Clinical significance of the variant (e.g. pathogenic, VUS, benign).")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -718,7 +719,7 @@ class Pathology(models.Model):
     date_pathology = models.DateField(
         null=True, 
         blank=True,
-        help_text="The date when the pathology specimen was collected or the pathology report was issued"
+        help_text="Date of the pathology report. Prefer the report authorization/report date; if the report date is unavailable, use the specimen collection date. (DD/MM/YYYY)"
     )
     specimen_type = models.CharField(
         max_length=500,
@@ -761,7 +762,7 @@ class Pathology(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The primary dimension of the tumor measured in centimeters"
+        help_text="Largest tumor dimension from the pathology report. Unit in tumor_dimesion_unit (usually cm)."
     )
     additional_tumor_dimension_1 = models.DecimalField(
         max_digits=10, 
@@ -769,7 +770,7 @@ class Pathology(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The second dimension of the tumor measured in centimeters"
+        help_text="Second tumor dimension as reported. Unit in tumor_dimesion_unit."
     )
     additional_tumor_dimension_2 = models.DecimalField(
         max_digits=10, 
@@ -777,7 +778,7 @@ class Pathology(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="The third dimension of the tumor measured in centimeters"
+        help_text="Third tumor dimension as reported. Unit in tumor_dimesion_unit."
     )
     tumor_dimesion_unit = models.ForeignKey(
         'lookup.LookupSizeUnits',
@@ -785,7 +786,7 @@ class Pathology(models.Model):
         related_name='pathology_tumor_dimesion_unit',
         null=True, 
         blank=True,
-        help_text="The unit of measurement for the tumor dimension"
+        help_text="Unit of the three tumor dimension fields (cm, mm)."
     )
     tumor_focality = models.CharField(
         max_length=100,
@@ -800,7 +801,7 @@ class Pathology(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Presence or absence of perineural invasion"
+        help_text="Presence or absence of lymphovascular or lymphovascular space invasion (LVI or LVSI)."
     )
     perineural_invasion = models.ForeignKey(
         'lookup.LookupPathologyDescriptors',
@@ -816,7 +817,7 @@ class Pathology(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Presence or absence of perineural invasion"
+        help_text="Presence or absence of dermal lymphatic invasion."
     )
     necrosis = models.ForeignKey(
         'lookup.LookupPathologyDescriptors',
@@ -833,13 +834,13 @@ class Pathology(models.Model):
         default=Decimal(0),
         validators=percentage_validator,
         blank=True,
-        help_text="Percentage of necrosis in the specimen"
+        help_text="0–100, percent of the specimen that is necrotic. If a range is provided, enter the max value."
     )
     mitotic_count = models.PositiveIntegerField(
         null=True,
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Number of mitoses per 10 high power field or 2 square mm"
+        help_text="Mitotic count per 10 high-power fields (or per 2 mm², as reported)."
     )
     margin_status = models.ForeignKey(
         'lookup.LookupMarginStatus',
@@ -847,7 +848,7 @@ class Pathology(models.Model):
         null=True,
         blank=True,
         related_name='pathology_margin_status',
-        help_text="Select the margin status of the specimen"
+        help_text="Status of the resection margin in the specimen."
     )
     closest_margin_distance = models.DecimalField(
         max_digits=10,
@@ -855,7 +856,7 @@ class Pathology(models.Model):
         null=True,
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Distance to the closest margin of the specimen."
+        help_text="Distance to the closest margin of the specimen, in closest_margin_distance_unit (usually mm)."
     )
     closest_margin_distance_unit = models.ForeignKey(
         'lookup.LookupSizeUnits',
@@ -870,39 +871,39 @@ class Pathology(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Select the treatment effect of the specimen",
+        help_text="Treatment effect seen in the specimen (e.g. regression/necrosis after neoadjuvant therapy).",
         related_name='pathology_treatment_effect'
     )
     primary_gleason_grade = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Enter the primary Gleason grade of the specimen"
+        help_text="Primary Gleason pattern (1–5); prostate cancer only."
     )
     secondary_gleason_grade = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Enter the secondary Gleason grade of the specimen"
+        help_text="Secondary Gleason pattern (1–5); prostate cancer only."
     )
     lymph_nodes_removed = models.BooleanField(
         null=True, 
         blank=True,
-        help_text="Whether lymph nodes were removed in the specimen"
+        help_text="Whether lymph nodes were examined in the specimen (True/False)."
     )
     lymph_nodes_in_specimen = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Total number of lymph nodes found in the specimen"
+        help_text="Total lymph nodes examined."
     )
-    lymph_node_extracapsular_extension = models.BooleanField(null=True, blank=True,help_text='Whether the lymph node had extracpsular extension')
+    lymph_node_extracapsular_extension = models.BooleanField(null=True, blank=True,help_text='Whether any lymph node showed extracapsular extension.')
     number_of_uninvolved_nodes = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Number of lymph nodes without any tumor involvement"
+        help_text="Number of negative (tumor-free) or uninvolved lymph nodes. Sometimes written as lymph node show reactive hyperplasia or granulolomatous lymphadenitis."
     )
     number_of_nodes_with_macrometastases = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Number of lymph nodes with visible tumor deposits"
+        help_text="Number of lymph nodes with macrometastases (>2 mm). If the metastasis dimension is unavailable, count as macrometastases."
     )
     number_of_nodes_with_micrometastases = models.PositiveIntegerField(
         null=True, 
@@ -942,12 +943,12 @@ class Immunohistochemistry(models.Model):
     date_ihc = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the immunohistochemistry test was performed (format:DD/MM/YYYY)"
+        help_text="Date the IHC test was performed. This can be the date of pathology if the dates for IHC are not explicitly provided. (DD/MM/YYYY)"
     )
     protein_name = models.ForeignKey(
         'lookup.LookupIHCAntibody', 
         on_delete=models.CASCADE,
-        help_text="Select the antibody that was tested for in this immunohistochemistry test"
+        help_text="Antibody/target marker tested (e.g. ER, PR, HER2, Ki-67, PD-L1, p53)."
     )
     ihc_result = models.ForeignKey(
         'lookup.LookupIHCResult',
@@ -955,7 +956,7 @@ class Immunohistochemistry(models.Model):
         related_name='ihc_result',
         null=True, 
         blank=True,
-        help_text="Select the result of the IHC staning Test overall"
+        help_text="Overall qualitative result of the stain (e.g. positive, negative, equivocal)."
     )
     percentage_positive_tumor_cells = models.DecimalField(
         max_digits=5,
@@ -963,7 +964,7 @@ class Immunohistochemistry(models.Model):
         null=True,
         blank=True,
         validators=percentage_validator,
-        help_text="Enter the percentage of positive cells for IHC staining"
+        help_text="Percentage of tumor cells with positive staining (0–100)."
     )
     percentage_positive_immune_cells = models.DecimalField(
         max_digits=5,
@@ -971,31 +972,31 @@ class Immunohistochemistry(models.Model):
         null=True,
         blank=True,
         validators=percentage_validator,
-        help_text="Enter the percentage of positive immune cells for IHC staining"
+        help_text="Percentage of (tumor-infiltrating) immune cells with positive staining (0–100)."
     )
     tumor_cell_staining_intensity = models.ForeignKey(
         'lookup.LookupIHCStainingIntensity',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Select the staining intensity of the cells for IHC staining"
+        help_text="Staining intensity grade of the tumor cells (e.g. 0–3)."
     )
     allred_score = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Enter the Allred score for IHC staining"
+        help_text="Allred score (0–8): staining intensity score plus percentage-score category."
     )
     cps_score = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Number of Tumor and Immune Cells with Staining per 100 Tumor Cells (CPS)")
+        help_text="Combined Positive Score (CPS): stained tumor and immune cells per 100 tumor cells.")
     tps_score = models.DecimalField(
         null=True,
         max_digits=5,
         decimal_places=2,
         blank=True,
         validators=percentage_validator,
-        help_text="Enter the TPS score for IHC staining in %")
+        help_text="Tumor Proportion Score (TPS): percent of tumor cells with positive membrane staining (0–100).")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1018,19 +1019,19 @@ class Cytogenetics(models.Model):
     date_cytogenetics = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the cytogenetics test was performed (format:DD/MM/YYYY)"
+        help_text="Date the cytogenetics test was performed. (DD/MM/YYYY)"
     )
     gene = models.ForeignKey(
         'lookup.LookupGene', 
         on_delete=models.PROTECT,
-        help_text="Select the gene that was tested for in this cytogenetics test"
+        help_text="Gene tested."
     )
     cytogenetic_abnormality = models.ForeignKey(
         'lookup.LookupCytogeneticAbnormality',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Select the cytogenetic abnormality if applicable"
+        help_text="Type of abnormality found (e.g. translocation, amplification, deletion, mutation)."
     )
     cytogenetic_result = models.ForeignKey(
         'lookup.LookupIHCResult',
@@ -1038,7 +1039,7 @@ class Cytogenetics(models.Model):
         null=True,
         blank=True,
         related_name='cytogenetics_result',
-        help_text="Select the result of the cytogenetics test"
+        help_text="Result of the test (e.g. positive, negative, not detected)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1061,7 +1062,7 @@ class SomaticGenomicAlterations(models.Model):
     date_test = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the genomic testing was performed (format:DD/MM/YYYY)"
+        help_text="Date the genomic testing was performed. (DD/MM/YYYY)"
     )
     cosmic_gene_name = models.ForeignKey(
         'lookup.LookupGene', 
@@ -1092,12 +1093,12 @@ class SomaticGenomicAlterations(models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the variant allele frequency as a decimal (e.g., 0.45 for 45%)"
+        help_text="Variant allele frequency as a decimal (0.45 = 45%)."
     )
     read_depth = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Enter the sequencing read depth at this position (e.g., 500)"
+        help_text="Sequencing read depth (coverage) at the variant."
     )
     clinical_significance = models.ForeignKey(
         'lookup.LookupClinicalSignificance',
@@ -1128,7 +1129,7 @@ class GeneExpressionData(models.Model):
     date_test = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the gene expression test was performed (format:DD/MM/YYYY)"
+        help_text="Date the gene expression test was performed. (DD/MM/YYYY)"
     )
     gene = models.ForeignKey(
         'lookup.LookupGene', 
@@ -1141,12 +1142,12 @@ class GeneExpressionData(models.Model):
         null=True,
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the expression value of the gene"
+        help_text="Measured expression level of the gene (e.g. mRNA amount, FISH count, score)."
     )
     expression_units = models.ForeignKey(
         'lookup.LookupExpressionUnits',
         on_delete=models.PROTECT,
-        help_text="Select the units of expression"
+        help_text="Unit of the expression value (e.g. fold-change, TPM, arbitrary units, % positive cells)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1169,7 +1170,7 @@ class EpigeneticData(models.Model):
     date_test = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the epigenetic test was performed (format:DD/MM/YYYY)"
+        help_text="Date the epigenetic test was performed. (DD/MM/YYYY)"
     )
     gene = models.ForeignKey(
         'lookup.LookupGene', 
@@ -1183,13 +1184,13 @@ class EpigeneticData(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="Select the type of epigenetic abnormality if applicable"
+        help_text="Type of epigenetic change (e.g. promoter hypermethylation, hypomethylation)."
     )
     epigenetic_result = models.CharField(
         max_length=255,
         null=True,
         blank=True,
-        help_text="Enter the result of the epigenetic test"
+        help_text="Result of the epigenetic test (e.g. 'hypermethylated', positive/negative)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1219,17 +1220,17 @@ class OtherTreatment(DateValidationMixin, models.Model):
     )
     treatment = models.CharField(
         max_length=255,
-        help_text="Enter the name or description of the treatment"
+        help_text="Name or description of the treatment (e.g. drug name, 'immunotherapy', 'hormonal therapy')."
     )
     treatment_start_date = models.DateField(
         null = True,
         blank = True,
-        help_text = "Start date of Treatment"
+        help_text = "Start date of the treatment. (DD/MM/YYYY)"
     )
     treatment_end_date = models.DateField(
         null = True,
         blank = True,
-        help_text = "End date of Treatment"
+        help_text = "End date of the treatment. Blank if still ongoing. (DD/MM/YYYY)"
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -1263,12 +1264,12 @@ class Radiotherapy(DateValidationMixin, models.Model):
     radiotherapy_course_type = models.CharField(
         max_length=255, 
         choices=RadiationCourseTypeChoices.choices, 
-        help_text="Select the type of radiotherapy course"
+        help_text="Primary course or boost course."
     )    
     radiotherapy_modality = models.ForeignKey(
         'lookup.LookupRadiotherapyModality',
         on_delete=models.PROTECT,
-        help_text="Select the modality of the radiotherapy",
+        help_text="Radiation modality/technology (e.g. 3D-CRT, IMRT, VMAT, brachytherapy, proton).",
         null=True,
         blank=True,
         related_name="radiotherapy_modality"
@@ -1276,7 +1277,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
     reirradiation = models.BooleanField(
         null=True,
         blank=True,
-        help_text="Indicate if this is a reirradiation course"
+        help_text="True if this is re-irradiation of a previously irradiated region."
     )
     total_dose = models.DecimalField(
         max_digits=10, 
@@ -1284,17 +1285,17 @@ class Radiotherapy(DateValidationMixin, models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the total radiation dose delivered during the entire course of treatment (in Gray or specified units)"
+        help_text="Total dose for the whole course. Unit in radiation_dose_units (Gy or cGy)."
     )
     total_fractions = models.PositiveIntegerField(
         null=True, 
         blank=True,
-        help_text="Enter the total number of fractions delivered for the complete course of radiotherapy"
+        help_text="Total number of fractions in the course."
     )
     simultaneous_integrated_boost = models.BooleanField(
         null=True,
         blank=True,
-        help_text="Indicate if this course of treatment had a simultaneous integrated boost"
+        help_text="True if a simultaneous integrated boost (SIB) was part of this course."
     )
     simultaneous_integrated_boost_dose = models.DecimalField(
         max_digits=10, 
@@ -1302,7 +1303,7 @@ class Radiotherapy(DateValidationMixin, models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the dose of the simultaneous integrated boost"
+        help_text="SIB dose. Unit in radiation_dose_units."
     )
     radiation_dose_units = models.ForeignKey(
         'lookup.LookupDoseUnits',
@@ -1351,22 +1352,22 @@ class Radiotherapy(DateValidationMixin, models.Model):
         max_length=255,
         null=True, 
         blank=True,
-        help_text="Enter the name or model of the radiation therapy machine used"
+        help_text="Manufacturer/model of the treatment machine (e.g. 'Varian TrueBeam')."
     )
     radiotherapy_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was started (format:DD/MM/YYYY)"
+        help_text="Date the radiotherapy course was started. (DD/MM/YYYY)"
     )
     radiotherapy_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
+        help_text="Date the radiotherapy course ended. Blank if ongoing. (DD/MM/YYYY)"
     )
     study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'radiotherapy_dicom_studies',
-        help_text="Select the DICOM studies associated with this radiotherapy course"
+        help_text="Imaging studies for this course (planning CT, verification images)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1399,7 +1400,7 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
         max_length=255,
         null=True,
         blank= True,        
-        help_text="Enter a name or description for this volume"
+        help_text="Name of the structure/volume as in the plan (e.g. 'PTV1', 'Lung', 'Brain stem')."
     )
     volume_type = models.ForeignKey(
         'lookup.LookupRadiotherapyVolumeType',
@@ -1415,7 +1416,7 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
         null=True,
         blank= True,
         validators=positive_decimal_validator,
-        help_text="Enter the prescribed dose for this volume in Gray (Gy)",
+        help_text="Dose prescribed to this volume. Unit in radiation_dose_units.",
     )
     radiation_dose_units = models.ForeignKey(
         'lookup.LookupDoseUnits',
@@ -1428,22 +1429,22 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
     volume_fractions = models.PositiveIntegerField(      
         null=True,
         blank=True,
-        help_text="Enter the number of fractions for this volume"
+        help_text="Number of fractions to this volume."
     )
     volume_radiotherapy_start_date = models.DateField(
         null=True,
         blank=True,
-        help_text="Enter the start date for this volume (format:DD/MM/YYYY)"
+        help_text="Date this volume was started. (DD/MM/YYYY)"
     )
     volume_radiotherapy_end_date = models.DateField(    
         null=True,
         blank=True,
-        help_text="Enter the end date for this volume (format:DD/MM/YYYY)"     
+        help_text="Date this volume was ended. Blank if ongoing. (DD/MM/YYYY)"     
     )
     anatomical_locations = models.ManyToManyField(
         'lookup.LookupRTLocation',
         blank=True,
-        help_text="Select the anatomical locations included in this volume if applicable"
+        help_text="Anatomical sites covered by this volume."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1487,7 +1488,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         null=True,
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the absolute volume in cubic centimeters (cc)"
+        help_text="Physical volume of the structure, in cc (volume_units)."
     )
     relative_volume = models.DecimalField(
         max_digits=5,
@@ -1495,7 +1496,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         null=True,      
         blank=True,  
         validators=percentage_validator,   
-        help_text="Enter the relative volume as a percentage (%). Enter a value between 0 and 100."
+        help_text="Volume as a percentage of the reference organ (e.g. lung, liver), 0–100."
     )
     volume_units = models.ForeignKey(
         'lookup.LookupVolumeUnits',
@@ -1511,7 +1512,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         null=True,
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the absolute dose in Gray (Gy) or cGy"
+        help_text="Absolute dose metric for this volume (e.g. Dmean, D95). Unit in radiation_dose_units."
     )
     relative_dose = models.DecimalField(
         max_digits=5,
@@ -1519,7 +1520,7 @@ class RadiotherapyDoseVolumeData(models.Model):
         null=True,
         blank=True,
         validators=percentage_validator,
-        help_text="Enter the relative dose as a percentage (%). Enter a value between 0 and 100."
+        help_text="Dose metric as a percentage, 0–100."
     )
     volume_dose_prescribed = models.DecimalField(
         max_digits=10,
@@ -1558,7 +1559,7 @@ class Surgery(models.Model):
     surgery_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the surgery was performed (format:DD/MM/YYYY)"
+        help_text="Date the surgery was performed. (DD/MM/YYYY)"
     )
     surgery_side = models.ForeignKey(
         'lookup.LookupLaterality', 
@@ -1570,7 +1571,7 @@ class Surgery(models.Model):
     surgery_type =  models.ManyToManyField(
         'lookup.LookupSurgicalProcedures',
         blank=True,
-        help_text="Select the type of surgery performed (e.g., 'Mastectomy', 'Lumpectomy', 'Whole Breast Irradiation')"
+        help_text="Surgical procedure(s) performed (e.g. mastectomy, lumpectomy, axillary dissection, biopsy)."
     )
     surgery_intent = models.ForeignKey(
         'lookup.LookupTreatmentIntent',
@@ -1582,7 +1583,7 @@ class Surgery(models.Model):
     nodal_assessment = models.BooleanField(
         null=True, 
         blank=True,
-        help_text="Indicate whether nodal assessment was performed (check for Yes, leave unchecked for No)"
+        help_text="True if nodal assessment was performed; False otherwise."
     )
     nodal_assessment_type = models.ForeignKey(
         'lookup.LookupNodalAssessmentType',
@@ -1594,7 +1595,7 @@ class Surgery(models.Model):
     reconstruction = models.BooleanField(
         null=True, 
         blank=True,
-        help_text="Indicate whether reconstructive surgery was performed (check for Yes, leave unchecked for No)"
+        help_text="True if reconstructive surgery was performed; False otherwise."
     )
     type_reconstruction = models.CharField(
         max_length=255,
@@ -1605,7 +1606,7 @@ class Surgery(models.Model):
     study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'surgery_dicom_studies',
-        help_text="Select the DICOM studies associated with this surgical procedure"
+        help_text="Imaging studies related to the surgery (pre- or post-operative)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1626,7 +1627,7 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
     )    
     medication_name = models.CharField(
         max_length=255,
-        help_text="Enter the name of the medication as it appears in the medical record"
+        help_text="Medication name exactly as documented (generic name preferred)."
     )
     medication_dose = models.DecimalField(
         max_digits=10, 
@@ -1634,7 +1635,7 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
         validators=positive_decimal_validator, 
         null=True, 
         blank=True,
-        help_text="Enter the prescribed dose of the medication (can be left blank if unknown)"
+        help_text="Dose per administration/cycle. Unit in medication_dose_units."
     )
     medication_dose_units = models.ForeignKey(
         'lookup.LookupMassUnits',
@@ -1645,12 +1646,12 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
         help_text="Select the units for the medication dose (e.g., mg, mL, etc.)"
     )
     date_medication_start_date = models.DateField(
-        help_text="Enter the date when the medication was started (format:DD/MM/YYYY)"
+        help_text="Date the medication was started. (DD/MM/YYYY)"
     )
     date_medication_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the medication was stopped, if applicable (format:DD/MM/YYYY)"
+        help_text="Date the medication was stopped. Blank if still being taken. (DD/MM/YYYY)"
     )
     medication_route = models.ForeignKey(
         'lookup.LookupDrugRoute', 
@@ -1680,28 +1681,28 @@ class SystemicTherapy(DateValidationMixin, models.Model):
         help_text="Select the diagnosis that this treatment is associated with"
     )    
     systemic_therapy_type = models.ForeignKey('lookup.LookupSystemicTherapyType', on_delete=models.PROTECT,null=True, blank=True,
-    help_text = "Select the type of systemic therapy.")
+    help_text = "Type of systemic therapy (e.g. chemotherapy, immunotherapy, hormonal, targeted, bispecific).")
     systemic_therapy_intent = models.ForeignKey('lookup.LookupTreatmentIntent', on_delete=models.PROTECT,null=True, blank=True,
     related_name='systemic_therapy_intent', help_text="Select the intent of the systemic therapy")
     systemic_therapy_sequence = models.ForeignKey('lookup.LookupTreatmentSequence', on_delete=models.PROTECT,null=True, blank=True,
-    help_text="Select the sequence for the systemic therapy")
+    help_text="Sequence/line of therapy (e.g. first-line, second-line, induction, consolidation, adjuvant).")
     systemic_therapy_regimen = models.ForeignKey('lookup.LookupSystemicTherapyRegimen', on_delete=models.PROTECT,null=True, blank=True,related_name='systemic_therapy_regimen',
                                                  help_text="Select the regimen for the systemic therapy")
     systemic_therapy_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was started (format:DD/MM/YYYY)"
+        help_text="Date the systemic therapy course was started. (DD/MM/YYYY)"
     )
     systemic_therapy_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when the treatment was completed (format:DD/MM/YYYY)"
+        help_text="Date the systemic therapy course ended. Blank if ongoing. (DD/MM/YYYY)"
     )    
-    cycles_delivered = models.PositiveIntegerField(null=True,blank=True,help_text="Total Number of Cycles delivered if applicable.")
+    cycles_delivered = models.PositiveIntegerField(null=True,blank=True,help_text="Number of cycles actually delivered.")
     study_instance_uid = models.ManyToManyField(
         'DICOMStudy',blank = True, 
         related_name = 'systemic_therapy_dicom_studies',
-        help_text="Select the DICOM studies associated with this systemic therapy course"
+        help_text="Imaging studies used to assess this course."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1741,12 +1742,12 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
     systemic_therapy_agent_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this specific medication was started (format:DD/MM/YYYY)"
+        help_text="Date this specific agent was started. (DD/MM/YYYY)"
     )
     systemic_therapy_agent_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this specific medication was stopped (format:DD/MM/YYYY)."
+        help_text="Date this specific agent was stopped. Blank if ongoing. (DD/MM/YYYY)"
     )
     systemic_therapy_agent = models.ForeignKey(
         'lookup.LookupSystemicAgent', 
@@ -1754,7 +1755,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         null=True,
         blank=True,
         related_name='systemic_therapy_agent',
-        help_text="Select the specific medication or agent used in this treatment"
+        help_text="Specific drug/agent in this course (e.g. 'paclitaxel')."
     )
     systemic_therapy_dose_planned = models.DecimalField(
         max_digits=10, 
@@ -1762,7 +1763,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the planned dose for this medication (numerical value only)"
+        help_text="Planned dose per cycle/administration. Unit in systemic_therapy_dose_units."
     )
     systemic_therapy_dose_administered = models.DecimalField(
         max_digits=10, 
@@ -1770,7 +1771,7 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         null=True, 
         blank=True,
         validators=positive_decimal_validator,
-        help_text="Enter the actual dose of medication that was administered (numerical value only)"
+        help_text="Dose actually administered. Unit in systemic_therapy_dose_units."
     )
     systemic_therapy_dose_units = models.ForeignKey(
         'lookup.LookupMassUnits', 
@@ -1808,17 +1809,17 @@ class AdverseEffects(DateValidationMixin, models.Model):
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
-        help_text="Select the standardized CTCAE grade for this adverse effect"
+        help_text="CTCAE term and grade (1–5) of the adverse event/toxicity."
     )
     adverse_effect_start_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this adverse effect was first noticed (format:DD/MM/YYYY)"
+        help_text="Date the adverse effect first occurred. (DD/MM/YYYY)"
     )
     adverse_effect_end_date = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this adverse effect resolved, if applicable (format:DD/MM/YYYY)"
+        help_text="Date it resolved, if resolved. Blank if ongoing. (DD/MM/YYYY)"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1841,18 +1842,18 @@ class PatientReportedOutcome(models.Model):
         on_delete=models.CASCADE,
         help_text="Select the patient who completed this patient-reported outcome assessment"
     )
-    pro_assessment_date = models.DateField(null=True,blank=True,help_text="Enter the date when this assessment was completed (format:DD/MM/YYYY)")
-    pro_instrument = models.CharField(max_length=500, help_text="Enter the name of the instrument used for the assessment")
-    pro_scale = models.CharField(max_length=500, help_text="Enter the domain the question refers to. This may represent a scale in the questionnaire")
-    pro_question_id = models.CharField(max_length=500, help_text="Enter the question number from the instrument")
-    pro_question = models.CharField(max_length=600, help_text="Enter the question that was asked")
-    pro_answer = models.CharField(max_length=1000, help_text="Enter the answer to the question as it is recorded by the patient")
+    pro_assessment_date = models.DateField(null=True,blank=True,help_text="Date this PRO assessment was completed. (DD/MM/YYYY)")
+    pro_instrument = models.CharField(max_length=500, help_text="Name of the PRO questionnaire (e.g. EORTC QLQ-C30, FACT).")
+    pro_scale = models.CharField(max_length=500, help_text="Domain/scale of the instrument the question belongs to.")
+    pro_question_id = models.CharField(max_length=500, help_text="Question/item number or code from the instrument.")
+    pro_question = models.CharField(max_length=600, help_text="Text of the question as asked.")
+    pro_answer = models.CharField(max_length=1000, help_text="Patient's answer exactly as recorded.")
     pro_score = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         null=True, 
         blank=True,
-        help_text="Enter the numerical score for this response, if applicable "
+        help_text="Numeric score for the response, if applicable."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1869,12 +1870,12 @@ class PatientOutcome(models.Model):
     chavi_patient_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
     patient_status = models.ForeignKey('lookup.LookupOutcome', on_delete=models.PROTECT,
-    help_text="Select the patients last known status")
+    help_text="Patient's last known status (e.g. alive, dead, lost to follow-up).")
     date_of_death = models.DateField(null=True, blank=True,
-    help_text="Enter the date of death, if applicable")
+    help_text="Date of death, if applicable. Blank if alive. (DD/MM/YYYY)")
     last_date_of_follow_up = models.DateField(null=True, blank=True,
-    help_text="Enter the last date of follow up")
-    death_related_to_cancer_progression = models.BooleanField(default=False,null=True,blank=True,help_text="Indicate if the death was related to cancer progression (check for Yes, uncheck for No)")
+    help_text="Date of the most recent follow-up. (DD/MM/YYYY)")
+    death_related_to_cancer_progression = models.BooleanField(default=False,null=True,blank=True,help_text="True if death was attributed to cancer progression.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1896,17 +1897,17 @@ class Comorbidity(models.Model):
     comorbidity_type = models.ForeignKey(
         'lookup.LookupComorbidity', 
         on_delete=models.PROTECT,
-        help_text="Select the comorbidity type"
+        help_text="Non-cancer condition (e.g. diabetes, hypertension, COPD)."
     )
     date_of_comorbidity_diagnosis = models.DateField(
         null=True, 
         blank=True,
-        help_text="This will be automatically calculated based on assessment date and duration"
+        help_text="Date the comorbidity was diagnosed. If blank, derived as assessment date minus duration. (DD/MM/YYYY)"
     )
     date_of_comorbidity_assessment = models.DateField(
         null=True, 
         blank=True,
-        help_text="Enter the date when this comorbidity was last assessed (format:DD/MM/YYYY)"
+        help_text="Date the comorbidity was last assessed. (DD/MM/YYYY)"
     )
     duration_of_comorbidity = models.PositiveIntegerField(
         null=True,
@@ -1915,11 +1916,11 @@ class Comorbidity(models.Model):
     )
     comorbidity_resolved = models.BooleanField(
         default=False,
-        help_text="Indicate if the comorbidity has been resolved"
+        help_text="Whether the comorbidity is resolved (True/False)."
     )
     medication_for_comorbidity = models.BooleanField(
         default=False,
-        help_text="Indicate if the patient is currently taking medication for the comorbidity"
+        help_text="Whether the patient is on medication for it (True/False)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1963,7 +1964,7 @@ class StageInformation(models.Model):
         null=True,
         blank=True,
         related_name='stage_type',
-        help_text="Select the type of staging information"
+        help_text="Basis of staging (clinical / pathological / restaging)."
     )
     t_stage_prefix = models.ForeignKey(
         'lookup.LookupAJCCStagePrefix',
@@ -1971,7 +1972,7 @@ class StageInformation(models.Model):
         related_name='t_stage_prefix',
         null=True, 
         blank=True,
-        help_text="Select the prefix modifiers for the T stage (e.g., 'c' for clinical, 'p' for pathological)"
+        help_text="Prefix showing basis: 'c' = clinical, 'p' = pathological."
     )
     t_stage = models.ForeignKey(
         'lookup.LookupAJCCTStageDescriptor',
@@ -1979,7 +1980,7 @@ class StageInformation(models.Model):
         related_name = 't_stage',
         null=True, 
         blank=True,
-        help_text="Select the T stage describing the primary tumor (e.g., 'T1', 'T2', 'T3', 'T4')"
+        help_text="T descriptor for the primary tumor (T0–T4 with sub-scores)."
     )
     t_stage_suffix = models.ForeignKey(
         'lookup.LookupAJCCStageSuffix',
@@ -1987,7 +1988,7 @@ class StageInformation(models.Model):
         related_name='t_stage_suffix',             
         null=True, 
         blank=True,
-        help_text="Enter any suffix modifiers for the T stage (e.g., 'a', 'b', 'c')"
+        help_text="Sub-classification suffix (a/b/c)."
     )
     n_stage_prefix = models.ForeignKey(
         'lookup.LookupAJCCStagePrefix',
@@ -1995,7 +1996,7 @@ class StageInformation(models.Model):
         related_name='n_stage_prefix',        
         null=True, 
         blank=True,   
-        help_text="Select any prefix modifiers for the N stage (e.g., 'c' for clinical, 'p' for pathological)"
+        help_text="Prefix showing basis: 'c' = clinical, 'p' = pathological."
     )
     n_stage = models.ForeignKey(
         'lookup.LookupAJCCNStageDescriptor',
@@ -2003,7 +2004,7 @@ class StageInformation(models.Model):
         related_name='n_stage',
         null=True, 
         blank=True,
-        help_text="Enter the N stage describing lymph node involvement (e.g., 'N0', 'N1', 'N2', 'N3')"
+        help_text="N descriptor for lymph-node involvement (N0–N3)."
     )
     n_stage_suffix = models.ForeignKey(
         'lookup.LookupAJCCStageSuffix',
@@ -2011,7 +2012,7 @@ class StageInformation(models.Model):
         related_name='n_stage_suffix',         
         null=True, 
         blank=True,  
-        help_text="Select any suffix modifiers for the N stage (e.g., 'a', 'b', 'c')"
+        help_text="Sub-classification suffix (a/b/c)."
     ) 
     m_stage_prefix = models.ForeignKey(
         'lookup.LookupAJCCStagePrefix',
@@ -2019,14 +2020,14 @@ class StageInformation(models.Model):
         related_name='m_stage_prefix',        
         null=True, 
         blank=True,        
-        help_text="Select any prefix modifiers for the M stage (e.g., 'c' for clinical, 'p' for pathological)"
+        help_text="Prefix showing basis: 'c' = clinical, 'p' = pathological."
     )
     m_stage = models.ForeignKey(
         'lookup.LookupAJCCMStageDescriptor',
         on_delete=models.PROTECT,
         null=True, 
         blank=True,
-        help_text="Enter the M stage describing distant metastasis (e.g., 'M0', 'M1', 'M1a', 'M1b')"
+        help_text="M descriptor for distant metastasis (M0, M1, M1a/M1b/M1c)."
     )
     m_stage_suffix = models.ForeignKey(
         'lookup.LookupAJCCStageSuffix',
@@ -2034,7 +2035,7 @@ class StageInformation(models.Model):
         on_delete=models.PROTECT,
         null=True, 
         blank=True,  
-        help_text="Enter any suffix modifiers for the M stage (e.g., 'a', 'b', 'c')"
+        help_text="Sub-classification suffix (a/b/c)."
     ) 
     overall_stage = models.ForeignKey(
         'lookup.LookupStageDescriptor',
@@ -2042,7 +2043,7 @@ class StageInformation(models.Model):
         related_name= 'overall_stage',
         null=True, 
         blank=True,
-        help_text="Enter the overall stage grouping (e.g., 'Stage I', 'Stage II', 'Stage III', 'Stage IV')"
+        help_text="Overall stage grouping (I, II, III, IV)."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2072,11 +2073,11 @@ class LaboratoryResults(models.Model):
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
     chavi_laboratory_result_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the laboratory result was obtained")
-    laboratory_test = models.ForeignKey('lookup.LookupLaboratoryTest', on_delete=models.PROTECT,help_text="Select the laboratory test for which the result was obtained")
-    result_date = models.DateField(null=True, blank=True,help_text="Enter the date of the laboratory result")
-    quantitative_result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the value of the laboratory result")
+    laboratory_test = models.ForeignKey('lookup.LookupLaboratoryTest', on_delete=models.PROTECT,help_text="Test that was measured (e.g. haemoglobin, CA 125, LDH).")
+    result_date = models.DateField(null=True, blank=True,help_text="Date of the laboratory result. (DD/MM/YYYY)")
+    quantitative_result_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Numeric result. Leave blank when the result is qualitative.")
     quantitative_result_unit = models.ForeignKey('lookup.LookupLabResultsUnits',null=True, blank=True, on_delete=models.PROTECT,help_text="Select the unit of the laboratory result")
-    qualitative_laboratory_result = models.CharField(max_length=20, choices=QualitativeLaboratoryResult.choices, null=True, blank=True,help_text="Select the qualitative laboratory result")    
+    qualitative_laboratory_result = models.CharField(max_length=20, choices=QualitativeLaboratoryResult.choices, null=True, blank=True,help_text="Qualitative result (positive, negative, present, absent, detected…). Leave blank when the result is numeric.")    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2091,15 +2092,15 @@ class PatientAssessment(models.Model):
     ''' This is a table for recording the assessments of the patients'''
     chavi_patient_assessment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the assessment was performed")
-    date_assessment = models.DateField(null=True, blank=True,help_text="Enter the date of the assessment")
-    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the height of the patient in centimeters")
-    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the weight of the patient in kilograms")
-    systolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the systolic blood pressure of the patient in millimeters of mercury")
-    diastolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the diastolic blood pressure of the patient in millimeters of mercury")
-    pulse = models.PositiveIntegerField(null=True, blank=True,help_text="Enter the pulse of the patient in beats per minute")
-    temperature = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Enter the temperature of the patient in degrees Celsius")
-    respiratory_rate = models.PositiveIntegerField(null=True, blank=True,help_text="Enter the respiratory rate of the patient in breaths per minute")
-    performance_status = models.ForeignKey('lookup.LookupPerformanceStatus', on_delete=models.PROTECT,null=True, blank=True,help_text="Select the performance status of the patient")
+    date_assessment = models.DateField(null=True, blank=True,help_text="Date of the assessment. (DD/MM/YYYY)")
+    height = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Height in centimeters (cm).")
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Weight in kilograms (kg).")
+    systolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Systolic blood pressure in mmHg (from '120/80', take 120).")
+    diastolic_blood_pressure = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Diastolic blood pressure in mmHg (from '120/80', take 80).")
+    pulse = models.PositiveIntegerField(null=True, blank=True,help_text="Heart rate in beats per minute.")
+    temperature = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,validators=positive_decimal_validator,help_text="Body temperature in degrees Celsius.")
+    respiratory_rate = models.PositiveIntegerField(null=True, blank=True,help_text="Respiratory rate in breaths per minute.")
+    performance_status = models.ForeignKey('lookup.LookupPerformanceStatus', on_delete=models.PROTECT,null=True, blank=True,help_text="Performance status score (ECOG/WHO 0–4).")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -2441,7 +2442,7 @@ class DICOMSeries(models.Model):
     series_date = models.DateField(
         null=True,
         blank=True,
-        help_text="DICOM tag (0008,0021) — Series Date."
+        help_text="DICOM tag (0008,0021) — Series Date. (DD/MM/YYYY)"
     )
     modality = models.CharField(
         max_length=16,

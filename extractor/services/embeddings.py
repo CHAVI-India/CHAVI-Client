@@ -88,7 +88,9 @@ class SentenceTransformerProvider(BaseEmbeddingProvider):
             self._device = 'cpu'
             self._model = self._load_model(SentenceTransformer, model_name,
                                            'cpu', token)
-        self._dimensions = int(self._model.get_sentence_embedding_dimension())
+        _dim_fn = getattr(self._model, 'get_embedding_dimension',
+                          None) or self._model.get_sentence_embedding_dimension
+        self._dimensions = int(_dim_fn())
         if expected_dim and self._dimensions != expected_dim:
             raise EmbeddingUnavailableError(
                 f"Model '{model_name}' produces {self._dimensions}-dim embeddings; "

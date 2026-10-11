@@ -32,28 +32,28 @@ Data Collection Fields
      - The specific lesion (abnormal tissue) that is being monitored for response to treatment
    * - Lesion Response Date
      - lesion_response_date
-     - The date when the lesion's response to treatment was evaluated
+     - The date when the lesion's response to treatment was evaluated. (DD/MM/YYYY)
    * - Lesion Response
      - lesion_response
-     - How the lesion has responded to treatment (e.g., Complete Response, Partial Response, Stable Disease, Progressive Disease)
+     - Response category at this assessment (e.g. complete response, partial response, stable disease, progression).
    * - Residual Lesion Size X-Axis
      - residual_lesion_size_x_axis
-     - The width (left to right measurement) of any remaining lesion after treatment
+     - First dimension of the REMAINING disease at this assessment (first value of 'a × b × c'). In the unit from the Residual Lesion Size Unit field. Blank if no residual disease or no size given.
    * - Residual Lesion Size Y-Axis
      - residual_lesion_size_y_axis
-     - The length (front to back measurement) of any remaining lesion after treatment
+     - Second dimension of the remaining disease at this assessment (middle value of 'a × b × c'). In the unit from the Residual Lesion Size Unit field. Blank if the report gives fewer than two dimensions.
    * - Residual Lesion Size Z-Axis
      - residual_lesion_size_z_axis
-     - The height (top to bottom measurement) of any remaining lesion after treatment
+     - Third dimension of the remaining disease at this assessment (last value of 'a × b × c'). In the unit from the Residual Lesion Size Unit field. Blank if not reported.
    * - Residual Lesion Size Unit
      - residual_lesion_size_unit
      - The unit of measurement used for the residual lesion size
    * - Residual Lesion Volume
      - residual_lesion_volume
-     - The total volume (size in three dimensions) of any remaining lesion after treatment
+     - Volume of remaining disease at this assessment, in the unit from the Residual Lesion Volume Unit field. Blank if none.
    * - Residual Lesion Volume Unit
      - residual_lesion_volume_unit
-     - The unit of measurement used for the residual lesion volume
+     - Unit of the residual volume (mm³, cm³/cc).
    * - Lesion Response SUV Max
      - lesion_response_suv_max
      - The maximum SUV value of the lesion after treatment

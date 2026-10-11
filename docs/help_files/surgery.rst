@@ -36,19 +36,19 @@ Data Collection Fields
      - Which side of the body the surgery was performed on (e.g., Left, Right, Bilateral)
    * - Surgery Type
      - surgery_type
-     - The type of surgery performed (e.g., Mastectomy, Lumpectomy, Whole Breast Irradiation). Note that multiple types of surgeries can be selected for a single diagnosis if performed at the same sitting.
+     - Surgical procedure(s) performed (e.g. mastectomy, lumpectomy, axillary dissection, biopsy). Note that multiple types of surgery can be selected for a single diagnosis if performed at the same sitting.
    * - Surgery Intent
      - surgery_intent
      - The intent of the surgery (e.g., Curative, Palliative)
    * - Nodal Assessment
      - nodal_assessment
-     - Indicates whether nodal assessment was performed (check for Yes, leave unchecked for No)
+     - True if nodal assessment was performed; False otherwise.
    * - Nodal Assessment Type
      - nodal_assessment_type
      - The type of nodal assessment performed (e.g., Sentinel Node Biopsy, Axillary Dissection)
    * - Reconstruction
      - reconstruction
-     - Indicates whether reconstructive surgery was performed (check for Yes, leave unchecked for No)
+     - True if reconstructive surgery was performed; False otherwise.
    * - Type of Reconstruction
      - type_reconstruction
      - If reconstruction was performed, specifies the type (e.g., Implant-Based, Autologous Tissue, DIEP Flap)
