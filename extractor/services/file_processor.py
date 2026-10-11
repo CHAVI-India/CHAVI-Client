@@ -14,6 +14,18 @@ log = getLogger(__name__)
 MAX_UPLOAD_BYTES = getattr(settings, 'EXTRACTOR_MAX_UPLOAD_MB', 50) * 1024 * 1024
 
 
+_EASYOCR_READER = None
+
+
+def _get_easyocr_reader():
+    """Lazily-initialized, shared EasyOCR reader (loaded once per process)."""
+    global _EASYOCR_READER
+    if _EASYOCR_READER is None:
+        import easyocr
+        _EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+    return _EASYOCR_READER
+
+
 class FileProcessorService:
     """
     Service to process uploaded files and convert them to usable formats.
@@ -167,31 +179,67 @@ class FileProcessorService:
         """
         OCR a scanned/image-only PDF into a new versioned ProcessedText row.
 
-        Requires the system packages tesseract-ocr and poppler-utils, plus the
-        pytesseract and pdf2image Python packages. Raises RuntimeError with a
-        clear message when they are missing.
+        OCR engine is selected by settings.EXTRACTOR_OCR_ENGINE:
+            "easyocr"   (default) — on-prem EasyOCR
+            "tesseract" — Tesseract via pytesseract (fallback)
+
+        Always requires poppler-utils (pdftoppm) for PDF -> page images and the
+        pdf2image package. Raises RuntimeError with a clear message when a
+        required dependency is missing.
         """
         import shutil
 
         if processed_text.file_upload.file_type != FileTypeChoices.PDF:
             raise ValueError("OCR is only supported for PDF uploads")
 
-        for binary, package in (('tesseract', 'tesseract-ocr'), ('pdftoppm', 'poppler-utils')):
-            if not shutil.which(binary):
-                raise RuntimeError(f"OCR requires {binary} (install: apt install {package})")
+        engine = getattr(settings, 'EXTRACTOR_OCR_ENGINE', 'easyocr')
+        # poppler is always required for PDF -> page images
+        if not shutil.which('pdftoppm'):
+            raise RuntimeError("OCR requires pdftoppm (install: apt install poppler-utils)")
+        if engine == 'tesseract' and not shutil.which('tesseract'):
+            raise RuntimeError("OCR requires tesseract (install: apt install tesseract-ocr)")
 
         try:
             from pdf2image import convert_from_path
-            import pytesseract
         except ImportError as e:
-            raise RuntimeError(f"OCR requires pdf2image and pytesseract: {e}") from e
+            raise RuntimeError(f"OCR requires pdf2image: {e}") from e
+        if engine == 'tesseract':
+            try:
+                import pytesseract
+            except ImportError as e:
+                raise RuntimeError(f"OCR requires pytesseract: {e}") from e
+        if engine == 'easyocr':
+            try:
+                import easyocr  # noqa: F401  (fail fast if not installed)
+            except ImportError as e:
+                raise RuntimeError(f"OCR requires easyocr: {e}") from e
 
         file_upload = processed_text.file_upload
         pdf_path = processed_text.resolve_path()
-        if not pdf_path or not pdf_path.exists():
-            # The flagged version usually points at the derived markdown, not the
-            # PDF — fall back to the original upload file.
+        # The flagged version usually points at the derived markdown, not the
+        # PDF — fall back to the original upload file when the resolved path
+        # is missing, empty, or not a PDF.
+        use_fallback = (
+            not pdf_path
+            or not pdf_path.exists()
+            or pdf_path.stat().st_size == 0
+            or not pdf_path.suffix.lower() == '.pdf'
+        )
+        if use_fallback:
             pdf_path = Path(file_upload.file.path)
+
+        # Final validation before OCR.
+        if pdf_path.stat().st_size == 0:
+            raise ValueError(
+                f"Cannot OCR: PDF file is empty ({pdf_path})."
+            )
+        with open(pdf_path, 'rb') as fh:
+            header = fh.read(5)
+        if header != b'%PDF-':
+            raise ValueError(
+                f"Cannot OCR: file is not a valid PDF ({pdf_path}). "
+                f"Expected PDF header, got {header!r}."
+            )
 
         version = cls._next_version(file_upload)
         output_dir = cls._versioned_output_dir('pdf', file_upload, version)
@@ -199,8 +247,16 @@ class FileProcessorService:
 
         page_texts = []
         pages = convert_from_path(str(pdf_path), dpi=dpi, last_page=max_pages)
-        for page_image in pages:
-            page_texts.append(pytesseract.image_to_string(page_image, lang=lang))
+        if engine == 'easyocr':
+            import numpy as np
+            reader = _get_easyocr_reader()
+            for page_image in pages:
+                res = reader.readtext(np.array(page_image))
+                lines = [t.strip() for _box, t, _conf in res if t and t.strip()]
+                page_texts.append("\n".join(lines))
+        else:  # tesseract fallback
+            for page_image in pages:
+                page_texts.append(pytesseract.image_to_string(page_image, lang=lang))
 
         text_content = "\n\n".join(t.strip() for t in page_texts if t.strip())
 

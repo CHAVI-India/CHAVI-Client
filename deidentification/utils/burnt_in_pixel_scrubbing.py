@@ -15,9 +15,14 @@ def _get_skip_modalities():
 
 
 def _get_ocr():
-    """Build the OCR object, title-casing words when DEID_PIXEL_NORMALIZE_CASE.
+    """Build the OCR object.
 
-    DICOM burnt-in annotations are frequently ALL CAPS, which degrades cased
+    Engine selected by settings.DEID_PIXEL_OCR_ENGINE:
+        "tesseract" (default) — Tesseract, title-cased when
+            DEID_PIXEL_NORMALIZE_CASE.
+        "easyocr" — on-prem EasyOCR (better on small/all-caps burnt-in text).
+
+    Note: burnt-in annotations are frequently ALL CAPS, which degrades cased
     NER models (spaCy en_core_web_lg and HF token-classification alike).
     Normalization happens on ocr_result["text"] before the text is joined and
     analyzed, so char offsets and the case-sensitive bbox mapping in
@@ -25,6 +30,18 @@ def _get_ocr():
     consistent. Words whose title-cased form changes length (e.g. 'ß'->'Ss')
     are left untouched to keep positional math exact.
     """
+    engine = getattr(settings, 'DEID_PIXEL_OCR_ENGINE', 'easyocr')
+    if engine == 'easyocr':
+        try:
+            from deidentification.utils.ocr_engines import EasyOCROCR
+        except Exception as e:
+            logger.warning(f"EasyOCR unavailable ({e}); falling back to Tesseract OCR")
+        else:
+            return EasyOCROCR(
+                normalize_case=getattr(settings, 'DEID_PIXEL_NORMALIZE_CASE', True),
+            )
+
+    # Tesseract (explicit engine, or EasyOCR fallback)
     from presidio_image_redactor import TesseractOCR
 
     if not getattr(settings, 'DEID_PIXEL_NORMALIZE_CASE', True):

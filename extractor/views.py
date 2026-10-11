@@ -1028,7 +1028,6 @@ def processed_text_ocr(request, processed_text_id):
         task_id=f"ocr-{processed_text_id}-{int(timezone.now().timestamp())}",
         task_name=f"OCR for processed file {processed_text_id}",
         status='pending',
-        user=request.user
     )
     from extractor.tasks import ocr_processed_text_task
     ocr_processed_text_task.delay(task.task_id, processed_text_id, request.user.id)

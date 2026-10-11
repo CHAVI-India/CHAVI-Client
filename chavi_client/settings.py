@@ -798,6 +798,13 @@ DEID_SKIP_PIXEL_SCRUB_MODALITIES = {'MR', 'RTPLAN', 'RTDOSE', 'RTSTRUCT', 'REG'}
 DEID_LOG_PIXEL_REDACTION_BBOXES = True
 DEID_SUB_BATCH_SIZE = 50
 
+# OCR engine for burnt-in pixel scrubbing. "easyocr" (default, on-prem,
+# stronger on small/all-caps burnt-in text) or "tesseract". See
+# deidentification/eval/burnt_in_benchmark.py + data/results/ocr/REPORT.md.
+# NOTE: pytesseract stays a hard import dependency of presidio-image-redactor,
+# so keep it installed even when easyocr is the engine.
+DEID_PIXEL_OCR_ENGINE = "easyocr"
+
 # Burnt-in pixel scrubbing — extra NER recognizer layered on spaCy.
 # "hf"   = HuggingFaceNerRecognizer (same model as extractor text-deid engine)
 # "none" = spaCy + pattern recognizers only (legacy behavior)
@@ -830,6 +837,10 @@ DEID_LENIENT_INDIAN_IDS = True
 # Extractor text deidentification (extractor.services.text_deidentification)
 # Runs between file processing/OCR and extraction; reuses DEID_HF_NER_MODEL /
 # DEID_HF_LABEL_MAP / DEID_HF_NER_THRESHOLD / DEID_LENIENT_INDIAN_IDS above.
+# OCR engine used by FileProcessorService.ocr_pdf for scanned clinical-note
+# PDFs. "easyocr" (default, on-prem) or "tesseract". Tesseract stays installed
+# as a fallback (and as a hard import dep of presidio-image-redactor).
+EXTRACTOR_OCR_ENGINE = "easyocr"
 EXTRACTOR_DEID_ENABLED = True
 # Dispatch a deid Celery task automatically after file processing and OCR.
 EXTRACTOR_DEID_AUTO_RUN = True
