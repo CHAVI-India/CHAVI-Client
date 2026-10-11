@@ -2337,3 +2337,74 @@ class ChunkPromptTests(TestCase):
         self.assertIn('"site_0"', content)
         self.assertIn('"parent_index"', content)
         self.assertNotIn('ONLY PART', content)
+
+
+class ChunkModelTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.f_site = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        self.f_count = make_field(self.diagnosis, 'count', field_type='int')
+        for i, f in enumerate((self.f_site, self.f_count)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt, field=f, order=i)
+
+    def _build(self, fields, **kwargs):
+        return PydanticModelBuilder.build_chunk_response_model(
+            self.rmt, fields, **kwargs)
+
+    def test_record_model_has_only_chunk_fields(self):
+        wrapper, record = self._build([self.f_site, self.f_count],
+                                      with_parent_index=True)
+        self.assertEqual(
+            set(record.model_fields),
+            {'site_0', 'count', 'parent_index', 'field_assessments'})
+        inst = wrapper(records=[{
+            'site_0': 'Left', 'count': 0, 'parent_index': 0,
+            'field_assessments': [{'field': 'count', 'basis': 'inferred',
+                                   'quotes': [], 'rationale': 'absent'}],
+        }])
+        self.assertEqual(inst.records[0].site_0, 'Left')
+        self.assertEqual(wrapper(records=[]).records, [])
+
+    def test_lookup_membership_uses_context_rules(self):
+        from pydantic import ValidationError
+        _, record = self._build([self.f_site, self.f_count])
+        ctx = {'lookup_rules': {'diagnosis.site_0': {
+            'allowed': {'left'}, 'candidates': ['Left']}}}
+        with self.assertRaises(ValidationError):
+            record.model_validate(
+                {'site_0': 'Wrong', 'count': 0,
+                 'field_assessments': [{'field': 'count',
+                                        'basis': 'unknown', 'quotes': [],
+                                        'rationale': 'missing'}]},
+                context=ctx)
+        ok = record.model_validate(
+            {'site_0': 'Left', 'count': 0,
+             'field_assessments': [{'field': 'count',
+                                    'basis': 'inferred', 'quotes': [],
+                                    'rationale': 'absent'}]},
+            context=ctx)
+        self.assertEqual(ok.site_0, 'Left')
+
+    def test_no_assessment_field_for_lookup_only_chunk(self):
+        _, record = self._build([self.f_site])
+        self.assertNotIn('field_assessments', record.model_fields)
+
+    def test_date_pair_enforced_only_when_both_fields_in_chunk(self):
+        from pydantic import ValidationError
+        self.diagnosis.date_validation_pairs = [('d_start', 'd_end')]
+        self.diagnosis.save()
+        f_start = make_field(self.diagnosis, 'd_start',
+                             field_type=EntityTypeChoices.DATE)
+        f_end = make_field(self.diagnosis, 'd_end',
+                           field_type=EntityTypeChoices.DATE)
+        _, both = self._build([f_start, f_end])
+        with self.assertRaises(ValidationError):
+            both.model_validate({'d_start': '2024-02-01',
+                                 'd_end': '2024-01-01'})
+        _, single = self._build([f_start])
+        ok = single.model_validate({'d_start': '2024-02-01'})
+        self.assertEqual(ok.d_start, '2024-02-01')
