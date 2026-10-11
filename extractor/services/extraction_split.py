@@ -13,25 +13,6 @@ from extractor.models import ResponseModelTableField
 log = getLogger(__name__)
 
 
-def topological_tables(roots, children):
-    """
-    Response-model tables in parent-first order (depth-first pre-order).
-
-    roots: [ResponseModelTable]; children: {parent_mt.id: [child_mt, ...]}
-    as returned by model_hierarchy.build_table_tree.
-    """
-    ordered = []
-
-    def walk(mt):
-        ordered.append(mt)
-        for child in children.get(mt.id, []):
-            walk(child)
-
-    for root in roots:
-        walk(root)
-    return ordered
-
-
 def active_extractable_fields(model_table):
     """A table's active, extractable DatabaseFields, in configured order."""
     rows = ResponseModelTableField.objects.filter(
