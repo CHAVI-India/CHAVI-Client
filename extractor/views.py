@@ -119,6 +119,66 @@ def wizard_step1(request):
     return render(request, 'extractor/wizard_step1.html', context)
 
 
+def build_table_sections(tables, selected_ids):
+    """Group the flat, depth-ordered table list into display sections.
+
+    ``SchemaDiscoveryService.get_hierarchical_table_structure()`` returns
+    tables ordered patient → direct links → deeper levels → unlinked.
+    This collapses that ordering into sections with presentation metadata:
+    one each for the root (depth 0), direct links (depth 1), every deeper
+    level, and unlinked tables (no patient relationship). Returns a list
+    of {key, title, description, icon, icon_class, tables, count, selected}.
+    """
+    groups = {}
+    for table in tables:
+        groups.setdefault(table.get('depth'), []).append(table)
+
+    def _meta(depth):
+        if depth == 0:
+            return (
+                'Root',
+                'The patient record — entry point for every extraction',
+                'fas fa-user', 'text-chavi-charcoal-600',
+            )
+        if depth == 1:
+            return (
+                'Directly linked',
+                'Tables with a direct relationship to the patient record',
+                'fas fa-link', 'text-chavi-primary-600',
+            )
+        if depth is None:
+            return (
+                'Unlinked',
+                'No discovered relationship to the patient record',
+                'fas fa-unlink', 'text-gray-400',
+            )
+        intermediate = depth - 1
+        return (
+            f'Level {depth}',
+            f'Reached from the patient via {intermediate} intermediate table'
+            f'{"s" if intermediate > 1 else ""}',
+            'fas fa-sitemap', 'text-chavi-sun-600',
+        )
+
+    sections = []
+    for depth in [0, 1] + sorted(d for d in groups if isinstance(d, int) and d > 1) + [None]:
+        group = groups.get(depth)
+        if not group:
+            continue
+        title, description, icon, icon_class = _meta(depth)
+        sections.append({
+            'key': 'root' if depth == 0 else (f'level-{depth}' if depth is not None else 'unlinked'),
+            'title': title,
+            'description': description,
+            'icon': icon,
+            'icon_class': icon_class,
+            'tables': group,
+            'count': len(group),
+            'selected': sum(1 for t in group if t['id'] in selected_ids),
+        })
+    return sections
+
+
 @login_required
 @permission_required(['extractor.add_responsemodeltable', 'extractor.view_databasetable'], raise_exception=True)
 def wizard_step2(request, response_model_id):
@@ -186,18 +246,34 @@ def wizard_step2(request, response_model_id):
 
     tables_structure = SchemaDiscoveryService.get_hierarchical_table_structure()
 
-    selected_tables = ResponseModelTable.objects.filter(
+    selected_ids = set(ResponseModelTable.objects.filter(
         response_model=response_model
-    ).values_list('database_table_id', flat=True)
+    ).values_list('database_table_id', flat=True))
 
     auto_added_ids = set(ResponseModelTable.objects.filter(
         response_model=response_model, auto_added=True
     ).values_list('database_table_id', flat=True))
 
+    # Presentation flags per table (selection state, auto-include, icon)
+    # consumed by the check_card grids.
+    for table in tables_structure:
+        table['selected'] = table['id'] in selected_ids
+        table['auto_added'] = table['id'] in auto_added_ids
+        depth = table.get('depth')
+        if depth == 0:
+            table['icon'], table['icon_class'] = 'fas fa-user', 'text-chavi-charcoal-600'
+        elif depth == 1:
+            table['icon'], table['icon_class'] = 'fas fa-link', 'text-chavi-primary-600'
+        elif depth:
+            table['icon'], table['icon_class'] = 'fas fa-sitemap', 'text-chavi-sun-600'
+        else:
+            table['icon'], table['icon_class'] = 'fas fa-unlink', 'text-gray-400'
+
     context = {
         'response_model': response_model,
         'tables': tables_structure,
-        'selected_tables': list(selected_tables),
+        'table_sections': build_table_sections(tables_structure, selected_ids),
+        'selected_tables': list(selected_ids),
         'auto_added_ids': auto_added_ids,
     }
 

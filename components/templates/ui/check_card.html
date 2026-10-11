@@ -1,0 +1,33 @@
+{# CheckCard — compact selectable card for multi-select grids #}
+{# Kwargs: name (input name, default "items"), value, checked, disabled, #}
+{#          title, subtitle (mono line under the title), icon, icon_class #}
+{# Slots: badges (right side of the title row), default (detail below)    #}
+{# The whole card is a <label> — clicking anywhere toggles the checkbox. #}
+<label class="flex flex-col rounded-lg border bg-white p-3 cursor-pointer transition-colors
+    {% if checked %}border-chavi-primary bg-chavi-primary-50 ring-1 ring-chavi-primary
+    {% else %}border-gray-200 hover:border-chavi-primary-400{% endif %} {{ extra_class }}">
+    <div class="flex items-start gap-2.5">
+        <input type="checkbox"
+            {% if name %}name="{{ name }}"{% endif %}
+            {% if value is not None %}value="{{ value }}"{% endif %}
+            {% if checked %}checked{% endif %}
+            {% if disabled %}disabled{% endif %}
+            {% for k, v in data.items %}data-{{ k }}="{{ v }}"{% endfor %}
+            class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-chavi-primary focus:ring-chavi-primary">
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+                {% if icon %}<i class="{{ icon }} {{ icon_class|default:'' }} shrink-0"></i>{% endif %}
+                <span class="truncate text-sm font-semibold text-gray-800">{{ title }}</span>
+                {% if component_vars.is_filled.badges %}
+                <span class="ml-auto flex shrink-0 items-center gap-1">{% slot "badges" %}{% endslot %}</span>
+                {% endif %}
+            </div>
+            {% if subtitle %}<p class="mt-0.5 truncate font-mono text-xs text-gray-500">{{ subtitle }}</p>{% endif %}
+        </div>
+    </div>
+    {% if component_vars.is_filled.default %}
+    <div class="mt-2 pl-[1.625rem]">
+        {% slot "default" %}{% endslot %}
+    </div>
+    {% endif %}
+</label>

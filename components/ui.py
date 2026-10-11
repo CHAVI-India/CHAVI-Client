@@ -473,6 +473,23 @@ class LinkChip(KwargComponent):
     template_file = "ui/link_chip.html"
 
 
+@register("check_card")
+class CheckCard(KwargComponent):
+    """Compact selectable card with a checkbox, for multi-select grids.
+
+    The whole card is a ``<label>`` — clicking anywhere toggles the
+    checkbox. Use in responsive grids (e.g. table selection) instead of
+    full-width checkbox rows to save vertical space.
+
+    Kwargs: name (input name, default "items"), value, checked, disabled,
+            title, subtitle (mono line under the title), icon, icon_class,
+            data__<name>: renders data-<name> attributes on the input
+    Slots: badges (right side of the title row — badge components),
+           default (extra detail below the title row, e.g. a path)
+    """
+    template_file = "ui/check_card.html"
+
+
 def _nav_active(kwargs, context):
     """Resolve active state from ``active_on`` (comma-separated patterns
     matched against resolver_match url_name / namespace / substring)."""

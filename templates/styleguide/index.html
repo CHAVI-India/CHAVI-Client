@@ -858,6 +858,28 @@
             {% component "data_list" items=datalist_demo %}{% endcomponent %}
         </div>
         <div class="mb-6">
+            <p class="text-sm font-semibold text-gray-700 mb-3">CheckCard — compact selectable cards for multi-select grids</p>
+            <p class="text-xs text-gray-500 mb-3">Whole card is a <code class="chavi-code">&lt;label&gt;</code> — clicking anywhere toggles the checkbox. Checked cards get the primary ring. Used on the extractor wizard's table selection step.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% component "check_card" name="demo" value="1" checked=True title="Diagnosis" subtitle="diagnosis" icon="fas fa-link" icon_class="text-chavi-primary-600" %}
+                    {% fill "badges" %}{% component "badge" style="success" icon="fas fa-link" %}Direct{% endcomponent %}{% component "badge" style="accent" icon="fas fa-magic" %}Auto-included parent{% endcomponent %}{% endfill %}
+                    {% fill "default" %}
+                        <div class="rounded bg-chavi-sand-50 p-2 text-xs text-gray-500"><i class="fas fa-route mr-1"></i><strong>Path to Patient:</strong> <span class="font-mono bg-white px-1 rounded">diagnosis</span> → <span class="font-mono bg-white px-1 rounded">patient</span></div>
+                    {% endfill %}
+                {% endcomponent %}
+                {% component "check_card" name="demo" value="2" title="Pathology Report" subtitle="pathology_report" icon="fas fa-sitemap" icon_class="text-chavi-sun-600" %}
+                    {% fill "badges" %}{% component "badge" style="accent" icon="fas fa-sitemap" %}Level 2{% endcomponent %}{% endfill %}
+                    {% fill "default" %}
+                        <div class="rounded bg-chavi-sand-50 p-2 text-xs text-gray-500"><i class="fas fa-route mr-1"></i><strong>Path to Patient:</strong> <span class="font-mono bg-white px-1 rounded">pathology_report</span> → <span class="font-mono bg-white px-1 rounded">diagnosis</span> → <span class="font-mono bg-white px-1 rounded">patient</span></div>
+                    {% endfill %}
+                {% endcomponent %}
+                {% component "check_card" name="demo" value="3" title="Audit Log" subtitle="audit_log" icon="fas fa-unlink" icon_class="text-gray-400" %}
+                    {% fill "badges" %}{% component "badge" style="gray" icon="fas fa-unlink" %}Unlinked{% endcomponent %}{% endfill %}
+                {% endcomponent %}
+                {% component "check_card" name="demo" value="4" disabled=True checked=True title="Disabled (locked)" subtitle="locked_table" icon="fas fa-lock" icon_class="text-chavi-charcoal-600" %}{% endcomponent %}
+            </div>
+        </div>
+        <div class="mb-6">
             <p class="text-sm font-semibold text-gray-700 mb-3">BulkActionToolbar</p>
             {% component "bulk_action_toolbar" %}
                 {% fill "primary" %}

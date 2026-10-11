@@ -2,13 +2,19 @@
 Base-URL normalization and egress policy for LLM/embedding endpoints.
 
 Policy: https:// is allowed anywhere; http:// only for loopback or
-private/LAN addresses (local Ollama-style servers).
+private/LAN addresses (local Ollama-style servers), including
+100.64.0.0/10 (CGNAT, used by NetBird/Tailscale VPNs).
 """
 
 from urllib.parse import urlsplit
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 
 from django.core.exceptions import ValidationError
+
+# Ranges treated as "LAN" even though ipaddress.is_private doesn't cover them.
+LAN_NETWORKS = (
+    ip_network('100.64.0.0/10'),  # CGNAT — NetBird/Tailscale 100.x.x.x addresses
+)
 
 
 def normalize_base_url(value):
@@ -41,10 +47,10 @@ def validate_base_url(value, field_label='base URL'):
     if url.startswith('https://'):
         return url
 
-    # http:// — loopback or private LAN only
+    # http:// — loopback, private LAN, or VPN/CGNAT range only
     try:
         ip = ip_address(host)
-        permitted = ip.is_loopback or ip.is_private
+        permitted = ip.is_loopback or ip.is_private or any(ip in net for net in LAN_NETWORKS)
     except ValueError:
         permitted = host in ('localhost', 'localhost.localdomain')
 

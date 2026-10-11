@@ -83,6 +83,7 @@ component system** — `slippers` was removed; don't use `{% #… %}`/`{% var %}
 | `nav_dropdown_item` | `href`, `icon`, `label`, `section`, `divider` | default |
 | `nav_mobile_item` | `href`, `icon`, `label`, `section`, `active_on` | default |
 | `link_chip` | `url`, `param`, `value` (→ `url?param=value`), `label`, `icon`, `style` | default |
+| `check_card` | `name` (input name, default "items"), `value`, `checked`, `disabled`, `title`, `subtitle` (mono line), `icon`, `icon_class`, `data__*` | badges (right of title), default = detail below |
 | `stepper` | `labels` (comma-separated), `current` | — |
 | `progress` | `value`, `label`, `show_percent`, `size` (sm/md/lg), `style`, `track_id`, `bar_id`, `percent_id`, `label_id`, `bar_text_id` | — |
 | `tabs` | `tabs` list of `{id,label,active,href|onclick|target}` | — |

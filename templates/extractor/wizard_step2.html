@@ -13,66 +13,56 @@
 
     {% component "info_box" style="info" %}
         {% fill "default" %}
-        Select the database tables from which you want to extract data. Tables with direct patient relationships are shown first.
-        Required parent tables (e.g. <em>diagnosis</em> for <em>pathology</em>) are automatically included so extracted records can be written back.
+        Select the database tables from which you want to extract data. Tables are grouped by their
+        relationship to the patient record — root first, then direct links, then deeper levels.
+        Required parent tables (e.g. <em>diagnosis</em> for <em>pathology</em>) are automatically included
+        so extracted records can be written back.
         {% endfill %}
     {% endcomponent %}
 
     {% component "card" %}
     {% fill "body" %}
-        <form method="post" class="space-y-6">
+        <form method="post" class="space-y-8">
             {% csrf_token %}
 
-            <div class="space-y-2">
-                {% for table in tables %}
-                <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors
-                            {% if table.depth == 0 %}border-chavi-charcoal-300 bg-chavi-charcoal-50{% endif %}">
-                    <label class="flex items-start cursor-pointer">
-                        <input type="checkbox"
-                               name="tables"
-                               value="{{ table.id }}"
-                               {% if table.id in selected_tables %}checked{% endif %}
-                               class="mt-1 h-5 w-5 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
+            {% for section in table_sections %}
+            <section aria-label="{{ section.title }}">
+                <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h3 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+                        <i class="{{ section.icon }} {{ section.icon_class }}"></i>
+                        {{ section.title }}
+                    </h3>
+                    <span class="text-xs text-gray-500">{{ section.description }} · {{ section.count }} table{{ section.count|pluralize }}</span>
+                    <span class="ml-auto text-xs font-medium text-chavi-primary-700">{{ section.selected }} of {{ section.count }} selected</span>
+                </div>
 
-                        <div class="ml-3 flex-1" style="{% if table.depth and table.depth > 0 %}padding-left: {{ table.depth }}rem;{% endif %}">
-                            <div class="flex items-center gap-2 mb-2">
-                                {% if table.depth == 0 %}
-                                    <i class="fas fa-user text-chavi-charcoal-600"></i>
-                                {% elif table.depth == 1 %}
-                                    <i class="fas fa-level-down-alt text-chavi-primary-600"></i>
-                                {% elif table.depth == 2 %}
-                                    <i class="fas fa-level-down-alt text-chavi-sun-600"></i>
-                                    <i class="fas fa-level-down-alt text-chavi-sun-600"></i>
-                                {% elif table.depth %}
-                                    <span class="text-chavi-sand-600 text-xs">{{ "→ " | safe }}{{ table.depth }}</span>
-                                {% else %}
-                                    <i class="fas fa-circle text-gray-400 text-xs"></i>
-                                {% endif %}
-
-                                <span class="font-semibold text-gray-800">{{ table.display_name }}</span>
-
-                                <div class="flex gap-1 ml-auto">
-                                    {% if table.id in auto_added_ids %}
-                                        {% component "badge" style="accent" icon="fas fa-magic" %}Auto-included parent{% endcomponent %}
-                                    {% endif %}
-                                    {% if table.depth == 0 %}
-                                        {% component "badge" style="info" icon="fas fa-star" %}Root{% endcomponent %}
-                                    {% elif table.depth == 1 %}
-                                        {% component "badge" style="success" icon="fas fa-link" %}Direct{% endcomponent %}
-                                    {% elif table.depth %}
-                                        {% component "badge" style="accent" icon="fas fa-sitemap" %}Level {{ table.depth }}{% endcomponent %}
-                                    {% else %}
-                                        {% component "badge" style="gray" icon="fas fa-unlink" %}Unlinked{% endcomponent %}
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <p class="text-sm text-gray-600">
-                                Model: <code class="bg-gray-100 px-1 rounded">{{ table.name }}</code>
-                            </p>
-
-                            {% if table.patient_path %}
-                            <div class="mt-2 text-xs text-gray-500 bg-chavi-sand-50 p-2 rounded">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for table in section.tables %}
+                    {% component "check_card"
+                                  name="tables"
+                                  value=table.id
+                                  checked=table.selected
+                                  title=table.display_name
+                                  subtitle=table.name
+                                  icon=table.icon
+                                  icon_class=table.icon_class %}
+                        {% fill "badges" %}
+                            {% if table.auto_added %}
+                                {% component "badge" style="accent" icon="fas fa-magic" %}Auto-included parent{% endcomponent %}
+                            {% endif %}
+                            {% if table.depth == 0 %}
+                                {% component "badge" style="info" icon="fas fa-star" %}Root{% endcomponent %}
+                            {% elif table.depth == 1 %}
+                                {% component "badge" style="success" icon="fas fa-link" %}Direct{% endcomponent %}
+                            {% elif table.depth %}
+                                {% component "badge" style="accent" icon="fas fa-sitemap" %}Level {{ table.depth }}{% endcomponent %}
+                            {% else %}
+                                {% component "badge" style="gray" icon="fas fa-unlink" %}Unlinked{% endcomponent %}
+                            {% endif %}
+                        {% endfill %}
+                        {% if table.patient_path %}
+                        {% fill "default" %}
+                            <div class="rounded bg-chavi-sand-50 p-2 text-xs text-gray-500">
                                 <i class="fas fa-route mr-1"></i>
                                 <strong>Path to Patient:</strong>
                                 {% for step in table.patient_path %}
@@ -81,19 +71,17 @@
                                 {% endfor %}
                                 → <span class="font-mono bg-white px-1 rounded">patient</span>
                             </div>
-                            {% endif %}
-                        </div>
-                    </label>
+                        {% endfill %}
+                        {% endif %}
+                    {% endcomponent %}
+                    {% endfor %}
                 </div>
-                {% empty %}
-                <div class="text-center py-8 text-gray-500">
-                    <i class="fas fa-database text-4xl mb-4"></i>
-                    <p>No tables found. Please refresh the schema from the start page.</p>
-                </div>
-                {% endfor %}
-            </div>
+            </section>
+            {% empty %}
+            {% component "empty_state" icon="fas fa-database" title="No tables found" description="Please refresh the schema from the start page." %}{% endcomponent %}
+            {% endfor %}
 
-            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+            <div class="flex items-center justify-between border-t border-gray-200 pt-6">
                 {% component "back_link" href=back_url %}Back{% endcomponent %}
                 {% component "button" style="primary" type="submit" size="lg" icon="fas fa-arrow-right" %}Next: Select Fields{% endcomponent %}
             </div>
