@@ -2408,3 +2408,62 @@ class ChunkModelTests(TestCase):
         _, single = self._build([f_start])
         ok = single.model_validate({'d_start': '2024-02-01'})
         self.assertEqual(ok.d_start, '2024-02-01')
+
+
+class MergeTests(TestCase):
+    def _chunks(self):
+        return [
+            {'fields': ['site_0', 'count'],
+             'records': [
+                 {'site_0': 'Left', 'count': 1,
+                  'field_assessments': [{'field': 'count', 'basis': 'explicit',
+                                        'quotes': ['1 node'], 'rationale': 'x'}]},
+                 {'site_0': 'Right', 'count': None,
+                  'field_assessments': [{'field': 'count', 'basis': 'unknown',
+                                        'quotes': [], 'rationale': 'missing'}]},
+             ]},
+            {'fields': ['site_1', 'date_a'],
+             'records': [
+                 {'site_1': 'tongue', 'date_a': '2024-01-01'},
+                 {'site_1': 'lip', 'date_a': '2024-02-01'},
+             ]},
+        ]
+
+    def test_merge_unions_fields_and_assessments(self):
+        from extractor.services.extraction_split import merge_table_chunks
+        merged = merge_table_chunks(self._chunks())
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]['site_0'], 'Left')
+        self.assertEqual(merged[0]['site_1'], 'tongue')
+        self.assertEqual(merged[0]['count'], 1)
+        self.assertEqual(len(merged[0]['field_assessments']), 1)
+        self.assertEqual(merged[1]['date_a'], '2024-02-01')
+        self.assertEqual(merged[1]['field_assessments'][0]['basis'], 'unknown')
+
+    def test_single_chunk_passthrough(self):
+        from extractor.services.extraction_split import merge_table_chunks
+        chunks = self._chunks()
+        self.assertEqual(merge_table_chunks(chunks[:1])[0]['site_0'], 'Left')
+
+    def test_record_count_mismatch_raises(self):
+        from extractor.services.extraction_split import (
+            TableMergeError, merge_table_chunks)
+        chunks = self._chunks()
+        chunks[1]['records'] = chunks[1]['records'][:1]
+        with self.assertRaises(TableMergeError):
+            merge_table_chunks(chunks)
+
+    def test_nest_children_by_parent_index(self):
+        from extractor.services.extraction_split import nest_children
+        parents = [{'x': 1}, {'x': 2}]
+        children = [
+            {'a': 'c1', 'parent_index': 0},
+            {'a': 'c2', 'parent_index': 1},
+            {'a': 'c3', 'parent_index': 7},
+            {'a': 'c4', 'parent_index': None},
+        ]
+        out, dropped = nest_children(parents, children, 'pathology')
+        self.assertEqual([c['a'] for c in out[0]['pathology']], ['c1'])
+        self.assertEqual([c['a'] for c in out[1]['pathology']], ['c2'])
+        self.assertNotIn('parent_index', out[0]['pathology'][0])
+        self.assertEqual(dropped, 2)

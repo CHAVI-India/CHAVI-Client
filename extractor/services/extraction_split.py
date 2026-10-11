@@ -219,3 +219,55 @@ def build_chunk_prompt(response_model, call, processed_content, *,
     ]
     messages.append({'role': 'user', 'content': "\n".join(parts)})
     return messages
+
+
+class TableMergeError(Exception):
+    """The chunks of one table returned different record counts."""
+
+
+def merge_table_chunks(chunks):
+    """
+    Merge the chunk responses of one table into its record list.
+
+    chunks: [{'fields': [...], 'records': [dict, ...]}] — every record
+    dict is the model_dump(mode='json') of that chunk's record. Fields
+    are disjoint across chunks; field_assessments lists are concatenated.
+    Raises TableMergeError when record counts disagree (records cannot
+    then be aligned safely).
+    """
+    counts = {len(c['records']) for c in chunks}
+    if len(counts) != 1:
+        raise TableMergeError(
+            f"chunk record counts disagree: {sorted(counts)}")
+    merged = [{} for _ in range(len(chunks[0]['records']))]
+    for chunk in chunks:
+        for i, rec in enumerate(chunk['records']):
+            for key, value in rec.items():
+                if key == 'field_assessments':
+                    merged[i].setdefault('field_assessments', []).extend(
+                        value or [])
+                else:
+                    merged[i][key] = value
+    return merged
+
+
+def nest_children(parents, children, child_key_name):
+    """
+    Attach child records to their parents via 'parent_index'.
+
+    Every parent gets a child_key_name list (empty when no child maps to
+    it); each child is copied without its parent_index key. Children with
+    null/out-of-range parent_index are dropped. Returns (parents,
+    dropped_count).
+    """
+    for parent in parents:
+        parent.setdefault(child_key_name, [])
+    dropped = 0
+    for child in children:
+        idx = child.get('parent_index')
+        if isinstance(idx, int) and 0 <= idx < len(parents):
+            parents[idx][child_key_name].append(
+                {k: v for k, v in child.items() if k != 'parent_index'})
+        else:
+            dropped += 1
+    return parents, dropped
