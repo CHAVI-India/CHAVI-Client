@@ -73,6 +73,11 @@ def plan_extraction_calls(response_model, batch_size):
     from extractor.services.model_hierarchy import build_table_tree
 
     roots, children = build_table_tree(response_model)
+    return plan_extraction_calls_from_tree(roots, children, batch_size)
+
+
+def plan_extraction_calls_from_tree(roots, children, batch_size):
+    """plan_extraction_calls given a pre-resolved table tree."""
     plan = []
 
     def walk(mt, ancestry):

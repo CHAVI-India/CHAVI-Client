@@ -259,6 +259,59 @@ Example shape only: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "
         return messages
     
     @staticmethod
+    def build_extraction_plan_entries(response_model, processed_content,
+                                      client_config, resolved_options):
+        """
+        The frozen per-call plan for split extraction — one trace-ready
+        entry per LLM call. Raises ValueError naming the offending call
+        when any prompt exceeds the client's context budget, and when the
+        response model has no extractable fields.
+        """
+        from collections import Counter
+
+        from extractor.services.extraction_split import (
+            build_chunk_prompt, plan_extraction_calls_from_tree)
+
+        # build_table_tree is the module-level name on purpose — keeps
+        # the function patchable exactly like get_messages was
+        plan = plan_extraction_calls_from_tree(
+            *build_table_tree(response_model),
+            client_config.extraction_fields_per_call)
+        if not plan:
+            raise ValueError("No extractable fields configured for extraction")
+        counts = Counter(call['model_table'].id for call in plan)
+        entries = []
+        for call in plan:
+            table_name = (call['model_table'].database_table
+                          .clientapp_content_type.model)
+            messages = build_chunk_prompt(
+                response_model, call, processed_content,
+                resolved_options=resolved_options,
+                include_field_assessments=True,
+                table_chunk_count=counts[call['model_table'].id])
+            approx_tokens = sum(
+                len(m.get('content', '')) for m in messages) // 4
+            if approx_tokens > client_config.context_size:
+                raise ValueError(
+                    f"Extraction call {call['index']} ({table_name}, "
+                    f"{len(call['fields'])} fields) is ~{approx_tokens} "
+                    f"tokens, over the configured context size of "
+                    f"{client_config.context_size}. Lower "
+                    "extraction_fields_per_call, split the document, or "
+                    "raise the client's context size.")
+            entries.append({
+                'index': call['index'],
+                'table': table_name,
+                'fields': [f.clientapp_field_name for f in call['fields']],
+                'call_kind': call['kind'],
+                'ancestry': [
+                    mt.database_table.clientapp_content_type.model
+                    for mt in call['ancestry']],
+                'messages': messages,
+            })
+        return entries
+
+    @staticmethod
     def _field_schema_line(field, document_content: str = "",
                            resolved_options: Optional[Dict[int, List[Dict[str, Any]]]] = None,
                            *, include_field_assessments=True) -> str:
@@ -997,26 +1050,23 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                         lookup_fields, processed_content)}])
             extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_MINING
         else:
-            # No lookup fields — nothing to mine, so build the stage-2
-            # prompt now and park for the single approval that remains
+            # No lookup fields — nothing to mine, so build the per-call
+            # plan now and park for the single approval that remains
             InstructorExtractionService._append_trace(
                 extraction_job, 'mining', 'result',
                 note='No lookup fields — mining stage skipped.',
                 snippets={}, resolved_options={}, tokens=0)
-            messages = InstructorExtractionService.get_messages(
-                response_model, processed_content, resolved_options={})
-            approx_tokens = sum(
-                len(m.get('content', '')) for m in messages) // 4
-            if approx_tokens > client_config.context_size:
-                raise ValueError(
-                    f"Prompt is ~{approx_tokens} tokens, over the configured "
-                    f"context size of {client_config.context_size}. Split the "
-                    f"document or raise the client's context size."
-                )
+            entries = InstructorExtractionService.build_extraction_plan_entries(
+                response_model, processed_content, client_config, {})
             extraction_job.config_snapshot['field_assessment_version'] = 1
-            extraction_job.prompt_snapshot = json.dumps(messages)
-            InstructorExtractionService._append_trace(
-                extraction_job, 'extraction', 'prompt', messages=messages)
+            extraction_job.config_snapshot['extraction_plan_version'] = 2
+            extraction_job.prompt_snapshot = json.dumps(entries)
+            for entry in entries:
+                InstructorExtractionService._append_trace(
+                    extraction_job, 'extraction', 'prompt',
+                    index=entry['index'], table=entry['table'],
+                    fields=entry['fields'], call_kind=entry['call_kind'],
+                    ancestry=entry['ancestry'], messages=entry['messages'])
             extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
 
         extraction_job.extraction_error = None
@@ -1090,25 +1140,18 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         }
         extraction_job.config_snapshot = config_snapshot
 
-        # Get messages
-        messages = InstructorExtractionService.get_messages(
-            response_model, processed_content, resolved_options=resolved_options)
-
-        # Freeze the exact prompt on the job before sending
-        extraction_job.prompt_snapshot = json.dumps(messages)
-
-        # Context budget: refuse rather than let the provider silently
-        # truncate the document tail (~4 chars/token estimate)
-        approx_tokens = sum(len(m.get('content', '')) for m in messages) // 4
-        if approx_tokens > client_config.context_size:
-            raise ValueError(
-                f"Prompt is ~{approx_tokens} tokens, over the configured "
-                f"context size of {client_config.context_size}. Split the "
-                f"document or raise the client's context size."
-            )
-
-        InstructorExtractionService._append_trace(
-            extraction_job, 'extraction', 'prompt', messages=messages)
+        # Freeze the per-call plan on the job before sending anything
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            response_model, processed_content, client_config, resolved_options)
+        config_snapshot['extraction_plan_version'] = 2
+        extraction_job.config_snapshot = config_snapshot
+        extraction_job.prompt_snapshot = json.dumps(entries)
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
         extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
         extraction_job.save()
         return None

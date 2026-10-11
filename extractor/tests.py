@@ -1,3 +1,4 @@
+import json
 import os
 from decimal import Decimal
 from unittest.mock import Mock, patch
@@ -1099,8 +1100,12 @@ class StagedPipelineTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.extraction_status, 'awaiting_extraction')
         kinds = [(e['stage'], e['kind']) for e in self.job.stage_trace]
-        self.assertEqual(kinds, [
-            ('mining', 'prompt'), ('mining', 'result'), ('extraction', 'prompt')])
+        self.assertEqual(kinds[0], ('mining', 'prompt'))
+        self.assertEqual(kinds[1], ('mining', 'result'))
+        self.assertTrue(len(kinds) > 2)
+        self.assertTrue(all(k == ('extraction', 'prompt') for k in kinds[2:]))
+        self.assertTrue(all('messages' in e and e['fields']
+                            for e in self.job.stage_trace[2:]))
         self.assertTrue(self.job.prompt_snapshot)
         self.assertIn(
             'squamous cell carcinoma',
@@ -2467,3 +2472,102 @@ class MergeTests(TestCase):
         self.assertEqual([c['a'] for c in out[1]['pathology']], ['c2'])
         self.assertNotIn('parent_index', out[0]['pathology'][0])
         self.assertEqual(dropped, 2)
+
+
+class StagePlanningTests(TestCase):
+    def setUp(self):
+        import hashlib
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        f1 = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        f2 = make_field(self.diagnosis, 'plain_0', field_type='int')
+        for i, f in enumerate((f1, f2)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        f3 = make_field(self.pathology, 'date_pathology')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f3, order=0)
+
+        self.user = User.objects.create(username='planner')
+        self.source = 'PATHOLOGY REPORT text'
+        self.upload = FileUpload.objects.create(file='s.pdf')
+        self.processed = ProcessedText.objects.create(
+            file_upload=self.upload, content_length=len(self.source))
+        self.digest = hashlib.sha256(self.source.encode('utf-8')).hexdigest()
+
+    def _job(self, status):
+        return ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user, extraction_status=status,
+            input_content_hash=self.digest)
+
+    def _patch_mining(self):
+        self.enterContext(patch.object(
+            InstructorExtractionService, 'mine_lookup_snippets',
+            return_value=({}, 0)))
+        self.enterContext(patch.object(
+            InstructorExtractionService, 'recheck_empty_snippets',
+            return_value=({}, 0, ['diagnosis.site_0'])))
+        self.enterContext(patch.object(
+            InstructorExtractionService, '_get_llm_client',
+            return_value=Mock()))
+
+    def test_stage_mine_traces_one_prompt_entry_per_call(self):
+        from extractor.models import ExtractionStatusChoices
+        from extractor.services.extraction_split import plan_extraction_calls
+        self._patch_mining()
+        job = self._job(ExtractionStatusChoices.AWAITING_MINING)
+        result = InstructorExtractionService.stage_mine(job, self.source)
+        self.assertIsNone(result)  # parked for approval
+        job.refresh_from_db()
+        entries = [e for e in job.stage_trace
+                   if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
+        expected = plan_extraction_calls(
+            self.rm, self.rm.client.extraction_fields_per_call)
+        self.assertEqual(len(entries), len(expected))
+        self.assertEqual(
+            [e['index'] for e in entries],
+            list(range(len(expected))))
+        self.assertTrue(all('messages' in e and e['fields'] for e in entries))
+        self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
+        self.assertEqual(job.extraction_status,
+                         ExtractionStatusChoices.AWAITING_EXTRACTION)
+        self.assertEqual(json.loads(job.prompt_snapshot)[0]['table'],
+                         'diagnosis')
+
+    def test_stage_mine_refuses_call_over_context_budget(self):
+        from extractor.models import ExtractionStatusChoices
+        self._patch_mining()
+        # mutate the cached client instance — ORM .update() would not
+        # reach the already-resolved response_model.client object
+        self.rm.client.context_size = 100
+        job = self._job(ExtractionStatusChoices.AWAITING_MINING)
+        with self.assertRaises(ValueError):
+            InstructorExtractionService.stage_mine(job, self.source)
+
+    def test_stage_prepare_no_lookup_builds_plan_entries(self):
+        from extractor.models import ExtractionStatusChoices
+        f1 = DatabaseField.objects.get(
+            clientapp_field_name='site_0',
+            clientapp_database_table=self.diagnosis)
+        f1.lookup_field = False
+        f1.save()
+        job = self._job(ExtractionStatusChoices.PENDING)
+        result = InstructorExtractionService.stage_prepare(job, self.source)
+        self.assertIsNone(result)
+        job.refresh_from_db()
+        entries = [e for e in job.stage_trace
+                   if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
+        self.assertEqual(len(entries), 2)  # diagnosis + pathology, one plain chunk each
+        self.assertEqual([e['table'] for e in entries], ['diagnosis', 'pathology'])
+        self.assertTrue(all(e['call_kind'] == 'plain' for e in entries))
+        self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
+        self.assertEqual(job.extraction_status,
+                         ExtractionStatusChoices.AWAITING_EXTRACTION)
