@@ -1265,7 +1265,8 @@ class InferenceReviewContractTests(SimpleTestCase):
         engine = Engine(dirs=[str(settings.BASE_DIR / 'templates')], loaders=[
             ('django.template.loaders.locmem.Loader', {'base.html': '{% block content %}{% endblock %}'}),
             'django.template.loaders.filesystem.Loader'],
-            builtins=['django_components.templatetags.component_tags'])
+            builtins=['django_components.templatetags.component_tags'],
+            libraries={'static': 'django.templatetags.static'})
         rows = [{'name': name, 'before': value, 'after': value} for name, value in (
             ('zero', 0), ('false', False), ('decimal', Decimal('0.00')), ('null', None), ('empty', ''))]
         rows[0]['extraction'] = {'value': '0', 'basis': 'clinical_inference',
@@ -2197,3 +2198,69 @@ class SplitSettingTests(TestCase):
         resp = self._post_create(extraction_fields_per_call='7')
         cfg = ClientConfiguration.objects.get(llm_model_name='test-model')
         self.assertEqual(cfg.extraction_fields_per_call, 7)
+
+
+class ExtractionPlanTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology', 'pk_field': 'pk'},
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+
+    def attach(self, model_table, name, order, **kwargs):
+        field = make_field(model_table.database_table, name, **kwargs)
+        ResponseModelTableField.objects.create(
+            response_model_table=model_table, field=field, order=order)
+        return field
+
+    def _plan(self, batch):
+        from extractor.services.extraction_split import plan_extraction_calls
+        return plan_extraction_calls(self.rm, batch)
+
+    def test_order_is_parents_before_children(self):
+        self.attach(self.rmt_d, 'd_date', 0)
+        self.attach(self.rmt_p, 'p_date', 0)
+        self.attach(self.rmt_i, 'i_date', 0)
+        plan = self._plan(10)
+        tables = [c['model_table'].database_table for c in plan]
+        self.assertEqual(tables, [self.diagnosis, self.pathology, self.ihc])
+        ihc_call = plan[2]
+        self.assertEqual(ihc_call['ancestry'], [self.rmt_d, self.rmt_p])
+        self.assertEqual(plan[0]['ancestry'], [])
+
+    def test_lookup_fields_chunked_before_plain_fields(self):
+        for i in range(12):
+            self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
+        for i in range(25):
+            self.attach(self.rmt_d, f'plain_{i}', 12 + i, field_type='int')
+        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
+        kinds = [c['kind'] for c in plan]
+        sizes = [len(c['fields']) for c in plan]
+        self.assertEqual(kinds, ['lookup', 'lookup', 'plain', 'plain', 'plain'])
+        self.assertEqual(sizes, [10, 2, 10, 10, 5])
+
+    def test_small_table_gets_one_lookup_and_one_plain_call(self):
+        for i in range(3):
+            self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
+        for i in range(4):
+            self.attach(self.rmt_d, f'plain_{i}', 3 + i)
+        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
+        self.assertEqual([c['kind'] for c in plan], ['lookup', 'plain'])
+
+    def test_table_without_extractable_fields_makes_no_call(self):
+        f = make_field(self.diagnosis, 'inactive_field', is_active=False)
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_d, field=f, order=0)
+        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
+        self.assertEqual(plan, [])
