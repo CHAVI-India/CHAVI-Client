@@ -504,7 +504,7 @@ class BulkScheduleFormTests(ModelSetupMixin, TestCase):
             'name': 'night pull',
             'node': self.node.pk,
             'mode': 'ONE_OFF',
-            'patients': [self._patient('P001').pk],
+            'patient_ids': self._patient('P001').patient_id,
             'run_at': '2099-01-01T12:00',
             'minute': '0', 'hour': '2', 'day_of_week': '*',
             'day_of_month': '*', 'month_of_year': '*',
@@ -545,10 +545,17 @@ class BulkScheduleFormTests(ModelSetupMixin, TestCase):
         self.assertEqual(form.cleaned_data['extra_transforms'],
                          [{'pattern': r'^MR/(\d+)/(\d+)$', 'replacement': r'\1_\2'}])
 
-    def test_non_consent_patient_rejected(self):
+    def test_non_consent_patient_excluded(self):
         p = self._patient('NOC', consent=False)
-        form = BulkScheduleForm(data=self._base(patients=[p.pk]))
+        form = BulkScheduleForm(data=self._base(patient_ids=p.patient_id))
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['selected_patients'], [])
+
+    def test_require_patients_when_empty(self):
+        form = BulkScheduleForm(data=self._base(patient_ids=''),
+                                require_patients=True)
         self.assertFalse(form.is_valid())
+        self.assertIn('patient_ids', form.errors)
 
     def test_invalid_approval_choice_rejected(self):
         form = BulkScheduleForm(data=self._base(select_approval='bogus'))
@@ -572,7 +579,7 @@ class BulkScheduleViewTests(ModelSetupMixin, TestCase):
         p = self._patient('VP')
         data = {
             'name': 'sched', 'node': self.node.pk, 'mode': 'ONE_OFF',
-            'patients': [p.pk],
+            'patient_ids': p.patient_id,
             'run_at': '2099-01-01T12:00',
             'minute': '0', 'hour': '2', 'day_of_week': '*',
             'day_of_month': '*', 'month_of_year': '*',
@@ -593,6 +600,52 @@ class BulkScheduleViewTests(ModelSetupMixin, TestCase):
         s = BulkRetrievalSchedule.objects.get()
         self.assertEqual(s.one_off_task_id, 'oneoff-id')
         self.assertEqual(s.created_by_id, self.user.pk)
+        self.assertEqual(list(s.patients.values_list('patient_id', flat=True)), ['VP'])
+
+    def test_create_requires_patients(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(
+            reverse('dicom_server:schedule_create'),
+            self._form_data(patient_ids=''),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(BulkRetrievalSchedule.objects.exists())
+
+    def test_prepare_stores_draft_and_create_uses_it(self):
+        p = self._patient('DRAFT')
+        self.client.force_login(self.user)
+        resp = self.client.post(
+            reverse('dicom_server:schedule_prepare'),
+            data=json.dumps({
+                'node': self.node.pk, 'patients': [p.patient_id],
+                'extra_transforms': '',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['url'], reverse('dicom_server:schedule_create'))
+        # The draft pre-fills the create page.
+        page = self.client.get(reverse('dicom_server:schedule_create'))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'patient selected on the bulk-retrieve page')
+        # Submitting with the carried patient_ids creates the schedule with it.
+        resp = self.client.post(
+            reverse('dicom_server:schedule_create'),
+            self._form_data(patient_ids=p.patient_id),
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(
+            list(BulkRetrievalSchedule.objects.get()
+                 .patients.values_list('patient_id', flat=True)), ['DRAFT'])
+
+    def test_prepare_rejects_empty(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(
+            reverse('dicom_server:schedule_prepare'),
+            data=json.dumps({'node': self.node.pk, 'patients': []}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 400)
 
     def test_list_requires_permission(self):
         self.client.force_login(self.plain)
@@ -664,3 +717,10 @@ class BulkScheduleTemplateTests(BulkScheduleViewTests):
         resp = self.client.get(reverse('dicom_server:retrieve_bulk'))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, reverse('dicom_server:schedule_list'))
+
+    def test_bulk_page_has_schedule_button(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('dicom_server:retrieve_bulk'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'id="btn-schedule"')
+        self.assertContains(resp, reverse('dicom_server:schedule_prepare'))

@@ -743,6 +743,30 @@ class NodeIDRulesView(DicomPermissionRequiredMixin, View):
         return JsonResponse({'ok': True})
 
 
+class SchedulePrepareView(DicomPermissionRequiredMixin, View):
+    """POST {node, patients[], extra_transforms} from the bulk-retrieve page —
+    stash the selected patients in the session and return the schedule URL."""
+    permission_required = 'dicom_server.view_remotedicomnode'
+
+    def post(self, request):
+        payload, error = _json_payload(request)
+        if error:
+            return error
+        node_id = payload.get('node')
+        patients = payload.get('patients') or []
+        if not node_id or not patients:
+            return JsonResponse(
+                {'error': 'Select a node and at least one patient.'}, status=400)
+        if not RemoteDICOMNode.objects.filter(pk=node_id).exists():
+            return JsonResponse({'error': 'Unknown node.'}, status=400)
+        request.session['bulk_schedule_draft'] = {
+            'node': str(node_id),
+            'patient_ids': ','.join(str(p) for p in patients),
+            'extra_transforms': payload.get('extra_transforms') or '',
+        }
+        return JsonResponse({'url': reverse('dicom_server:schedule_create')})
+
+
 class ScheduleListView(DicomPermissionRequiredMixin, ListView):
     model = BulkRetrievalSchedule
     template_name = 'dicom_server/schedule_list.html'
@@ -760,10 +784,40 @@ class ScheduleCreateView(DicomPermissionRequiredMixin, CreateView):
     template_name = 'dicom_server/schedule_form.html'
     permission_required = 'dicom_server.view_remotedicomnode'
 
+    def get_initial(self):
+        initial = super().get_initial() or {}
+        draft = self.request.session.pop('bulk_schedule_draft', None)
+        if draft:
+            initial.update({
+                'node': draft.get('node'),
+                'patient_ids': draft.get('patient_ids', ''),
+                'extra_transforms': draft.get('extra_transforms', ''),
+            })
+        return initial
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['require_patients'] = True
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context.get('form')
+        if form is not None and form.data:
+            raw = form.data.get('patient_ids') or ''
+        elif form is not None:
+            raw = (form.initial or {}).get('patient_ids') or ''
+        else:
+            raw = ''
+        context['selected_count'] = len([x for x in raw.split(',') if x.strip()])
+        context['is_create'] = True
+        return context
+
     def form_valid(self, form):
         schedule = form.save(commit=False)
         schedule.created_by = self.request.user
-        schedule = form.save()  # post_save -> sync_bulk_schedule (one-off eta / periodic)
+        schedule.save()  # post_save -> sync_bulk_schedule (one-off eta / periodic)
+        schedule.patients.set(form.cleaned_data.get('selected_patients') or [])
         messages.success(self.request, 'Schedule created.')
         return HttpResponseRedirect(
             reverse('dicom_server:schedule_list'))
@@ -774,6 +828,12 @@ class ScheduleUpdateView(DicomPermissionRequiredMixin, UpdateView):
     form_class = BulkScheduleForm
     template_name = 'dicom_server/schedule_form.html'
     permission_required = 'dicom_server.view_remotedicomnode'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['selected_count'] = self.get_object().patients.count()
+        context['is_create'] = False
+        return context
 
     def form_valid(self, form):
         form.save()  # post_save -> sync_bulk_schedule

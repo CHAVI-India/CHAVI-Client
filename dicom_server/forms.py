@@ -116,14 +116,9 @@ _CRON_RE = re.compile(r'^[\d\-\,\*/]+$')
 
 
 class BulkScheduleForm(forms.ModelForm):
-    patients = forms.ModelMultipleChoiceField(
-        queryset=Patient.objects.filter(chavi_consent=True),
-        widget=forms.SelectMultiple(attrs={'class': 'patient-select w-full'}),
-        error_messages={
-            'invalid_choice': 'One or more selected patients cannot be scheduled '
-                              '— CHAVI consent is required.',
-        },
-        help_text="Only consented patients registered in the Patient model.",
+    patient_ids = forms.CharField(
+        required=False, widget=forms.HiddenInput,
+        help_text='Comma-separated patient IDs carried over from the bulk-retrieve page.',
     )
     extra_transforms = forms.CharField(
         required=False,
@@ -141,7 +136,7 @@ class BulkScheduleForm(forms.ModelForm):
     class Meta:
         model = BulkRetrievalSchedule
         fields = [
-            'name', 'node', 'mode', 'patients', 'run_at',
+            'name', 'node', 'mode', 'run_at',
             'minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year',
             'max_concurrent_patients', 'retrieve_new_only',
             'select_modalities', 'select_approval',
@@ -149,6 +144,10 @@ class BulkScheduleForm(forms.ModelForm):
             'study_date_from', 'study_date_to',
         ]
         widgets = {'mode': forms.RadioSelect}
+
+    def __init__(self, *args, require_patients=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.require_patients = require_patients
 
     def clean_extra_transforms(self):
         transforms = patient_ids.parse_transform_lines(
@@ -161,6 +160,18 @@ class BulkScheduleForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        # Patients carried over from the bulk-retrieve selection (consented only).
+        raw_ids = cleaned.get('patient_ids') or ''
+        ids = [x.strip() for x in raw_ids.split(',') if x.strip()]
+        selected = []
+        if ids:
+            selected = list(Patient.objects.filter(
+                patient_id__in=ids, chavi_consent=True).distinct())
+        cleaned['selected_patients'] = selected
+        if self.require_patients and not selected:
+            self.add_error(
+                'patient_ids',
+                'Select at least one patient on the bulk-retrieve page first.')
         mode = cleaned.get('mode')
         if mode == BulkRetrievalSchedule.Mode.PERIODIC:
             for name in ('minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year'):

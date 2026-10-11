@@ -117,6 +117,9 @@
 
         <div class="mt-6 flex items-center space-x-3">
             {% component "button" style="primary" type="button" icon="fas fa-search" id="btn-query" %}Query Remote Node{% endcomponent %}
+            {% if perms.dicom_server.view_remotedicomnode %}
+            {% component "button" style="secondary" type="button" icon="fas fa-clock" id="btn-schedule" %}Schedule Retrieval{% endcomponent %}
+            {% endif %}
             <span id="query-status" class="text-sm text-gray-500"></span>
         </div>
         {% endfill %}
@@ -134,6 +137,7 @@ const URLS = {
     patients: '{% url "dicom_server:bulk_patients" %}',
     lookups: '{% url "dicom_server:bulk_lookups" %}',
     query: '{% url "dicom_server:batch_query" %}',
+    schedule_prepare: '{% url "dicom_server:schedule_prepare" %}',
     rules: '{% url "dicom_server:node_id_rules" 0 %}',
 };
 let batchId = null;
@@ -405,6 +409,23 @@ $('#btn-query').on('click', function () {
         batchId = r.body.batch_id;
         $('#query-status').text('Query dispatched — opening selection…');
         window.location.href = r.body.select_url;
+    });
+});
+
+/* ---- schedule phase: hand the selection to the schedule form via the server ---- */
+$('#btn-schedule').on('click', function () {
+    const nodeId = $('#id_node').val();
+    const patients = [...selectedPids];
+    if (!nodeId) { $('#query-status').text('Select a remote node to schedule.'); return; }
+    if (!patients.length) { $('#query-status').text('Select at least one patient to schedule.'); return; }
+    $('#query-status').text('Preparing schedule…');
+    postJSON(URLS.schedule_prepare, {
+        node: nodeId, patients: patients,
+        extra_transforms: $('#id_extra_transforms').val(),
+    }).then(r => {
+        if (!r.ok) { $('#query-status').text(r.body.error || 'Could not prepare schedule'); return; }
+        $('#query-status').text('Opening schedule form…');
+        window.location.href = r.body.url;
     });
 });
 </script>

@@ -29,6 +29,8 @@ urlpatterns = [
     path('jobs/', views.RetrievalJobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', views.RetrievalJobDetailView.as_view(), name='job_detail'),
     path('schedules/', views.ScheduleListView.as_view(), name='schedule_list'),
+    path('schedules/prepare/', views.SchedulePrepareView.as_view(),
+         name='schedule_prepare'),
     path('schedules/new/', views.ScheduleCreateView.as_view(), name='schedule_create'),
     path('schedules/<int:pk>/edit/', views.ScheduleUpdateView.as_view(), name='schedule_edit'),
     path('schedules/<int:pk>/delete/', views.ScheduleDeleteView.as_view(), name='schedule_delete'),
