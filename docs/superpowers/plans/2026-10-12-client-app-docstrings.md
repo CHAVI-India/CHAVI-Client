@@ -28,73 +28,12 @@
 ### Task 1: Docstring standard + lint test (failing first)
 
 **Files:**
+
 - Modify: `client_app/tests.py`
 
 **Interfaces:**
+
 - Produces: `EXTRACTION_CAPABLE_MODELS` — `dict[str, type[models.Model]]` mapping model name to class, used by the lint test and (later, in the prompt-redesign plan) as the authoritative extraction-capable list.
-
-- [ ] **Step 1: Write the failing test**
-
-Append to `client_app/tests.py`:
-
-```python
-EXTRACTION_CAPABLE_MODELS = {
-    name: getattr(models, cls) for name, cls in {
-        'Patient': 'Patient',
-        'Diagnosis': 'Diagnosis',
-        'Pathology': 'Pathology',
-        'Immunohistochemistry': 'Immunohistochemistry',
-        'Cytogenetics': 'Cytogenetics',
-        'SomaticGenomicAlterations': 'SomaticGenomicAlterations',
-        'GeneExpressionData': 'GeneExpressionData',
-        'EpigeneticData': 'EpigeneticData',
-        'StageInformation': 'StageInformation',
-        'Surgery': 'Surgery',
-        'Lesion': 'Lesion',
-        'LesionResponse': 'LesionResponse',
-        'Symptom': 'Symptom',
-        'Comorbidity': 'Comorbidity',
-        'ConcomitantMedications': 'ConcomitantMedications',
-        'SystemicTherapy': 'SystemicTherapy',
-        'SystemicTherapySchedule': 'SystemicTherapySchedule',
-        'Radiotherapy': 'Radiotherapy',
-        'RadiotherapyVolume': 'RadiotherapyVolume',
-        'RadiotherapyDoseVolumeData': 'RadiotherapyDoseVolumeData',
-        'AdverseEffects': 'AdverseEffects',
-        'OtherTreatment': 'OtherTreatment',
-        'Outcome': 'Outcome',
-        'PatientReportedOutcome': 'PatientReportedOutcome',
-        'PatientOutcome': 'PatientOutcome',
-        'LaboratoryResults': 'LaboratoryResults',
-        'PatientAssessment': 'PatientAssessment',
-    }.items()
-}
-
-
-class ModelDocstringTests(TestCase):
-    def test_extraction_capable_models_carry_a_record_granularity_docstring(self):
-        for name, model in EXTRACTION_CAPABLE_MODELS.items():
-            doc = (model.__doc__ or '').strip()
-            with self.subTest(model=name):
-                self.assertGreaterEqual(len(doc), 80, f"{name} docstring too short")
-                self.assertRegex(
-                    doc, r'record',
-                    f"{name} docstring must state record granularity")
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `venv/bin/python manage.py test client_app.tests.ModelDocstringTests`
-Expected: FAIL — current docstrings are one-liners without a "record" line (e.g. Pathology: "This a table which stores the pathology information related to a diagnosis.")
-
-- [ ] **Step 3: (No implementation yet)** — the docstrings are written in Tasks 2–28; this task only lands the standard and the failing test. Commit the test alone with a `test:` prefix so review is clean.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add client_app/tests.py
-git commit -m "test: require record-granularity docstrings on extraction-capable models"
-```
 
 ---
 
@@ -106,17 +45,21 @@ git commit -m "test: require record-granularity docstrings on extraction-capable
 
 Each task below contains the exact docstring to install. Review each one independently; amend wording before approving — the text goes verbatim into LLM prompts.
 
+
+
 - [ ] **Task 2: Patient**
 
 ```python
 class Patient(models.Model):
     '''
-    A patient in the study: demographics and patient-level data reported in
+    A patient in the document: demographics and patient-level data reported in
     the clinical document. Record granularity: one record per patient; when
     the document covers more than one patient, return one record per patient
-    in the order the patients appear.
+    in the order the patients appear. 
     '''
 ```
+
+
 
 - [ ] **Task 3: Diagnosis**
 
@@ -131,21 +74,22 @@ class Diagnosis(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 4: Pathology**
 
 ```python
 class Pathology(models.Model):
     '''
-    Histopathology findings for a diagnosis: gross and microscopic
-    description, tumor dimensions, margins, lymph-node findings. Record
-    granularity: one record per pathology report. The specimens listed in a
-    report (for example a primary resection specimen plus lymph-node
-    specimens from the same case) are parts of the SAME record, not
-    separate records - combine every finding of the report into that one
-    record. Microscopic descriptions such as histology, invasion and
-    margins describe the report as a whole.
+    Histopathology findings for a diagnosis: gross and microscopic description, tumor dimensions, margins, lymph-node findings. Record granularity: one record per pathology report. The specimens listed in a report (for example a primary resection specimen plus lymph-node specimens from the same case even if bilateral neck node dissection is performed) are parts of the SAME record, not separate records - combine every finding of the report into that one record. Microscopic descriptions such as histology, invasion and margins describe the report as a whole. 
+There can be exceptions where the patient has undergone surgery of two sites at the same time - e.g. carcinoma breast (mastectomy) and carcinoma thyroid. In these case patient will have two diagnoses. Similarly when the patient has had surgery on both sides breast they will have two diagnoses - right and left breast. Note that recurrence disease is usually specified clearly. 
+When lymph node sampling, lymph node dissection or sentinel lymph node biopsy is done the total lymph node count may need to be calculated as it may not be explicitly specified or specified in places. For example total sentinel lymph nodes and total nodes in dissection. This will be true for involved nodes, nodes with macro/micro metastases / isolated tumor cells. Total number of involved nodes is usually nodes with macrometastases + micrometastases. If bilateral nodal dissection is there then involvement of both sides nodes needs to be added. 
+Tumour size and margins may also be inconsistently specified - for example size in gross or microscopic description. Prefer microscopic size where ever possible. Go through both sections carefully. Always review comments and addendum if available they often contain useful information about the pathology.
+Pathology reports may have several dates. Prefer the date of authorisation or date of report if it is available
     '''
 ```
+
+
 
 - [ ] **Task 5: Immunohistochemistry**
 
@@ -153,12 +97,14 @@ class Pathology(models.Model):
 class Immunohistochemistry(models.Model):
     '''
     Immunohistochemistry (IHC) staining results for a pathology specimen:
-    marker, staining pattern and scoring. Record granularity: one record
+    marker, staining pattern and scoring and other parameters. Record granularity: one record
     per marker (protein) reported; when one report covers several markers,
     each marker gets its own record and all of them belong to the same
-    pathology record.
+    pathology record.  Note that multiple genes may be reported in the same report.
     '''
 ```
+
+
 
 - [ ] **Task 6: Cytogenetics**
 
@@ -167,9 +113,11 @@ class Cytogenetics(models.Model):
     '''
     Cytogenetic findings for a pathology specimen: gene and cytogenetic
     abnormality with result. Record granularity: one record per
-    gene/abnormality the document describes.
+    gene/abnormality the document describes. Note that multiple genes may be reported in the same report.
     '''
 ```
+
+
 
 - [ ] **Task 7: SomaticGenomicAlterations**
 
@@ -182,6 +130,8 @@ class SomaticGenomicAlterations(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 8: GeneExpressionData**
 
 ```python
@@ -191,6 +141,8 @@ class GeneExpressionData(models.Model):
     value and units. Record granularity: one record per gene measured.
     '''
 ```
+
+
 
 - [ ] **Task 9: EpigeneticData**
 
@@ -203,6 +155,8 @@ class EpigeneticData(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 10: StageInformation**
 
 ```python
@@ -211,9 +165,11 @@ class StageInformation(models.Model):
     Cancer staging for a diagnosis: TNM descriptors, overall stage group and
     the staging system used. Record granularity: one record per diagnosis; a
     report's staging line (e.g. "pT3 pN3b, AJCC 8th edition") is ONE stage
-    assessment, so split it across the fields of a single record.
+    assessment, so split it across the fields of a single record. Pay special attention to the prefix and suffix of the stage.
     '''
 ```
+
+
 
 - [ ] **Task 11: Surgery**
 
@@ -223,9 +179,11 @@ class Surgery(models.Model):
     Surgical procedures performed for a diagnosis: type, side, date, nodal
     assessment and reconstruction. Record granularity: one record per
     distinct surgical procedure/event the document describes; separate
-    procedures reported in the same document are separate records.
+    procedures reported in the same document are separate records. Surgery details may be partly present in the histopathology reports also in which extract what is available. Note that if the patient has undergone surgery to left and right side seperately then these need to be reported as seperate surgeries. Note that the date of surgery may not be the same as date of pathology. 
     '''
 ```
+
+
 
 - [ ] **Task 12: Lesion**
 
@@ -237,6 +195,8 @@ class Lesion(models.Model):
     document may describe several lesions and each gets its own record.
     '''
 ```
+
+
 
 - [ ] **Task 13: LesionResponse**
 
@@ -250,6 +210,8 @@ class LesionResponse(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 14: Symptom**
 
 ```python
@@ -259,6 +221,8 @@ class Symptom(models.Model):
     granularity: one record per distinct symptom described.
     '''
 ```
+
+
 
 - [ ] **Task 15: Comorbidity**
 
@@ -270,6 +234,8 @@ class Comorbidity(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 16: ConcomitantMedications**
 
 ```python
@@ -280,6 +246,8 @@ class ConcomitantMedications(models.Model):
     described.
     '''
 ```
+
+
 
 - [ ] **Task 17: SystemicTherapy**
 
@@ -293,6 +261,8 @@ class SystemicTherapy(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 18: SystemicTherapySchedule**
 
 ```python
@@ -305,6 +275,8 @@ class SystemicTherapySchedule(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 19: Radiotherapy**
 
 ```python
@@ -316,6 +288,8 @@ class Radiotherapy(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 20: RadiotherapyVolume**
 
 ```python
@@ -326,6 +300,8 @@ class RadiotherapyVolume(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 21: RadiotherapyDoseVolumeData**
 
 ```python
@@ -333,9 +309,11 @@ class RadiotherapyDoseVolumeData(models.Model):
     '''
     Dose-volume metrics for a structure treated in a radiotherapy course.
     Record granularity: one record per distinct structure with reported dose
-    metrics.
+    metrics. Note this data is supposed to represent a dose received by a volume so a report may have multiple such values. 
     '''
 ```
+
+
 
 - [ ] **Task 22: AdverseEffects**
 
@@ -346,6 +324,8 @@ class AdverseEffects(models.Model):
     granularity: one record per distinct adverse effect described.
     '''
 ```
+
+
 
 - [ ] **Task 23: OtherTreatment**
 
@@ -358,6 +338,8 @@ class OtherTreatment(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 24: Outcome**
 
 ```python
@@ -367,6 +349,8 @@ class Outcome(models.Model):
     granularity: one record per distinct outcome event described.
     '''
 ```
+
+
 
 - [ ] **Task 25: PatientReportedOutcome**
 
@@ -379,6 +363,8 @@ class PatientReportedOutcome(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 26: PatientOutcome**
 
 ```python
@@ -388,6 +374,8 @@ class PatientOutcome(models.Model):
     Record granularity: one record per patient.
     '''
 ```
+
+
 
 - [ ] **Task 27: LaboratoryResults**
 
@@ -401,6 +389,8 @@ class LaboratoryResults(models.Model):
     '''
 ```
 
+
+
 - [ ] **Task 28: PatientAssessment**
 
 ```python
@@ -413,10 +403,14 @@ class PatientAssessment(models.Model):
 
 **Execution note:** implement docstring tasks in any order; each is an independent review gate. After all 27 land:
 
-- [ ] **Step: Run the lint test to verify it passes**
+
+
+- [ ] **Step: Create and Run the lint test to verify it passes**
 
 Run: `venv/bin/python manage.py test client_app.tests.ModelDocstringTests`
 Expected: PASS
+
+
 
 - [ ] **Step: Full client_app regression + commit any stragglers**
 

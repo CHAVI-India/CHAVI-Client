@@ -103,6 +103,12 @@ def _make_canonical_id(patient_id):
 
 
 class Patient(DateValidationMixin, models.Model):
+    '''
+    A patient in the document: demographics and patient-level data reported in
+    the clinical document. Record granularity: one record per patient; when
+    the document covers more than one patient, return one record per patient
+    in the order the patients appear. 
+    '''
     ''' This is the main patient model. Only patient ID and gender data are collected in this table.'''
     center = models.ForeignKey(SiteConfiguration, 
     on_delete=models.CASCADE, 
@@ -360,6 +366,13 @@ class StudyTypeRule(models.Model):
 
 # Clinical Data Models
 class Diagnosis(models.Model):
+    '''
+    The clinical diagnosis of a patient's disease: site, side, modality,
+    dates and related diagnosis-level data. Record granularity: one record
+    per distinct diagnosis the document describes; most reports describe
+    exactly one, so add further records only when the document clearly lists
+    additional diagnoses.
+    '''
     ''' This is a table which stores the diagnosis of the patient. The diagnosis is a key table which will have links to treatment and pathology.'''
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,
     help_text="Patient to whom this diagnosis belongs")
@@ -391,6 +404,10 @@ class Diagnosis(models.Model):
         db_table = 'diagnosis'    
 
 class Outcome(models.Model):
+    '''
+    Outcome events of a diagnosis: outcome type, date and status. Record
+    granularity: one record per distinct outcome event described.
+    '''
     '''This table stores information related to the outcome of the cancer treatment for the disease. Note that the patient outcome table is separate.'''
     chavi_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(Diagnosis, on_delete=models.CASCADE, help_text="Disease (diagnosis record) for which this treatment outcome was assessed.")
@@ -440,6 +457,11 @@ class ModalityChoices(models.TextChoices):
     OTHER = "Other", 'Other'
 
 class Lesion(models.Model):
+    '''
+    Anatomical lesions of a diagnosis: site, type, laterality, size and
+    volume. Record granularity: one record per distinct lesion described; a
+    document may describe several lesions and each gets its own record.
+    '''
     ''' This table has information on the lesions / tumors that the patient has. Allows users to record information on the gross disease, nodal disease or distant metastases.'''
     chavi_lesion_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -542,6 +564,12 @@ class Lesion(models.Model):
         db_table="lesion"
 
 class LesionResponse(models.Model):
+    '''
+    Assessment of a lesion's response to treatment, including residual size
+    and volume. Record granularity: one record per distinct response
+    assessment described for a lesion; a baseline assessment and a
+    post-treatment assessment of the same lesion are separate records.
+    '''
     ''' This table will store information related to the response that the Lesion has.'''
 
     chavi_lesion_response_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -638,6 +666,10 @@ class LesionResponse(models.Model):
         db_table="lesion_response"
 
 class Symptom(models.Model):
+    '''
+    Symptoms experienced by a patient, with severity where stated. Record
+    granularity: one record per distinct symptom described.
+    '''
     ''' This table will store information on the symptoms for the patient.'''
     chavi_symptom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, help_text="Patient who has this symptom.")
@@ -708,6 +740,13 @@ class SpecimenTypeChoices(models.TextChoices):
     OTHER = "Other", 'Other'
 
 class Pathology(models.Model):
+    '''
+        Histopathology findings for a diagnosis: gross and microscopic description, tumor dimensions, margins, lymph-node findings. Record granularity: one record per pathology report. The specimens listed in a report (for example a primary resection specimen plus lymph-node specimens from the same case even if bilateral neck node dissection is performed) are parts of the SAME record, not separate records - combine every finding of the report into that one record. Microscopic descriptions such as histology, invasion and margins describe the report as a whole. 
+    There can be exceptions where the patient has undergone surgery of two sites at the same time - e.g. carcinoma breast (mastectomy) and carcinoma thyroid. In these case patient will have two diagnoses. Similarly when the patient has had surgery on both sides breast they will have two diagnoses - right and left breast. Note that recurrence disease is usually specified clearly. 
+    When lymph node sampling, lymph node dissection or sentinel lymph node biopsy is done the total lymph node count may need to be calculated as it may not be explicitly specified or specified in places. For example total sentinel lymph nodes and total nodes in dissection. This will be true for involved nodes, nodes with macro/micro metastases / isolated tumor cells. Total number of involved nodes is usually nodes with macrometastases + micrometastases. If bilateral nodal dissection is there then involvement of both sides nodes needs to be added. 
+    Tumour size and margins may also be inconsistently specified - for example size in gross or microscopic description. Prefer microscopic size where ever possible. Go through both sections carefully. Always review comments and addendum if available they often contain useful information about the pathology.
+    Pathology reports may have several dates. Prefer the date of authorisation or date of report if it is available
+    '''
     ''' This a table which stores the pathology information related to a diagnosis.'''
 
     chavi_pathology_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -932,6 +971,13 @@ class Pathology(models.Model):
         db_table="pathology"    
 
 class Immunohistochemistry(models.Model):
+    '''
+    Immunohistochemistry (IHC) staining results for a pathology specimen:
+    marker, staining pattern and scoring and other parameters. Record granularity: one record
+    per marker (protein) reported; when one report covers several markers,
+    each marker gets its own record and all of them belong to the same
+    pathology record.  Note that multiple genes may be reported in the same report.
+    '''
     ''' This is a table storing data on the Immunohistochemistry test results for the pathology.'''
 
     chavi_ihc_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1008,6 +1054,11 @@ class Immunohistochemistry(models.Model):
         db_table="immunohistochemistry"
 
 class Cytogenetics(models.Model):
+    '''
+    Cytogenetic findings for a pathology specimen: gene and cytogenetic
+    abnormality with result. Record granularity: one record per
+    gene/abnormality the document describes. Note that multiple genes may be reported in the same report.
+    '''
     ''' This is a table which will store the cytogenetics test results for each pathology report.'''
 
     chavi_cytogenetics_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1052,6 +1103,11 @@ class Cytogenetics(models.Model):
         db_table="cytogenetics"
 
 class SomaticGenomicAlterations(models.Model):  
+    '''
+    Somatic genomic alterations found in a pathology specimen: gene,
+    alteration type and result. Record granularity: one record per
+    alteration (gene/variant) the document describes.
+    '''
     ''' This model represents somatic genomic alterations found in a pathology report.'''
     chavi_somatic_genomic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
@@ -1119,6 +1175,10 @@ class SomaticGenomicAlterations(models.Model):
         db_table="somatic_genomic_alterations"
 
 class GeneExpressionData(models.Model):
+    '''
+    Gene expression measurements for a pathology specimen: gene, expression
+    value and units. Record granularity: one record per gene measured.
+    '''
     ''' This model represents gene expression data for a pathology report.'''
     chavi_gene_expression_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
@@ -1160,6 +1220,11 @@ class GeneExpressionData(models.Model):
         db_table="gene_expression_data"
     
 class EpigeneticData(models.Model):
+    '''
+    Epigenetic findings for a pathology specimen: gene/locus, abnormality
+    type and result. Record granularity: one record per gene/locus the
+    document describes.
+    '''
     ''' This model represents epigenetic data for a pathology report.'''
     chavi_epigenetic_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pathology = models.ForeignKey(
@@ -1203,6 +1268,11 @@ class EpigeneticData(models.Model):
         db_table="epigenetic_data"
     
 class OtherTreatment(DateValidationMixin, models.Model):
+    '''
+    Treatment other than systemic therapy or radiotherapy (for example
+    interventional or local treatments), with its intent. Record granularity:
+    one record per distinct other-treatment event described.
+    '''
     ''' The table will store information on other treatments that the patient undergoes'''
     chavi_treatment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     treatment_intent = models.ForeignKey(
@@ -1254,6 +1324,11 @@ class RadiationCourseTypeChoices(models.TextChoices):
     Boost = 'Boost'
 
 class Radiotherapy(DateValidationMixin, models.Model):
+    '''
+    A radiotherapy course for a diagnosis: modality, dose, technique, side,
+    intent and fractions. Record granularity: one record per distinct
+    radiotherapy course the document describes.
+    '''
     '''This table will record the radiotherapy course details for the patient's diagnosis.'''
     chavi_radiotherapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1384,6 +1459,10 @@ class Radiotherapy(DateValidationMixin, models.Model):
         db_table="radiotherapy"
 
 class RadiotherapyVolume(DateValidationMixin, models.Model):
+    '''
+    Target volumes treated as part of a radiotherapy course. Record
+    granularity: one record per distinct volume/structure described.
+    '''
     ''' This table will record the volumes treated as a part of the radiotherapy course.'''
     radiotherapy_volume_id = models.UUIDField(
         primary_key=True,
@@ -1461,6 +1540,11 @@ class RadiotherapyVolume(DateValidationMixin, models.Model):
         db_table = "radiotherapy_volume"    
 
 class RadiotherapyDoseVolumeData(models.Model):
+    '''
+    Dose-volume metrics for a structure treated in a radiotherapy course.
+    Record granularity: one record per distinct structure with reported dose
+    metrics. Note this data is supposed to represent a dose received by a volume so a report may have multiple such values. 
+    '''
     ''' This is a table which stores the radiotherapy dose volume data for the patients'''
     radiotherapy_dose_volume_data_id = models.UUIDField(
         primary_key=True,
@@ -1549,6 +1633,12 @@ class RadiotherapyDoseVolumeData(models.Model):
         db_table="radiotherapy_dose_volumes"
 
 class Surgery(models.Model):
+    '''
+    Surgical procedures performed for a diagnosis: type, side, date, nodal
+    assessment and reconstruction. Record granularity: one record per
+    distinct surgical procedure/event the document describes; separate
+    procedures reported in the same document are separate records. Surgery details may be partly present in the histopathology reports also in which extract what is available. Note that if the patient has undergone surgery to left and right side seperately then these need to be reported as seperate surgeries. Note that the date of surgery may not be the same as date of pathology. 
+    '''
     ''' This is a table of surgery type that the patient will undergo'''
     chavi_surgery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1618,6 +1708,11 @@ class Surgery(models.Model):
         db_table="surgery"
 
 class ConcomitantMedications(DateValidationMixin, models.Model):
+    '''
+    Medications a patient takes alongside their cancer treatment: drug,
+    dose, route. Record granularity: one record per distinct medication
+    described.
+    '''
     '''This is a table of the concomitant medications that the patient may receive.'''
     chavi_medication_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -1672,6 +1767,12 @@ class ConcomitantMedications(DateValidationMixin, models.Model):
         db_table="concomitant_medications"
 
 class SystemicTherapy(DateValidationMixin, models.Model):
+    '''
+    A systemic (pharmacological) treatment course for a diagnosis: type,
+    regimen, sequence, intent and dosing. Record granularity: one record per
+    distinct therapy course described; separate courses in the same document
+    are separate records.
+    '''
     ''' This is a systemic therapy table which has details of the systemic therapy given to the patient'''
 
     chavi_systemic_therapy_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1720,6 +1821,12 @@ class SystemicTherapy(DateValidationMixin, models.Model):
         db_table="systemic_therapy"
 
 class SystemicTherapySchedule(DateValidationMixin, models.Model):
+    '''
+    The drug schedule of a systemic therapy course: agents, routes, doses
+    and units per line of the schedule. Record granularity: one record per
+    scheduled drug/line; all lines of one course belong to the same
+    SystemicTherapy record.
+    '''
     '''This table stores the systemic therapy drug schedule for the patients'''
 
     chavi_systemic_therapy_schedule_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1796,6 +1903,10 @@ class SystemicTherapySchedule(DateValidationMixin, models.Model):
         db_table="systematic_therapy_schedule"    
 
 class AdverseEffects(DateValidationMixin, models.Model):
+    '''
+    Treatment adverse effects for a diagnosis, graded per CTCAE. Record
+    granularity: one record per distinct adverse effect described.
+    '''
     '''This model represents adverse effects that may occur during treatment.'''
 
     chavi_adverse_effects_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1835,6 +1946,11 @@ class AdverseEffects(DateValidationMixin, models.Model):
         verbose_name_plural="Adverse Effects"
  
 class PatientReportedOutcome(models.Model):
+    '''
+    Patient-reported outcome measurements for a patient (prognostic and
+    outcome scores). Record granularity: one record per distinct reported
+    outcome measurement described.
+    '''
     ''' This is the table which will store information on the patient-reported outcomes'''
     chavi_pro_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(
@@ -1866,6 +1982,10 @@ class PatientReportedOutcome(models.Model):
         db_table="patient_reported_outcome"    
 
 class PatientOutcome(models.Model):
+    '''
+    Overall outcome status of a patient (for example alive/dead status).
+    Record granularity: one record per patient.
+    '''
     ''' This is the table which will store information on the outcome of the patients'''
     chavi_patient_outcome_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
@@ -1887,6 +2007,10 @@ class PatientOutcome(models.Model):
         db_table="patient_outcome"
 
 class Comorbidity(models.Model):
+    '''
+    Co-existing diseases or conditions (comorbidities) of a patient. Record
+    granularity: one record per distinct comorbidity described.
+    '''
     ''' This is a table for recording the Comorbidities of the patients'''
     chavi_comorbidity_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(
@@ -1943,6 +2067,12 @@ class Comorbidity(models.Model):
         db_table="comorbidity"
 
 class StageInformation(models.Model):
+    '''
+    Cancer staging for a diagnosis: TNM descriptors, overall stage group and
+    the staging system used. Record granularity: one record per diagnosis; a
+    report's staging line (e.g. "pT3 pN3b, AJCC 8th edition") is ONE stage
+    assessment, so split it across the fields of a single record. Pay special attention to the prefix and suffix of the stage.
+    '''
     ''' This is the table which will store information on the stage of the disease.'''
     chavi_stage_information_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     diagnosis = models.ForeignKey(
@@ -2070,6 +2200,12 @@ class QualitativeLaboratoryResult(models.TextChoices):
     Borderline = 'Borderline'        
 
 class LaboratoryResults(models.Model):
+    '''
+    Laboratory test results for a patient: test, quantitative or qualitative
+    value, units. Record granularity: one record per distinct test result
+    described; different values of the same test (for example on different
+    dates) are separate records.
+    '''
     ''' This is a model for the laboratory results. This is a many to one relationship with the patient model.'''
     chavi_laboratory_result_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the laboratory result was obtained")
@@ -2089,6 +2225,10 @@ class LaboratoryResults(models.Model):
         db_table='laboratory_results'        
 
 class PatientAssessment(models.Model):
+    '''
+    Clinical assessments of a patient (for example performance status).
+    Record granularity: one record per distinct assessment described.
+    '''
     ''' This is a table for recording the assessments of the patients'''
     chavi_patient_assessment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE,help_text="Select the patient for whom the assessment was performed")
