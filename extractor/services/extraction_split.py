@@ -266,9 +266,11 @@ def nest_children(parents, children, child_key_name):
     Attach child records to their parents via 'parent_index'.
 
     Every parent gets a child_key_name list (empty when no child maps to
-    it); each child is copied without its parent_index key. Children with
-    null/out-of-range parent_index are dropped. Returns (parents,
-    dropped_count).
+    it). Children are attached IN PLACE (the same dict objects) with
+    their parent_index key removed, so callers keep working on the same
+    record objects at any nesting depth. Children with null/out-of-range
+    parent_index are dropped (parent_index left intact). Returns
+    (parents, dropped_count).
     """
     for parent in parents:
         parent.setdefault(child_key_name, [])
@@ -276,8 +278,8 @@ def nest_children(parents, children, child_key_name):
     for child in children:
         idx = child.get('parent_index')
         if isinstance(idx, int) and 0 <= idx < len(parents):
-            parents[idx][child_key_name].append(
-                {k: v for k, v in child.items() if k != 'parent_index'})
+            child.pop('parent_index', None)
+            parents[idx][child_key_name].append(child)
         else:
             dropped += 1
     return parents, dropped

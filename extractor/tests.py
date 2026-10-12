@@ -2843,6 +2843,88 @@ class ChunkedStageExtractTests(TestCase):
                          ['date_pathology'], '2024-01-02')
         self.assertEqual(data['diagnosis'][1].get('pathology'), [])
 
+    def test_grandchild_nests_under_its_parent_record(self):
+        # IHC (child of pathology, grandchild of diagnosis) with one
+        # parent record: IHC nests inside the pathology record, which
+        # sits inside the diagnosis record.
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology',
+             'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+        f_ihc = make_field(self.ihc, 'protein_name')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_i, field=f_ihc, order=0)
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+        from types import SimpleNamespace
+        state = {'i': 0}
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+
+        def create(**kwargs):
+            i = state['i']
+            state['i'] += 1
+            wrapper = kwargs['response_model']
+            table = self.entries[i]['table']
+            if table == 'diagnosis':
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if table == 'pathology':
+                return wrapper(records=[{
+                    'date_pathology': '2024-01-02',
+                    'parent_index': 0}]), completion
+            return wrapper(records=[{
+                'protein_name': 'Ki-67', 'parent_index': 0}]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        data = self.saved.call_args.args[1]
+        p = data['diagnosis'][0]['pathology'][0]
+        self.assertEqual(p['immunohistochemistry'][0]['protein_name'],
+                         'Ki-67')
+        self.assertNotIn('parent_index', p['immunohistochemistry'][0])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.COMPLETED)
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['dropped_orphans'], 0)
+
     def test_grandchild_of_failed_table_is_dropped_not_crashing(self):
         # IHC (child of pathology, grandchild of diagnosis): pathology is
         # forced into a 1-field-per-call plan (batch 1) whose chunks
