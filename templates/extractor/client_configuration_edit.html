@@ -79,15 +79,6 @@
                 {% endcomponent %}
             </div>
 
-            {% component "form_field" label="Fields per Extraction Call" field_id="extraction_fields_per_call" help_text=field_help.extraction_fields_per_call %}
-                <input type="number"
-                       id="extraction_fields_per_call"
-                       name="extraction_fields_per_call"
-                       min="1"
-                       value="{{ configuration.extraction_fields_per_call|default:10 }}"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-chavi-primary focus:border-transparent">
-            {% endcomponent %}
-
             {% component "form_field" label="API Key" field_id="model_api_key" %}
                 <input type="password"
                        id="model_api_key"

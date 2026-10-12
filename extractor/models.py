@@ -4,7 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_delete
-from django.core.validators import FileExtensionValidator,URLValidator,MinValueValidator
+from django.core.validators import FileExtensionValidator,URLValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
@@ -76,15 +76,6 @@ class ClientConfiguration(models.Model):
                   "Leave empty to use the model default. Available values "
                   "depend on the model (e.g. low/medium/high for OpenAI, "
                   "enabled/disabled for Ollama, budget for Anthropic).")
-    extraction_fields_per_call = models.PositiveIntegerField(
-        default=50,
-        validators=[MinValueValidator(1)],
-        help_text="Maximum fields in one extraction LLM call. A table with "
-                  "at most this many fields is extracted in a single call, "
-                  "so the model decides its record granularity once; only "
-                  "larger tables are split into field chunks (lookup fields "
-                  "first). Lower it for small local models, at the cost of "
-                  "cross-chunk record-count risk on the big tables.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
