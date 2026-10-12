@@ -2368,6 +2368,103 @@ class ChunkPromptTests(TestCase):
         self.assertNotIn('ONLY PART', content)
 
 
+class TablePromptTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        for i in range(4):
+            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True)
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        for i in range(3):
+            f = make_field(self.diagnosis, f'plain_{i}', field_type='int')
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=4 + i)
+        f = make_field(self.pathology, 'date_pathology')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f, order=0)
+
+    def _fields_for(self, model_table):
+        return [tf.field for tf in ResponseModelTableField.objects.filter(
+            response_model_table=model_table,
+            field__is_active=True).select_related('field').order_by('order')
+            if tf.field.is_extractable()]
+
+    def _diagnosis_fields(self):
+        return self._fields_for(self.rmt_d)
+
+    def _pathology_fields(self):
+        return self._fields_for(self.rmt_p)
+
+    def _f(self, name):
+        return DatabaseField.objects.get(clientapp_field_name=name)
+
+    def test_document_comes_before_questions(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC TEXT')
+        content = msgs[-1]['content']
+        self.assertLess(content.index('<document>'), content.index('QUESTIONS'))
+        self.assertIn('DOC TEXT', content)
+
+    def test_questions_are_questions_and_lookup_lists_choices(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC TEXT',
+            resolved_options={self._f('site_0').id: [
+                {'code': 'A', 'label': 'Label A'},
+                {'code': 'B', 'label': 'Label B'}]})
+        content = msgs[-1]['content']
+        site_q = next(l for l in content.splitlines() if 'site_0' in l)
+        self.assertTrue(site_q.rstrip().endswith('?'))
+        self.assertIn('select from these only', content)
+        self.assertIn('Label A; Label B', content)
+
+    def test_docstring_is_included_as_table_context(self):
+        import client_app.models as cm
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC TEXT')
+        content = msgs[-1]['content']
+        doc = (cm.Diagnosis.__doc__ or '').strip()
+        self.assertIn('TABLE CONTEXT:', content)
+        if doc:
+            self.assertIn(doc.splitlines()[0].strip(), content)
+
+    def test_parent_records_block_present_only_for_children(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        parent = [{'site_0': 'Left', 'plain_0': 1}]
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC',
+            ancestor_records=parent)
+        self.assertIn('PARENT RECORDS:', msgs[-1]['content'])
+        self.assertIn('Left', msgs[-1]['content'])
+        msgs2 = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC')
+        self.assertNotIn('PARENT RECORDS:', msgs2[-1]['content'])
+
+    def test_neutral_granularity_line_present(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC')
+        content = msgs[-1]['content']
+        self.assertIn('ONE record', content)
+        self.assertIn('{"records": []}', content)
+        self.assertNotIn('exactly ONE record object for the', content)
+
+
 class ChunkModelTests(TestCase):
     def setUp(self):
         self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
