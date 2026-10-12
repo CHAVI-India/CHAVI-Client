@@ -2181,32 +2181,6 @@ class DeidUnshiftOnSaveTests(TestCase):
         self.assertEqual(kept[0].entity_type, 'DATE_TIME')
 
 
-class SplitSettingTests(TestCase):
-    def _post_create(self, **extra):
-        user = User.objects.create_superuser('admin', 'a@example.com', 'pw')
-        self.client.force_login(user)
-        data = {
-            'llm_model_name': 'test-model',
-            'model_provider': 'Ollama',
-            'model_api_key': 'x',
-            'model_base_url': 'http://localhost:11434',
-        }
-        data.update(extra)
-        return self.client.post(
-            '/extractor/client-configurations/create/', data)
-
-    def test_default_fields_per_call_is_50(self):
-        cfg = ClientConfiguration.objects.create(
-            llm_model_name='m', model_provider='ollama',
-            model_api_key='x', model_base_url='http://localhost:11434')
-        self.assertEqual(cfg.extraction_fields_per_call, 50)
-
-    def test_create_view_persists_fields_per_call(self):
-        resp = self._post_create(extraction_fields_per_call='7')
-        cfg = ClientConfiguration.objects.get(llm_model_name='test-model')
-        self.assertEqual(cfg.extraction_fields_per_call, 7)
-
-
 class ExtractionPlanTests(TestCase):
     def setUp(self):
         self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
@@ -2246,27 +2220,36 @@ class ExtractionPlanTests(TestCase):
         self.assertEqual(ihc_call['ancestry'], [self.rmt_d, self.rmt_p])
         self.assertEqual(plan[0]['ancestry'], [])
 
-    def test_lookup_fields_chunked_before_plain_fields(self):
+    def test_plan_is_one_call_per_table_with_all_fields(self):
+        # batch size is ignored — even batch=1 keeps the whole table in
+        # a single call
         for i in range(12):
             self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
         for i in range(25):
             self.attach(self.rmt_d, f'plain_{i}', 12 + i, field_type='int')
-        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
-        kinds = [c['kind'] for c in plan]
-        sizes = [len(c['fields']) for c in plan]
-        self.assertEqual(kinds, ['lookup', 'lookup', 'plain', 'plain', 'plain'])
-        self.assertEqual(sizes, [10, 2, 10, 10, 5])
+        self.attach(self.rmt_p, 'p_date', 0)
+        plan = self._plan(1)
+        d_calls = [c for c in plan if c['model_table'] == self.rmt_d]
+        self.assertEqual(len(d_calls), 1)
+        self.assertEqual(d_calls[0]['kind'], 'table')
+        self.assertEqual(len(d_calls[0]['fields']), 37)
+        self.assertEqual([f.clientapp_field_name for f in d_calls[0]['fields']][:3],
+                         ['site_0', 'site_1', 'site_2'])
+        p_calls = [c for c in plan if c['model_table'] == self.rmt_p]
+        self.assertEqual(len(p_calls), 1)
+        self.assertEqual(p_calls[0]['kind'], 'table')
+        self.assertEqual(len(p_calls[0]['fields']), 1)
 
-    def test_small_table_gets_one_single_call(self):
-        # 7 fields <= batch 10 -> one call for the whole table, all
-        # fields (lookup and plain together) in configuration order.
+    def test_small_table_gets_one_table_call(self):
+        # all fields (lookup and plain together) in one call, in
+        # configuration order
         for i in range(3):
             self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
         for i in range(4):
             self.attach(self.rmt_d, f'plain_{i}', 3 + i)
         plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
         self.assertEqual(len(plan), 1)
-        self.assertEqual(plan[0]['kind'], 'single')
+        self.assertEqual(plan[0]['kind'], 'table')
         self.assertEqual([f.clientapp_field_name for f in plan[0]['fields']],
                          ['site_0', 'site_1', 'site_2',
                           'plain_0', 'plain_1', 'plain_2', 'plain_3'])
@@ -2277,95 +2260,6 @@ class ExtractionPlanTests(TestCase):
             response_model_table=self.rmt_d, field=f, order=0)
         plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
         self.assertEqual(plan, [])
-
-
-class ChunkPromptTests(TestCase):
-    def setUp(self):
-        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
-        self.pathology = make_table('pathology', [
-            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
-            PATIENT_STEP])
-        self.rm = make_response_model()
-        self.rmt_d = ResponseModelTable.objects.create(
-            response_model=self.rm, database_table=self.diagnosis)
-        self.rmt_p = ResponseModelTable.objects.create(
-            response_model=self.rm, database_table=self.pathology)
-        for i in range(4):
-            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True)
-            ResponseModelTableField.objects.create(
-                response_model_table=self.rmt_d, field=f, order=i)
-        for i in range(3):
-            f = make_field(self.diagnosis, f'plain_{i}', field_type='int')
-            ResponseModelTableField.objects.create(
-                response_model_table=self.rmt_d, field=f, order=4 + i)
-        f = make_field(self.pathology, 'date_pathology')
-        ResponseModelTableField.objects.create(
-            response_model_table=self.rmt_p, field=f, order=0)
-
-    def _plan(self, batch=2):
-        from extractor.services.extraction_split import plan_extraction_calls
-        return plan_extraction_calls(self.rm, batch)
-
-    def _tables_chunk_count(self, plan, model_table):
-        return sum(1 for c in plan if c['model_table'] == model_table)
-
-    def test_prompt_lists_only_chunk_fields_and_warns_about_partial_table(self):
-        from extractor.services.extraction_split import build_chunk_prompt
-        plan = self._plan()
-        call = plan[0]  # first lookup chunk of diagnosis: site_0, site_1
-        msgs = build_chunk_prompt(
-            self.rm, call, 'DOC', resolved_options={},
-            table_chunk_count=self._tables_chunk_count(plan, call['model_table']))
-        content = msgs[-1]['content']
-        self.assertIn('site_0', content)
-        self.assertIn('site_1', content)
-        self.assertNotIn('site_2', content)
-        self.assertNotIn('plain_0', content)
-        self.assertIn('ONLY PART', content)
-        self.assertIn('<document>', content)
-        self.assertIn('DOC', content)
-
-    def test_prompt_fixes_record_granularity_to_one_per_report(self):
-        # One clinical report -> one record per table, even when the
-        # report describes several specimens; specimens must not become
-        # separate records.
-        from extractor.services.extraction_split import build_chunk_prompt
-        plan = self._plan()
-        call = plan[0]
-        msgs = build_chunk_prompt(
-            self.rm, call, 'DOC', resolved_options={},
-            table_chunk_count=self._tables_chunk_count(
-                plan, call['model_table']))
-        content = msgs[-1]['content']
-        self.assertIn('exactly ONE record', content)
-        self.assertIn('parts of the SAME record', content)
-        self.assertNotIn('record object per distinct', content)
-
-    def test_plain_chunk_carries_assessment_rules_lookup_chunk_does_not(self):
-        from extractor.services.extraction_split import build_chunk_prompt
-        plan = self._plan()
-        lookup_call = plan[0]
-        plain_call = next(c for c in plan if c['kind'] == 'plain')
-        lookup_content = build_chunk_prompt(
-            self.rm, lookup_call, 'DOC', resolved_options={})[-1]['content']
-        plain_content = build_chunk_prompt(
-            self.rm, plain_call, 'DOC', resolved_options={})[-1]['content']
-        self.assertNotIn('NUMERIC AND BOOLEAN ASSESSMENT', lookup_content)
-        self.assertIn('NUMERIC AND BOOLEAN ASSESSMENT', plain_content)
-
-    def test_child_prompt_carries_parent_context_and_parent_index(self):
-        from extractor.services.extraction_split import build_chunk_prompt
-        plan = self._plan(batch=10)
-        child_call = next(c for c in plan if c['model_table'] == self.rmt_p)
-        msgs = build_chunk_prompt(
-            self.rm, child_call, 'DOC', resolved_options={},
-            ancestor_records={'diagnosis': [{'site_0': 'tongue'}]},
-            table_chunk_count=1)
-        content = msgs[-1]['content']
-        self.assertIn('PARENT RECORDS ALREADY EXTRACTED', content)
-        self.assertIn('"site_0"', content)
-        self.assertIn('"parent_index"', content)
-        self.assertNotIn('ONLY PART', content)
 
 
 class TablePromptTests(TestCase):
@@ -2655,48 +2549,6 @@ class ChunkModelTests(TestCase):
 
 
 class MergeTests(TestCase):
-    def _chunks(self):
-        return [
-            {'fields': ['site_0', 'count'],
-             'records': [
-                 {'site_0': 'Left', 'count': 1,
-                  'field_assessments': [{'field': 'count', 'basis': 'explicit',
-                                        'quotes': ['1 node'], 'rationale': 'x'}]},
-                 {'site_0': 'Right', 'count': None,
-                  'field_assessments': [{'field': 'count', 'basis': 'unknown',
-                                        'quotes': [], 'rationale': 'missing'}]},
-             ]},
-            {'fields': ['site_1', 'date_a'],
-             'records': [
-                 {'site_1': 'tongue', 'date_a': '2024-01-01'},
-                 {'site_1': 'lip', 'date_a': '2024-02-01'},
-             ]},
-        ]
-
-    def test_merge_unions_fields_and_assessments(self):
-        from extractor.services.extraction_split import merge_table_chunks
-        merged = merge_table_chunks(self._chunks())
-        self.assertEqual(len(merged), 2)
-        self.assertEqual(merged[0]['site_0'], 'Left')
-        self.assertEqual(merged[0]['site_1'], 'tongue')
-        self.assertEqual(merged[0]['count'], 1)
-        self.assertEqual(len(merged[0]['field_assessments']), 1)
-        self.assertEqual(merged[1]['date_a'], '2024-02-01')
-        self.assertEqual(merged[1]['field_assessments'][0]['basis'], 'unknown')
-
-    def test_single_chunk_passthrough(self):
-        from extractor.services.extraction_split import merge_table_chunks
-        chunks = self._chunks()
-        self.assertEqual(merge_table_chunks(chunks[:1])[0]['site_0'], 'Left')
-
-    def test_record_count_mismatch_raises(self):
-        from extractor.services.extraction_split import (
-            TableMergeError, merge_table_chunks)
-        chunks = self._chunks()
-        chunks[1]['records'] = chunks[1]['records'][:1]
-        with self.assertRaises(TableMergeError):
-            merge_table_chunks(chunks)
-
     def test_single_parent_rescue(self):
         from extractor.services.extraction_split import rescue_single_parent
         children = [{'a': 1, 'parent_index': None},
@@ -2780,8 +2632,7 @@ class StagePlanningTests(TestCase):
         job.refresh_from_db()
         entries = [e for e in job.stage_trace
                    if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
-        expected = plan_extraction_calls(
-            self.rm, self.rm.client.extraction_fields_per_call)
+        expected = plan_extraction_calls(self.rm)
         self.assertEqual(len(entries), len(expected))
         self.assertEqual(
             [e['index'] for e in entries],
@@ -2818,13 +2669,13 @@ class StagePlanningTests(TestCase):
                    if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
         self.assertEqual(len(entries), 2)  # diagnosis + pathology, one call each
         self.assertEqual([e['table'] for e in entries], ['diagnosis', 'pathology'])
-        self.assertTrue(all(e['call_kind'] == 'single' for e in entries))
+        self.assertTrue(all(e['call_kind'] == 'table' for e in entries))
         self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
         self.assertEqual(job.extraction_status,
                          ExtractionStatusChoices.AWAITING_EXTRACTION)
 
 
-class ChunkedStageExtractTests(TestCase):
+class TableExtractTests(TestCase):
     def setUp(self):
         import hashlib
         self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
@@ -2883,8 +2734,8 @@ class ChunkedStageExtractTests(TestCase):
     def _record_for(self, wrapper, entry):
         table = entry['table']
         if table == 'diagnosis':
-            # one call per table: the single diagnosis chunk carries both
-            # the lookup and the reasoning fields
+            # one call per table: the diagnosis call carries both the
+            # lookup and the reasoning fields
             return wrapper(records=[{
                 'site_0': 'Left',
                 'plain_0': 1,
@@ -2928,7 +2779,7 @@ class ChunkedStageExtractTests(TestCase):
         self.saved = self.enterContext(patch.object(
             InstructorExtractionService, 'save_extraction_results'))
 
-    def test_chunked_extraction_saves_merged_nested_result(self):
+    def test_table_extraction_saves_nested_result(self):
         self._run()
         result = InstructorExtractionService.stage_extract(self.job, self.source)
         self.assertTrue(result['success'])
@@ -2952,6 +2803,12 @@ class ChunkedStageExtractTests(TestCase):
         final = self.job.stage_trace[-1]
         self.assertEqual(final['kind'], 'result')
         self.assertEqual(final.get('failed_calls'), [])
+        # no null fields -> no gap-fill passes; trace entries carry the
+        # pass key (1 = the main per-table call)
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result']
+        self.assertEqual(len(call_results), len(self.entries))
+        self.assertTrue(all(e.get('pass') == 1 for e in call_results))
 
     def test_partial_save_when_a_call_fails(self):
         # Second independent root table (lesion, parent Patient) so a
@@ -2996,57 +2853,10 @@ class ChunkedStageExtractTests(TestCase):
         self.assertEqual(data.get('diagnosis', []), [])
         self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
 
-    def test_record_count_mismatch_reconciles_by_reasking(self):
-        # Force the overflow path (batch of 1) so diagnosis — 2 fields —
-        # is chunked into a lookup call and a plain call that disagree
-        # on the record count; the plain chunk is re-asked once to
-        # conform to the majority count of 2.
-        from types import SimpleNamespace
-        self.rm.client.extraction_fields_per_call = 1
-        self.job.stage_trace = [
-            e for e in self.job.stage_trace
-            if not (e.get('stage') == 'extraction'
-                    and e.get('kind') == 'prompt')]
-        entries = InstructorExtractionService.build_extraction_plan_entries(
-            self.rm, self.source, self.rm.client, {})
-        for entry in entries:
-            InstructorExtractionService._append_trace(
-                self.job, 'extraction', 'prompt',
-                index=entry['index'], table=entry['table'],
-                fields=entry['fields'], call_kind=entry['call_kind'],
-                ancestry=entry['ancestry'], messages=entry['messages'])
-        self.job.save()
-        self.entries = [e for e in self.job.stage_trace
-                        if e.get('stage') == 'extraction'
-                        and e.get('kind') == 'prompt']
-
-        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
-        calls = []
-        fa = lambda: {'field': 'plain_0', 'basis': 'explicit',
-                      'quotes': ['1 node involved.'], 'rationale': 'stated'}
-
-        def create(**kwargs):
-            calls.append(kwargs)
-            wrapper = kwargs['response_model']
-            if len(calls) == 1:  # diagnosis lookup chunk -> 2 records
-                return wrapper(records=[{'site_0': 'A'},
-                                        {'site_0': 'B'}]), completion
-            if len(calls) == 2:  # diagnosis plain chunk -> 1 record (disagrees)
-                return wrapper(records=[{'plain_0': 1,
-                                         'field_assessments': [fa()]}]), completion
-            if len(calls) == 3:  # pathology chunk (runs before reconciliation)
-                return wrapper(records=[{
-                    'date_pathology': '2024-01-02', 'parent_index': 0}]), completion
-            # reconciliation re-ask of the disagreeing plain chunk
-            self.assertEqual(kwargs['messages'][-1]['role'], 'user')
-            self.assertIn('EXACTLY 2', kwargs['messages'][-1]['content'])
-            self.assertEqual(kwargs['messages'][-2]['role'], 'assistant')
-            return wrapper(records=[
-                {'plain_0': 1, 'field_assessments': [fa()]},
-                {'plain_0': 0, 'field_assessments': [fa()]}]), completion
-
+    def _setup_client(self, create):
         self._client = Mock()
-        self._client.chat.completions.create_with_completion.side_effect = create
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
         self.enterContext(patch.object(InstructorExtractionService,
                                       '_get_llm_client',
                                       return_value=self._client))
@@ -3060,19 +2870,107 @@ class ChunkedStageExtractTests(TestCase):
         self.saved = self.enterContext(patch.object(
             InstructorExtractionService, 'save_extraction_results'))
 
+    def test_gap_fill_passes_run_for_null_fields(self):
+        # diagnosis leaves plain_0 null on the main pass -> one focused
+        # gap-fill re-ask for just that field, merged without touching
+        # site_0.
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            fields = set(record_cls.model_fields)
+            if fields == {'plain_0', 'field_assessments'}:
+                # gap-fill re-ask: the subset model only asks plain_0
+                self.assertIn('previous extraction pass',
+                              kwargs['messages'][0]['content'])
+                self.assertNotIn('site_0:',
+                                 kwargs['messages'][0]['content'])
+                return wrapper(records=[{
+                    'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if fields == {'site_0', 'plain_0', 'field_assessments'}:
+                # diagnosis main pass: site_0 answered, plain_0 left null
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            # pathology
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
         result = InstructorExtractionService.stage_extract(self.job, self.source)
         self.assertTrue(result['success'])
-        self.assertEqual(self._client.chat.completions
-                         .create_with_completion.call_count, 4)
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.extraction_status,
-                         ExtractionStatusChoices.COMPLETED)
+        # diagnosis main + diagnosis gap-fill + pathology main
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            3)
         data = self.saved.call_args.args[1]
-        self.assertEqual(len(data['diagnosis']), 2)
-        self.assertEqual([r['site_0'] for r in data['diagnosis']], ['A', 'B'])
-        self.assertEqual(data['diagnosis'][0]['pathology'][0]
-                         ['date_pathology'], '2024-01-02')
-        self.assertEqual(data['diagnosis'][1].get('pathology'), [])
+        rec = data['diagnosis'][0]
+        self.assertEqual(rec['site_0'], 'Left')
+        self.assertEqual(rec['plain_0'], 1)
+        self.job.refresh_from_db()
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1, 2])
+
+    def test_gap_fill_stops_when_second_pass_fills_nothing(self):
+        # diagnosis leaves plain_0 null; the gap-fill re-ask returns it
+        # still null -> nothing filled -> a third pass must NOT run.
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            fields = set(record_cls.model_fields)
+            if fields == {'plain_0', 'field_assessments'}:
+                # the re-ask still cannot find the value
+                return wrapper(records=[{
+                    'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            if fields == {'site_0', 'plain_0', 'field_assessments'}:
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        # diagnosis main + ONE gap-fill + pathology main — no third pass
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            3)
+        data = self.saved.call_args.args[1]
+        self.assertIsNone(data['diagnosis'][0].get('plain_0'))
+        self.job.refresh_from_db()
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1, 2])
 
     def test_grandchild_nests_under_its_parent_record(self):
         # IHC (child of pathology, grandchild of diagnosis) with one
@@ -3156,12 +3054,10 @@ class ChunkedStageExtractTests(TestCase):
         final = self.job.stage_trace[-1]
         self.assertEqual(final['dropped_orphans'], 0)
 
-    def test_grandchild_of_failed_table_is_dropped_not_crashing(self):
-        # IHC (child of pathology, grandchild of diagnosis): pathology is
-        # forced into a 1-field-per-call plan (batch 1) whose chunks
-        # disagree on the record count; the reconciliation re-ask does
-        # not conform, so the pathology merge fails. IHC records must be
-        # dropped as orphans, not raise KeyError.
+    def test_grandchild_of_failed_table_is_skipped_not_crashing(self):
+        # IHC (child of pathology, grandchild of diagnosis): the
+        # pathology call fails, so the IHC call must be SKIPPED (not
+        # executed, not charged) rather than raising KeyError.
         from types import SimpleNamespace
         self.ihc = make_table('immunohistochemistry', [
             {'field': 'pathology', 'model': 'client_app.pathology',
@@ -3172,11 +3068,6 @@ class ChunkedStageExtractTests(TestCase):
         f_ihc = make_field(self.ihc, 'protein_name')
         ResponseModelTableField.objects.create(
             response_model_table=self.rmt_i, field=f_ihc, order=0)
-        f_mito = make_field(self.pathology, 'mitotic_count',
-                            field_type='int')
-        ResponseModelTableField.objects.create(
-            response_model_table=self.rmt_p, field=f_mito, order=1)
-        self.rm.client.extraction_fields_per_call = 1
         self.job.stage_trace = [
             e for e in self.job.stage_trace
             if not (e.get('stage') == 'extraction'
@@ -3193,49 +3084,26 @@ class ChunkedStageExtractTests(TestCase):
         self.entries = [e for e in self.job.stage_trace
                         if e.get('stage') == 'extraction'
                         and e.get('kind') == 'prompt']
+        self.assertEqual([e['table'] for e in self.entries],
+                         ['diagnosis', 'pathology', 'immunohistochemistry'])
 
         completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
-        state = {'i': 0}
+        calls = []
 
         def create(**kwargs):
+            table = self.entries[len(calls)]['table']
+            calls.append(kwargs)
             wrapper = kwargs['response_model']
-            if 'EXACTLY' in kwargs['messages'][-1]['content']:
-                # non-conforming re-ask of the date chunk: 1 record again
-                return wrapper(records=[{'date_pathology': '2024-01-02'}]), \
-                    completion
-            i = state['i']
-            state['i'] += 1
-            # call order: 0 diag-lookup(site_0), 1 diag-plain(plain_0),
-            # 2 pathology(date_pathology), 3 pathology(mitotic_count),
-            # 4 ihc(protein_name)
-            if i == 0:
-                return wrapper(records=[{'site_0': 'A'}]), completion
-            if i == 1:
+            if table == 'diagnosis':
                 return wrapper(records=[{
-                    'plain_0': 1,
+                    'site_0': 'Left', 'plain_0': 1,
                     'field_assessments': [{
                         'field': 'plain_0', 'basis': 'explicit',
                         'quotes': ['1 node involved.'],
                         'rationale': 'stated'}]}]), completion
-            if i == 2:
-                return wrapper(records=[{
-                    'date_pathology': '2024-01-02', 'parent_index': 0}]), \
-                    completion
-            if i == 3:
-                return wrapper(records=[
-                    {'mitotic_count': 2, 'parent_index': 0,
-                     'field_assessments': [{
-                         'field': 'mitotic_count', 'basis': 'explicit',
-                         'quotes': ['1 node involved.'],
-                         'rationale': 'stated'}]},
-                    {'mitotic_count': 4, 'parent_index': 0,
-                     'field_assessments': [{
-                         'field': 'mitotic_count', 'basis': 'explicit',
-                         'quotes': ['1 node involved.'],
-                         'rationale': 'stated'}]}
-                ]), completion
-            return wrapper(records=[{
-                'protein_name': 'Ki-67', 'parent_index': 0}]), completion
+            if table == 'pathology':
+                raise Exception('provider down')
+            raise AssertionError(f'unexpected call for {table}')
 
         self._client = Mock()
         self._client.chat.completions.create_with_completion.side_effect = \
@@ -3259,8 +3127,14 @@ class ChunkedStageExtractTests(TestCase):
         self.assertEqual(self.job.extraction_status,
                          ExtractionStatusChoices.PARTIAL)
         self.assertIn('pathology', self.job.extraction_error)
+        self.assertIn('skipped: immunohistochemistry',
+                      self.job.extraction_error)
+        # the IHC call was never executed
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            2)
         final = self.job.stage_trace[-1]
-        self.assertEqual(final['dropped_orphans'], 1)
+        self.assertEqual(final['dropped_orphans'], 0)
         data = self.saved.call_args.args[1]
         self.assertEqual(len(data['diagnosis']), 1)
         self.assertNotIn('pathology', data['diagnosis'][0])
