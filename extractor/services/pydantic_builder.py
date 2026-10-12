@@ -220,7 +220,7 @@ class PydanticModelBuilder:
         """
         (field_defs, validators) for the given DatabaseFields — lookup
         membership validators included; NO child keys, NO assessments.
-        Shared by build_extraction_model and build_chunk_response_model.
+        Shared by build_extraction_model and build_table_response_model.
         """
         table_name = model_table.database_table.clientapp_content_type.model
         field_defs = {}
@@ -346,14 +346,14 @@ class PydanticModelBuilder:
         )
 
     @classmethod
-    def build_chunk_response_model(cls, model_table, fields, *,
+    def build_table_response_model(cls, model_table, fields, *,
                                    include_field_assessments=True,
                                    with_parent_index=False):
         """
-        (wrapper, record) pydantic models for ONE split extraction call.
+        (wrapper, record) pydantic models for ONE per-table extraction call.
 
-        record: only the chunk's fields (Optional, default None), the
-        lookup membership validators, field_assessments for the chunk's
+        record: only the call's fields (Optional, default None), the
+        lookup membership validators, field_assessments for the call's
         assessable fields, and parent_index when with_parent_index.
         wrapper: {'records': List[record]} — the instructor response_model.
         """

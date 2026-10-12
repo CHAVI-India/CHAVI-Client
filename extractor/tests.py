@@ -2465,6 +2465,124 @@ class TablePromptTests(TestCase):
         self.assertNotIn('exactly ONE record object for the', content)
 
 
+class GapFillTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.f_site = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        self.f_plain = make_field(self.diagnosis, 'plain_0', field_type='int')
+        for i, f in enumerate((self.f_site, self.f_plain)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        self.source = 'PATHOLOGY REPORT. 1 node involved.'
+
+    def _client(self, create):
+        client = Mock()
+        client.chat.completions.create_with_completion.side_effect = create
+        return client
+
+    def _call_refill(self, client, records, asked):
+        from types import SimpleNamespace
+        job = SimpleNamespace(id=99)
+        ctx = {'lookup_rules': {}, 'source_text': self.source}
+        return InstructorExtractionService._refill_null_fields(
+            job, self.rm, self.rmt_d,
+            [self.f_site, self.f_plain], asked, records, self.source,
+            resolved_options={}, ancestor_records=None, client=client,
+            client_config=self.rm.client, validation_context=ctx)
+
+    def test_null_fields_for_requires_all_records_empty(self):
+        from extractor.services.instructor_extractor import null_fields_for
+        records = [{'plain_0': 1, 'site_0': None},
+                   {'plain_0': None, 'site_0': None}]
+        asked = null_fields_for(records, [self.f_site, self.f_plain])
+        self.assertEqual(asked, [self.f_site])
+
+    def test_refill_fills_only_nulls_and_never_overwrites(self):
+        from types import SimpleNamespace
+        records = [{'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                           'quotes': [], 'rationale': 'not stated'}]}]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=9))
+
+        def create(**kwargs):
+            wrapper = kwargs['response_model']
+            from typing import get_args, get_origin
+            record_cls = get_args(wrapper.model_fields['records'].annotation)[0]
+            # subset model: only the asked field (plus assessments)
+            self.assertEqual(set(record_cls.model_fields),
+                             {'plain_0', 'field_assessments'})
+            # LLM answers the focused question with plain_0=2 and
+            # (temptingly) site_0='Right'
+            return wrapper(records=[{'plain_0': 2, 'site_0': 'Right',
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'explicit',
+                                          'quotes': ['1 node involved.'],
+                                          'rationale': 'stated'}]}]), \
+                completion
+
+        updated, tokens = self._call_refill(
+            self._client(create), records, [self.f_plain])
+        self.assertEqual(updated[0]['plain_0'], 2)
+        self.assertEqual(updated[0]['site_0'], 'Left')  # not overwritten
+        self.assertEqual(tokens, 9)
+
+    def test_refill_discards_misaligned_record_counts(self):
+        from types import SimpleNamespace
+        records = [
+            {'site_0': 'Left', 'plain_0': None,
+             'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                    'quotes': [], 'rationale': 'a'}]},
+            {'site_0': 'Right', 'plain_0': None,
+             'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                    'quotes': [], 'rationale': 'b'}]},
+        ]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+
+        def create(**kwargs):
+            wrapper = kwargs['response_model']
+            # misaligned: a single record for two pass-1 records
+            return wrapper(records=[{'plain_0': 1,
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'explicit',
+                                          'quotes': ['1 node involved.'],
+                                          'rationale': 'one'}]}]), \
+                completion
+
+        updated, tokens = self._call_refill(
+            self._client(create), records, [self.f_plain])
+        self.assertEqual(updated, records)  # unchanged
+        self.assertEqual(tokens, 5)  # the misaligned call was still spent
+
+    def test_refill_prompt_asks_only_null_fields_and_keeps_document_first(self):
+        from types import SimpleNamespace
+        records = [{'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                           'quotes': [], 'rationale': 'not stated'}]}]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=7))
+        seen = {}
+
+        def create(**kwargs):
+            seen['messages'] = kwargs['messages']
+            wrapper = kwargs['response_model']
+            return wrapper(records=[{'plain_0': None,
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'unknown',
+                                          'quotes': [],
+                                          'rationale': 'still missing'}]}]), \
+                completion
+
+        self._call_refill(self._client(create), records, [self.f_plain])
+        content = seen['messages'][-1]['content']
+        lower = content.lower()
+        self.assertIn('previous extraction pass', lower)  # focused framing
+        self.assertIn('left empty', lower)
+        self.assertLess(content.index('<document>'), content.index('QUESTIONS'))
+        self.assertNotIn('site_0', content)  # answered field not re-asked
+
+
 class ChunkModelTests(TestCase):
     def setUp(self):
         self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
@@ -2478,7 +2596,7 @@ class ChunkModelTests(TestCase):
                 response_model_table=self.rmt, field=f, order=i)
 
     def _build(self, fields, **kwargs):
-        return PydanticModelBuilder.build_chunk_response_model(
+        return PydanticModelBuilder.build_table_response_model(
             self.rmt, fields, **kwargs)
 
     def test_record_model_has_only_chunk_fields(self):

@@ -21,6 +21,21 @@ from extractor.services.url_policy import validate_base_url
 log = getLogger(__name__)
 
 
+def null_fields_for(records, fields):
+    """
+    The fields still empty on EVERY record — None, '' or absent. A single
+    record with a value means the field is answered. `field_assessments`
+    entries are extraction metadata, not field values.
+    """
+    out = []
+    for field in fields:
+        name = field.clientapp_field_name
+        if all(name not in rec or rec.get(name) in (None, '')
+               for rec in records):
+            out.append(field)
+    return out
+
+
 class FieldSnippetEntry(BaseModel):
     """Verbatim document quotes for one field."""
     table: str
@@ -1318,6 +1333,126 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             database_table__clientapp_content_type__model=table_name,
         ).first()
 
+    REASK_LEAD_INSTRUCTION = (
+        "In the previous extraction pass, the following fields of this "
+        "table were left empty. Re-read the document carefully and answer "
+        "only these questions. Do not repeat fields that already have "
+        "values.")
+
+    @staticmethod
+    def _refill_null_fields(extraction_job, response_model, model_table,
+                            fields, asked_fields, records, document, *,
+                            resolved_options, ancestor_records, client,
+                            client_config, validation_context):
+        """
+        One focused gap-fill call asking only `asked_fields` — the fields
+        still null after an earlier pass. Returns (updated_records,
+        tokens): pass-1 values are kept for every other field and only
+        non-null answers for the asked fields are filled in,
+        index-by-index. A response with a different record count than
+        `records` is discarded (the input records are returned
+        unchanged, with the tokens the call spent).
+        """
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+
+        table_name = model_table.database_table.clientapp_content_type.model
+        include_assessments = 'source_text' in validation_context
+        messages = build_table_question_prompt(
+            response_model, model_table, asked_fields, document,
+            resolved_options=resolved_options,
+            ancestor_records=ancestor_records)
+        messages[0]['content'] = (
+            f"{InstructorExtractionService.REASK_LEAD_INSTRUCTION}\n\n"
+            + messages[0]['content'])
+
+        wrapper, _ = PydanticModelBuilder.build_table_response_model(
+            model_table, asked_fields,
+            include_field_assessments=include_assessments,
+            with_parent_index=ancestor_records is not None)
+
+        create_kwargs = dict(
+            model=client_config.llm_model_name,
+            response_model=wrapper,
+            messages=messages,
+            timeout=client_config.request_timeout,
+            **InstructorExtractionService._build_reasoning_kwargs(
+                client_config),
+        )
+        if client_config.model_max_tokens:
+            create_kwargs['max_tokens'] = client_config.model_max_tokens
+
+        result = None
+        completion = None
+        try:
+            result, completion = \
+                client.chat.completions.create_with_completion(
+                    context=validation_context, **create_kwargs)
+        except InstructorRetryException as e:
+            if not e.failed_attempts:
+                raise
+            log.warning(
+                f"Extraction job {extraction_job.id}: gap-fill call for "
+                f"{table_name} validation retries exhausted; repairing")
+            try:
+                result, completion, validation_context = \
+                    InstructorExtractionService._repair_failed_extraction(
+                        client, e, wrapper, create_kwargs,
+                        validation_context, extraction_job.id)
+            except Exception as repair_err:
+                log.error(f"{repair_err}", exc_info=True)
+        except Exception as e:
+            log.error(
+                f"Extraction job {extraction_job.id}: gap-fill call for "
+                f"{table_name} failed: {e}", exc_info=True)
+            return list(records), 0
+
+        usage = getattr(completion, 'usage', None)
+        tokens = int(getattr(usage, 'total_tokens', 0) or 0)
+        if result is None:
+            return list(records), tokens
+        if include_assessments:
+            try:
+                result = wrapper.model_validate(
+                    result.model_dump(), context=validation_context)
+            except ValidationError:
+                log.error(
+                    f"Extraction job {extraction_job.id}: gap-fill "
+                    f"response for {table_name} failed evidence "
+                    "validation; keeping previous answers")
+                return list(records), tokens
+        if len(result.records) != len(records):
+            log.warning(
+                f"Extraction job {extraction_job.id}: gap-fill for "
+                f"{table_name} returned {len(result.records)} records "
+                f"(expected {len(records)}); discarding the re-ask "
+                "answers")
+            return list(records), tokens
+
+        asked_names = [f.clientapp_field_name for f in asked_fields]
+        updated = []
+        for old, new in zip(records, result.records):
+            record = dict(old)
+            new_data = new.model_dump(mode='json') \
+                if hasattr(new, 'model_dump') else dict(new)
+            for name in asked_names:
+                value = new_data.get(name)
+                # earlier passes' answers are never re-asked or
+                # overwritten — fill nulls only, index-by-index
+                if value is not None \
+                        and record.get(name) in (None, ''):
+                    record[name] = value
+            fresh = {a['field']: a for a in
+                     new_data.get('field_assessments') or []
+                     if a.get('field') in asked_names}
+            if fresh:
+                kept = [a for a in record.get('field_assessments') or []
+                        if a.get('field') not in fresh]
+                record['field_assessments'] = kept + \
+                    [fresh[name] for name in asked_names if name in fresh]
+            updated.append(record)
+        return updated, tokens
+
     RECONCILE_INSTRUCTION = (
         "Your previous answer listed {k} {table} record(s). The other "
         "extraction passes of this same table — which answered the "
@@ -1344,7 +1479,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 field__clientapp_field_name__in=entry['fields'],
                 field__is_active=True).order_by('order')]
         include_assessments = 'source_text' in validation_context
-        wrapper, _ = PydanticModelBuilder.build_chunk_response_model(
+        wrapper, _ = PydanticModelBuilder.build_table_response_model(
             model_table, fields,
             include_field_assessments=include_assessments,
             with_parent_index=bool(entry.get('ancestry')))
@@ -1510,7 +1645,7 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                     response_model_table=model_table,
                     field__clientapp_field_name__in=entry['fields'],
                     field__is_active=True).order_by('order')]
-            wrapper, _ = PydanticModelBuilder.build_chunk_response_model(
+            wrapper, _ = PydanticModelBuilder.build_table_response_model(
                 model_table, fields,
                 include_field_assessments=include_assessments,
                 with_parent_index=bool(entry.get('ancestry')))
