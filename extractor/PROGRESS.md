@@ -455,15 +455,28 @@ extractor/
 ## Split Stage-2 Extraction (2026-10-12)
 
 Stage-2 extraction now runs as multiple small LLM calls instead of one:
-per table, lookup (choice) fields are answered in their own calls before
-the free-text/numeric/boolean fields. Calls run sequentially,
-parents before children; child calls receive the already-extracted parent
-records and attach via `parent_index`.
+**one call per table**, parents before children, in sequential order;
+child calls receive the already-extracted parent records and attach via
+`parent_index`. A table is only split into field chunks (lookup fields
+first, then reasoning fields) when it exceeds the configured cap — in
+that case the chunks' record counts are reconciled by one re-ask of any
+disagreeing chunk before merging.
 
-- New client setting: `extraction_fields_per_call` (default 10) — how many
-  fields one extraction call answers. Lower it for small local models.
+- Client setting `extraction_fields_per_call` (default 50): maximum fields
+  in one extraction call. Tables within the cap run as a single call, so
+  the model makes its record-granularity decision once and cannot
+  disagree with itself. Lower it for small local models, at the cost of
+  cross-chunk record-count risk on the big tables.
+- Single-parent orphan rescue: when a child table's parent has exactly
+  one record, child records with a missing/out-of-range `parent_index`
+  are attributed to that record instead of being dropped.
+- Record-count reconciliation: if one table's chunks disagree on the
+  record count, the majority count wins (ties: the larger) and each
+  disagreeing chunk is re-asked once with an "EXACTLY N records" note.
 - Completed tables are saved even when later calls fail; such jobs finish
   as `partial` with the failing calls listed in `extraction_error`.
+- Nesting works at any depth (grandchildren such as IHC → pathology →
+  diagnosis nest through a per-table records map, not just root tables).
 - The approval gate, the review flow, and the shape of saved results are
   unchanged. Mining stays a single batched call.
 - Legacy single-call jobs (no `extraction_plan_version` in the config

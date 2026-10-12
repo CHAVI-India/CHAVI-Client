@@ -1604,7 +1604,10 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 failed_tables.add(table)
                 merged[table] = None
 
-        data = {}
+        # Track merged records per table (roots AND child tables) so
+        # nesting works at any depth — child tables are never top-level
+        # keys of `data`, only roots are.
+        records_by_table = {}
         dropped_orphans = 0
         nested_children = set()
         for entry in entries:
@@ -1614,30 +1617,34 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 continue
             ancestry = entry.get('ancestry') or []
             if not ancestry:
-                if table not in data:
-                    data[table] = records
+                records_by_table[table] = records
                 continue
-            parent = ancestry[-1]
             if table in nested_children:
                 continue
-            if merged.get(parent) is None:
+            parent = ancestry[-1]
+            parents = records_by_table.get(parent)
+            if parents is None:
                 dropped_orphans += len(records)
                 continue
-            # nest in place under the parent records; data keeps only
-            # root tables so raw_llm_response keeps its legacy shape
-            if len(data[parent]) == 1:
+            if len(parents) == 1:
                 # one parent record — attribution is unambiguous, so
                 # rescue children the model failed to index
                 rescue_single_parent(records, 1)
             _, dropped = nest_children(
-                data[parent], records, child_key(
+                parents, records, child_key(
                     InstructorExtractionService._model_table_by_name(
                         response_model, table).database_table))
             dropped_orphans += dropped
+            records_by_table[table] = records
             nested_children.add(table)
 
-        total_tokens = call_tokens + int(mine_entry.get('tokens') or 0)
         root_tables = [e['table'] for e in entries if not e.get('ancestry')]
+        # `data` keeps only root tables so raw_llm_response keeps its
+        # legacy shape (child records live inside their parent records)
+        data = {t: records_by_table[t] for t in root_tables
+                if t in records_by_table}
+
+        total_tokens = call_tokens + int(mine_entry.get('tokens') or 0)
         if not any(data.get(t) for t in root_tables):
             message = ('; '.join(failed_calls)
                        or 'Extraction produced no data')

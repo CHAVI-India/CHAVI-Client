@@ -26,12 +26,18 @@ def plan_table_chunks(fields, batch_size):
     """
     Split one table's fields into ordered call chunks.
 
-    Lookup (choice) fields come first — each in chunks of at most
-    batch_size — followed by the non-lookup (reasoning) fields, so a
-    call never mixes choice questions with reasoning questions.
-    Returns [{'kind': 'lookup' | 'plain', 'fields': [DatabaseField, ...]}].
+    A table with at most batch_size fields is a SINGLE chunk — the whole
+    table is extracted in one call, so the model makes its record-
+    granularity decision once and cannot disagree with itself. Only
+    oversized tables fall back to field chunks (lookup fields first, then
+    the rest), which is what makes the reconciliation pass necessary.
+    Returns [{'kind': 'single' | 'lookup' | 'plain', 'fields': [...]}].
     """
     batch = max(1, int(batch_size))
+    if not fields:
+        return []
+    if len(fields) <= batch:
+        return [{'kind': 'single', 'fields': list(fields)}]
     lookup = [f for f in fields if f.lookup_field]
     plain = [f for f in fields if not f.lookup_field]
     chunks = []

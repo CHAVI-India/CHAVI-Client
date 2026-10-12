@@ -2195,11 +2195,11 @@ class SplitSettingTests(TestCase):
         return self.client.post(
             '/extractor/client-configurations/create/', data)
 
-    def test_default_fields_per_call_is_10(self):
+    def test_default_fields_per_call_is_50(self):
         cfg = ClientConfiguration.objects.create(
             llm_model_name='m', model_provider='ollama',
             model_api_key='x', model_base_url='http://localhost:11434')
-        self.assertEqual(cfg.extraction_fields_per_call, 10)
+        self.assertEqual(cfg.extraction_fields_per_call, 50)
 
     def test_create_view_persists_fields_per_call(self):
         resp = self._post_create(extraction_fields_per_call='7')
@@ -2257,13 +2257,19 @@ class ExtractionPlanTests(TestCase):
         self.assertEqual(kinds, ['lookup', 'lookup', 'plain', 'plain', 'plain'])
         self.assertEqual(sizes, [10, 2, 10, 10, 5])
 
-    def test_small_table_gets_one_lookup_and_one_plain_call(self):
+    def test_small_table_gets_one_single_call(self):
+        # 7 fields <= batch 10 -> one call for the whole table, all
+        # fields (lookup and plain together) in configuration order.
         for i in range(3):
             self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
         for i in range(4):
             self.attach(self.rmt_d, f'plain_{i}', 3 + i)
         plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
-        self.assertEqual([c['kind'] for c in plan], ['lookup', 'plain'])
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]['kind'], 'single')
+        self.assertEqual([f.clientapp_field_name for f in plan[0]['fields']],
+                         ['site_0', 'site_1', 'site_2',
+                          'plain_0', 'plain_1', 'plain_2', 'plain_3'])
 
     def test_table_without_extractable_fields_makes_no_call(self):
         f = make_field(self.diagnosis, 'inactive_field', is_active=False)
@@ -2579,9 +2585,9 @@ class StagePlanningTests(TestCase):
         job.refresh_from_db()
         entries = [e for e in job.stage_trace
                    if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
-        self.assertEqual(len(entries), 2)  # diagnosis + pathology, one plain chunk each
+        self.assertEqual(len(entries), 2)  # diagnosis + pathology, one call each
         self.assertEqual([e['table'] for e in entries], ['diagnosis', 'pathology'])
-        self.assertTrue(all(e['call_kind'] == 'plain' for e in entries))
+        self.assertTrue(all(e['call_kind'] == 'single' for e in entries))
         self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
         self.assertEqual(job.extraction_status,
                          ExtractionStatusChoices.AWAITING_EXTRACTION)
@@ -2645,10 +2651,11 @@ class ChunkedStageExtractTests(TestCase):
 
     def _record_for(self, wrapper, entry):
         table = entry['table']
-        if table == 'diagnosis' and entry['call_kind'] == 'lookup':
-            return wrapper(records=[{'site_0': 'Left'}])
         if table == 'diagnosis':
+            # one call per table: the single diagnosis chunk carries both
+            # the lookup and the reasoning fields
             return wrapper(records=[{
+                'site_0': 'Left',
                 'plain_0': 1,
                 'field_assessments': [{
                     'field': 'plain_0', 'basis': 'explicit',
@@ -2750,16 +2757,38 @@ class ChunkedStageExtractTests(TestCase):
                          ExtractionStatusChoices.PARTIAL)
         self.assertIn('diagnosis', self.job.extraction_error)
         calls = self._client.chat.completions.create_with_completion
-        self.assertEqual(calls.call_count, 3)
-        # diagnosis lookup + diagnosis plain both charged & failed, lesion
-        # ran, pathology skipped (not charged)
+        self.assertEqual(calls.call_count, 2)
+        # diagnosis failed (one call per table), lesion ran, pathology
+        # skipped (not charged)
         self.saved.assert_called_once()
         data = self.saved.call_args.args[1]
         self.assertEqual(data.get('diagnosis', []), [])
         self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
 
     def test_record_count_mismatch_reconciles_by_reasking(self):
+        # Force the overflow path (batch of 1) so diagnosis — 2 fields —
+        # is chunked into a lookup call and a plain call that disagree
+        # on the record count; the plain chunk is re-asked once to
+        # conform to the majority count of 2.
         from types import SimpleNamespace
+        self.rm.client.extraction_fields_per_call = 1
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
         completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
         calls = []
         fa = lambda: {'field': 'plain_0', 'basis': 'explicit',
@@ -2813,3 +2842,114 @@ class ChunkedStageExtractTests(TestCase):
         self.assertEqual(data['diagnosis'][0]['pathology'][0]
                          ['date_pathology'], '2024-01-02')
         self.assertEqual(data['diagnosis'][1].get('pathology'), [])
+
+    def test_grandchild_of_failed_table_is_dropped_not_crashing(self):
+        # IHC (child of pathology, grandchild of diagnosis): pathology is
+        # forced into a 1-field-per-call plan (batch 1) whose chunks
+        # disagree on the record count; the reconciliation re-ask does
+        # not conform, so the pathology merge fails. IHC records must be
+        # dropped as orphans, not raise KeyError.
+        from types import SimpleNamespace
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology',
+             'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+        f_ihc = make_field(self.ihc, 'protein_name')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_i, field=f_ihc, order=0)
+        f_mito = make_field(self.pathology, 'mitotic_count',
+                            field_type='int')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f_mito, order=1)
+        self.rm.client.extraction_fields_per_call = 1
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        state = {'i': 0}
+
+        def create(**kwargs):
+            wrapper = kwargs['response_model']
+            if 'EXACTLY' in kwargs['messages'][-1]['content']:
+                # non-conforming re-ask of the date chunk: 1 record again
+                return wrapper(records=[{'date_pathology': '2024-01-02'}]), \
+                    completion
+            i = state['i']
+            state['i'] += 1
+            # call order: 0 diag-lookup(site_0), 1 diag-plain(plain_0),
+            # 2 pathology(date_pathology), 3 pathology(mitotic_count),
+            # 4 ihc(protein_name)
+            if i == 0:
+                return wrapper(records=[{'site_0': 'A'}]), completion
+            if i == 1:
+                return wrapper(records=[{
+                    'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if i == 2:
+                return wrapper(records=[{
+                    'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                    completion
+            if i == 3:
+                return wrapper(records=[
+                    {'mitotic_count': 2, 'parent_index': 0,
+                     'field_assessments': [{
+                         'field': 'mitotic_count', 'basis': 'explicit',
+                         'quotes': ['1 node involved.'],
+                         'rationale': 'stated'}]},
+                    {'mitotic_count': 4, 'parent_index': 0,
+                     'field_assessments': [{
+                         'field': 'mitotic_count', 'basis': 'explicit',
+                         'quotes': ['1 node involved.'],
+                         'rationale': 'stated'}]}
+                ]), completion
+            return wrapper(records=[{
+                'protein_name': 'Ki-67', 'parent_index': 0}]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.PARTIAL)
+        self.assertIn('pathology', self.job.extraction_error)
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['dropped_orphans'], 1)
+        data = self.saved.call_args.args[1]
+        self.assertEqual(len(data['diagnosis']), 1)
+        self.assertNotIn('pathology', data['diagnosis'][0])
+        self.assertNotIn('immunohistochemistry', str(data))
+

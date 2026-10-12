@@ -77,14 +77,14 @@ class ClientConfiguration(models.Model):
                   "depend on the model (e.g. low/medium/high for OpenAI, "
                   "enabled/disabled for Ollama, budget for Anthropic).")
     extraction_fields_per_call = models.PositiveIntegerField(
-        default=10,
+        default=50,
         validators=[MinValueValidator(1)],
-        help_text="How many fields one extraction LLM call answers. Stage-2 "
-                  "extraction is split into small calls: per table, lookup "
-                  "(choice) fields run in their own calls before the free-text, "
-                  "numeric and boolean fields, so choice fields and reasoning "
-                  "fields are never mixed. Lower the value for small local "
-                  "models (5-10); raise it (15-20) for large API models.")
+        help_text="Maximum fields in one extraction LLM call. A table with "
+                  "at most this many fields is extracted in a single call, "
+                  "so the model decides its record granularity once; only "
+                  "larger tables are split into field chunks (lookup fields "
+                  "first). Lower it for small local models, at the cost of "
+                  "cross-chunk record-count risk on the big tables.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
