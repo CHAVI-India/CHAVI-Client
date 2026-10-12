@@ -1609,10 +1609,14 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
             # Up to two focused gap-fill passes for the fields still
             # null after the previous pass; a third pass only when the
-            # second filled at least one field
+            # second filled at least one field. Gap-fill only helps when
+            # there are records to fill — an empty record list has no
+            # null fields to re-ask (and a re-ask can never add records).
             pass2_filled = False
             for gap_pass in (2, 3):
                 if gap_pass == 3 and not pass2_filled:
+                    break
+                if not records:
                     break
                 asked = null_fields_for(records, fields)
                 if not asked:

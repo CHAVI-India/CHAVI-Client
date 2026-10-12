@@ -2972,6 +2972,43 @@ class TableExtractTests(TestCase):
                         and e.get('table') == 'diagnosis']
         self.assertEqual([e.get('pass') for e in call_results], [1, 2])
 
+    def test_gap_fill_skips_tables_with_no_records(self):
+        # A table the document does not mention (0 records) must not
+        # trigger a gap-fill re-ask — there is nothing to fill.
+        # (The job fails overall: the only root table is empty.)
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            if set(record_cls.model_fields) == \
+                    {'site_0', 'plain_0', 'field_assessments'}:
+                return wrapper(records=[]), completion
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        # diagnosis main (0 records) + pathology main — NO gap-fill call
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            2)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.FAILED)
+        self.assertIn('no data', (self.job.extraction_error or '').lower())
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1])
+
     def test_grandchild_nests_under_its_parent_record(self):
         # IHC (child of pathology, grandchild of diagnosis) with one
         # parent record: IHC nests inside the pathology record, which
