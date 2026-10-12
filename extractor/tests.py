@@ -2325,6 +2325,22 @@ class ChunkPromptTests(TestCase):
         self.assertIn('<document>', content)
         self.assertIn('DOC', content)
 
+    def test_prompt_fixes_record_granularity_to_one_per_report(self):
+        # One clinical report -> one record per table, even when the
+        # report describes several specimens; specimens must not become
+        # separate records.
+        from extractor.services.extraction_split import build_chunk_prompt
+        plan = self._plan()
+        call = plan[0]
+        msgs = build_chunk_prompt(
+            self.rm, call, 'DOC', resolved_options={},
+            table_chunk_count=self._tables_chunk_count(
+                plan, call['model_table']))
+        content = msgs[-1]['content']
+        self.assertIn('exactly ONE record', content)
+        self.assertIn('parts of the SAME record', content)
+        self.assertNotIn('record object per distinct', content)
+
     def test_plain_chunk_carries_assessment_rules_lookup_chunk_does_not(self):
         from extractor.services.extraction_split import build_chunk_prompt
         plan = self._plan()

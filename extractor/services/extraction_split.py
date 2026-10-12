@@ -168,10 +168,17 @@ def build_chunk_prompt(response_model, call, processed_content, *,
         f"Extract the following information from the document, "
         f"for the {table_name.upper()} table.",
         "",
-        f'Return a JSON object of the form {{"records": [...]}} with ONE '
-        f"record object per distinct {table_name} record found in the "
-        "document, in the order the records appear in the document. Return "
-        '{"records": []} when the document contains none.',
+        f'Return a JSON object of the form {{"records": [...]}}. The '
+        f'document is a single clinical report, so return exactly ONE '
+        f'record object for the {table_name} described by the report, '
+        'combining all of its findings into that one record. When the '
+        'report describes several specimens (for example a primary '
+        'resection specimen plus lymph-node specimens from the same '
+        'case), the specimens are parts of the SAME record, not '
+        'separate records. Only return more than one record when the '
+        'document clearly contains multiple distinct reports or entries '
+        'of this kind. Return \'{"records": []}\' when the document '
+        'contains none.',
     ]
     if table_chunk_count > 1:
         parts += [
