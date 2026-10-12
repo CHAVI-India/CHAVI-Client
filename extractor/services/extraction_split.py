@@ -237,6 +237,24 @@ def merge_table_chunks(chunks):
     return merged
 
 
+def rescue_single_parent(children, n_parents):
+    """
+    Single-parent attribution fallback: when exactly ONE parent record
+    exists, every child record belongs to it regardless of a missing or
+    out-of-range parent_index. Rewrites those indices to 0 in place and
+    returns how many were reassigned (0 when n_parents != 1).
+    """
+    if n_parents != 1:
+        return 0
+    fixed = 0
+    for child in children:
+        idx = child.get('parent_index')
+        if not (isinstance(idx, int) and 0 <= idx < n_parents):
+            child['parent_index'] = 0
+            fixed += 1
+    return fixed
+
+
 def nest_children(parents, children, child_key_name):
     """
     Attach child records to their parents via 'parent_index'.

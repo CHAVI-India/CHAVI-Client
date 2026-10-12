@@ -1318,6 +1318,131 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
             database_table__clientapp_content_type__model=table_name,
         ).first()
 
+    RECONCILE_INSTRUCTION = (
+        "Your previous answer listed {k} {table} record(s). The other "
+        "extraction passes of this same table — which answered the "
+        "remaining fields from the same document — each identified exactly "
+        "{n} {table} record(s). Re-answer the SAME fields with EXACTLY {n} "
+        "record objects, aligned to those same records in the same document "
+        "order. Do not invent records that are not in the document.")
+
+    @staticmethod
+    def _reask_chunk_count(response_model, table, entry, current_records,
+                           target, client, client_config,
+                           validation_context):
+        """
+        One reconciliation re-ask: original messages + the chunk's own
+        previous answer + an instruction to align its record count to
+        `target`. Returns (records, tokens) or (None, 0) when the re-ask
+        fails or still does not conform.
+        """
+        model_table = InstructorExtractionService._model_table_by_name(
+            response_model, table)
+        fields = [
+            tf.field for tf in ResponseModelTableField.objects.filter(
+                response_model_table=model_table,
+                field__clientapp_field_name__in=entry['fields'],
+                field__is_active=True).order_by('order')]
+        include_assessments = 'source_text' in validation_context
+        wrapper, _ = PydanticModelBuilder.build_chunk_response_model(
+            model_table, fields,
+            include_field_assessments=include_assessments,
+            with_parent_index=bool(entry.get('ancestry')))
+
+        messages = list(entry['messages']) + [
+            {'role': 'assistant',
+             'content': json.dumps({'records': current_records})},
+            {'role': 'user',
+             'content': InstructorExtractionService.RECONCILE_INSTRUCTION
+             .format(k=len(current_records), table=table, n=target)},
+        ]
+        create_kwargs = dict(
+            model=client_config.llm_model_name,
+            response_model=wrapper,
+            messages=messages,
+            timeout=client_config.request_timeout,
+            **InstructorExtractionService._build_reasoning_kwargs(
+                client_config),
+        )
+        if client_config.model_max_tokens:
+            create_kwargs['max_tokens'] = client_config.model_max_tokens
+
+        result = None
+        completion = None
+        try:
+            result, completion = \
+                client.chat.completions.create_with_completion(
+                    context=validation_context, **create_kwargs)
+        except InstructorRetryException as e:
+            if not e.failed_attempts:
+                raise
+            log.warning(
+                f"Reconciliation re-ask for {table} (call {entry['index']}) "
+                f"exhausted retries; leaving the count as is")
+        except Exception as e:
+            log.error(
+                f"Reconciliation re-ask for {table} (call {entry['index']}) "
+                f"failed: {e}")
+        if result is None:
+            return None, 0
+        if include_assessments:
+            try:
+                result = wrapper.model_validate(
+                    result.model_dump(), context=validation_context)
+            except ValidationError:
+                log.error(
+                    f"Reconciliation re-ask for {table} (call "
+                    f"{entry['index']}) failed evidence validation")
+                return None, 0
+        if len(result.records) != target:
+            log.warning(
+                f"Reconciliation re-ask for {table} still returned "
+                f"{len(result.records)} records (expected {target})")
+            return None, 0
+        usage = getattr(completion, 'usage', None)
+        tokens = int(getattr(usage, 'total_tokens', 0) or 0)
+        return [r.model_dump(mode='json') for r in result.records], tokens
+
+    @staticmethod
+    def _reconcile_table_counts(extraction_job, response_model, table,
+                                table_entries, chunks, client, client_config,
+                                validation_context):
+        """
+        One reconciliation pass for a table whose chunks returned
+        different record counts. Takes the majority count (ties broken by
+        the LARGER count — it carries the more data) and re-asks each
+        disagreeing chunk once. Mutates the conforming chunks in place.
+        Returns the tokens spent on re-asks.
+        """
+        counts = {}
+        for chunk in chunks:
+            n = len(chunk['records'])
+            counts[n] = counts.get(n, 0) + 1
+        target = sorted(counts, key=lambda n: (counts[n], n))[-1]
+        entry_by_fields = {tuple(e['fields']): e for e in table_entries}
+        tokens = 0
+        for chunk in chunks:
+            if len(chunk['records']) == target:
+                continue
+            entry = entry_by_fields[tuple(chunk['fields'])]
+            log.info(
+                f"Extraction job {extraction_job.id}: reconciling {table} "
+                f"call {entry['index']} — {len(chunk['records'])} records "
+                f"vs majority {target}")
+            new_records, ask_tokens = \
+                InstructorExtractionService._reask_chunk_count(
+                    response_model, table, entry, chunk['records'],
+                    target, client, client_config, validation_context)
+            tokens += ask_tokens
+            if new_records is not None:
+                chunk['records'] = new_records
+                InstructorExtractionService._append_trace(
+                    extraction_job, 'extraction', 'call_result',
+                    index=entry['index'], table=table,
+                    records=len(new_records), tokens=ask_tokens,
+                    reconciliation=True)
+        return tokens
+
     @staticmethod
     def _run_chunked_extraction(extraction_job, processed_content):
         """
@@ -1329,7 +1454,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         from django.db.models import Count
 
         from extractor.services.extraction_split import (
-            TableMergeError, merge_table_chunks, nest_children)
+            TableMergeError, merge_table_chunks, nest_children,
+            rescue_single_parent)
         from extractor.services.model_hierarchy import child_key
 
         client_config = extraction_job.response_model.client
@@ -1458,9 +1584,19 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 records=len(result.records),
                 tokens=getattr(usage, 'total_tokens', 0))
 
-        # Merge per table, then nest children under their parents
+        # Merge per table (reconciling record counts first when the
+        # chunks disagree), then nest children under their parents
+        table_entries = {}
+        for entry in entries:
+            table_entries.setdefault(entry['table'], []).append(entry)
+
         merged = {}
         for table, chunks in table_chunks.items():
+            if len({len(c['records']) for c in chunks}) != 1:
+                call_tokens += InstructorExtractionService._reconcile_table_counts(
+                    extraction_job, response_model, table,
+                    table_entries[table], chunks, client, client_config,
+                    validation_context)
             try:
                 merged[table] = merge_table_chunks(chunks)
             except TableMergeError as e:
@@ -1489,6 +1625,10 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 continue
             # nest in place under the parent records; data keeps only
             # root tables so raw_llm_response keeps its legacy shape
+            if len(data[parent]) == 1:
+                # one parent record — attribution is unambiguous, so
+                # rescue children the model failed to index
+                rescue_single_parent(records, 1)
             _, dropped = nest_children(
                 data[parent], records, child_key(
                     InstructorExtractionService._model_table_by_name(

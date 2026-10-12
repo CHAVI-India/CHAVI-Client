@@ -2460,6 +2460,18 @@ class MergeTests(TestCase):
         with self.assertRaises(TableMergeError):
             merge_table_chunks(chunks)
 
+    def test_single_parent_rescue(self):
+        from extractor.services.extraction_split import rescue_single_parent
+        children = [{'a': 1, 'parent_index': None},
+                    {'a': 2, 'parent_index': 9}]
+        fixed = rescue_single_parent(children, 1)
+        self.assertEqual(fixed, 2)
+        self.assertEqual([c['parent_index'] for c in children], [0, 0])
+        # with several parents, bad indices are left for nest_children to drop
+        children2 = [{'a': 1, 'parent_index': None}]
+        self.assertEqual(rescue_single_parent(children2, 2), 0)
+        self.assertIsNone(children2[0]['parent_index'])
+
     def test_nest_children_by_parent_index(self):
         from extractor.services.extraction_split import nest_children
         parents = [{'x': 1}, {'x': 2}]
@@ -2745,3 +2757,59 @@ class ChunkedStageExtractTests(TestCase):
         data = self.saved.call_args.args[1]
         self.assertEqual(data.get('diagnosis', []), [])
         self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
+
+    def test_record_count_mismatch_reconciles_by_reasking(self):
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+        fa = lambda: {'field': 'plain_0', 'basis': 'explicit',
+                      'quotes': ['1 node involved.'], 'rationale': 'stated'}
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            if len(calls) == 1:  # diagnosis lookup chunk -> 2 records
+                return wrapper(records=[{'site_0': 'A'},
+                                        {'site_0': 'B'}]), completion
+            if len(calls) == 2:  # diagnosis plain chunk -> 1 record (disagrees)
+                return wrapper(records=[{'plain_0': 1,
+                                         'field_assessments': [fa()]}]), completion
+            if len(calls) == 3:  # pathology chunk (runs before reconciliation)
+                return wrapper(records=[{
+                    'date_pathology': '2024-01-02', 'parent_index': 0}]), completion
+            # reconciliation re-ask of the disagreeing plain chunk
+            self.assertEqual(kwargs['messages'][-1]['role'], 'user')
+            self.assertIn('EXACTLY 2', kwargs['messages'][-1]['content'])
+            self.assertEqual(kwargs['messages'][-2]['role'], 'assistant')
+            return wrapper(records=[
+                {'plain_0': 1, 'field_assessments': [fa()]},
+                {'plain_0': 0, 'field_assessments': [fa()]}]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        self.assertEqual(self._client.chat.completions
+                         .create_with_completion.call_count, 4)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.COMPLETED)
+        data = self.saved.call_args.args[1]
+        self.assertEqual(len(data['diagnosis']), 2)
+        self.assertEqual([r['site_0'] for r in data['diagnosis']], ['A', 'B'])
+        self.assertEqual(data['diagnosis'][0]['pathology'][0]
+                         ['date_pathology'], '2024-01-02')
+        self.assertEqual(data['diagnosis'][1].get('pathology'), [])
