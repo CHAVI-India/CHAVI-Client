@@ -3,8 +3,9 @@ Shared lookup-embedding index builder.
 
 Two execution paths use the same building blocks:
 
-- Celery (extractor.tasks): a chain of compute_lookup_table_embeddings_task
-  links, one per lookup table, followed by finalize_lookup_embeddings_task.
+- Celery (extractor.tasks.embed_lookup_table_chunk): a self-perpetuating task
+  that embeds one bounded chunk of one lookup table, then enqueues the next
+  chunk; the last table triggers finalize_lookup_embeddings_task.
 - Management command: compute_lookup_embeddings() runs the same steps serially.
 
 Both share the build-then-swap refresh semantics:
@@ -184,15 +185,14 @@ def compute_lookup_table_embeddings(
 ) -> Dict[str, Any]:
     """
     Embed one lookup table's semantic text fields under the given index
-    generation. When a DatabaseField declares composite lookup_label_fields
-    for this table, a '__label__' vector of the joined display label is also
-    embedded per record — it's the string the LLM is asked to return.
+    generation by tiling the table into bounded chunks (collect_pending_rows /
+    embed_one_chunk). This is the serial driver for the management-command
+    path; the Celery path (extractor.tasks.embed_lookup_table_chunk) runs the
+    same primitives one chunk at a time.
 
-    Builds resume per row: target-version rows whose stored text still
-    matches the source are skipped in both refresh and gap-fill modes, so
-    an interrupted build continues where it left off.
-
-    Returns {'table', 'count', 'failed'}. Provider setup failures propagate as
+    Builds resume per row: a target-version row whose stored text still matches
+    the source is skipped in both refresh and gap-fill modes. Returns
+    {'table', 'count', 'failed'}. Provider setup failures propagate as
     EmbeddingUnavailableError so callers can treat them as fatal.
     """
     notify = progress_callback or (lambda msg: None)
@@ -202,77 +202,34 @@ def compute_lookup_table_embeddings(
     table_name = content_type.model
     if not lookup_model:
         return {'table': table_name, 'count': 0, 'failed': 0}
-
-    close_old_connections()
+    close_old_connections()  # model load idles the connection; drop it
     notify(f"Indexing {table_name}")
 
-    # Flag rows whose record was deleted or whose text changed — scoped to
-    # the generation being built so a failed refresh can't mark the live
-    # index stale.
-    stale = SemanticSearchService.mark_stale_embeddings(
-        content_type, lookup_model,
-        embedding_config=config, index_version=target_version)
-    if stale:
-        log.info(f"  {table_name}: {stale} stale embeddings flagged")
-
-    pk_field = lookup_model._meta.pk.name
     text_fields = _text_fields(lookup_model)
     label_spec = composite_label_spec(content_type)
     if not text_fields and not label_spec:
         return {'table': table_name, 'count': 0, 'failed': 0}
 
-    # Stale rows at the generation being built are invisible to queries and
-    # would only block re-embedding through the unique constraint.
-    LookupEmbedding.objects.filter(
-        content_type=content_type, embedding_config=config,
-        index_version=target_version, is_current=False,
-    ).delete()
-
-    # One query for the whole table: what the target generation already has.
-    # Covers gap-fill and refresh-resume alike — a re-run skips only rows
-    # whose stored text still matches the source.
-    existing = {
-        (object_id, field_name): (row_id, text_value)
-        for row_id, object_id, field_name, text_value in LookupEmbedding.objects.filter(
-            content_type=content_type, embedding_config=config,
-            index_version=target_version, is_current=True,
-        ).values_list('id', 'object_id', 'field_name', 'text_value')
-    }
-
-    # Collect (pk, field, text) triples needing embeddings
-    pending = []
-    replaced_ids = []
-    for record in lookup_model.objects.all().iterator():
-        pk_value = getattr(record, pk_field)
-        candidates = [(f, str(getattr(record, f, '') or '')) for f in text_fields]
-        if label_spec:
-            candidates.append((
-                COMBINED_LABEL_FIELD,
-                build_lookup_label(record, label_fields=label_spec),
-            ))
-        for field_name, text_value in candidates:
-            if not text_value.strip():
-                continue
-            entry = existing.get((str(pk_value), field_name))
-            if entry is not None:
-                if entry[1] == text_value:
-                    continue
-                # Text changed after the stale scan — the old row must go
-                # before the fresh one can take its unique slot.
-                replaced_ids.append(entry[0])
-            pending.append((str(pk_value), field_name, text_value))
-
-    if replaced_ids:
-        LookupEmbedding.objects.filter(id__in=replaced_ids).delete()
-
-    # Batch-encode; flush each chunk so a crash mid-table loses at most one
-    # chunk of work and memory stays bounded on very large tables.
     new_count = 0
     table_failed = 0
-    chunk_total = (len(pending) + 99) // 100
-    for i in range(0, len(pending), 100):
-        chunk = pending[i:i + 100]
-        chunk_number = i // 100 + 1
+    # One-shot setup + a single O(N) pass to build the full pending list, then
+    # tile it. (The Celery chunk task instead re-reads the DB per task via
+    # collect_pending_rows — correct there because each task is one chunk.)
+    # Re-scanning the source on every chunk here would be O(N^2) on big tables.
+    prepare_table(config, content_type, target_version)
+    embedded = set(
+        LookupEmbedding.objects.filter(
+            content_type=content_type, embedding_config=config,
+            index_version=target_version, is_current=True,
+        ).values_list('object_id', 'field_name')
+    )
+    pending = [
+        row for row in _source_rows(content_type)
+        if (row[0], row[1]) not in embedded
+    ]
+    chunk_total = (len(pending) + CHUNK_SIZE - 1) // CHUNK_SIZE if pending else 0
+    for chunk_number, i in enumerate(range(0, len(pending), CHUNK_SIZE), 1):
+        chunk = pending[i:i + CHUNK_SIZE]
         first_key = f"{chunk[0][0]}.{chunk[0][1]}"
         last_key = f"{chunk[-1][0]}.{chunk[-1][1]}"
         log.info(
@@ -280,40 +237,15 @@ def compute_lookup_table_embeddings(
             table_name, target_version, chunk_number, chunk_total,
             len(chunk), first_key, last_key)
         encode_started = perf_counter()
-        try:
-            vectors = provider.embed_texts([t for _, _, t in chunk])
-            if len(vectors) != len(chunk):
-                raise ValueError(
-                    f"provider returned {len(vectors)} embeddings "
-                    f"for {len(chunk)} texts")
-        except Exception as e:
-            log.error(
-                "Embedding %s v%s chunk %s/%s failed after %.2fs: %s",
+        count, failed, _failed_keys = embed_one_chunk(
+            provider, config, content_type, target_version, chunk)
+        new_count += count
+        table_failed += failed
+        if count:
+            log.info(
+                "Saved %s v%s chunk %s/%s: %s rows (encode %.2fs)",
                 table_name, target_version, chunk_number, chunk_total,
-                perf_counter() - encode_started, e)
-            table_failed += len(chunk)
-            continue
-        encode_seconds = perf_counter() - encode_started
-        rows = [LookupEmbedding(
-            content_type=content_type,
-            object_id=pk_value,
-            field_name=field_name,
-            text_value=text_value,
-            embedding=vector,
-            embedding_config=config,
-            index_version=target_version,
-        ) for (pk_value, field_name, text_value), vector in zip(chunk, vectors)]
-        # Encoding idles the DB connection for minutes — drop it before writing.
-        close_old_connections()
-        write_started = perf_counter()
-        LookupEmbedding.objects.bulk_create(rows, ignore_conflicts=True)
-        write_seconds = perf_counter() - write_started
-        new_count += len(rows)
-        log.info(
-            "Saved %s v%s chunk %s/%s: %s rows "
-            "(encode %.2fs, database %.2fs)",
-            table_name, target_version, chunk_number, chunk_total,
-            len(rows), encode_seconds, write_seconds)
+                count, perf_counter() - encode_started)
 
     return {'table': table_name, 'count': new_count, 'failed': table_failed}
 
@@ -341,7 +273,8 @@ def compute_lookup_embeddings(
     """
     Serial driver for the management-command path: embeds every lookup table
     via compute_lookup_table_embeddings, then swaps the generation on refresh.
-    The Celery path runs the same steps as a per-table chain (extractor.tasks).
+    The Celery path runs the same primitives as a self-perpetuating per-chunk
+    task (extractor.tasks.embed_lookup_table_chunk).
 
     Returns stats dict. Raises on provider failure or when nothing could be
     embedded at all (so callers never report a broken index as success).
