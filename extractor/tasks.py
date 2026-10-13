@@ -4,7 +4,7 @@ Background tasks for the extractor app, running under Celery.
 
 from logging import getLogger
 
-from celery import chain, shared_task
+from celery import shared_task
 from django.contrib.contenttypes.models import ContentType
 from django.db import close_old_connections
 from django.utils import timezone
@@ -36,9 +36,10 @@ def _record_table_result(task, stats, position, total):
 @shared_task(bind=True)
 def compute_lookup_embeddings_task(self, task_id, config_id, refresh=False):
     """
-    Dispatcher: turns a full index build into a sequential chain — one task
-    per lookup table, then a finalize step — and returns immediately.
-    Progress is tracked on the shared BackgroundTask row.
+    Dispatcher: starts the build by dispatching the first lookup table's first
+    chunk task (extractor.tasks.embed_lookup_table_chunk), which self-perpetuates
+    across chunks and tables and ends in finalize_lookup_embeddings_task.
+    Returns immediately. Progress is tracked on the shared BackgroundTask row.
 
     Args:
         task_id: ID of the BackgroundTask tracking this job (progress UI polls it)
@@ -59,34 +60,32 @@ def compute_lookup_embeddings_task(self, task_id, config_id, refresh=False):
         task.mark_failed('Configuration not found')
         return
 
-    content_types = list(ContentType.objects.filter(app_label='lookup').order_by('id'))
+    content_types = list(ContentType.objects.filter(app_label='lookup')
+                             .order_by('id'))
     if not content_types:
         task.mark_failed('No lookup tables found')
         return
 
-    # Same build-then-swap generation for every link, fixed up front so a
+    # Same build-then-swap generation for every chunk, fixed up front so a
     # re-run after a crash resumes the same version instead of bumping again.
     target_version = config.version + 1 if refresh else config.version
     total = len(content_types)
 
     task.result_data = {'results': [], 'target_version': target_version}
     task.save(update_fields=['result_data'])
-    task.update_progress('Dispatching per-table tasks', processed_items=0, total_items=total)
+    task.update_progress('Dispatching chunked embedding tasks',
+                         processed_items=0, total_items=total)
 
-    links = [
-        compute_lookup_table_embeddings_task.si(
-            task_id, config_id, ct.id, target_version, refresh, idx, total)
-        for idx, ct in enumerate(content_types, 1)
-    ]
-    links.append(
-        finalize_lookup_embeddings_task.si(task_id, config_id, target_version, refresh)
-    )
-
-    log.info(f"Dispatching {total} embedding tasks for config {config_id} ({config.model_name})")
+    # Kick off the first table's first chunk; each chunk enqueues the next.
+    first = content_types[0]
+    log.info(f"Starting chunked embedding build for config {config_id} "
+             f"({config.model_name}): {total} tables, target v{target_version}")
     try:
-        chain(*links).apply_async()
+        embed_lookup_table_chunk.apply_async(args=[
+            task_id, config_id, first.id, target_version, refresh,
+            1, total])
     except Exception as e:
-        log.error(f"Failed to dispatch embedding chain: {e}", exc_info=True)
+        log.error(f"Failed to dispatch first embedding chunk: {e}", exc_info=True)
         task.mark_failed(f"Dispatch failed: {e}")
 
 

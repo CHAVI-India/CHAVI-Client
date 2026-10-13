@@ -2048,6 +2048,70 @@ class ChunkedEmbeddingTaskTests(TestCase):
                          ['tid', self.config.id, 1, False])
 
 
+class EmbeddingDispatcherTests(TestCase):
+    """compute_lookup_embeddings_task starts the build by dispatching the first
+    table's first chunk (not a chain)."""
+
+    def setUp(self):
+        from lookup.models import LookupLaterality
+        from extractor.models import (EmbeddingConfiguration,
+                                      BackgroundTask)
+
+        self.ct = ContentType.objects.get_for_model(LookupLaterality)
+        self.config = EmbeddingConfiguration.objects.create(
+            model_name='test-embed', model_provider='sentence-transformers',
+            embedding_dimension=384, is_active=True)
+        self.task = BackgroundTask.objects.create(
+            task_id='emb-task-1', task_name='Compute Lookup Embeddings',
+            status='pending')
+        patcher = patch('extractor.tasks.close_old_connections',
+                        lambda: None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_dispatcher_starts_first_chunk(self):
+        from django.contrib.contenttypes.models import ContentType
+        from extractor.tasks import compute_lookup_embeddings_task
+        from extractor.tasks import embed_lookup_table_chunk
+
+        first_ct = ContentType.objects.filter(app_label='lookup') \
+                                      .order_by('id').first()
+        total = ContentType.objects.filter(app_label='lookup').count()
+        with patch.object(embed_lookup_table_chunk, 'apply_async') as first:
+            compute_lookup_embeddings_task.run(
+                self.task.task_id, self.config.id, refresh=False)
+        self.assertTrue(first.called)
+        args = first.call_args[1]['args']
+        # task_id FIRST (inflight check), config, first table, current version
+        # (gap-fill), no refresh, 1-based index 1, total tables
+        self.assertEqual(args[0], self.task.task_id)
+        self.assertEqual(args[1], self.config.id)
+        self.assertEqual(args[2], first_ct.id)
+        self.assertEqual(args[3], self.config.version)
+        self.assertEqual(args[4], False)
+        self.assertEqual(args[5], 1)
+        self.assertEqual(args[6], total)
+        # dispatcher initialized result_data and marked the task running
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'running')
+        self.assertEqual(self.task.result_data['results'], [])
+
+    def test_dispatcher_marks_failed_when_no_tables(self):
+        from django.contrib.contenttypes.models import ContentType
+        from extractor.tasks import compute_lookup_embeddings_task
+        from extractor.tasks import embed_lookup_table_chunk
+
+        with patch.object(ContentType, 'objects') as objects_mock:
+            objects_mock.filter.return_value.order_by.return_value.__iter__ \
+                = lambda *a, **k: iter([])  # pretend: no lookup tables
+            with patch.object(embed_lookup_table_chunk, 'apply_async') as first:
+                compute_lookup_embeddings_task.run(
+                    self.task.task_id, self.config.id, refresh=False)
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'failed')
+        self.assertFalse(first.called)
+
+
 # ---------------------------------------------------------------------
 # Text deidentification (extractor.services.text_deidentification)
 # ---------------------------------------------------------------------
