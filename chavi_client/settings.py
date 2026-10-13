@@ -358,6 +358,11 @@ ACCOUNT_LOGIN_METHOD = 'username_email'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_LOGOUT_ON_GET = True
+
+# App-specific cookie names: cookies are scoped by host, not port, so other
+# Django apps on the same host with default names would clobber these.
+SESSION_COOKIE_NAME = 'chaviclient_sessionid'
+CSRF_COOKIE_NAME = 'chaviclient_csrftoken'
 ACCOUNT_PRESERVE_USERNAME_CASING = False
 ACCOUNT_USERNAME_MIN_LENGTH = 5
 ACCOUNT_USERNAME_BLACKLIST = ['administrator', 'root', 'superuser']

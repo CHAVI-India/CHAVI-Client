@@ -1,0 +1,29 @@
+{# Floating "jump to bottom" button. Appears once the page has scrolled past
+   the top and hides when the user is already at (or near) the bottom.
+   Sits above the sticky review/approval bar so it never collides with it. #}
+<button id="scroll-to-bottom" type="button" aria-label="Scroll to bottom of page" title="Scroll to bottom"
+        class="hidden fixed bottom-24 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-chavi-gradient text-white shadow-lg transition-transform duration-150 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-chavi-primary focus:ring-offset-2">
+    <i class="fas fa-angle-down text-xl" aria-hidden="true"></i>
+</button>
+<script>
+(function () {
+    var btn = document.getElementById('scroll-to-bottom');
+    if (!btn) return;
+    var doc = document.documentElement;
+    function nearBottom() {
+        return window.innerHeight + Math.round(window.scrollY) >= doc.scrollHeight - 120;
+    }
+    function update() {
+        var bar = document.querySelector('[data-scroll-bottom-offset]');
+        var show = window.scrollY > 240 && !nearBottom();
+        btn.classList.toggle('hidden', !show);
+        if (show) btn.style.bottom = ((bar ? bar.offsetHeight : 0) + 16) + 'px';
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+    btn.addEventListener('click', function () {
+        window.scrollTo({ top: doc.scrollHeight, behavior: 'smooth' });
+    });
+})();
+</script>

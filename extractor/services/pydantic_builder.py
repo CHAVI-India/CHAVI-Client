@@ -216,6 +216,60 @@ class PydanticModelBuilder:
                 for field in fields if supports_field_assessment(field)}
 
     @classmethod
+    def _chunk_field_defs(cls, model_table, fields):
+        """
+        (field_defs, validators) for the given DatabaseFields — lookup
+        membership validators included; NO child keys, NO assessments.
+        Shared by build_extraction_model and build_table_response_model.
+        """
+        table_name = model_table.database_table.clientapp_content_type.model
+        field_defs = {}
+        validators = {}
+        for db_field in fields:
+            field_name = db_field.clientapp_field_name
+            annotation, field_info = cls._field_annotation(db_field)
+
+            description = f"{table_name}.{field_name}"
+            if db_field.help_text:
+                description += f" — {db_field.help_text}"
+            if db_field.lookup_field:
+                description += " (return the label of the closest matching option)"
+
+            field_defs[field_name] = (
+                Optional[annotation],
+                Field(None, description=description, **field_info)
+            )
+
+            if db_field.lookup_field and db_field.lookup_content_type:
+                validators[f'check_lookup_{field_name}'] = field_validator(field_name)(
+                    cls._lookup_membership_validator(
+                        f'{table_name}.{field_name}'.lower()))
+        return field_defs, validators
+
+    @classmethod
+    def _add_assessment_defs(cls, model_table, fields, child_tables,
+                             field_defs, validators):
+        """
+        Add the field_assessments field and its model validator for the
+        table's assessable fields (only when any exist).
+        """
+        assessment_fields = cls._assessment_fields(fields, child_tables)
+        if assessment_fields:
+            assessment_cls = create_model(
+                cls._safe_identifier(model_table.database_table
+                                     .clientapp_content_type.model)
+                + 'FieldAssessment',
+                __base__=FieldAssessment,
+                field=(Literal[tuple(assessment_fields)], ...))
+            field_defs['field_assessments'] = (
+                List[assessment_cls], Field(description=(
+                    'One evidence assessment for every configured numeric or boolean field, '
+                    'including null values; belongs only to this record.')))
+            validators['check_field_assessments'] = model_validator(mode='after')(
+                cls._assessment_validator(assessment_fields))
+        return field_defs, validators
+
+    @classmethod
     def build_extraction_model(cls, response_model: ResponseModel, *, include_field_assessments=True):
         """
         Build the live Pydantic model used at extraction time — the single
@@ -243,30 +297,9 @@ class PydanticModelBuilder:
             if not table_fields.exists():
                 raise ValueError(f"No fields configured for table {table_name}")
 
-            field_defs = {}
-            validators = {}
-            for table_field in table_fields:
-                db_field = table_field.field
-                if not db_field.is_extractable():
-                    continue
-                field_name = db_field.clientapp_field_name
-                annotation, field_info = cls._field_annotation(db_field)
-
-                description = f"{table_name}.{field_name}"
-                if db_field.help_text:
-                    description += f" — {db_field.help_text}"
-                if db_field.lookup_field:
-                    description += " (return the label of the closest matching option)"
-
-                field_defs[field_name] = (
-                    Optional[annotation],
-                    Field(None, description=description, **field_info)
-                )
-
-                if db_field.lookup_field and db_field.lookup_content_type:
-                    validators[f'check_lookup_{field_name}'] = field_validator(field_name)(
-                        cls._lookup_membership_validator(
-                            f'{table_name}.{field_name}'.lower()))
+            field_defs, validators = cls._chunk_field_defs(
+                model_table, [tf.field for tf in table_fields
+                              if tf.field.is_extractable()])
 
             for child_mt in children.get(model_table.id, []):
                 child_cls = build_node(child_mt)
@@ -279,19 +312,9 @@ class PydanticModelBuilder:
                 )
 
             if include_field_assessments:
-                assessment_fields = cls._assessment_fields(
-                    [tf.field for tf in table_fields], children.get(model_table.id, []))
-                if assessment_fields:
-                    assessment_cls = create_model(
-                        cls._safe_identifier(table_name) + 'FieldAssessment',
-                        __base__=FieldAssessment,
-                        field=(Literal[tuple(assessment_fields)], ...))
-                    field_defs['field_assessments'] = (
-                        List[assessment_cls], Field(description=(
-                            'One evidence assessment for every configured numeric or boolean field, '
-                            'including null values; belongs only to this record.')))
-                    validators['check_field_assessments'] = model_validator(mode='after')(
-                        cls._assessment_validator(assessment_fields))
+                field_defs, validators = cls._add_assessment_defs(
+                    model_table, [tf.field for tf in table_fields],
+                    children.get(model_table.id, []), field_defs, validators)
 
             date_pairs = model_table.database_table.date_validation_pairs or []
             if date_pairs:
@@ -321,6 +344,46 @@ class PydanticModelBuilder:
             cls._safe_identifier(response_model.name) + 'Model',
             **root_fields
         )
+
+    @classmethod
+    def build_table_response_model(cls, model_table, fields, *,
+                                   include_field_assessments=True,
+                                   with_parent_index=False):
+        """
+        (wrapper, record) pydantic models for ONE per-table extraction call.
+
+        record: only the call's fields (Optional, default None), the
+        lookup membership validators, field_assessments for the call's
+        assessable fields, and parent_index when with_parent_index.
+        wrapper: {'records': List[record]} — the instructor response_model.
+        """
+        table_name = model_table.database_table.clientapp_content_type.model
+        field_defs, validators = cls._chunk_field_defs(model_table, fields)
+        if with_parent_index:
+            field_defs['parent_index'] = (
+                Optional[int],
+                Field(None, description=(
+                    "0-based index of the direct-parent record this "
+                    "record belongs to (see the PARENT RECORDS block); "
+                    "null if none fits")))
+        if include_field_assessments:
+            field_defs, validators = cls._add_assessment_defs(
+                model_table, fields, [], field_defs, validators)
+        date_pairs = model_table.database_table.date_validation_pairs or []
+        names = {f.clientapp_field_name for f in fields}
+        pairs = [(s, e) for s, e in date_pairs if s in names and e in names]
+        if pairs:
+            validators['check_date_order'] = model_validator(mode='after')(
+                cls._date_order_check(pairs, set(field_defs.keys())))
+        record = create_model(
+            cls._safe_identifier(table_name) + 'ChunkRecord',
+            __validators__=validators, **field_defs)
+        wrapper = create_model(
+            cls._safe_identifier(table_name) + 'Chunk',
+            records=(List[record], Field(
+                [], description=f"One {table_name} record per distinct "
+                                 "record in the document, in document order")))
+        return wrapper, record
 
     @classmethod
     def build_pydantic_model(cls, response_model: ResponseModel, *, include_field_assessments=True) -> str:

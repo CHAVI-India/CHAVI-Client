@@ -449,3 +449,37 @@ extractor/
 - Django Model Meta API: https://docs.djangoproject.com/en/6.0/ref/models/meta/
 - Pydantic Documentation: https://docs.pydantic.dev/
 - Ollama API: https://github.com/ollama/ollama/blob/main/docs/api.md
+
+---
+
+## Per-Table Stage-2 Extraction (2026-10-12)
+
+Stage-2 extraction now runs as one focused LLM call per table, parents
+before children, in sequential order; child calls receive the
+already-extracted parent records and attach via `parent_index`. Each call
+is document-first: the full document, then the table's model docstring as
+table context, a neutral record-granularity line, the parent records
+(child tables only), and one question per field (lookup fields with their
+explicit choice list).
+
+- No field chunking and no record-count reconciliation: every table's
+  fields go out in a single call, so the model makes its record-granularity
+  decision once and cannot disagree with itself.
+- Gap-fill re-ask passes: fields still null after the main pass are re-asked
+  in focused passes (max 2 re-asks = up to 3 calls per table). A re-ask
+  never overwrites an earlier answer — it only fills nulls — and a third
+  pass is skipped when the second filled nothing.
+- Single-parent orphan rescue: when a child table's parent has exactly
+  one record, child records with a missing/out-of-range `parent_index`
+  are attributed to that record instead of being dropped.
+- Completed tables are saved even when later calls fail; such jobs finish
+  as `partial` with the failing calls listed in `extraction_error`. Child
+  tables whose ancestor failed are skipped (not executed).
+- Nesting works at any depth (grandchildren such as IHC → pathology →
+  diagnosis nest through a per-table records map, not just root tables).
+- The approval gate, the review flow, and the shape of saved results are
+  unchanged. Mining stays a single batched call.
+- Legacy single-call jobs (no `extraction_plan_version` in the config
+  snapshot) keep working through the unchanged path in `stage_extract`.
+- The former `extraction_fields_per_call` client setting was removed with
+  the field-chunk overflow path it configured.

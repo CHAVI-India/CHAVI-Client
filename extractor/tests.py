@@ -1,4 +1,6 @@
+import json
 import os
+from contextlib import nullcontext
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -8,7 +10,8 @@ from django.test import SimpleTestCase, TestCase
 
 from extractor.models import (
     ClientConfiguration, DatabaseField, DatabaseTable, EntityTypeChoices,
-    ExtractedRecord, ExtractionJob, ExtractionResult, FileUpload, ProcessedText,
+    ExtractedRecord, ExtractionJob, ExtractionResult, ExtractionStatusChoices,
+    FileUpload, ProcessedText,
     RecordCreation, ResponseModel, ResponseModelTable, ResponseModelTableField,
 )
 from extractor.services.model_hierarchy import (
@@ -1099,8 +1102,12 @@ class StagedPipelineTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.extraction_status, 'awaiting_extraction')
         kinds = [(e['stage'], e['kind']) for e in self.job.stage_trace]
-        self.assertEqual(kinds, [
-            ('mining', 'prompt'), ('mining', 'result'), ('extraction', 'prompt')])
+        self.assertEqual(kinds[0], ('mining', 'prompt'))
+        self.assertEqual(kinds[1], ('mining', 'result'))
+        self.assertTrue(len(kinds) > 2)
+        self.assertTrue(all(k == ('extraction', 'prompt') for k in kinds[2:]))
+        self.assertTrue(all('messages' in e and e['fields']
+                            for e in self.job.stage_trace[2:]))
         self.assertTrue(self.job.prompt_snapshot)
         self.assertIn(
             'squamous cell carcinoma',
@@ -1265,7 +1272,8 @@ class InferenceReviewContractTests(SimpleTestCase):
         engine = Engine(dirs=[str(settings.BASE_DIR / 'templates')], loaders=[
             ('django.template.loaders.locmem.Loader', {'base.html': '{% block content %}{% endblock %}'}),
             'django.template.loaders.filesystem.Loader'],
-            builtins=['django_components.templatetags.component_tags'])
+            builtins=['django_components.templatetags.component_tags'],
+            libraries={'static': 'django.templatetags.static'})
         rows = [{'name': name, 'before': value, 'after': value} for name, value in (
             ('zero', 0), ('false', False), ('decimal', Decimal('0.00')), ('null', None), ('empty', ''))]
         rows[0]['extraction'] = {'value': '0', 'basis': 'clinical_inference',
@@ -1276,10 +1284,10 @@ class InferenceReviewContractTests(SimpleTestCase):
             'batch': SimpleNamespace(status='approved'),
             'snapshot': {'records': [{'model': 'example', 'operation': 'create', 'rows': rows}]},
         }))
-        self.assertIn('text-gray-900">0</td>', html)
-        self.assertIn('text-gray-900">False</td>', html)
-        self.assertIn('text-gray-900">0.00</td>', html)
-        self.assertEqual(html.count('text-gray-900">—</td>'), 2)
+        self.assertIn('field-value-text">0</span>', html)
+        self.assertIn('field-value-text">False</span>', html)
+        self.assertIn('field-value-text">0.00</span>', html)
+        self.assertEqual(html.count('field-value-text">—</span>'), 4)
         self.assertIn('not explicitly reported', html)
         self.assertIn('&lt;script&gt;note&lt;/script&gt;', html)
         self.assertIn('&lt;b&gt;source&lt;/b&gt;', html)
@@ -2171,3 +2179,1038 @@ class DeidUnshiftOnSaveTests(TestCase):
         kept = TextDeidentificationService._filter_results(text, results)
         self.assertEqual(len(kept), 1)
         self.assertEqual(kept[0].entity_type, 'DATE_TIME')
+
+
+class ExtractionPlanTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology', 'pk_field': 'pk'},
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+
+    def attach(self, model_table, name, order, **kwargs):
+        field = make_field(model_table.database_table, name, **kwargs)
+        ResponseModelTableField.objects.create(
+            response_model_table=model_table, field=field, order=order)
+        return field
+
+    def _plan(self, batch):
+        from extractor.services.extraction_split import plan_extraction_calls
+        return plan_extraction_calls(self.rm, batch)
+
+    def test_order_is_parents_before_children(self):
+        self.attach(self.rmt_d, 'd_date', 0)
+        self.attach(self.rmt_p, 'p_date', 0)
+        self.attach(self.rmt_i, 'i_date', 0)
+        plan = self._plan(10)
+        tables = [c['model_table'].database_table for c in plan]
+        self.assertEqual(tables, [self.diagnosis, self.pathology, self.ihc])
+        ihc_call = plan[2]
+        self.assertEqual(ihc_call['ancestry'], [self.rmt_d, self.rmt_p])
+        self.assertEqual(plan[0]['ancestry'], [])
+
+    def test_plan_is_one_call_per_table_with_all_fields(self):
+        # batch size is ignored — even batch=1 keeps the whole table in
+        # a single call
+        for i in range(12):
+            self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
+        for i in range(25):
+            self.attach(self.rmt_d, f'plain_{i}', 12 + i, field_type='int')
+        self.attach(self.rmt_p, 'p_date', 0)
+        plan = self._plan(1)
+        d_calls = [c for c in plan if c['model_table'] == self.rmt_d]
+        self.assertEqual(len(d_calls), 1)
+        self.assertEqual(d_calls[0]['kind'], 'table')
+        self.assertEqual(len(d_calls[0]['fields']), 37)
+        self.assertEqual([f.clientapp_field_name for f in d_calls[0]['fields']][:3],
+                         ['site_0', 'site_1', 'site_2'])
+        p_calls = [c for c in plan if c['model_table'] == self.rmt_p]
+        self.assertEqual(len(p_calls), 1)
+        self.assertEqual(p_calls[0]['kind'], 'table')
+        self.assertEqual(len(p_calls[0]['fields']), 1)
+
+    def test_small_table_gets_one_table_call(self):
+        # all fields (lookup and plain together) in one call, in
+        # configuration order
+        for i in range(3):
+            self.attach(self.rmt_d, f'site_{i}', i, lookup_field=True)
+        for i in range(4):
+            self.attach(self.rmt_d, f'plain_{i}', 3 + i)
+        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]['kind'], 'table')
+        self.assertEqual([f.clientapp_field_name for f in plan[0]['fields']],
+                         ['site_0', 'site_1', 'site_2',
+                          'plain_0', 'plain_1', 'plain_2', 'plain_3'])
+
+    def test_table_without_extractable_fields_makes_no_call(self):
+        f = make_field(self.diagnosis, 'inactive_field', is_active=False)
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_d, field=f, order=0)
+        plan = [c for c in self._plan(10) if c['model_table'] == self.rmt_d]
+        self.assertEqual(plan, [])
+
+
+class TablePromptTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        # help_text is the question itself — site_0 and plain_0 carry
+        # real question-form help texts, the rest use the fallback
+        site_questions = {
+            'site_0': 'Select the anatomical location of the cancer? (FMA code)',
+        }
+        for i in range(4):
+            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True,
+                           help_text=site_questions.get(f'site_{i}', ''))
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        plain_questions = {'plain_0': 'How many lymph nodes were examined in total?'}
+        for i in range(3):
+            f = make_field(self.diagnosis, f'plain_{i}', field_type='int',
+                           help_text=plain_questions.get(f'plain_{i}', ''))
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=4 + i)
+        f = make_field(self.pathology, 'date_pathology',
+                       help_text='When was the pathology report dated? (DD/MM/YYYY)')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f, order=0)
+
+    def _fields_for(self, model_table):
+        return [tf.field for tf in ResponseModelTableField.objects.filter(
+            response_model_table=model_table,
+            field__is_active=True).select_related('field').order_by('order')
+            if tf.field.is_extractable()]
+
+    def _diagnosis_fields(self):
+        return self._fields_for(self.rmt_d)
+
+    def _pathology_fields(self):
+        return self._fields_for(self.rmt_p)
+
+    def _f(self, name):
+        return DatabaseField.objects.get(clientapp_field_name=name)
+
+    def test_document_comes_before_questions(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC TEXT')
+        content = msgs[-1]['content']
+        self.assertLess(content.index('<document>'), content.index('QUESTIONS'))
+        self.assertIn('DOC TEXT', content)
+
+    def test_questions_are_questions_and_lookup_lists_choices(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC TEXT',
+            resolved_options={self._f('site_0').id: [
+                {'code': 'A', 'label': 'Label A'},
+                {'code': 'B', 'label': 'Label B'}]})
+        content = msgs[-1]['content']
+        lines = content.splitlines()
+        site_q = next(l for l in lines if 'site_0:' in l)
+        # the field's question-form help text is used verbatim
+        self.assertEqual(
+            site_q.strip(),
+            '1. site_0: Select the anatomical location of the cancer? '
+            '(FMA code)')
+        self.assertIn('select from these only', content)
+        self.assertIn('Label A; Label B', content)
+        # the count question reads as a natural question too
+        self.assertIn('plain_0: How many lymph nodes were examined in total?',
+                      content)
+
+    def test_help_text_is_the_question_with_fallback(self):
+        from extractor.services.extraction_split import _question_for
+        f = self._f('site_0')
+        self.assertEqual(_question_for(f),
+                         'Select the anatomical location of the cancer? (FMA code)')
+        # a help text without a trailing '?' gets one
+        f1 = self._f('site_1')
+        f1.help_text = 'Side of the body where the lesion is on'
+        self.assertEqual(_question_for(f1),
+                         'Side of the body where the lesion is on?')
+        # a trailing period becomes the question mark
+        f2 = self._f('site_2')
+        f2.help_text = 'Anatomical location of the lesion.'
+        self.assertEqual(_question_for(f2),
+                         'Anatomical location of the lesion?')
+        # no help text at all -> generated question
+        f3 = self._f('site_3')
+        f3.help_text = ''
+        self.assertEqual(_question_for(f3), 'What is the site 3?')
+
+    def test_docstring_is_included_as_table_context(self):
+        import client_app.models as cm
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC TEXT')
+        content = msgs[-1]['content']
+        doc = (cm.Diagnosis.__doc__ or '').strip()
+        self.assertIn('TABLE CONTEXT:', content)
+        if doc:
+            self.assertIn(doc.splitlines()[0].strip(), content)
+
+    def test_parent_records_block_present_only_for_children(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        parent = [{'site_0': 'Left', 'plain_0': 1}]
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC',
+            ancestor_records=parent)
+        self.assertIn('PARENT RECORDS:', msgs[-1]['content'])
+        self.assertIn('Left', msgs[-1]['content'])
+        msgs2 = build_table_question_prompt(
+            self.rm, self.rmt_d, self._diagnosis_fields(), 'DOC')
+        self.assertNotIn('PARENT RECORDS:', msgs2[-1]['content'])
+
+    def test_neutral_granularity_line_present(self):
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+        msgs = build_table_question_prompt(
+            self.rm, self.rmt_p, self._pathology_fields(), 'DOC')
+        content = msgs[-1]['content']
+        self.assertIn('ONE record', content)
+        self.assertIn('{"records": []}', content)
+        self.assertNotIn('exactly ONE record object for the', content)
+
+
+class GapFillTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.f_site = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        self.f_plain = make_field(self.diagnosis, 'plain_0', field_type='int')
+        for i, f in enumerate((self.f_site, self.f_plain)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        self.source = 'PATHOLOGY REPORT. 1 node involved.'
+
+    def _client(self, create):
+        client = Mock()
+        client.chat.completions.create_with_completion.side_effect = create
+        return client
+
+    def _call_refill(self, client, records, asked):
+        from types import SimpleNamespace
+        job = SimpleNamespace(id=99)
+        ctx = {'lookup_rules': {}, 'source_text': self.source}
+        return InstructorExtractionService._refill_null_fields(
+            job, self.rm, self.rmt_d,
+            [self.f_site, self.f_plain], asked, records, self.source,
+            resolved_options={}, ancestor_records=None, client=client,
+            client_config=self.rm.client, validation_context=ctx)
+
+    def test_null_fields_for_requires_all_records_empty(self):
+        from extractor.services.instructor_extractor import null_fields_for
+        records = [{'plain_0': 1, 'site_0': None},
+                   {'plain_0': None, 'site_0': None}]
+        asked = null_fields_for(records, [self.f_site, self.f_plain])
+        self.assertEqual(asked, [self.f_site])
+
+    def test_refill_fills_only_nulls_and_never_overwrites(self):
+        from types import SimpleNamespace
+        records = [{'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                           'quotes': [], 'rationale': 'not stated'}]}]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=9))
+
+        def create(**kwargs):
+            wrapper = kwargs['response_model']
+            from typing import get_args, get_origin
+            record_cls = get_args(wrapper.model_fields['records'].annotation)[0]
+            # subset model: only the asked field (plus assessments)
+            self.assertEqual(set(record_cls.model_fields),
+                             {'plain_0', 'field_assessments'})
+            # LLM answers the focused question with plain_0=2 and
+            # (temptingly) site_0='Right'
+            return wrapper(records=[{'plain_0': 2, 'site_0': 'Right',
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'explicit',
+                                          'quotes': ['1 node involved.'],
+                                          'rationale': 'stated'}]}]), \
+                completion
+
+        updated, tokens = self._call_refill(
+            self._client(create), records, [self.f_plain])
+        self.assertEqual(updated[0]['plain_0'], 2)
+        self.assertEqual(updated[0]['site_0'], 'Left')  # not overwritten
+        self.assertEqual(tokens, 9)
+
+    def test_refill_discards_misaligned_record_counts(self):
+        from types import SimpleNamespace
+        records = [
+            {'site_0': 'Left', 'plain_0': None,
+             'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                    'quotes': [], 'rationale': 'a'}]},
+            {'site_0': 'Right', 'plain_0': None,
+             'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                    'quotes': [], 'rationale': 'b'}]},
+        ]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+
+        def create(**kwargs):
+            wrapper = kwargs['response_model']
+            # misaligned: a single record for two pass-1 records
+            return wrapper(records=[{'plain_0': 1,
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'explicit',
+                                          'quotes': ['1 node involved.'],
+                                          'rationale': 'one'}]}]), \
+                completion
+
+        updated, tokens = self._call_refill(
+            self._client(create), records, [self.f_plain])
+        self.assertEqual(updated, records)  # unchanged
+        self.assertEqual(tokens, 5)  # the misaligned call was still spent
+
+    def test_refill_prompt_asks_only_null_fields_and_keeps_document_first(self):
+        from types import SimpleNamespace
+        records = [{'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{'field': 'plain_0', 'basis': 'unknown',
+                                           'quotes': [], 'rationale': 'not stated'}]}]
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=7))
+        seen = {}
+
+        def create(**kwargs):
+            seen['messages'] = kwargs['messages']
+            wrapper = kwargs['response_model']
+            return wrapper(records=[{'plain_0': None,
+                                     'field_assessments': [
+                                         {'field': 'plain_0', 'basis': 'unknown',
+                                          'quotes': [],
+                                          'rationale': 'still missing'}]}]), \
+                completion
+
+        self._call_refill(self._client(create), records, [self.f_plain])
+        content = seen['messages'][-1]['content']
+        lower = content.lower()
+        self.assertIn('previous extraction pass', lower)  # focused framing
+        self.assertIn('left empty', lower)
+        self.assertLess(content.index('<document>'), content.index('QUESTIONS'))
+        self.assertNotIn('site_0', content)  # answered field not re-asked
+
+
+class ChunkModelTests(TestCase):
+    def setUp(self):
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.f_site = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        self.f_count = make_field(self.diagnosis, 'count', field_type='int')
+        for i, f in enumerate((self.f_site, self.f_count)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt, field=f, order=i)
+
+    def _build(self, fields, **kwargs):
+        return PydanticModelBuilder.build_table_response_model(
+            self.rmt, fields, **kwargs)
+
+    def test_record_model_has_only_chunk_fields(self):
+        wrapper, record = self._build([self.f_site, self.f_count],
+                                      with_parent_index=True)
+        self.assertEqual(
+            set(record.model_fields),
+            {'site_0', 'count', 'parent_index', 'field_assessments'})
+        inst = wrapper(records=[{
+            'site_0': 'Left', 'count': 0, 'parent_index': 0,
+            'field_assessments': [{'field': 'count', 'basis': 'inferred',
+                                   'quotes': [], 'rationale': 'absent'}],
+        }])
+        self.assertEqual(inst.records[0].site_0, 'Left')
+        self.assertEqual(wrapper(records=[]).records, [])
+
+    def test_lookup_membership_uses_context_rules(self):
+        from pydantic import ValidationError
+        _, record = self._build([self.f_site, self.f_count])
+        ctx = {'lookup_rules': {'diagnosis.site_0': {
+            'allowed': {'left'}, 'candidates': ['Left']}}}
+        with self.assertRaises(ValidationError):
+            record.model_validate(
+                {'site_0': 'Wrong', 'count': 0,
+                 'field_assessments': [{'field': 'count',
+                                        'basis': 'unknown', 'quotes': [],
+                                        'rationale': 'missing'}]},
+                context=ctx)
+        ok = record.model_validate(
+            {'site_0': 'Left', 'count': 0,
+             'field_assessments': [{'field': 'count',
+                                    'basis': 'inferred', 'quotes': [],
+                                    'rationale': 'absent'}]},
+            context=ctx)
+        self.assertEqual(ok.site_0, 'Left')
+
+    def test_no_assessment_field_for_lookup_only_chunk(self):
+        _, record = self._build([self.f_site])
+        self.assertNotIn('field_assessments', record.model_fields)
+
+    def test_date_pair_enforced_only_when_both_fields_in_chunk(self):
+        from pydantic import ValidationError
+        self.diagnosis.date_validation_pairs = [('d_start', 'd_end')]
+        self.diagnosis.save()
+        f_start = make_field(self.diagnosis, 'd_start',
+                             field_type=EntityTypeChoices.DATE)
+        f_end = make_field(self.diagnosis, 'd_end',
+                           field_type=EntityTypeChoices.DATE)
+        _, both = self._build([f_start, f_end])
+        with self.assertRaises(ValidationError):
+            both.model_validate({'d_start': '2024-02-01',
+                                 'd_end': '2024-01-01'})
+        _, single = self._build([f_start])
+        ok = single.model_validate({'d_start': '2024-02-01'})
+        self.assertEqual(ok.d_start, '2024-02-01')
+
+
+class MergeTests(TestCase):
+    def test_single_parent_rescue(self):
+        from extractor.services.extraction_split import rescue_single_parent
+        children = [{'a': 1, 'parent_index': None},
+                    {'a': 2, 'parent_index': 9}]
+        fixed = rescue_single_parent(children, 1)
+        self.assertEqual(fixed, 2)
+        self.assertEqual([c['parent_index'] for c in children], [0, 0])
+        # with several parents, bad indices are left for nest_children to drop
+        children2 = [{'a': 1, 'parent_index': None}]
+        self.assertEqual(rescue_single_parent(children2, 2), 0)
+        self.assertIsNone(children2[0]['parent_index'])
+
+    def test_nest_children_by_parent_index(self):
+        from extractor.services.extraction_split import nest_children
+        parents = [{'x': 1}, {'x': 2}]
+        children = [
+            {'a': 'c1', 'parent_index': 0},
+            {'a': 'c2', 'parent_index': 1},
+            {'a': 'c3', 'parent_index': 7},
+            {'a': 'c4', 'parent_index': None},
+        ]
+        out, dropped = nest_children(parents, children, 'pathology')
+        self.assertEqual([c['a'] for c in out[0]['pathology']], ['c1'])
+        self.assertEqual([c['a'] for c in out[1]['pathology']], ['c2'])
+        self.assertNotIn('parent_index', out[0]['pathology'][0])
+        self.assertEqual(dropped, 2)
+
+
+class StagePlanningTests(TestCase):
+    def setUp(self):
+        import hashlib
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        f1 = make_field(self.diagnosis, 'site_0', lookup_field=True)
+        f2 = make_field(self.diagnosis, 'plain_0', field_type='int')
+        for i, f in enumerate((f1, f2)):
+            ResponseModelTableField.objects.create(
+                response_model_table=self.rmt_d, field=f, order=i)
+        f3 = make_field(self.pathology, 'date_pathology')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_p, field=f3, order=0)
+
+        self.user = User.objects.create(username='planner')
+        self.source = 'PATHOLOGY REPORT text'
+        self.upload = FileUpload.objects.create(file='s.pdf')
+        self.processed = ProcessedText.objects.create(
+            file_upload=self.upload, content_length=len(self.source))
+        self.digest = hashlib.sha256(self.source.encode('utf-8')).hexdigest()
+
+    def _job(self, status):
+        return ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user, extraction_status=status,
+            input_content_hash=self.digest)
+
+    def _patch_mining(self):
+        self.enterContext(patch.object(
+            InstructorExtractionService, 'mine_lookup_snippets',
+            return_value=({}, 0)))
+        self.enterContext(patch.object(
+            InstructorExtractionService, 'recheck_empty_snippets',
+            return_value=({}, 0, ['diagnosis.site_0'])))
+        self.enterContext(patch.object(
+            InstructorExtractionService, '_get_llm_client',
+            return_value=Mock()))
+
+    def test_stage_mine_traces_one_prompt_entry_per_call(self):
+        from extractor.models import ExtractionStatusChoices
+        from extractor.services.extraction_split import plan_extraction_calls
+        self._patch_mining()
+        job = self._job(ExtractionStatusChoices.AWAITING_MINING)
+        result = InstructorExtractionService.stage_mine(job, self.source)
+        self.assertIsNone(result)  # parked for approval
+        job.refresh_from_db()
+        entries = [e for e in job.stage_trace
+                   if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
+        expected = plan_extraction_calls(self.rm)
+        self.assertEqual(len(entries), len(expected))
+        self.assertEqual(
+            [e['index'] for e in entries],
+            list(range(len(expected))))
+        self.assertTrue(all('messages' in e and e['fields'] for e in entries))
+        self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
+        self.assertEqual(job.extraction_status,
+                         ExtractionStatusChoices.AWAITING_EXTRACTION)
+        self.assertEqual(json.loads(job.prompt_snapshot)[0]['table'],
+                         'diagnosis')
+
+    def test_stage_mine_refuses_call_over_context_budget(self):
+        from extractor.models import ExtractionStatusChoices
+        self._patch_mining()
+        # mutate the cached client instance — ORM .update() would not
+        # reach the already-resolved response_model.client object
+        self.rm.client.context_size = 100
+        job = self._job(ExtractionStatusChoices.AWAITING_MINING)
+        with self.assertRaises(ValueError):
+            InstructorExtractionService.stage_mine(job, self.source)
+
+    def test_stage_prepare_no_lookup_builds_plan_entries(self):
+        from extractor.models import ExtractionStatusChoices
+        f1 = DatabaseField.objects.get(
+            clientapp_field_name='site_0',
+            clientapp_database_table=self.diagnosis)
+        f1.lookup_field = False
+        f1.save()
+        job = self._job(ExtractionStatusChoices.PENDING)
+        result = InstructorExtractionService.stage_prepare(job, self.source)
+        self.assertIsNone(result)
+        job.refresh_from_db()
+        entries = [e for e in job.stage_trace
+                   if e.get('stage') == 'extraction' and e.get('kind') == 'prompt']
+        self.assertEqual(len(entries), 2)  # diagnosis + pathology, one call each
+        self.assertEqual([e['table'] for e in entries], ['diagnosis', 'pathology'])
+        self.assertTrue(all(e['call_kind'] == 'table' for e in entries))
+        self.assertEqual(job.config_snapshot['extraction_plan_version'], 2)
+        self.assertEqual(job.extraction_status,
+                         ExtractionStatusChoices.AWAITING_EXTRACTION)
+
+
+class TableExtractTests(TestCase):
+    def setUp(self):
+        import hashlib
+        self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
+        self.pathology = make_table('pathology', [
+            {'field': 'diagnosis', 'model': 'client_app.diagnosis', 'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rm = make_response_model()
+        self.rmt_d = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.diagnosis)
+        self.rmt_p = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.pathology)
+        make_field(self.diagnosis, 'site_0', lookup_field=True)
+        make_field(self.diagnosis, 'plain_0', field_type='int')
+        f_date = make_field(self.pathology, 'date_pathology')
+        rmtf = ResponseModelTableField.objects
+        rmtf.create(response_model_table=self.rmt_d,
+                    field=DatabaseField.objects.get(
+                        clientapp_field_name='site_0',
+                        clientapp_database_table=self.diagnosis), order=0)
+        rmtf.create(response_model_table=self.rmt_d,
+                    field=DatabaseField.objects.get(
+                        clientapp_field_name='plain_0',
+                        clientapp_database_table=self.diagnosis), order=1)
+        rmtf.create(response_model_table=self.rmt_p, field=f_date, order=0)
+
+        self.user = User.objects.create(username='runner')
+        self.upload = FileUpload.objects.create(file='s.pdf')
+        self.source = 'PATHOLOGY REPORT. 1 node involved.'
+        self.processed = ProcessedText.objects.create(
+            file_upload=self.upload, content_length=len(self.source))
+        digest = hashlib.sha256(self.source.encode('utf-8')).hexdigest()
+        self.job = ExtractionJob.objects.create(
+            response_model=self.rm, processed_file=self.processed,
+            extracted_by=self.user,
+            extraction_status=ExtractionStatusChoices.AWAITING_EXTRACTION,
+            input_content_hash=digest,
+            config_snapshot={'field_assessment_version': 1,
+                             'extraction_plan_version': 2})
+        # Trace the real plan exactly as stage_mine would (mining is
+        # patched out) and freeze the job
+        with patch.object(InstructorExtractionService, 'mine_lookup_snippets',
+                          return_value=({}, 0)), \
+             patch.object(InstructorExtractionService,
+                          'recheck_empty_snippets',
+                          return_value=({}, 0, ['diagnosis.site_0'])), \
+             patch.object(InstructorExtractionService, '_get_llm_client',
+                          return_value=Mock()):
+            self.job.extraction_status = \
+                ExtractionStatusChoices.AWAITING_MINING
+            InstructorExtractionService.stage_mine(self.job, self.source)
+        self.job.refresh_from_db()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+    def _record_for(self, wrapper, entry):
+        table = entry['table']
+        if table == 'diagnosis':
+            # one call per table: the diagnosis call carries both the
+            # lookup and the reasoning fields
+            return wrapper(records=[{
+                'site_0': 'Left',
+                'plain_0': 1,
+                'field_assessments': [{
+                    'field': 'plain_0', 'basis': 'explicit',
+                    'quotes': ['1 node involved.'],
+                    'rationale': 'stated'}],
+            }])
+        if table == 'pathology':
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}])
+        if table == 'lesion':
+            return wrapper(records=[{'lesion_size': 'tumor mass'}])
+        raise AssertionError(f'unexpected call for {table}')
+
+    def _run(self, fail_table=None):
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=11))
+        state = {'i': 0}
+
+        def create(**kwargs):
+            i = state['i']
+            state['i'] += 1
+            if fail_table and self.entries[i]['table'] == fail_table:
+                raise Exception('provider down')
+            return self._record_for(kwargs['response_model'],
+                                    self.entries[i]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+    def test_table_extraction_saves_nested_result(self):
+        self._run()
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            len(self.entries))
+        self.saved.assert_called_once()
+        data = self.saved.call_args.args[1]
+        self.assertEqual(set(data), {'diagnosis'})
+        rec = data['diagnosis'][0]
+        self.assertEqual(rec['site_0'], 'Left')
+        self.assertEqual(rec['plain_0'], 1)
+        self.assertEqual(rec['pathology'][0]['date_pathology'], '2024-01-02')
+        self.assertNotIn('parent_index', rec['pathology'][0])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.COMPLETED)
+        self.assertEqual(
+            json.loads(self.job.raw_llm_response)['diagnosis'][0]['site_0'],
+            'Left')
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['kind'], 'result')
+        self.assertEqual(final.get('failed_calls'), [])
+        # no null fields -> no gap-fill passes; trace entries carry the
+        # pass key (1 = the main per-table call)
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result']
+        self.assertEqual(len(call_results), len(self.entries))
+        self.assertTrue(all(e.get('pass') == 1 for e in call_results))
+
+    def test_partial_save_when_a_call_fails(self):
+        # Second independent root table (lesion, parent Patient) so a
+        # failing diagnosis root can still leave saved data -> PARTIAL
+        self.lesion = make_table('lesion', [PATIENT_STEP])
+        self.rmt_l = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.lesion)
+        f_lesion = make_field(self.lesion, 'lesion_size')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_l, field=f_lesion, order=0)
+        # Replace the traced extraction prompts with a plan that includes
+        # the new lesion table
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+        self._run(fail_table='diagnosis')
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.PARTIAL)
+        self.assertIn('diagnosis', self.job.extraction_error)
+        calls = self._client.chat.completions.create_with_completion
+        self.assertEqual(calls.call_count, 2)
+        # diagnosis failed (one call per table), lesion ran, pathology
+        # skipped (not charged)
+        self.saved.assert_called_once()
+        data = self.saved.call_args.args[1]
+        self.assertEqual(data.get('diagnosis', []), [])
+        self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
+
+    def _setup_client(self, create):
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+    def test_gap_fill_passes_run_for_null_fields(self):
+        # diagnosis leaves plain_0 null on the main pass -> one focused
+        # gap-fill re-ask for just that field, merged without touching
+        # site_0.
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            fields = set(record_cls.model_fields)
+            if fields == {'plain_0', 'field_assessments'}:
+                # gap-fill re-ask: the subset model only asks plain_0
+                self.assertIn('previous extraction pass',
+                              kwargs['messages'][0]['content'])
+                self.assertNotIn('site_0:',
+                                 kwargs['messages'][0]['content'])
+                return wrapper(records=[{
+                    'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if fields == {'site_0', 'plain_0', 'field_assessments'}:
+                # diagnosis main pass: site_0 answered, plain_0 left null
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            # pathology
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        # diagnosis main + diagnosis gap-fill + pathology main
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            3)
+        data = self.saved.call_args.args[1]
+        rec = data['diagnosis'][0]
+        self.assertEqual(rec['site_0'], 'Left')
+        self.assertEqual(rec['plain_0'], 1)
+        self.job.refresh_from_db()
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1, 2])
+
+    def test_gap_fill_stops_when_second_pass_fills_nothing(self):
+        # diagnosis leaves plain_0 null; the gap-fill re-ask returns it
+        # still null -> nothing filled -> a third pass must NOT run.
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            fields = set(record_cls.model_fields)
+            if fields == {'plain_0', 'field_assessments'}:
+                # the re-ask still cannot find the value
+                return wrapper(records=[{
+                    'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            if fields == {'site_0', 'plain_0', 'field_assessments'}:
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': None,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'unknown',
+                        'quotes': [], 'rationale': 'missing'}]}]), completion
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        # diagnosis main + ONE gap-fill + pathology main — no third pass
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            3)
+        data = self.saved.call_args.args[1]
+        self.assertIsNone(data['diagnosis'][0].get('plain_0'))
+        self.job.refresh_from_db()
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1, 2])
+
+    def test_gap_fill_skips_tables_with_no_records(self):
+        # A table the document does not mention (0 records) must not
+        # trigger a gap-fill re-ask — there is nothing to fill.
+        # (The job fails overall: the only root table is empty.)
+        from types import SimpleNamespace
+        from typing import get_args
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            record_cls = get_args(
+                wrapper.model_fields['records'].annotation)[0]
+            if set(record_cls.model_fields) == \
+                    {'site_0', 'plain_0', 'field_assessments'}:
+                return wrapper(records=[]), completion
+            return wrapper(records=[{
+                'date_pathology': '2024-01-02', 'parent_index': 0}]), \
+                completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        # diagnosis main (0 records) + pathology main — NO gap-fill call
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            2)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.FAILED)
+        self.assertIn('no data', (self.job.extraction_error or '').lower())
+        call_results = [e for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result'
+                        and e.get('table') == 'diagnosis']
+        self.assertEqual([e.get('pass') for e in call_results], [1])
+
+    def test_grandchild_nests_under_its_parent_record(self):
+        # IHC (child of pathology, grandchild of diagnosis) with one
+        # parent record: IHC nests inside the pathology record, which
+        # sits inside the diagnosis record.
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology',
+             'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+        f_ihc = make_field(self.ihc, 'protein_name')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_i, field=f_ihc, order=0)
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+        from types import SimpleNamespace
+        state = {'i': 0}
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+
+        def create(**kwargs):
+            i = state['i']
+            state['i'] += 1
+            wrapper = kwargs['response_model']
+            table = self.entries[i]['table']
+            if table == 'diagnosis':
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if table == 'pathology':
+                return wrapper(records=[{
+                    'date_pathology': '2024-01-02',
+                    'parent_index': 0}]), completion
+            return wrapper(records=[{
+                'protein_name': 'Ki-67', 'parent_index': 0}]), completion
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        data = self.saved.call_args.args[1]
+        p = data['diagnosis'][0]['pathology'][0]
+        self.assertEqual(p['immunohistochemistry'][0]['protein_name'],
+                         'Ki-67')
+        self.assertNotIn('parent_index', p['immunohistochemistry'][0])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.COMPLETED)
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['dropped_orphans'], 0)
+
+    def test_grandchild_of_failed_table_is_skipped_not_crashing(self):
+        # IHC (child of pathology, grandchild of diagnosis): the
+        # pathology call fails, so the IHC call must be SKIPPED (not
+        # executed, not charged) rather than raising KeyError.
+        from types import SimpleNamespace
+        self.ihc = make_table('immunohistochemistry', [
+            {'field': 'pathology', 'model': 'client_app.pathology',
+             'pk_field': 'pk'},
+            PATIENT_STEP])
+        self.rmt_i = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.ihc)
+        f_ihc = make_field(self.ihc, 'protein_name')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_i, field=f_ihc, order=0)
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+        self.assertEqual([e['table'] for e in self.entries],
+                         ['diagnosis', 'pathology', 'immunohistochemistry'])
+
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=5))
+        calls = []
+
+        def create(**kwargs):
+            table = self.entries[len(calls)]['table']
+            calls.append(kwargs)
+            wrapper = kwargs['response_model']
+            if table == 'diagnosis':
+                return wrapper(records=[{
+                    'site_0': 'Left', 'plain_0': 1,
+                    'field_assessments': [{
+                        'field': 'plain_0', 'basis': 'explicit',
+                        'quotes': ['1 node involved.'],
+                        'rationale': 'stated'}]}]), completion
+            if table == 'pathology':
+                raise Exception('provider down')
+            raise AssertionError(f'unexpected call for {table}')
+
+        self._client = Mock()
+        self._client.chat.completions.create_with_completion.side_effect = \
+            create
+        self.enterContext(patch.object(InstructorExtractionService,
+                                      '_get_llm_client',
+                                      return_value=self._client))
+        self.enterContext(patch('django.db.transaction.atomic',
+                                side_effect=nullcontext))
+        coverage = Mock()
+        coverage.values.return_value.annotate.return_value = \
+            [{'result_state': 'extracted', 'n': 1}]
+        self.enterContext(patch.object(ExtractionResult.objects, 'filter',
+                                      return_value=coverage))
+        self.saved = self.enterContext(patch.object(
+            InstructorExtractionService, 'save_extraction_results'))
+
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.PARTIAL)
+        self.assertIn('pathology', self.job.extraction_error)
+        self.assertIn('skipped: immunohistochemistry',
+                      self.job.extraction_error)
+        # the IHC call was never executed
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            2)
+        final = self.job.stage_trace[-1]
+        self.assertEqual(final['dropped_orphans'], 0)
+        data = self.saved.call_args.args[1]
+        self.assertEqual(len(data['diagnosis']), 1)
+        self.assertNotIn('pathology', data['diagnosis'][0])
+        self.assertNotIn('immunohistochemistry', str(data))
+

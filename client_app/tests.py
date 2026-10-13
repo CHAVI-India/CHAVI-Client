@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from client_app.models import Notification, TaskRun
+import client_app.models as models
 from client_app.tasks import (
     MAX_AUTO_CONTINUE_ATTEMPTS,
     _auto_continue_task,
@@ -185,3 +186,57 @@ class FlashMessageRenderingTests(TestCase):
         self.assertNotContains(response, 'Only failed or stalled tasks can be resumed.')
 
 # Create your tests here.
+
+
+EXTRACTION_CAPABLE_MODELS = {
+    name: getattr(models, cls) for name, cls in {
+        'Patient': 'Patient',
+        'Diagnosis': 'Diagnosis',
+        'Pathology': 'Pathology',
+        'Immunohistochemistry': 'Immunohistochemistry',
+        'Cytogenetics': 'Cytogenetics',
+        'SomaticGenomicAlterations': 'SomaticGenomicAlterations',
+        'GeneExpressionData': 'GeneExpressionData',
+        'EpigeneticData': 'EpigeneticData',
+        'StageInformation': 'StageInformation',
+        'Surgery': 'Surgery',
+        'Lesion': 'Lesion',
+        'LesionResponse': 'LesionResponse',
+        'Symptom': 'Symptom',
+        'Comorbidity': 'Comorbidity',
+        'ConcomitantMedications': 'ConcomitantMedications',
+        'SystemicTherapy': 'SystemicTherapy',
+        'SystemicTherapySchedule': 'SystemicTherapySchedule',
+        'Radiotherapy': 'Radiotherapy',
+        'RadiotherapyVolume': 'RadiotherapyVolume',
+        'RadiotherapyDoseVolumeData': 'RadiotherapyDoseVolumeData',
+        'AdverseEffects': 'AdverseEffects',
+        'OtherTreatment': 'OtherTreatment',
+        'Outcome': 'Outcome',
+        'PatientReportedOutcome': 'PatientReportedOutcome',
+        'PatientOutcome': 'PatientOutcome',
+        'LaboratoryResults': 'LaboratoryResults',
+        'PatientAssessment': 'PatientAssessment',
+    }.items()
+}
+
+
+class ModelDocstringTests(TestCase):
+    """Extraction-capable models carry a record-granularity docstring.
+
+    The stage-2 extraction pathway injects each table's model docstring
+    verbatim into the LLM prompt as table context, so every extraction-
+    capable model must state what it records and when one record vs
+    multiple records are returned.
+    """
+
+    def test_extraction_capable_models_carry_a_record_granularity_docstring(self):
+        for name, model in EXTRACTION_CAPABLE_MODELS.items():
+            doc = (model.__doc__ or '').strip()
+            with self.subTest(model=name):
+                self.assertGreaterEqual(len(doc), 80,
+                                        f"{name} docstring too short")
+                self.assertRegex(
+                    doc, r'record',
+                    f"{name} docstring must state record granularity")
+

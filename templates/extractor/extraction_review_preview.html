@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Extraction Review - CHAVI Client{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'extractor/review_cards.css' %}">
+{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-7xl px-4 py-8">
     {% url 'extractor:extraction_job_detail' extraction_job.id as job_url %}
@@ -54,34 +58,45 @@
             {% elif item.operation == 'link' %}
             <p class="text-sm text-gray-600">This extracted record will be linked to the selected existing record without changing it.</p>
             {% else %}
-            {% component "table" bare=True %}
-                {% fill "head" %}
-                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Field</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Current</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Will save</th>
-                {% endfill %}
-                {% fill "body" %}
-                    {% for row in item.rows %}
-                    <tr class="{% if item.before %}{% if row.before != row.after %}row-warning{% endif %}{% endif %}">
-                        <td class="px-4 py-3 font-semibold text-gray-700 text-sm">
-                            {{ row.name }}
+            <div>
+                {% for row in item.rows %}
+                <div class="field-card{% if item.before and row.before != row.after %} field-card-changed{% endif %}">
+                    <div class="field-card-top">
+                        <div class="field-card-label">
+                            <span class="field-title">{{ row.name }}</span>
+                        </div>
+                        <div class="field-card-source">
                             {% if row.extraction %}
-                            {% component "accordion" extra_class="mt-1 text-xs font-normal" %}
-                                {% fill "summary" %}Original LLM extraction: {{ row.extraction.label }}{% if row.extraction.basis == 'clinical_inference' %} — not explicitly reported{% endif %}{% endfill %}
-                                {% fill "default" %}
-                                <div>Original value: {% if row.extraction.value is None or row.extraction.value == "" %}—{% else %}{{ row.extraction.value }}{% endif %}</div>
-                                {% if row.extraction.note %}<div>{{ row.extraction.note }}</div>{% endif %}
-                                {% if row.extraction.evidence %}<div>Source evidence: {{ row.extraction.evidence }}</div>{% endif %}
-                                {% endfill %}
-                            {% endcomponent %}
+                            <span class="field-source-caption">LLM extraction</span>
+                            <span class="field-source-value">{% if row.extraction.value is None or row.extraction.value == "" %}—{% else %}{{ row.extraction.value }}{% endif %}</span>
+                            {% if row.extraction.label %}<span class="field-source-note">{{ row.extraction.label }}{% if row.extraction.basis == 'clinical_inference' %} — not explicitly reported{% endif %}</span>{% endif %}
+                            {% if row.extraction.note %}<span class="field-source-note">{{ row.extraction.note }}</span>{% endif %}
+                            {% if row.extraction.evidence %}
+                            <!-- ui-lint:ok nested evidence disclosure --><details class="field-source-evidence">
+                                <summary>Source evidence</summary>
+                                <div class="field-evidence-text">{{ row.extraction.evidence }}</div>
+                            </details>
                             {% endif %}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">{% if row.before is None or row.before == "" %}—{% else %}{{ row.before }}{% endif %}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">{% if row.after is None or row.after == "" %}—{% else %}{{ row.after }}{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                {% endfill %}
-            {% endcomponent %}
+                            {% else %}
+                            <span class="text-xs text-gray-400">No LLM extraction recorded</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="field-card-bottom">
+                        <div class="field-card-values">
+                            <div class="field-card-value">
+                                <span>Current</span>
+                                <span class="field-value-text">{% if row.before is None or row.before == "" %}—{% else %}{{ row.before }}{% endif %}</span>
+                            </div>
+                            <div class="field-card-value{% if item.before and row.before != row.after %} is-changed{% endif %}">
+                                <span>Will save</span>
+                                <span class="field-value-text">{% if row.after is None or row.after == "" %}—{% else %}{{ row.after }}{% endif %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
             <div class="mt-4 space-y-1 text-xs text-gray-600">
                 {% for field_id, decision in item.field_decisions.items %}
                 <p>field {{ field_id }}: <span class="font-semibold">{{ decision.review_change }}</span> · {{ decision.data_accuracy }}{% if not decision.applied %} · not applied{% endif %}</p>
@@ -95,7 +110,7 @@
 
     {% if batch.status == 'pending' %}
     <form method="post" action="{% url 'extractor:extraction_review_approve' extraction_job.id batch.id %}"
-          class="sticky bottom-0 mt-6 rounded-lg bg-white p-5 shadow-lg border border-chavi-sand-200">
+          class="sticky bottom-0 mt-6 rounded-lg bg-white p-5 shadow-lg border border-chavi-sand-200" data-scroll-bottom-offset>
         {% csrf_token %}
         {% if snapshot.warnings.duplicates %}
         <label class="mb-3 flex items-start gap-2 text-sm text-gray-800">
@@ -127,5 +142,6 @@
         {% endfill %}
     {% endcomponent %}
     {% endif %}
+    {% include 'extractor/scroll_to_bottom.html' %}
 </div>
 {% endblock %}

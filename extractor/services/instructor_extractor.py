@@ -21,6 +21,21 @@ from extractor.services.url_policy import validate_base_url
 log = getLogger(__name__)
 
 
+def null_fields_for(records, fields):
+    """
+    The fields still empty on EVERY record — None, '' or absent. A single
+    record with a value means the field is answered. `field_assessments`
+    entries are extraction metadata, not field values.
+    """
+    out = []
+    for field in fields:
+        name = field.clientapp_field_name
+        if all(name not in rec or rec.get(name) in (None, '')
+               for rec in records):
+            out.append(field)
+    return out
+
+
 class FieldSnippetEntry(BaseModel):
     """Verbatim document quotes for one field."""
     table: str
@@ -151,6 +166,17 @@ Values stay scalar numbers/booleans/null. Put explanations ONLY in field_assessm
 Assessments belong to this record, not to another record or its nested children.
 Do not create records or fields merely to provide assessments."""
 
+    MISSING_RULE_ASSESSMENT = (
+        "If information is missing or unclear and no supported inference applies, return null.")
+    MISSING_RULE_PLAIN = (
+        "If a field's information is absent or unclear, return null for that field.")
+    NEGATION_RULE_ASSESSMENT = (
+        "Represent negation in the field's required type; use the assessment rules below\n"
+        "   for numbers/booleans, not a text phrase in a scalar field.")
+    NEGATION_RULE_PLAIN = (
+        'Negation: if the document says something is absent/normal/not done, record\n'
+        '   what the document states (e.g. "no evidence of") — do not invent values.')
+
     @staticmethod
     def uses_field_assessments(extraction_job: ExtractionJob) -> bool:
         version = (extraction_job.config_snapshot or {}).get('field_assessment_version')
@@ -196,16 +222,12 @@ Do not create records or fields merely to provide assessments."""
         )
         assessment_rules = (InstructorExtractionService.ASSESSMENT_RULES
                             if include_field_assessments else '')
-        missing_rule = (
-            "If information is missing or unclear and no supported inference applies, return null."
-            if include_field_assessments else
-            "If a field's information is absent or unclear, return null for that field.")
-        negation_rule = (
-            "Represent negation in the field's required type; use the assessment rules below\n"
-            "   for numbers/booleans, not a text phrase in a scalar field."
-            if include_field_assessments else
-            'Negation: if the document says something is absent/normal/not done, record\n'
-            '   what the document states (e.g. "no evidence of") — do not invent values.')
+        missing_rule = (InstructorExtractionService.MISSING_RULE_ASSESSMENT
+                        if include_field_assessments
+                        else InstructorExtractionService.MISSING_RULE_PLAIN)
+        negation_rule = (InstructorExtractionService.NEGATION_RULE_ASSESSMENT
+                         if include_field_assessments
+                         else InstructorExtractionService.NEGATION_RULE_PLAIN)
 
         # Add the user message with field schema and processed content
         user_content = f"""Extract the following information from the document.
@@ -251,6 +273,57 @@ Example shape only: {{"diagnosis": [{{"diagnosis": "CA Breast", "cancer_side": "
 
         return messages
     
+    @staticmethod
+    def build_extraction_plan_entries(response_model, processed_content,
+                                      client_config, resolved_options):
+        """
+        The frozen per-call plan for per-table extraction — one
+        trace-ready entry per LLM call. Raises ValueError naming the
+        offending call when any prompt exceeds the client's context
+        budget, and when the response model has no extractable fields.
+
+        Note: child-table prompts are built here without parent records
+        (parents have not been extracted yet at planning time); the run
+        loop re-prompts children with their merged parent records.
+        """
+        from extractor.services.extraction_split import (
+            build_table_question_prompt, plan_extraction_calls_from_tree)
+
+        # build_table_tree is the module-level name on purpose — keeps
+        # the function patchable exactly like get_messages was
+        plan = plan_extraction_calls_from_tree(
+            *build_table_tree(response_model))
+        if not plan:
+            raise ValueError("No extractable fields configured for extraction")
+        entries = []
+        for call in plan:
+            model_table = call['model_table']
+            table_name = (model_table.database_table
+                          .clientapp_content_type.model)
+            messages = build_table_question_prompt(
+                response_model, model_table, call['fields'],
+                processed_content, resolved_options=resolved_options)
+            approx_tokens = sum(
+                len(m.get('content', '')) for m in messages) // 4
+            if approx_tokens > client_config.context_size:
+                raise ValueError(
+                    f"Extraction call {call['index']} ({table_name}, "
+                    f"{len(call['fields'])} fields) is ~{approx_tokens} "
+                    f"tokens, over the configured context size of "
+                    f"{client_config.context_size}. Split the document, or "
+                    "raise the client's context size.")
+            entries.append({
+                'index': call['index'],
+                'table': table_name,
+                'fields': [f.clientapp_field_name for f in call['fields']],
+                'call_kind': 'table',
+                'ancestry': [
+                    mt.database_table.clientapp_content_type.model
+                    for mt in call['ancestry']],
+                'messages': messages,
+            })
+        return entries
+
     @staticmethod
     def _field_schema_line(field, document_content: str = "",
                            resolved_options: Optional[Dict[int, List[Dict[str, Any]]]] = None,
@@ -990,26 +1063,23 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                         lookup_fields, processed_content)}])
             extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_MINING
         else:
-            # No lookup fields — nothing to mine, so build the stage-2
-            # prompt now and park for the single approval that remains
+            # No lookup fields — nothing to mine, so build the per-call
+            # plan now and park for the single approval that remains
             InstructorExtractionService._append_trace(
                 extraction_job, 'mining', 'result',
                 note='No lookup fields — mining stage skipped.',
                 snippets={}, resolved_options={}, tokens=0)
-            messages = InstructorExtractionService.get_messages(
-                response_model, processed_content, resolved_options={})
-            approx_tokens = sum(
-                len(m.get('content', '')) for m in messages) // 4
-            if approx_tokens > client_config.context_size:
-                raise ValueError(
-                    f"Prompt is ~{approx_tokens} tokens, over the configured "
-                    f"context size of {client_config.context_size}. Split the "
-                    f"document or raise the client's context size."
-                )
+            entries = InstructorExtractionService.build_extraction_plan_entries(
+                response_model, processed_content, client_config, {})
             extraction_job.config_snapshot['field_assessment_version'] = 1
-            extraction_job.prompt_snapshot = json.dumps(messages)
-            InstructorExtractionService._append_trace(
-                extraction_job, 'extraction', 'prompt', messages=messages)
+            extraction_job.config_snapshot['extraction_plan_version'] = 2
+            extraction_job.prompt_snapshot = json.dumps(entries)
+            for entry in entries:
+                InstructorExtractionService._append_trace(
+                    extraction_job, 'extraction', 'prompt',
+                    index=entry['index'], table=entry['table'],
+                    fields=entry['fields'], call_kind=entry['call_kind'],
+                    ancestry=entry['ancestry'], messages=entry['messages'])
             extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
 
         extraction_job.extraction_error = None
@@ -1083,25 +1153,18 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         }
         extraction_job.config_snapshot = config_snapshot
 
-        # Get messages
-        messages = InstructorExtractionService.get_messages(
-            response_model, processed_content, resolved_options=resolved_options)
-
-        # Freeze the exact prompt on the job before sending
-        extraction_job.prompt_snapshot = json.dumps(messages)
-
-        # Context budget: refuse rather than let the provider silently
-        # truncate the document tail (~4 chars/token estimate)
-        approx_tokens = sum(len(m.get('content', '')) for m in messages) // 4
-        if approx_tokens > client_config.context_size:
-            raise ValueError(
-                f"Prompt is ~{approx_tokens} tokens, over the configured "
-                f"context size of {client_config.context_size}. Split the "
-                f"document or raise the client's context size."
-            )
-
-        InstructorExtractionService._append_trace(
-            extraction_job, 'extraction', 'prompt', messages=messages)
+        # Freeze the per-call plan on the job before sending anything
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            response_model, processed_content, client_config, resolved_options)
+        config_snapshot['extraction_plan_version'] = 2
+        extraction_job.config_snapshot = config_snapshot
+        extraction_job.prompt_snapshot = json.dumps(entries)
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
         extraction_job.extraction_status = ExtractionStatusChoices.AWAITING_EXTRACTION
         extraction_job.save()
         return None
@@ -1129,6 +1192,13 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
         extraction_job.extraction_status = ExtractionStatusChoices.PROCESSING
         extraction_job.save()
+
+        # Per-table jobs (frozen per-call plan) run the sequential
+        # table-extraction path; everything else keeps the legacy single call
+        if (extraction_job.config_snapshot or {}).get(
+                'extraction_plan_version') == 2:
+            return InstructorExtractionService._run_table_extraction(
+                extraction_job, processed_content)
 
         client = InstructorExtractionService._get_llm_client(response_model)
         include_assessments = InstructorExtractionService.uses_field_assessments(extraction_job)
@@ -1252,6 +1322,406 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
 
         return InstructorExtractionService._job_result(
             True, data=clinical_data, tokens=tokens, raw=clinical_data)
+
+    @staticmethod
+    def _model_table_by_name(response_model, table_name):
+        from extractor.models import ResponseModelTable
+        return ResponseModelTable.objects.filter(
+            response_model=response_model,
+            database_table__clientapp_content_type__model=table_name,
+        ).first()
+
+    REASK_LEAD_INSTRUCTION = (
+        "In the previous extraction pass, the following fields of this "
+        "table were left empty. Re-read the document carefully and answer "
+        "only these questions. Do not repeat fields that already have "
+        "values.")
+
+    @staticmethod
+    def _refill_null_fields(extraction_job, response_model, model_table,
+                            fields, asked_fields, records, document, *,
+                            resolved_options, ancestor_records, client,
+                            client_config, validation_context):
+        """
+        One focused gap-fill call asking only `asked_fields` — the fields
+        still null after an earlier pass. Returns (updated_records,
+        tokens): pass-1 values are kept for every other field and only
+        non-null answers for the asked fields are filled in,
+        index-by-index. A response with a different record count than
+        `records` is discarded (the input records are returned
+        unchanged, with the tokens the call spent).
+        """
+        from extractor.services.extraction_split import (
+            build_table_question_prompt)
+
+        table_name = model_table.database_table.clientapp_content_type.model
+        include_assessments = 'source_text' in validation_context
+        messages = build_table_question_prompt(
+            response_model, model_table, asked_fields, document,
+            resolved_options=resolved_options,
+            ancestor_records=ancestor_records)
+        messages[0]['content'] = (
+            f"{InstructorExtractionService.REASK_LEAD_INSTRUCTION}\n\n"
+            + messages[0]['content'])
+
+        wrapper, _ = PydanticModelBuilder.build_table_response_model(
+            model_table, asked_fields,
+            include_field_assessments=include_assessments,
+            with_parent_index=ancestor_records is not None)
+
+        create_kwargs = dict(
+            model=client_config.llm_model_name,
+            response_model=wrapper,
+            messages=messages,
+            timeout=client_config.request_timeout,
+            **InstructorExtractionService._build_reasoning_kwargs(
+                client_config),
+        )
+        if client_config.model_max_tokens:
+            create_kwargs['max_tokens'] = client_config.model_max_tokens
+
+        result = None
+        completion = None
+        try:
+            result, completion = \
+                client.chat.completions.create_with_completion(
+                    context=validation_context, **create_kwargs)
+        except InstructorRetryException as e:
+            if not e.failed_attempts:
+                raise
+            log.warning(
+                f"Extraction job {extraction_job.id}: gap-fill call for "
+                f"{table_name} validation retries exhausted; repairing")
+            try:
+                result, completion, validation_context = \
+                    InstructorExtractionService._repair_failed_extraction(
+                        client, e, wrapper, create_kwargs,
+                        validation_context, extraction_job.id)
+            except Exception as repair_err:
+                log.error(f"{repair_err}", exc_info=True)
+        except Exception as e:
+            log.error(
+                f"Extraction job {extraction_job.id}: gap-fill call for "
+                f"{table_name} failed: {e}", exc_info=True)
+            return list(records), 0
+
+        usage = getattr(completion, 'usage', None)
+        tokens = int(getattr(usage, 'total_tokens', 0) or 0)
+        if result is None:
+            return list(records), tokens
+        if include_assessments:
+            try:
+                result = wrapper.model_validate(
+                    result.model_dump(), context=validation_context)
+            except ValidationError:
+                log.error(
+                    f"Extraction job {extraction_job.id}: gap-fill "
+                    f"response for {table_name} failed evidence "
+                    "validation; keeping previous answers")
+                return list(records), tokens
+        if len(result.records) != len(records):
+            log.warning(
+                f"Extraction job {extraction_job.id}: gap-fill for "
+                f"{table_name} returned {len(result.records)} records "
+                f"(expected {len(records)}); discarding the re-ask "
+                "answers")
+            return list(records), tokens
+
+        asked_names = [f.clientapp_field_name for f in asked_fields]
+        updated = []
+        for old, new in zip(records, result.records):
+            record = dict(old)
+            new_data = new.model_dump(mode='json') \
+                if hasattr(new, 'model_dump') else dict(new)
+            for name in asked_names:
+                value = new_data.get(name)
+                # earlier passes' answers are never re-asked or
+                # overwritten — fill nulls only, index-by-index
+                if value is not None \
+                        and record.get(name) in (None, ''):
+                    record[name] = value
+            fresh = {a['field']: a for a in
+                     new_data.get('field_assessments') or []
+                     if a.get('field') in asked_names}
+            if fresh:
+                kept = [a for a in record.get('field_assessments') or []
+                        if a.get('field') not in fresh]
+                record['field_assessments'] = kept + \
+                    [fresh[name] for name in asked_names if name in fresh]
+            updated.append(record)
+        return updated, tokens
+
+    @staticmethod
+    def _run_table_extraction(extraction_job, processed_content):
+        """
+        Sequential execution of the frozen per-table plan: one call per
+        table (document-first, question-style prompt), up to two focused
+        gap-fill passes per table for the fields still null after the
+        previous pass, then children are nested under their parents.
+        Completed tables are kept when later calls fail; child calls
+        whose ancestors failed are skipped. Always returns a result
+        dict.
+        """
+        from django.db import transaction
+        from django.db.models import Count
+
+        from extractor.services.extraction_split import (
+            build_table_question_prompt, nest_children,
+            rescue_single_parent)
+        from extractor.services.model_hierarchy import child_key
+
+        client_config = extraction_job.response_model.client
+        response_model = extraction_job.response_model
+        include_assessments = \
+            InstructorExtractionService.uses_field_assessments(extraction_job)
+
+        entries = [e for e in (extraction_job.stage_trace or [])
+                   if e.get('stage') == 'extraction'
+                   and e.get('kind') == 'prompt']
+        mine_entry = next(
+            (e for e in reversed(extraction_job.stage_trace or [])
+             if e.get('stage') == 'mining' and e.get('kind') == 'result'),
+            {}) or {}
+        resolved_options = {
+            int(k): v for k, v in mine_entry.get('resolved_options', {}).items()}
+        if not entries:
+            entries = InstructorExtractionService.build_extraction_plan_entries(
+                response_model, processed_content, client_config,
+                resolved_options)
+        if not entries:
+            return InstructorExtractionService._stage_fail(
+                extraction_job, 'No extraction calls planned.')
+
+        client = InstructorExtractionService._get_llm_client(response_model)
+        lookup_rules = InstructorExtractionService.build_lookup_rules(
+            response_model, resolved_options)
+        validation_context = {
+            PydanticModelBuilder.LOOKUP_CONTEXT_KEY: lookup_rules}
+        if include_assessments:
+            validation_context['source_text'] = processed_content
+
+        table_records = {}
+        failed_calls = []
+        skipped_calls = []
+        failed_tables = set()
+        call_tokens = 0
+
+        for entry in entries:
+            table = entry['table']
+            if any(anc in failed_tables for anc in entry.get('ancestry', [])):
+                skipped_calls.append(f"{table} (call {entry['index']})")
+                log.warning(
+                    f"Extraction job {extraction_job.id}: skipping "
+                    f"{table} — ancestor table failed")
+                continue
+
+            model_table = InstructorExtractionService._model_table_by_name(
+                response_model, table)
+            fields = [
+                tf.field for tf in ResponseModelTableField.objects.filter(
+                    response_model_table=model_table,
+                    field__clientapp_field_name__in=entry['fields'],
+                    field__is_active=True).order_by('order')]
+            ancestry = entry.get('ancestry') or []
+            # Child tables are re-prompted with their direct parent's
+            # merged records attached — the plan is parent-first, so the
+            # parent table already ran
+            parent_records = (table_records.get(ancestry[-1])
+                              if ancestry else None)
+            messages = entry['messages']
+            if ancestry and parent_records is not None:
+                messages = build_table_question_prompt(
+                    response_model, model_table, fields,
+                    processed_content,
+                    resolved_options=resolved_options,
+                    ancestor_records=parent_records)
+
+            wrapper, _ = PydanticModelBuilder.build_table_response_model(
+                model_table, fields,
+                include_field_assessments=include_assessments,
+                with_parent_index=bool(ancestry))
+
+            create_kwargs = dict(
+                model=client_config.llm_model_name,
+                response_model=wrapper,
+                messages=messages,
+                timeout=client_config.request_timeout,
+                **InstructorExtractionService._build_reasoning_kwargs(
+                    client_config),
+            )
+            if client_config.model_max_tokens:
+                create_kwargs['max_tokens'] = client_config.model_max_tokens
+
+            result = None
+            completion = None
+            try:
+                result, completion = \
+                    client.chat.completions.create_with_completion(
+                        context=validation_context, **create_kwargs)
+            except InstructorRetryException as e:
+                if not e.failed_attempts:
+                    raise
+                log.warning(
+                    f"Extraction job {extraction_job.id}: {table} call "
+                    f"{entry['index']} validation retries exhausted; "
+                    "repairing")
+                try:
+                    result, completion, validation_context = \
+                        InstructorExtractionService._repair_failed_extraction(
+                            client, e, wrapper, create_kwargs,
+                            validation_context, extraction_job.id)
+                except Exception as repair_err:
+                    log.error(f"{repair_err}", exc_info=True)
+            except Exception as e:
+                log.error(
+                    f"Extraction job {extraction_job.id}: {table} call "
+                    f"{entry['index']} failed: {e}", exc_info=True)
+
+            if result is None:
+                failed_calls.append(
+                    f"{table} (call {entry['index']})")
+                failed_tables.add(table)
+                continue
+
+            if include_assessments:
+                try:
+                    result = wrapper.model_validate(
+                        result.model_dump(), context=validation_context)
+                except ValidationError:
+                    log.error(
+                        f"Extraction job {extraction_job.id}: {table} "
+                        f"(call {entry['index']}) evidence failed "
+                        "validation; dropping the call")
+                    failed_calls.append(
+                        f"{table} (call {entry['index']}, validation)")
+                    failed_tables.add(table)
+                    continue
+
+            usage = getattr(completion, 'usage', None)
+            call_tokens += int(getattr(usage, 'total_tokens', 0) or 0)
+            records = [r.model_dump(mode='json') for r in result.records]
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'call_result',
+                index=entry['index'], table=table,
+                records=len(records),
+                tokens=getattr(usage, 'total_tokens', 0),
+                **{'pass': 1})
+
+            # Up to two focused gap-fill passes for the fields still
+            # null after the previous pass; a third pass only when the
+            # second filled at least one field. Gap-fill only helps when
+            # there are records to fill — an empty record list has no
+            # null fields to re-ask (and a re-ask can never add records).
+            pass2_filled = False
+            for gap_pass in (2, 3):
+                if gap_pass == 3 and not pass2_filled:
+                    break
+                if not records:
+                    break
+                asked = null_fields_for(records, fields)
+                if not asked:
+                    break
+                new_records, gap_tokens = \
+                    InstructorExtractionService._refill_null_fields(
+                        extraction_job, response_model, model_table,
+                        fields, asked, records, processed_content,
+                        resolved_options=resolved_options,
+                        ancestor_records=parent_records,
+                        client=client, client_config=client_config,
+                        validation_context=validation_context)
+                call_tokens += gap_tokens
+                pass2_filled = (gap_pass == 2 and new_records != records)
+                records = new_records
+                InstructorExtractionService._append_trace(
+                    extraction_job, 'extraction', 'call_result',
+                    index=entry['index'], table=table,
+                    records=len(records), tokens=gap_tokens,
+                    **{'pass': gap_pass})
+            table_records[table] = records
+
+        # Nest children under their parents (roots stay top-level),
+        # working down the plan in parent-first order
+        records_by_table = {}
+        dropped_orphans = 0
+        nested_children = set()
+        for entry in entries:
+            table = entry['table']
+            records = table_records.get(table)
+            if records is None:
+                continue
+            ancestry = entry.get('ancestry') or []
+            if not ancestry:
+                records_by_table[table] = records
+                continue
+            if table in nested_children:
+                continue
+            parent = ancestry[-1]
+            parents = records_by_table.get(parent)
+            if parents is None:
+                dropped_orphans += len(records)
+                continue
+            if len(parents) == 1:
+                # one parent record — attribution is unambiguous, so
+                # rescue children the model failed to index
+                rescue_single_parent(records, 1)
+            _, dropped = nest_children(
+                parents, records, child_key(
+                    InstructorExtractionService._model_table_by_name(
+                        response_model, table).database_table))
+            dropped_orphans += dropped
+            records_by_table[table] = records
+            nested_children.add(table)
+
+        root_tables = [e['table'] for e in entries if not e.get('ancestry')]
+        # `data` keeps only root tables so raw_llm_response keeps its
+        # legacy shape (child records live inside their parent records)
+        data = {t: records_by_table[t] for t in root_tables
+                if t in records_by_table}
+
+        total_tokens = call_tokens + int(mine_entry.get('tokens') or 0)
+        if not any(data.get(t) for t in root_tables):
+            message = ('; '.join(failed_calls)
+                       or 'Extraction produced no data')
+            return InstructorExtractionService._stage_fail(
+                extraction_job, message)
+
+        clinical_data = None
+        with transaction.atomic():
+            InstructorExtractionService.save_extraction_results(
+                extraction_job, data, extraction_job.extracted_by,
+                content=processed_content)
+            coverage = {
+                row['result_state']: row['n']
+                for row in ExtractionResult.objects.filter(
+                    extraction_job=extraction_job)
+                .values('result_state').annotate(n=Count('id'))
+            }
+            clinical_data = InstructorExtractionService.clinical_values_only(
+                response_model, data)
+            InstructorExtractionService._append_trace(
+                extraction_job, 'extraction', 'result',
+                data=clinical_data, tokens=total_tokens, coverage=coverage,
+                failed_calls=failed_calls, skipped_calls=skipped_calls,
+                dropped_orphans=dropped_orphans)
+            extraction_job.extraction_end_datetime = timezone.now()
+            extraction_job.raw_llm_response = json.dumps(data)
+            extraction_job.tokens_used = total_tokens
+            if failed_calls or skipped_calls or dropped_orphans:
+                extraction_job.extraction_status = \
+                    ExtractionStatusChoices.PARTIAL
+                extraction_job.extraction_error = '; '.join(
+                    failed_calls + [f'skipped: {s}' for s in skipped_calls]
+                    + ([f'{dropped_orphans} unattributed child record(s)']
+                       if dropped_orphans else []))
+            else:
+                extraction_job.extraction_status = \
+                    ExtractionStatusChoices.COMPLETED
+                extraction_job.extraction_error = None
+            extraction_job.save()
+
+        return InstructorExtractionService._job_result(
+            extraction_job.extraction_status == ExtractionStatusChoices.COMPLETED,
+            data=clinical_data, tokens=total_tokens, raw=clinical_data)
 
     REPAIR_PROMPT = (
         'The previous response is shown above; fields set to null failed '
