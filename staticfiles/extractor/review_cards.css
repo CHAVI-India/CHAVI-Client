@@ -1,0 +1,212 @@
+/* ==========================================================================
+   Field review cards — shared by the extraction review form
+   (extraction_job_detail.html) and the review preview
+   (extraction_review_preview.html).
+
+   Card structure (both pages):
+   ┌────────────────────────────────────────────────────────┐
+   │ Field name / meta   │   LLM extraction + provenance    │
+   ├────────────────────────────────────────────────────────┤
+   │ editor + actions (form)  or  Current / Will save (preview) │
+   └────────────────────────────────────────────────────────┘
+   ========================================================================== */
+
+.field-card {
+    border: 1px solid #d9e5e8;
+    border-radius: .5rem;
+    background: #fff;
+}
+.field-card + .field-card {
+    margin-top: .6rem;
+}
+.field-card-top {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 1.6fr;
+    gap: .25rem .75rem;
+    padding: .5rem .75rem;
+}
+.field-card-top > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.field-card-label {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    justify-content: center;
+}
+.field-title {
+    font-weight: 600;
+    font-size: .9375rem;
+    color: #1b333d;
+}
+.field-source-caption {
+    display: block;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #4d7a8a;
+    margin-bottom: .1rem;
+}
+.field-source-value {
+    display: block;
+    font-size: .9375rem;
+    color: #111827;
+}
+.field-source-note {
+    display: block;
+    font-size: .8125rem;
+    color: #4b5563;
+    margin-top: .15rem;
+}
+.field-source-evidence summary {
+    cursor: pointer;
+    font-size: .8125rem;
+    color: #4d7a8a;
+    margin-top: .2rem;
+}
+.field-source-evidence .field-evidence-text {
+    font-size: .8125rem;
+    color: #6b7280;
+    white-space: pre-wrap;
+    margin-top: .2rem;
+}
+.field-card-bottom {
+    border-top: 1px solid #e4eef0;
+    padding: .55rem .75rem .65rem;
+}
+
+/* Result value boxes (review preview) */
+.field-card-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+}
+.field-card-value {
+    border: 1px solid #e4eef0;
+    background: #f7fafb;
+    border-radius: .4rem;
+    padding: .4rem .6rem;
+    min-width: 0;
+}
+.field-card-value > span:first-child {
+    display: block;
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #4d7a8a;
+    margin-bottom: .1rem;
+}
+.field-value-text {
+    display: block;
+    font-size: .9375rem;
+    color: #111827;
+    overflow-wrap: anywhere;
+}
+
+/* Rows with changed values — same sun tint as .chavi-table .row-warning */
+.field-card-changed {
+    border-color: #eed9a2;
+    background: #fffef9;
+}
+.field-card-value.is-changed {
+    background: #fef8e7;
+    border-color: #ecd9a8;
+}
+
+@media (max-width: 800px) {
+    .field-card-top {
+        grid-template-columns: 1fr;
+        gap: .3rem;
+    }
+    .field-card-label {
+        justify-content: flex-start;
+    }
+    .field-card-values {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   Review form (extraction_job_detail.html) — record actions + field editor.
+   Scoped to #review-form so they only affect the live review surface.
+   ========================================================================== */
+
+/* Record action panel (create/update/link/skip + target + parents) */
+#review-form .review-record-panel {
+    background: #f7fafb;
+    border: 1px solid #e4eef0;
+    border-radius: .5rem;
+    padding: .6rem .75rem .7rem;
+    margin-bottom: .65rem;
+}
+#review-form .review-record-controls {
+    margin-bottom: 0;
+}
+/* Field cards: name + LLM extraction side by side on top, editor below */
+#review-form .review-field {
+    background: #fff;
+}
+#review-form .review-source .field-source-value {
+    font-size: 1rem;
+}
+#review-form .review-editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .35rem .75rem;
+    flex-wrap: wrap;
+    margin-top: .4rem;
+}
+#review-form .review-editor-footer [data-field-status] {
+    font-size: .875rem;
+}
+
+/* ==========================================================================
+   Source document sidebar (extraction_job_detail.html) — collapsible panel
+   with integrated vertical scroll so it can sit sticky beside the review.
+   ========================================================================== */
+.source-doc {
+    border: 1px solid #d9e5e8;
+    border-radius: .5rem;
+    background: #fff;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+}
+.source-doc > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .8rem 1rem;
+    user-select: none;
+}
+.source-doc > summary::-webkit-details-marker {
+    display: none;
+}
+.source-doc-chevron {
+    font-size: .8rem;
+    color: #6b7280;
+    transition: transform .15s ease;
+}
+#source-document[open] .source-doc-chevron {
+    transform: rotate(180deg);
+}
+.source-doc-body {
+    border-top: 1px solid #e4eef0;
+    padding: .8rem 1rem 1rem;
+}
+.source-doc-scroll {
+    max-height: calc(100vh - 11rem);
+    overflow-y: auto;
+}
+
+@media (max-width: 1023px) {
+    /* Stacked below the review — cap the panel height on mobile/tablet */
+    .source-doc-scroll {
+        max-height: 70vh;
+    }
+}

@@ -1,0 +1,28 @@
+{# Source Document — the original (non-deidentified) text.
+   Collapsible panel with integrated vertical scroll so it can sit sticky
+   beside the review without forcing the whole page to scroll.
+   Expects: processed_content, deid_content. #}
+<!-- ui-lint:ok custom collapsible panel (chevron + integrated scroll) --><details id="source-document" class="source-doc" open>
+    <summary>
+        <span class="flex flex-wrap items-center gap-2 text-lg font-semibold text-gray-900">
+            <i class="fas fa-file-alt"></i>Source Document
+            {% if deid_content %}<span class="text-sm font-normal text-gray-500">original, before deidentification</span>{% endif %}
+        </span>
+        <i class="fas fa-chevron-down source-doc-chevron" aria-hidden="true"></i>
+    </summary>
+    <div class="source-doc-body">
+        <div class="source-doc-scroll">
+            {% component "code_block" max_height="max-h-none" %}{{ processed_content }}{% endcomponent %}
+            {% if deid_content %}
+            {% component "accordion" extra_class="mt-4" %}
+                {% fill "summary" %}
+                    <i class="fas fa-user-shield mr-1"></i>Deidentified text sent to the LLM
+                {% endfill %}
+                {% fill "default" %}
+                {% component "code_block" max_height="max-h-96" extra_class="mt-2" %}{{ deid_content }}{% endcomponent %}
+                {% endfill %}
+            {% endcomponent %}
+            {% endif %}
+        </div>
+    </div>
+</details>
