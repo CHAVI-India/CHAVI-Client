@@ -3,6 +3,7 @@ Background tasks for the extractor app, running under Celery.
 """
 
 from logging import getLogger
+from time import perf_counter
 
 from celery import shared_task
 from django.contrib.contenttypes.models import ContentType
@@ -31,6 +32,11 @@ def _record_table_result(task, stats, position, total):
     task.save(update_fields=['result_data'])
     task.update_progress(
         f"[{position}/{total}] {stats['table']}", processed_items=position, total_items=total)
+    log.info(
+        "Table %s done (%d/%d tables): %d rows, %d failed%s",
+        stats.get('table'), position, total, stats.get('count', 0),
+        stats.get('failed', 0),
+        f", error: {stats['error']}" if stats.get('error') else "")
 
 
 @shared_task(bind=True)
@@ -192,8 +198,23 @@ def embed_lookup_table_chunk(self, task_id, config_id, content_type_id,
         task.mark_failed(f"Embedding provider unavailable: {e}")
         return
 
+    chunk_size = ei.CHUNK_SIZE
+    # remaining includes this chunk, so numbering matches the serial driver's
+    # logs; a redelivered chunk lands on the next pending rows and renumbers.
+    chunk_number = (remaining - len(chunk)) // chunk_size + 1
+    chunk_total = (remaining + chunk_size - 1) // chunk_size
+    log.info(
+        "Embedding %s v%s (table %d/%d) chunk %d/%d: %d rows",
+        table_name, target_version, table_index, table_total,
+        chunk_number, chunk_total, len(chunk))
+
+    encode_started = perf_counter()
     count, failed, failed_keys = ei.embed_one_chunk(
         provider, config, content_type, target_version, chunk)
+    log.info(
+        "Saved %s v%s (table %d/%d) chunk %d/%d: %d rows, %d failed (encode %.2fs)",
+        table_name, target_version, table_index, table_total,
+        chunk_number, chunk_total, count, failed, perf_counter() - encode_started)
 
     if failed:
         # Record the failed keys so the next pass skips them (no infinite retry).
@@ -222,6 +243,11 @@ def embed_lookup_table_chunk(self, task_id, config_id, content_type_id,
         embed_lookup_table_chunk.apply_async(args=[
             task_id, config_id, content_type_id, target_version, refresh,
             table_index, table_total])
+    # A small return value keeps the worker's "succeeded in Xs: <result>"
+    # line self-documenting (and gives the result backend something).
+    return {'table': table_name, 'version': target_version,
+            'chunk': chunk_number, 'chunk_total': chunk_total,
+            'rows': count, 'failed': failed, 'remaining': remaining - len(chunk)}
 
 
 @shared_task(bind=True)
@@ -239,6 +265,10 @@ def finalize_lookup_embeddings_task(self, task_id, config_id, target_version, re
     total_processed = sum(r.get('count', 0) for r in results)
     total_failed = sum(r.get('failed', 0) for r in results)
     errored = [r for r in results if r.get('error')]
+    log.info(
+        "Embedding build for config %s finished: %d rows, %d failed, "
+        "%d tables (target v%s)",
+        config_id, total_processed, total_failed, len(results), target_version)
 
     close_old_connections()
 
