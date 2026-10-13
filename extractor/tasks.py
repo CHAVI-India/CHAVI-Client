@@ -90,44 +90,139 @@ def compute_lookup_embeddings_task(self, task_id, config_id, refresh=False):
         task.mark_failed(f"Dispatch failed: {e}")
 
 
-@shared_task(bind=True)
-def compute_lookup_table_embeddings_task(self, task_id, config_id, content_type_id,
-                                         target_version, refresh, position, total):
+def _advance_to_next_table_or_finalize(task_id, config_id, target_version,
+                                       refresh, table_index, table_total):
     """
-    One chain link: embed a single lookup table under target_version.
+    After a table's last chunk: dispatch the first chunk task of the next lookup
+    table, or the finalize task if this was the last one. table_index is the
+    1-based position of the table that just finished; table_total is the number
+    of tables captured when the build was dispatched (so the boundary matches
+    the build's own table set, not whatever the live table count is now).
+    """
+    if table_index < table_total:
+        tables = list(ContentType.objects.filter(app_label='lookup').order_by('id'))
+        next_ct = tables[table_index]  # 0-based: current was tables[table_index-1]
+        embed_lookup_table_chunk.apply_async(args=[
+            task_id, config_id, next_ct.id, target_version, refresh,
+            table_index + 1, table_total])
+    else:
+        finalize_lookup_embeddings_task.apply_async(args=[
+            task_id, config_id, target_version, refresh])
 
-    Always returns normally so the chain continues — a per-table failure is
-    recorded in result_data['results']. A provider-level failure additionally
-    sets result_data['fatal'] so later links short-circuit instead of each
-    retrying a doomed model load.
+
+@shared_task(bind=True)
+def embed_lookup_table_chunk(self, task_id, config_id, content_type_id,
+                             target_version, refresh, table_index, table_total):
     """
-    from extractor.services.embedding_index import compute_lookup_table_embeddings
+    One self-perpetuating unit of work: embed the next chunk (<= CHUNK_SIZE
+    texts) of ONE lookup table, then enqueue the next chunk.
+
+    Reads the DB for what still needs embedding, so a redelivered or duplicate
+    chunk is a harmless no-op (unique constraint + ignore_conflicts). When the
+    table is exhausted it advances to the next table; the last table triggers
+    finalize_lookup_embeddings_task.
+
+    Deliberately short (< 30 min) so each delivery is ACKed well before the
+    broker's consumer_ack_timeout — the 406 delivery-ack timeout can't fire and
+    duplicate execution can't corrupt data.
+    """
+    import extractor.services.embedding_index as ei
 
     close_old_connections()
     task = BackgroundTask.objects.get(task_id=task_id)
+    data = task.result_data or {}
+
+    # A prior chunk already recorded a provider failure — stop the chain.
+    if data.get('fatal'):
+        return
+
     content_type = ContentType.objects.get(id=content_type_id)
     table_name = content_type.model
 
-    data = task.result_data or {}
-    if data.get('fatal'):
-        _record_table_result(
-            task, {'table': table_name, 'count': 0, 'failed': 0, 'skipped': True},
-            position, total)
-        return
-
     try:
         config = EmbeddingConfiguration.objects.get(id=config_id)
-        stats = compute_lookup_table_embeddings(
-            config, content_type, target_version, refresh=refresh)
+    except EmbeddingConfiguration.DoesNotExist:
+        task.mark_failed('Configuration not found')
+        return
+
+    # Keys this table failed on earlier this run (excluded, not retried).
+    exclude_keys = set(map(tuple, data.get('failed', {}).get(table_name, [])))
+
+    # Read phase: find the next chunk. A failure here is a table-level error.
+    try:
+        chunk, remaining = ei.collect_pending_rows(
+            config, content_type, target_version,
+            exclude_keys=exclude_keys, chunk_size=ei.CHUNK_SIZE)
     except EmbeddingUnavailableError as e:
         data['fatal'] = str(e)
         task.result_data = data
-        stats = {'table': table_name, 'count': 0, 'failed': 0, 'error': str(e)}
+        task.mark_failed(f"Embedding provider unavailable: {e}")
+        return
     except Exception as e:
-        log.error(f"Embedding failed for {table_name}: {e}", exc_info=True)
-        stats = {'table': table_name, 'count': 0, 'failed': 0, 'error': str(e)}
+        log.error(f"Collect failed for {table_name}: {e}", exc_info=True)
+        _record_table_result(
+            task, {'table': table_name, 'count': 0, 'failed': 0,
+                   'error': str(e)}, table_index, table_total)
+        _advance_to_next_table_or_finalize(
+            task_id, config_id, target_version, refresh,
+            table_index, table_total)
+        return
 
-    _record_table_result(task, stats, position, total)
+    # Table already exhausted (e.g. resume after a crash) -> record + advance.
+    if not chunk:
+        _record_table_result(
+            task, {
+                'table': table_name,
+                'count': LookupEmbedding.objects.filter(
+                    content_type=content_type, embedding_config=config,
+                    index_version=target_version, is_current=True).count(),
+                'failed': len(exclude_keys),
+            }, table_index, table_total)
+        _advance_to_next_table_or_finalize(
+            task_id, config_id, target_version, refresh,
+            table_index, table_total)
+        return
+
+    # Encode phase.
+    close_old_connections()  # model load / encode idles the connection
+    try:
+        provider = ei.get_provider(config)
+    except EmbeddingUnavailableError as e:
+        data['fatal'] = str(e)
+        task.result_data = data
+        task.mark_failed(f"Embedding provider unavailable: {e}")
+        return
+
+    count, failed, failed_keys = ei.embed_one_chunk(
+        provider, config, content_type, target_version, chunk)
+
+    if failed:
+        # Record the failed keys so the next pass skips them (no infinite retry).
+        failed_list = data.setdefault('failed', {}).setdefault(table_name, [])
+        for key in failed_keys:
+            if list(key) not in failed_list:
+                failed_list.append(list(key))
+        task.result_data = data
+        task.save(update_fields=['result_data'])
+
+    if remaining <= len(chunk):
+        # This chunk was the last -> record the table and move on.
+        _record_table_result(
+            task, {
+                'table': table_name,
+                'count': LookupEmbedding.objects.filter(
+                    content_type=content_type, embedding_config=config,
+                    index_version=target_version, is_current=True).count(),
+                'failed': len(data.get('failed', {}).get(table_name, [])),
+            }, table_index, table_total)
+        _advance_to_next_table_or_finalize(
+            task_id, config_id, target_version, refresh,
+            table_index, table_total)
+    else:
+        # More rows remain -> enqueue the next chunk of the same table.
+        embed_lookup_table_chunk.apply_async(args=[
+            task_id, config_id, content_type_id, target_version, refresh,
+            table_index, table_total])
 
 
 @shared_task(bind=True)

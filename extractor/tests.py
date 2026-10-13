@@ -1908,6 +1908,146 @@ class ChunkedEmbeddingServiceTests(TestCase):
             LookupEmbedding.objects.filter(index_version=1).count(), 1)
 
 
+class ChunkedEmbeddingTaskTests(TestCase):
+    """embed_lookup_table_chunk tiles one table into bounded, self-perpetuating
+    chunk tasks and terminates by advancing tables / finalizing."""
+
+    def setUp(self):
+        from lookup.models import LookupLaterality
+        from extractor.models import EmbeddingConfiguration, BackgroundTask
+
+        self.model = LookupLaterality
+        self.ct = ContentType.objects.get_for_model(LookupLaterality)
+        self.config = EmbeddingConfiguration.objects.create(
+            model_name='test-embed', model_provider='sentence-transformers',
+            embedding_dimension=384, is_active=True)
+        self.task = BackgroundTask.objects.create(
+            task_id='emb-task-1', task_name='Compute Lookup Embeddings',
+            status='pending', result_data={'results': []})
+        # Start from a clean table (the test DB is seeded with XK* rows).
+        LookupLaterality.objects.all().delete()
+        for code, label in (('C1', 'zz-lab-a'), ('C2', 'zz-lab-b'),
+                            ('C3', 'zz-lab-c')):
+            LookupLaterality.objects.create(code=code, label=label)
+
+        for target in (
+                'extractor.services.embedding_index.close_old_connections',
+                'extractor.tasks.close_old_connections'):
+            patcher = patch(target, lambda: None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _provider():
+        p = Mock()
+        p.embed_texts.side_effect = lambda texts: [[0.1] * 384 for _ in texts]
+        return p
+
+    def _run_chunk(self):
+        from extractor.models import LookupEmbedding
+        from extractor.tasks import (embed_lookup_table_chunk,
+                                     finalize_lookup_embeddings_task)
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=self._provider()), \
+             patch('extractor.services.embedding_index.CHUNK_SIZE', 2), \
+             patch.object(embed_lookup_table_chunk, 'apply_async') as nxt, \
+             patch.object(finalize_lookup_embeddings_task, 'apply_async') as fin:
+            embed_lookup_table_chunk.run(
+                self.task.task_id, self.config.id, self.ct.id,
+                1, False, 1, 1)
+            rows = LookupEmbedding.objects.filter(index_version=1).count()
+        return rows, nxt, fin
+
+    def test_first_chunk_embeds_and_dispatches_next(self):
+        rows, nxt, fin = self._run_chunk()
+        self.assertEqual(rows, 2)                 # CHUNK_SIZE=2 -> first chunk
+        self.assertTrue(nxt.called)               # table not done -> next chunk
+        self.assertFalse(fin.called)
+        # next chunk carries the same table, same table_index
+        self.assertEqual(nxt.call_args[1]['args'],
+                         [self.task.task_id, self.config.id, self.ct.id,
+                          1, False, 1, 1])
+
+    def test_last_chunk_finalizes_with_task_id_first(self):
+        from extractor.models import LookupEmbedding
+        self._run_chunk()                          # embeds C1, C2
+        rows, nxt, fin = self._run_chunk()          # embeds C3 -> last
+        self.assertEqual(rows, 3)
+        self.assertFalse(nxt.called)
+        self.assertTrue(fin.called)
+        # finalize args: task_id FIRST (inflight check depends on it)
+        self.assertEqual(fin.call_args[1]['args'],
+                         [self.task.task_id, self.config.id, 1, False])
+
+    def test_failed_chunk_is_recorded_not_retried(self):
+        from extractor.models import LookupEmbedding
+        from extractor.tasks import (embed_lookup_table_chunk,
+                                     finalize_lookup_embeddings_task)
+        failing = Mock()
+        failing.embed_texts.side_effect = RuntimeError('down')
+        with patch('extractor.services.embedding_index.get_provider',
+                   return_value=failing), \
+             patch('extractor.services.embedding_index.CHUNK_SIZE', 2), \
+             patch.object(embed_lookup_table_chunk, 'apply_async') as nxt, \
+             patch.object(finalize_lookup_embeddings_task, 'apply_async') as fin:
+            # chunk 1: 2 rows fail -> recorded, next chunk dispatched
+            embed_lookup_table_chunk.run(
+                self.task.task_id, self.config.id, self.ct.id, 1, False, 1, 1)
+            self.task.refresh_from_db()  # task saved result_data on a fresh row
+            self.assertEqual(
+                LookupEmbedding.objects.filter(index_version=1).count(), 0)
+            self.assertTrue(nxt.called)
+            self.assertEqual(
+                len(self.task.result_data['failed']['lookuplaterality']), 2)
+            # chunk 2: last row fails -> table exhausted -> finalize (no loop)
+            embed_lookup_table_chunk.run(
+                self.task.task_id, self.config.id, self.ct.id, 1, False, 1, 1)
+        self.assertTrue(fin.called)
+
+    def test_fatal_short_circuits_chain(self):
+        from extractor.models import LookupEmbedding
+        from extractor.tasks import (embed_lookup_table_chunk,
+                                     finalize_lookup_embeddings_task)
+        self.task.result_data = {'fatal': 'provider dead', 'results': []}
+        self.task.save()
+        with patch('extractor.services.embedding_index.get_provider') as gp, \
+             patch.object(embed_lookup_table_chunk, 'apply_async') as nxt, \
+             patch.object(finalize_lookup_embeddings_task, 'apply_async') as fin:
+            embed_lookup_table_chunk.run(
+                self.task.task_id, self.config.id, self.ct.id, 1, False, 1, 1)
+        gp.assert_not_called()
+        nxt.assert_not_called()
+        fin.assert_not_called()
+        self.assertEqual(LookupEmbedding.objects.count(), 0)
+
+    def test_advance_dispatches_next_table_then_finalize(self):
+        from django.contrib.contenttypes.models import ContentType
+        from extractor.tasks import (_advance_to_next_table_or_finalize,
+                                     embed_lookup_table_chunk,
+                                     finalize_lookup_embeddings_task)
+        tables = list(ContentType.objects.filter(app_label='lookup')
+                             .order_by('id'))
+        self.assertGreaterEqual(len(tables), 2)
+        with patch.object(embed_lookup_table_chunk, 'apply_async') as nxt, \
+             patch.object(finalize_lookup_embeddings_task, 'apply_async') as fin:
+            _advance_to_next_table_or_finalize(
+                'tid', self.config.id, 1, False, 1, len(tables))
+        self.assertTrue(nxt.called)
+        self.assertFalse(fin.called)
+        # 1-based table_index=1 finished -> next is tables[1], index 2
+        self.assertEqual(nxt.call_args[1]['args'],
+                         ['tid', self.config.id, tables[1].id, 1, False,
+                          2, len(tables)])
+        with patch.object(embed_lookup_table_chunk, 'apply_async') as nxt2, \
+             patch.object(finalize_lookup_embeddings_task, 'apply_async') as fin2:
+            _advance_to_next_table_or_finalize(
+                'tid', self.config.id, 1, False, len(tables), len(tables))
+        self.assertFalse(nxt2.called)
+        self.assertTrue(fin2.called)
+        self.assertEqual(fin2.call_args[1]['args'],
+                         ['tid', self.config.id, 1, False])
+
+
 # ---------------------------------------------------------------------
 # Text deidentification (extractor.services.text_deidentification)
 # ---------------------------------------------------------------------
