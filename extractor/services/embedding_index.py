@@ -47,6 +47,10 @@ NON_SEMANTIC_FIELDS = frozenset({
     'staging_system_version',
 })
 
+# Bounded unit of work per Celery chunk task. Chosen so a single chunk stays
+# well under the broker's 30-minute delivery-ack timeout.
+CHUNK_SIZE = 100
+
 
 def _text_fields(model_class) -> List[str]:
     names = []
@@ -60,6 +64,115 @@ def _text_fields(model_class) -> List[str]:
         if isinstance(field, (django_models.CharField, django_models.TextField)):
             names.append(field.name)
     return names
+
+
+def _lookup_model(content_type):
+    return content_type.model_class()
+
+
+def _source_rows(content_type):
+    """
+    Every (object_id, field_name, text_value) that should carry an embedding,
+    in stable (object_id, field_name) order. A record may contribute several
+    rows (one per semantic text field, plus the composite '__label__' when a
+    DatabaseField declares label fields). Empty texts are skipped.
+    """
+    model = _lookup_model(content_type)
+    if not model:
+        return []
+    pk_field = model._meta.pk.name
+    text_fields = _text_fields(model)
+    label_spec = composite_label_spec(content_type)
+    rows = []
+    for record in model.objects.all().iterator():
+        pk = str(getattr(record, pk_field))
+        for field in text_fields:
+            value = str(getattr(record, field, '') or '')
+            if value.strip():
+                rows.append((pk, field, value))
+        if label_spec:
+            label = build_lookup_label(record, label_fields=label_spec)
+            if label.strip():
+                rows.append((pk, COMBINED_LABEL_FIELD, label))
+    rows.sort(key=lambda r: (r[0], r[1]))
+    return rows
+
+
+def prepare_table(config, content_type, target_version) -> None:
+    """
+    Idempotent per-table setup: flag stale rows (source gone/changed) and drop
+    non-current rows at the target generation so collect_pending_rows sees a
+    clean picture. Safe to run on every chunk — after the first pass it is a
+    no-op (rows are already non-current / deleted).
+    """
+    model = _lookup_model(content_type)
+    if not model:
+        return
+    SemanticSearchService.mark_stale_embeddings(
+        content_type, model,
+        embedding_config=config, index_version=target_version)
+    LookupEmbedding.objects.filter(
+        content_type=content_type, embedding_config=config,
+        index_version=target_version, is_current=False,
+    ).delete()
+
+
+def collect_pending_rows(config, content_type, target_version,
+                         exclude_keys=frozenset(), chunk_size=CHUNK_SIZE):
+    """
+    The next bounded chunk of rows still needing an embedding at
+    target_version, plus the total remaining count.
+
+    Skips rows already present (is_current=True at target_version) and any key
+    in exclude_keys (per-run failures we are not retrying). Returns
+    (chunk, remaining) where chunk is [] once the table is exhausted. Rows are
+    tiled in stable (object_id, field_name) order so successive chunks never
+    overlap.
+    """
+    prepare_table(config, content_type, target_version)
+    embedded = set(
+        LookupEmbedding.objects.filter(
+            content_type=content_type, embedding_config=config,
+            index_version=target_version, is_current=True,
+        ).values_list('object_id', 'field_name')
+    )
+    pending = [
+        row for row in _source_rows(content_type)
+        if (row[0], row[1]) not in embedded
+        and (row[0], row[1]) not in exclude_keys
+    ]
+    return pending[:chunk_size], len(pending)
+
+
+def embed_one_chunk(provider, config, content_type, target_version, chunk):
+    """
+    Encode + persist one chunk. Returns (count, failed, failed_keys).
+
+    On an encode error the chunk's keys are returned as failed_keys so the
+    caller can exclude them on the next pass instead of retrying the same rows
+    forever. Writes use ignore_conflicts so a duplicate/re-run chunk is a
+    no-op.
+    """
+    if not chunk:
+        return 0, 0, []
+    texts = [text for _, _, text in chunk]
+    close_old_connections()  # encode idles the DB connection for minutes
+    try:
+        vectors = provider.embed_texts(texts)
+        if len(vectors) != len(chunk):
+            raise ValueError(
+                f"provider returned {len(vectors)} embeddings "
+                f"for {len(chunk)} texts")
+    except Exception:
+        close_old_connections()
+        return 0, len(chunk), [(pk, field) for pk, field, _ in chunk]
+    rows = [LookupEmbedding(
+        content_type=content_type, object_id=pk, field_name=field,
+        text_value=text, embedding=vector,
+        embedding_config=config, index_version=target_version,
+    ) for (pk, field, text), vector in zip(chunk, vectors)]
+    LookupEmbedding.objects.bulk_create(rows, ignore_conflicts=True)
+    return len(rows), 0, []
 
 
 def compute_lookup_table_embeddings(

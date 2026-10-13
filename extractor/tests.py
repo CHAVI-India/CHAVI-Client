@@ -1809,6 +1809,105 @@ class EmbeddingIndexTests(TestCase):
         self.assertEqual(results[0]['count'], 3)
 
 
+class ChunkedEmbeddingServiceTests(TestCase):
+    """collect_pending_rows / embed_one_chunk tile a table into bounded,
+    stable, non-overlapping chunks and make re-embedding a no-op."""
+
+    def setUp(self):
+        from lookup.models import LookupLaterality
+        from extractor.models import EmbeddingConfiguration
+
+        self.model = LookupLaterality
+        self.ct = ContentType.objects.get_for_model(LookupLaterality)
+        self.config = EmbeddingConfiguration.objects.create(
+            model_name='test-embed', model_provider='sentence-transformers',
+            embedding_dimension=384, is_active=True)
+        # Start from a clean table (the test DB is seeded with XK* rows).
+        LookupLaterality.objects.all().delete()
+        for code, label in (('C1', 'zz-lab-a'), ('C2', 'zz-lab-b'),
+                            ('C3', 'zz-lab-c'), ('C4', 'zz-lab-d')):
+            LookupLaterality.objects.create(code=code, label=label)
+
+        # The builder calls close_old_connections() — fatal inside TestCase's
+        # wrapping transaction.
+        for target in (
+                'extractor.services.embedding_index.close_old_connections',
+                'extractor.tasks.close_old_connections'):
+            patcher = patch(target, lambda: None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def _provider(texts_seen=None):
+        provider = Mock()
+        def embed(texts):
+            if texts_seen is not None:
+                texts_seen.extend(texts)
+            return [[0.1] * 384 for _ in texts]
+        provider.embed_texts.side_effect = embed
+        return provider
+
+    def test_collect_pending_returns_first_chunk_and_remaining(self):
+        from extractor.services.embedding_index import collect_pending_rows
+        chunk, remaining = collect_pending_rows(
+            self.config, self.ct, 1, chunk_size=2)
+        self.assertEqual(remaining, 4)
+        self.assertEqual(len(chunk), 2)
+        self.assertEqual([r[0] for r in chunk], ['C1', 'C2'])
+        self.assertEqual([r[1] for r in chunk], ['label', 'label'])
+
+    def test_collect_pending_excludes_embedded_and_failed(self):
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import collect_pending_rows
+
+        LookupEmbedding.objects.create(
+            content_type=self.ct, object_id='C1', field_name='label',
+            text_value='zz-lab-a', embedding=[0.1] * 384,
+            embedding_config=self.config, index_version=1)
+
+        chunk, remaining = collect_pending_rows(
+            self.config, self.ct, 1,
+            exclude_keys={('C2', 'label')}, chunk_size=10)
+        ids = [r[0] for r in chunk]
+        self.assertNotIn('C1', ids)  # already embedded
+        self.assertNotIn('C2', ids)  # excluded (previously failed)
+        self.assertEqual(ids, ['C3', 'C4'])
+        self.assertEqual(remaining, 2)
+
+    def test_embed_one_chunk_writes_and_reports(self):
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import embed_one_chunk
+
+        chunk = [('C1', 'label', 'zz-lab-a'), ('C2', 'label', 'zz-lab-b')]
+        count, failed, failed_keys = embed_one_chunk(
+            self._provider(), self.config, self.ct, 1, chunk)
+        self.assertEqual((count, failed), (2, 0))
+        self.assertEqual(failed_keys, [])
+        self.assertEqual(
+            LookupEmbedding.objects.filter(index_version=1).count(), 2)
+
+    def test_embed_one_chunk_returns_failed_keys_on_error(self):
+        from extractor.services.embedding_index import embed_one_chunk
+
+        failing = Mock()
+        failing.embed_texts.side_effect = RuntimeError('boom')
+        chunk = [('C1', 'label', 'zz-lab-a'), ('C2', 'label', 'zz-lab-b')]
+        count, failed, failed_keys = embed_one_chunk(
+            failing, self.config, self.ct, 1, chunk)
+        self.assertEqual((count, failed), (0, 2))
+        self.assertEqual(failed_keys, [('C1', 'label'), ('C2', 'label')])
+
+    def test_embed_one_chunk_is_idempotent(self):
+        from extractor.models import LookupEmbedding
+        from extractor.services.embedding_index import embed_one_chunk
+
+        chunk = [('C1', 'label', 'zz-lab-a')]
+        embed_one_chunk(self._provider(), self.config, self.ct, 1, chunk)
+        embed_one_chunk(self._provider(), self.config, self.ct, 1, chunk)
+        self.assertEqual(
+            LookupEmbedding.objects.filter(index_version=1).count(), 1)
+
+
 # ---------------------------------------------------------------------
 # Text deidentification (extractor.services.text_deidentification)
 # ---------------------------------------------------------------------
