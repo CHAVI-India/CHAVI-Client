@@ -31,12 +31,25 @@ def table_docstring(model_table):
 
 
 def _question_for(field):
-    """The question text for one field (without lookup choices)."""
+    """
+    The question text for one field (without lookup choices).
+
+    The field's help_text IS the question — client_app help texts are
+    standardized to read as the exact question asked in the prompt:
+    date fields 'When ...?', booleans 'Was ...?', lookup fields (whose
+    choices are listed on the continuation line) 'Select ...?', and
+    everything else 'What ...?' / 'How many ...?', optionally followed
+    by a parenthetical note. A missing help_text falls back to a
+    generated question.
+    """
     stem = (field.help_text or '').strip()
     if stem:
-        return f"What {stem.rstrip('.').lower()}?"
+        stem = stem.rstrip('.').strip()
+        if '?' not in stem:
+            stem += '?'
+        return stem
     human = field.clientapp_field_name.replace('_', ' ')
-    return f"What is the {human}?"
+    return f'What is the {human}?'
 
 
 def _lookup_choices_line(field, resolved_options=None):

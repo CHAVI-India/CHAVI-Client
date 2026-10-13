@@ -2273,15 +2273,24 @@ class TablePromptTests(TestCase):
             response_model=self.rm, database_table=self.diagnosis)
         self.rmt_p = ResponseModelTable.objects.create(
             response_model=self.rm, database_table=self.pathology)
+        # help_text is the question itself — site_0 and plain_0 carry
+        # real question-form help texts, the rest use the fallback
+        site_questions = {
+            'site_0': 'Select the anatomical location of the cancer? (FMA code)',
+        }
         for i in range(4):
-            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True)
+            f = make_field(self.diagnosis, f'site_{i}', lookup_field=True,
+                           help_text=site_questions.get(f'site_{i}', ''))
             ResponseModelTableField.objects.create(
                 response_model_table=self.rmt_d, field=f, order=i)
+        plain_questions = {'plain_0': 'How many lymph nodes were examined in total?'}
         for i in range(3):
-            f = make_field(self.diagnosis, f'plain_{i}', field_type='int')
+            f = make_field(self.diagnosis, f'plain_{i}', field_type='int',
+                           help_text=plain_questions.get(f'plain_{i}', ''))
             ResponseModelTableField.objects.create(
                 response_model_table=self.rmt_d, field=f, order=4 + i)
-        f = make_field(self.pathology, 'date_pathology')
+        f = make_field(self.pathology, 'date_pathology',
+                       help_text='When was the pathology report dated? (DD/MM/YYYY)')
         ResponseModelTableField.objects.create(
             response_model_table=self.rmt_p, field=f, order=0)
 
@@ -2318,10 +2327,38 @@ class TablePromptTests(TestCase):
                 {'code': 'A', 'label': 'Label A'},
                 {'code': 'B', 'label': 'Label B'}]})
         content = msgs[-1]['content']
-        site_q = next(l for l in content.splitlines() if 'site_0' in l)
-        self.assertTrue(site_q.rstrip().endswith('?'))
+        lines = content.splitlines()
+        site_q = next(l for l in lines if 'site_0:' in l)
+        # the field's question-form help text is used verbatim
+        self.assertEqual(
+            site_q.strip(),
+            '1. site_0: Select the anatomical location of the cancer? '
+            '(FMA code)')
         self.assertIn('select from these only', content)
         self.assertIn('Label A; Label B', content)
+        # the count question reads as a natural question too
+        self.assertIn('plain_0: How many lymph nodes were examined in total?',
+                      content)
+
+    def test_help_text_is_the_question_with_fallback(self):
+        from extractor.services.extraction_split import _question_for
+        f = self._f('site_0')
+        self.assertEqual(_question_for(f),
+                         'Select the anatomical location of the cancer? (FMA code)')
+        # a help text without a trailing '?' gets one
+        f1 = self._f('site_1')
+        f1.help_text = 'Side of the body where the lesion is on'
+        self.assertEqual(_question_for(f1),
+                         'Side of the body where the lesion is on?')
+        # a trailing period becomes the question mark
+        f2 = self._f('site_2')
+        f2.help_text = 'Anatomical location of the lesion.'
+        self.assertEqual(_question_for(f2),
+                         'Anatomical location of the lesion?')
+        # no help text at all -> generated question
+        f3 = self._f('site_3')
+        f3.help_text = ''
+        self.assertEqual(_question_for(f3), 'What is the site 3?')
 
     def test_docstring_is_included_as_table_context(self):
         import client_app.models as cm
