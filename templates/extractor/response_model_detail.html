@@ -5,7 +5,6 @@
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
     {% url 'extractor:response_model_list' as list_url %}
-    {% url 'extractor:instructor_message_create' response_model.id as add_message_url %}
     {% with subtitle_text=response_model.client.llm_model_name|add:" ("|add:response_model.client.model_provider|add:")" %}
     {% component "page_header" title=response_model.name icon="fas fa-project-diagram" subtitle=subtitle_text back_url=list_url back_text="Back to List" %}{% endcomponent %}
     {% endwith %}
@@ -64,67 +63,6 @@
         {% endfor %}
     </div>
 
-    <!-- Instructor Messages Section -->
-    {% component "card" extra_class="mb-8" %}
-        {% fill "header" %}
-        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-            <i class="fas fa-comment-dots text-chavi-primary mr-2"></i>
-            Instructor Messages (Prompts)
-        </h3>
-        {% endfill %}
-        {% fill "actions" %}
-            {% if perms.extractor.add_instructormessage %}
-            {% component "button" style="primary" size="sm" href=add_message_url icon="fas fa-plus" %}Add Message{% endcomponent %}
-            {% endif %}
-        {% endfill %}
-        {% fill "body" %}
-            {% if instructor_messages %}
-            <div class="space-y-4">
-                {% for message in instructor_messages %}
-                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center space-x-3">
-                            {% if message.role == 'system' %}
-                                {% component "badge" style="accent" icon="fas fa-cog" %}{{ message.get_role_display }}{% endcomponent %}
-                            {% else %}
-                                {% component "badge" style="info" icon="fas fa-user" %}{{ message.get_role_display }}{% endcomponent %}
-                            {% endif %}
-                            <span class="text-xs text-gray-500">
-                                Created {{ message.created_at|date:"M d, Y H:i" }}
-                            </span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            {% url 'extractor:instructor_message_edit' message.id as msg_edit_url %}
-                            {% if perms.extractor.change_instructormessage %}
-                            {% component "icon_button" style="primary" href=msg_edit_url icon="fas fa-edit" aria_label="Edit" title="Edit" %}{% endcomponent %}
-                            {% endif %}
-                            {% if perms.extractor.delete_instructormessage %}
-                            {% with del_onclick="deleteMessage("|add:message.id|add:")" %}
-                            {% component "icon_button" style="danger" icon="fas fa-trash" aria_label="Delete" title="Delete" onclick=del_onclick %}{% endcomponent %}
-                            {% endwith %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% component "code_block" %}{% if message.prompt.content %}{{ message.prompt.content }}{% else %}{{ message.prompt }}{% endif %}{% endcomponent %}
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            {% component "alert" style="warning" %}
-                {% fill "title" %}No Instructor Messages Configured{% endfill %}
-                {% fill "default" %}
-                <p class="mb-4">
-                    Add system prompts to guide the LLM during data extraction. Without prompts, the LLM may not extract data accurately.
-                </p>
-                {% if perms.extractor.add_instructormessage %}
-                {% component "button" style="warning" href=add_message_url icon="fas fa-plus" %}Add First Message{% endcomponent %}
-                {% endif %}
-                {% endfill %}
-            {% endcomponent %}
-            {% endif %}
-        {% endfill %}
-    {% endcomponent %}
-
     {% component "card" title="Generated Pydantic Model" %}
         {% fill "body" %}
             <div class="bg-gray-900 rounded-lg p-6 overflow-x-auto">
@@ -141,11 +79,6 @@
     {% endcomponent %}
 </div>
 
-<!-- Hidden form for delete -->
-<form id="deleteMessageForm" method="POST" style="display: none;">
-    {% csrf_token %}
-</form>
-
 <script>
 function copyToClipboard() {
     const code = document.getElementById('pydantic-code').textContent;
@@ -154,14 +87,6 @@ function copyToClipboard() {
     }, function(err) {
         console.error('Could not copy text: ', err);
     });
-}
-
-function deleteMessage(messageId) {
-    if (confirm('Are you sure you want to delete this instructor message?\n\nThis action cannot be undone.')) {
-        const form = document.getElementById('deleteMessageForm');
-        form.action = `/extractor/messages/${messageId}/delete/`;
-        form.submit();
-    }
 }
 </script>
 {% endblock %}

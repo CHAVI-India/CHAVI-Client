@@ -65,6 +65,13 @@ class ClientConfiguration(models.Model):
                   "Reasoning models spend part of the budget on hidden "
                   "thinking tokens, so use a higher value (e.g. 16384) "
                   "if you set one.")
+    extraction_concurrency = models.PositiveIntegerField(
+        default=1,
+        help_text="How many per-table extraction calls to run in parallel. "
+                  "Tables without a parent-child link run concurrently; a "
+                  "child table always waits for its parent's records. "
+                  "Raise to 4-8 for cloud APIs. Local Ollama mostly "
+                  "serializes GPU work regardless, so 1-2 is usually fine there.")
     model_capabilities = models.JSONField(
         null=True, blank=True,
         help_text="Discovered model capabilities (reasoning support, context "

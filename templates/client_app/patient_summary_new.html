@@ -26,6 +26,12 @@
     {% fill "header" %}
       <h2 class="text-2xl font-semibold text-gray-900">Patient Information</h2>
     {% endfill %}
+    {% fill "actions" %}
+      {% if caps.change_patient %}
+      {% url 'client_app:patient_edit' patient.patient_id as edit_patient_url %}
+      {% component "button" style="primary" href=edit_patient_url icon="fas fa-edit" %}Edit Patient{% endcomponent %}
+      {% endif %}
+    {% endfill %}
     {% fill "body" %}
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
@@ -144,6 +150,10 @@
             {% component "badge" count=dicom_studies.count %}{% endcomponent %}
           </div>
           <div class="flex gap-2">
+            {% url 'client_app:patientdicomfile_list' as dicom_list_url %}
+            {% if caps.view_patientdicomfile %}
+            {% component "link_chip" url=dicom_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
+            {% endif %}
             {% url 'client_app:patientdicomfile_add' as dicom_add_url %}
             {% if caps.add_patientdicomfile %}
             {% component "link_chip" url=dicom_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}

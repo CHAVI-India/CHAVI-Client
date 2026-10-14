@@ -231,6 +231,36 @@ class PatientCreateView(BaseFormView):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient_id}'
 
 
+class PatientUpdateView(LoginRequiredMixin, ModelPermissionMixin, UpdateView):
+    model = Patient
+    form_class = PatientForm
+    permission_action = 'change'
+    template_name = 'client_app/form_template.html'
+    pk_url_kwarg = 'pk'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f"Edit {self.model._meta.verbose_name}"
+        context['model_name'] = self.model._meta.verbose_name
+        return context
+
+    def get_form(self, form_class=None):
+        """Keep the primary-key patient_id fixed when editing."""
+        form = super().get_form(form_class)
+        if 'patient_id' in form.fields:
+            form.fields['patient_id'].disabled = True
+            form.fields['patient_id'].widget.attrs['readonly'] = 'readonly'
+            form.fields['patient_id'].help_text = 'Patient ID cannot be changed.'
+        return form
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Patient updated successfully!')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient_id}'
+
+
 class ComorbidityCreateView(BaseFormView):
     model = Comorbidity
     form_class = ComorbidityForm

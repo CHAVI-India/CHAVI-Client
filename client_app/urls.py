@@ -9,6 +9,7 @@ urlpatterns = [
     path('', views.HomePageView.as_view(), name='homepage'),
     path('patient-search/', views.PatientSearchView.as_view(), name='patient_search'),
     path('patient/add/', form_views.PatientCreateView.as_view(), name='patient_add'),
+    path('patient/<str:pk>/edit/', form_views.PatientUpdateView.as_view(), name='patient_edit'),
     path('patient-summary/', views.PatientSummaryView.as_view(), name='patient_summary'),
     path('patient-data-export/', views.PatientDataExportView.as_view(), name='patient_data_export'),
     path('dicom-data-export/', views.DICOMDataExportView.as_view(), name='dicom_data_export'),
@@ -85,6 +86,7 @@ urlpatterns = [
     path('patient-reported-outcome/<uuid:pk>/edit/', list_views.PatientReportedOutcomeUpdateView.as_view(), name='patientreportedoutcome_edit'),
     path('germline-genomic-alterations/', list_views.GermlineGenomicAlterationsListView.as_view(), name='germlinegenomicalterations_list'),
     path('germline-genomic-alterations/<uuid:pk>/edit/', list_views.GermlineGenomicAlterationsUpdateView.as_view(), name='germlinegenomicalterations_edit'),
+    path('dicom-file/', list_views.PatientDicomFileListView.as_view(), name='patientdicomfile_list'),
     
     # Diagnosis-level
     path('diagnosis/', list_views.DiagnosisListView.as_view(), name='diagnosis_list'),

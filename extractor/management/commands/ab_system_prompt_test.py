@@ -4,10 +4,27 @@ One-off A/B test: do system messages improve per-table stage-2 extraction?
 The v2 per-table prompt (extraction_split.build_table_question_prompt) is a
 single self-contained USER message and ignores the configured
 InstructorMessage rows. This command measures what that omission costs (or
-doesn't) by running the PRODUCTION stage-2 path — same prompt builder, same
-dynamic pydantic model, same configured LLM client — with and without system
-message variants, against a realistic mock clinical document (or a real
-deidentified file), and scoring the results.
+doesn't) by running the PRODUCTION stage-2 path faithfully — mining
+pre-pass, prompt builder with mined "Valid Options", dynamic pydantic
+model, lookup validation context, parent-record injection for child
+tables, same configured LLM client — varying ONLY the system message.
+Against a realistic mock clinical document (or a real deidentified file),
+results are scored against a golden key.
+
+Faithfulness notes (v2 of this command):
+    - The mining pre-pass (one shared LLM call, like production stage_mine)
+      resolves lookup options once and is reused by every variant/rep — so
+      the A/B isolates the system message, nothing else.
+    - Lookup validation rules (instructor re-asks on out-of-vocabulary
+      labels) and verbatim-quote validation are enabled, as in production.
+    - Tables run in parent-first topological order; each rep is a full
+      pipeline, so a child table is prompted with the SAME rep's parent
+      records (and skipped when its parent produced no records).
+    - The test injects the IMMEDIATE parent's records. Production has a
+      quirk for grandchild tables (it uses the topmost ancestry entry).
+    - On exhausted instructor retries the test accepts the sanitized last
+      response (production's repair outcome) without the extra repair
+      re-ask call, to bound runtime.
 
 Variants
     none      control — current production v2 behaviour (user message only)
@@ -24,8 +41,9 @@ Usage
     python manage.py ab_system_prompt_test --response-model 3 --dry-run          # print prompts, no LLM calls
     python manage.py ab_system_prompt_test --response-model 3 --json-out ab.json --verbose
 
-Cost: variants x reps x tables full LLM calls, each embedding the whole
-document. Default run is 4 variants x 2 reps x 1 table = 8 calls.
+Cost: 1 mining call + variants x reps x tables extraction calls, each
+embedding the whole document. Run unbuffered (python -u) when redirecting
+to a log so progress is visible while it runs.
 
 Golden format (--golden): JSON object keyed by table name, each a list of
 record dicts (field -> expected value; null = expected absent), or a plain
@@ -412,6 +430,12 @@ class Command(BaseCommand):
                 f"Table(s) {missing} not in the extraction plan. "
                 f"Available: {sorted(by_model)}"))
             return
+        # Run in plan (parent-first topological) order so parent records
+        # are available when child prompts are built.
+        order = {c['model_table'].database_table.clientapp_content_type.model: i
+                 for i, c in enumerate(plan)}
+        table_names.sort(key=lambda t: order[[k for k in by_model
+                                              if k.lower() == t.lower()][0]])
 
         variants = [v.strip() for v in options['variants'].split(',')]
         bad = [v for v in variants if v not in SYSTEM_VARIANTS]
@@ -420,75 +444,131 @@ class Command(BaseCommand):
                 f"Unknown variant(s) {bad}; choose from {list(SYSTEM_VARIANTS)}"))
             return
 
-        self.stdout.write(self.style.HTTP_INFO(
-            f"\nA/B system-message test — response model #{response_model.id} "
-            f"({client_config.llm_model_name} via {client_config.model_provider})\n"
-            f"Document: {doc_label} ({len(document):,} chars)\n"
-            f"Tables: {table_names} | variants: {variants} | reps: {options['reps']}\n"
-            f"Golden: {golden_label}\n"
-            f"Estimated LLM calls: {len(variants) * options['reps'] * len(table_names)}\n"))
-
         if options['dry_run']:
             self._dry_run(response_model, table_names, by_model, document, variants)
             return
 
         client = InstructorExtractionService._get_llm_client(response_model)
-        all_results = {}
 
+        # --- mining pre-pass (shared by every variant/rep, as in
+        #     production stage_mine) ------------------------------------
+        self.stdout.write(self.style.HTTP_INFO(
+            "\nMining lookup options (1 shared LLM call, production stage_mine path)..."))
+        mine_start = time.monotonic()
+        resolved_options, mining_tokens = InstructorExtractionService.mine_lookup_options(
+            client, response_model, document, client_config)
+        mine_lat = time.monotonic() - mine_start
+        lookup_rules = InstructorExtractionService.build_lookup_rules(
+            response_model, resolved_options)
+        self.stdout.write(self.style.HTTP_INFO(
+            f"Mining done: options for {len(resolved_options)} fields, "
+            f"{len(lookup_rules)} validation rules, {mining_tokens} tokens, "
+            f"{mine_lat:.1f}s"))
+
+        self.stdout.write(self.style.HTTP_INFO(
+            f"\nA/B system-message test — response model #{response_model.id} "
+            f"({client_config.llm_model_name} via {client_config.model_provider})\n"
+            f"Document: {doc_label} ({len(document):,} chars)\n"
+            f"Tables (run order): {', '.join(table_names)} | variants: {variants} | reps: {options['reps']}\n"
+            f"Golden: {golden_label}\n"
+            f"Estimated LLM calls: {len(variants) * options['reps'] * len(table_names)} (+1 mining, done)\n"))
+
+        # --- per-rep pipeline execution ---------------------------------
+        # variant -> table -> [run dicts]
+        all_results = {}
+        for variant in variants:
+            all_results[variant] = {t: [] for t in table_names}
+
+        for variant in variants:
+            system = SYSTEM_VARIANTS[variant]
+            for rep in range(options['reps']):
+                pipeline_records = {}  # table name -> records for this rep
+                for table in table_names:
+                    call = by_model[[k for k in by_model
+                                     if k.lower() == table.lower()][0]]
+                    model_table = call['model_table']
+                    table_name = model_table.database_table.clientapp_content_type.model
+                    fields = active_extractable_fields(model_table)
+                    ancestry = call.get('ancestry') or []
+                    ancestry_names = [
+                        mt.database_table.clientapp_content_type.model
+                        for mt in ancestry]
+                    direct_parent = (ancestry_names[0] if ancestry_names
+                                     else None)
+                    # Production semantics: a child is skipped when its
+                    # ancestor FAILED; if the parent simply wasn't part of
+                    # this run set, fall back to the plan prompt (no parent
+                    # records block) rather than skipping.
+                    if (direct_parent in pipeline_records
+                            and pipeline_records[direct_parent] is None):
+                        run = {'records': None, 'latency_s': 0.0, 'tokens': 0,
+                               'attempts': 0, 'validation_recovered': False,
+                               'error': f'skipped: parent {direct_parent} failed this rep'}
+                        all_results[variant][table].append(run)
+                        pipeline_records[table] = None
+                        self.stdout.write(self.style.WARNING(
+                            f"  [{variant} rep {rep}] {table_name}: skipped (parent failed)"))
+                        continue
+                    parent_records = (pipeline_records.get(direct_parent)
+                                      if direct_parent in pipeline_records
+                                      else None)
+
+                    # Child prompts are rebuilt with this rep's parent
+                    # records, exactly like the production run loop.
+                    messages = build_table_question_prompt(
+                        response_model, model_table, fields, document,
+                        resolved_options=resolved_options,
+                        ancestor_records=parent_records)
+                    if system:
+                        messages = [{'role': 'system', 'content': system}] \
+                            + messages
+
+                    # Fresh context per call (production shares one dict;
+                    # repair mutates a copy — never share across calls).
+                    context = {PydanticModelBuilder.LOOKUP_CONTEXT_KEY:
+                               dict(lookup_rules),
+                               'source_text': document}
+                    wrapper, _ = PydanticModelBuilder.build_table_response_model(
+                        model_table, fields, include_field_assessments=True,
+                        with_parent_index=bool(ancestry))
+                    run = self._run_call(client, client_config, wrapper,
+                                         messages, context)
+                    all_results[variant][table].append(run)
+                    pipeline_records[table] = run['records']
+                    self.stdout.write(
+                        f"  [{variant} rep {rep}] {table_name}: "
+                        f"{len(run['records']) if run['records'] is not None else 'FAILED'} "
+                        f"records, {run['latency_s']}s, {run['tokens']} tokens, "
+                        f"{run['attempts']} attempt(s)"
+                        + (f" — {run['error']}" if run['error'] else ''))
+
+        # --- report, per table in run order -----------------------------
         for table in table_names:
-            call = by_model[[k for k in by_model if k.lower() == table.lower()][0]]
+            call = by_model[[k for k in by_model
+                             if k.lower() == table.lower()][0]]
             model_table = call['model_table']
             table_name = model_table.database_table.clientapp_content_type.model
             fields = active_extractable_fields(model_table)
-            ancestry = call.get('ancestry') or []
-            if ancestry:
-                self.stdout.write(self.style.WARNING(
-                    f"  note: {table_name} is a child table — parent records are "
-                    f"NOT injected (production injects them at run time)."))
-
             table_golden = golden.get(table_name) or golden.get('_default') or []
             scored_fields = set()
             for rec in table_golden:
                 scored_fields.update(rec.keys())
             scored_fields = scored_fields & {f.clientapp_field_name for f in fields}
-
             self.stdout.write(self.style.HTTP_INFO(
                 f"\n=== {table_name.upper()} "
                 f"({len(fields)} fields, {len(scored_fields)} golden-scored) ==="))
-
-            user_messages = build_table_question_prompt(
-                response_model, model_table, fields, document,
-                resolved_options=None)
-            wrapper, _ = PydanticModelBuilder.build_table_response_model(
-                model_table, fields, include_field_assessments=True,
-                with_parent_index=bool(ancestry))
-
-            table_results = OrderedDict()
-            for variant in variants:
-                system = SYSTEM_VARIANTS[variant]
-                messages = ([{'role': 'system', 'content': system}]
-                            if system else []) + user_messages
-                validation_context = {'source_text': document}
-                runs = []
-                for rep in range(options['reps']):
-                    runs.append(self._run_call(
-                        client, client_config, wrapper, messages,
-                        validation_context, table_name, variant, rep))
-                table_results[variant] = runs
-
+            table_results = {v: all_results[v][table] for v in variants}
             self._report_table(self.stdout, table_name, table_results,
                                table_golden, fields, options['verbose'])
-            all_results[table_name] = table_results
 
         if options['json_out']:
-            flat = {}
-            for t, tv in all_results.items():
-                flat[t] = {v: [
-                    {'records': r.get('records'), 'latency_s': r.get('latency_s'),
-                     'tokens': r.get('tokens'), 'attempts': r.get('attempts'),
-                     'validation_recovered': r.get('validation_recovered'),
-                     'error': r.get('error')} for r in rs]
-                    for v, rs in tv.items()}
+            flat = {t: {v: [
+                {'records': r.get('records'), 'latency_s': r.get('latency_s'),
+                 'tokens': r.get('tokens'), 'attempts': r.get('attempts'),
+                 'validation_recovered': r.get('validation_recovered'),
+                 'error': r.get('error')} for r in all_results[v][t]]
+                for v in variants}
+                for t in table_names}
             with open(options['json_out'], 'w', encoding='utf-8') as fh:
                 json.dump(flat, fh, indent=2, ensure_ascii=False, default=str)
             self.stdout.write(self.style.SUCCESS(
@@ -497,6 +577,9 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
 
     def _dry_run(self, response_model, table_names, by_model, document, variants):
+        self.stdout.write(self.style.WARNING(
+            "note: dry-run skips the mining pre-pass, so lookup 'Valid Options' "
+            "lines are absent from these prompts (live runs include them)."))
         for table in table_names:
             call = by_model[[k for k in by_model if k.lower() == table.lower()][0]]
             model_table = call['model_table']
@@ -513,9 +596,13 @@ class Command(BaseCommand):
                 self.stdout.write(f"--- variant '{variant}' — USER (first 1200 chars) ---\n")
                 self.stdout.write(user_messages[0]['content'][:1200] + "\n... [truncated]\n")
 
-    def _run_call(self, client, client_config, wrapper, messages,
-                  validation_context, table_name, variant, rep):
-        """One instructor call with production-faithful kwargs. Never raises."""
+    def _run_call(self, client, client_config, wrapper, messages, context):
+        """
+        One instructor call with production-faithful kwargs. Never raises.
+
+        On exhausted validation retries: accept the sanitized last response
+        (production's repair outcome) without the extra repair re-ask.
+        """
         create_kwargs = dict(
             model=client_config.llm_model_name,
             response_model=wrapper,
@@ -529,11 +616,11 @@ class Command(BaseCommand):
         start = time.monotonic()
         try:
             result, completion = client.chat.completions.create_with_completion(
-                context=validation_context, **create_kwargs)
-            if validation_context.get('source_text') is not None:
+                context=context, **create_kwargs)
+            if context.get('source_text') is not None:
                 try:
                     result = wrapper.model_validate(
-                        result.model_dump(), context=validation_context)
+                        result.model_dump(), context=context)
                 except Exception:
                     pass
             latency = time.monotonic() - start
@@ -546,13 +633,27 @@ class Command(BaseCommand):
             }
         except InstructorRetryException as e:
             latency = time.monotonic() - start
-            raw = InstructorExtractionService._completion_data(
-                e.last_completion) if e.last_completion else None
+            tokens = 0
+            completion = e.last_completion
+            if completion is None and e.failed_attempts:
+                completion = e.failed_attempts[-1].completion
+            if completion is not None:
+                usage = getattr(completion, 'usage', None)
+                tokens = int(getattr(usage, 'total_tokens', 0) or 0) if usage else 0
+            raw = InstructorExtractionService._completion_data(completion) \
+                if completion is not None else None
+            records = None
+            if isinstance(raw, dict) and isinstance(raw.get('records'), list):
+                repaired, _ = InstructorExtractionService._sanitize_extraction_data(
+                    raw, wrapper, context)
+                if repaired is not None:
+                    records = [r.model_dump(mode='json') for r in repaired.records]
             return {
-                'records': raw if isinstance(raw, dict) else None,
-                'latency_s': round(latency, 2), 'tokens': 0,
-                'attempts': e.n_attempts, 'validation_recovered': True,
-                'error': f'InstructorRetryException: {str(e)[:200]}',
+                'records': records,
+                'latency_s': round(latency, 2), 'tokens': tokens,
+                'attempts': e.n_attempts, 'validation_recovered': records is not None,
+                'error': None if records is not None
+                else f'InstructorRetryException: {str(e)[:200]}',
             }
         except Exception as e:
             latency = time.monotonic() - start

@@ -101,7 +101,8 @@ class ClientConfigurationAdmin(ModelAdmin):
             'fields': ['llm_model_name', 'model_provider', 'model_base_url']
         }),
         ('Request Limits', {
-            'fields': ['context_size', 'model_max_tokens', 'request_timeout']
+            'fields': ['context_size', 'model_max_tokens', 'request_timeout',
+                       'extraction_concurrency']
         }),
         ('API Key', {
             'fields': ['model_api_key', ('model_api_key_expires', 'model_api_key_validity'), 'model_api_refresh_key']

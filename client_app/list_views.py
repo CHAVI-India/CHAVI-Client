@@ -61,6 +61,27 @@ class SymptomUpdateView(BaseUpdateView):
         return reverse('client_app:patient_summary') + f'?patient_id={self.object.patient.patient_id}'
 
 
+class PatientDicomFileListView(BaseListView):
+    model = PatientDicomFile
+
+    def get_queryset(self):
+        queryset = super().get_queryset().order_by('-created_at')
+        patient_id = self.request.GET.get('patient_id')
+        if patient_id:
+            queryset = queryset.filter(patient__patient_id=patient_id)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        patient_id = self.request.GET.get('patient_id')
+        if patient_id:
+            context['patient'] = Patient.objects.get(patient_id=patient_id)
+            context['add_url'] = reverse('client_app:patientdicomfile_add') + f'?patient={patient_id}'
+        # No frontend edit view exists for DICOM files; hide the edit action.
+        context['can_edit'] = False
+        return context
+
+
 # Diagnosis-level List and Update Views
 class DiagnosisListView(BaseListView):
     model = Diagnosis

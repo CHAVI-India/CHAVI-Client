@@ -43,7 +43,6 @@
                         {% url 'extractor:file_upload_list' as nav_ex_files %}
                         {% url 'extractor:client_configuration_list' as nav_ex_clients %}
                         {% url 'extractor:response_model_list' as nav_ex_models %}
-                        {% url 'extractor:instructor_message_list' as nav_ex_msgs %}
                         {% url 'extractor:lookup_embeddings' as nav_ex_embed %}
                         {% url 'extractor:wizard_start' as nav_ex_wizard %}
                         {% url 'deidentification:patient_list' as nav_deid %}
@@ -79,7 +78,7 @@
                         {% endif %}
 
                         <!-- LLM Extraction Dropdown -->
-                        {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
+                        {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
                         {% component "nav_dropdown" icon="fa-magic" label="LLM Extraction" active_on="extractor" width="w-60" %}
                             {% fill "items" %}
                             {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob %}
@@ -98,7 +97,7 @@
                             {% component "nav_dropdown_item" section="Files" %}{% endcomponent %}
                             {% component "nav_dropdown_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
                             {% endif %}
-                            {% if perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration %}
+                            {% if perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration %}
                             {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
                             {% endif %}
@@ -109,15 +108,12 @@
                             {% if perms.extractor.view_responsemodel %}
                             {% component "nav_dropdown_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
                             {% endif %}
-                            {% if perms.extractor.view_instructormessage %}
-                            {% component "nav_dropdown_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
-                            {% endif %}
                             {% if perms.extractor.view_embeddingconfiguration %}
                             {% component "nav_dropdown_item" href=nav_ex_embed icon="fa-brain" label="Lookup Embeddings" %}{% endcomponent %}
                             {% endif %}
                             {% endif %}
                             {% if perms.extractor.add_responsemodel %}
-                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration %}
+                            {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
                             {% endif %}
                             {% component "nav_dropdown_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" extra_class="font-semibold" %}{% endcomponent %}
@@ -242,7 +238,7 @@
                 {% component "nav_mobile_item" href=nav_archive icon="fa-box-archive" label="DICOM Archive" %}{% endcomponent %}
                 {% endif %}
                 {% endif %}
-                {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_instructormessage or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
+                {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload or perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration or perms.extractor.add_responsemodel %}
                 {% component "nav_mobile_item" section="LLM EXTRACTION" %}{% endcomponent %}
                 {% if perms.extractor.view_processedtext %}
                 {% component "nav_mobile_item" href=nav_ex_dash icon="fa-robot" label="Data Extraction" %}{% endcomponent %}
@@ -258,9 +254,6 @@
                 {% endif %}
                 {% if perms.extractor.view_responsemodel %}
                 {% component "nav_mobile_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}
-                {% endif %}
-                {% if perms.extractor.view_instructormessage %}
-                {% component "nav_mobile_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
                 {% endif %}
                 {% if perms.extractor.view_embeddingconfiguration %}
                 {% component "nav_mobile_item" href=nav_ex_embed icon="fa-brain" label="Lookup Embeddings" %}{% endcomponent %}

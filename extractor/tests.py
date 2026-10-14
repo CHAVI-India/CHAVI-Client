@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from contextlib import nullcontext
 from decimal import Decimal
 from unittest.mock import Mock, patch
@@ -3516,4 +3518,154 @@ class TableExtractTests(TestCase):
         self.assertEqual(len(data['diagnosis']), 1)
         self.assertNotIn('pathology', data['diagnosis'][0])
         self.assertNotIn('immunohistochemistry', str(data))
+
+
+class TableExtractParallelTests(TableExtractTests):
+    """Parallel per-table execution (ClientConfiguration.extraction_concurrency):
+    independent tables run concurrently, child tables wait for their
+    parent, and the trace stays plan-ordered.
+    """
+
+    def _table_of(self, kwargs):
+        # wrapper models are named '<table>Chunk'
+        return kwargs['response_model'].__name__.removesuffix('Chunk')
+
+    def _set_concurrency(self, n):
+        self.rm.client.extraction_concurrency = n
+        self.rm.client.save()
+
+    def _entry_for_table(self, table):
+        return next(e for e in self.entries if e['table'] == table)
+
+    def _add_lesion_root(self):
+        # Second independent root table (parent Patient), so two roots
+        # can be in flight at the same time
+        self.lesion = make_table('lesion', [PATIENT_STEP])
+        self.rmt_l = ResponseModelTable.objects.create(
+            response_model=self.rm, database_table=self.lesion)
+        f_lesion = make_field(self.lesion, 'lesion_size')
+        ResponseModelTableField.objects.create(
+            response_model_table=self.rmt_l, field=f_lesion, order=0)
+        self.job.stage_trace = [
+            e for e in self.job.stage_trace
+            if not (e.get('stage') == 'extraction'
+                    and e.get('kind') == 'prompt')]
+        entries = InstructorExtractionService.build_extraction_plan_entries(
+            self.rm, self.source, self.rm.client, {})
+        for entry in entries:
+            InstructorExtractionService._append_trace(
+                self.job, 'extraction', 'prompt',
+                index=entry['index'], table=entry['table'],
+                fields=entry['fields'], call_kind=entry['call_kind'],
+                ancestry=entry['ancestry'], messages=entry['messages'])
+        self.job.save()
+        self.entries = [e for e in self.job.stage_trace
+                        if e.get('stage') == 'extraction'
+                        and e.get('kind') == 'prompt']
+
+    def test_independent_tables_run_concurrently(self):
+        self._add_lesion_root()
+        self._set_concurrency(4)
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=7))
+        in_flight = {}
+        lock = threading.Lock()
+        release = threading.Event()
+        overlap_proven = {'both': False}
+
+        def create(**kwargs):
+            table = self._table_of(kwargs)
+            with lock:
+                in_flight[table] = threading.get_ident()
+                if set(in_flight) == {'diagnosis', 'lesion'}:
+                    overlap_proven['both'] = True
+                    release.set()
+            release.wait(timeout=10)  # hold both calls open
+            with lock:
+                in_flight.pop(table, None)
+            return self._record_for(kwargs['response_model'],
+                                    self._entry_for_table(table)), completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        self.assertTrue(overlap_proven['both'],
+                        'diagnosis and lesion were never in flight together')
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            3)
+        data = self.saved.call_args.args[1]
+        self.assertEqual(data['lesion'][0]['lesion_size'], 'tumor mass')
+        self.assertEqual(data['diagnosis'][0]['site_0'], 'Left')
+        # traces merge in plan order regardless of completion order
+        self.job.refresh_from_db()
+        call_results = [e['table'] for e in self.job.stage_trace
+                        if e.get('kind') == 'call_result']
+        self.assertEqual(call_results,
+                         [e['table'] for e in self.entries])
+
+    def test_child_waits_for_parent_records(self):
+        # diagnosis (root) + pathology (child): with concurrency > 1 the
+        # pathology call must NOT start while diagnosis is in flight —
+        # it needs the parent's merged records for its prompt.
+        self._set_concurrency(4)
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=7))
+        started = set()
+        lock = threading.Lock()
+
+        def create(**kwargs):
+            table = self._table_of(kwargs)
+            with lock:
+                started.add(table)
+                if table == 'diagnosis':
+                    self.assertNotIn('pathology', started,
+                                     'child started before parent finished')
+            if table == 'diagnosis':
+                # hold the parent call open so a broken gate would let
+                # the child start early
+                time.sleep(0.3)
+                with lock:
+                    self.assertNotIn('pathology', started,
+                                     'child started before parent finished')
+            return self._record_for(kwargs['response_model'],
+                                    self._entry_for_table(table)), completion
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertTrue(result['success'])
+        self.assertEqual(started, {'diagnosis', 'pathology'})
+        data = self.saved.call_args.args[1]
+        self.assertEqual(data['diagnosis'][0]['pathology'][0]
+                         ['date_pathology'], '2024-01-02')
+
+    def test_failed_parent_skips_child_under_concurrency(self):
+        # diagnosis fails with concurrency > 1: pathology is skipped
+        # (never executed, never charged) and the job is PARTIAL.
+        self._set_concurrency(4)
+        from types import SimpleNamespace
+        completion = SimpleNamespace(usage=SimpleNamespace(total_tokens=7))
+        started = set()
+        lock = threading.Lock()
+
+        def create(**kwargs):
+            table = self._table_of(kwargs)
+            with lock:
+                started.add(table)
+            if table == 'diagnosis':
+                raise Exception('provider down')
+            raise AssertionError(f'unexpected call for {table}')
+
+        self._setup_client(create)
+        result = InstructorExtractionService.stage_extract(self.job, self.source)
+        self.assertFalse(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status,
+                         ExtractionStatusChoices.FAILED)
+        self.assertIn('diagnosis', self.job.extraction_error)
+        self.assertIn('skipped: pathology', self.job.extraction_error)
+        self.assertEqual(started, {'diagnosis'})
+        self.assertEqual(
+            self._client.chat.completions.create_with_completion.call_count,
+            1)
 

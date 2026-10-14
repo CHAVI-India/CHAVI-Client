@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models.functions import Substr, Concat
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator, ValidationError
+import os
 import uuid
 from decimal import Decimal
 from django.forms import ValidationError
@@ -214,6 +215,9 @@ class PatientDicomFile(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return os.path.basename(self.file.name) if self.file else 'Unnamed DICOM file'
 
 
 class StudyTypeChoices(models.TextChoices):

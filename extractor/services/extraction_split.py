@@ -66,7 +66,7 @@ def _lookup_choices_line(field, resolved_options=None):
 
 def build_table_question_prompt(response_model, model_table, fields, document,
                                 *, resolved_options=None, ancestor_records=None,
-                                document_first=True):
+                                document_first=True, direct_parent_name=None):
     """
     The messages for ONE per-table extraction call: a document-first,
     question-style prompt — the full document first, then the table's
@@ -80,6 +80,9 @@ def build_table_question_prompt(response_model, model_table, fields, document,
         pre-pass; only the labels reach the prompt.
     ancestor_records: list of the direct parent table's merged record
         dicts — child tables only; None for root tables.
+    direct_parent_name: the direct parent table's model name, pre-computed
+        by the caller (avoids an ancestor-tables DB query on worker
+        threads); falls back to ancestor_tables() when not given.
     Returns [{'role': 'user', 'content': ...}].
     """
     from extractor.services.instructor_extractor import (
@@ -107,9 +110,12 @@ def build_table_question_prompt(response_model, model_table, fields, document,
         f"becomes ONE record, in the order the entries appear. Return "
         f'{{"records": []}} when the document contains none.')
     if ancestor_records is not None:
-        ancestors = ancestor_tables(model_table.database_table)
-        direct_name = (ancestors[-1].clientapp_content_type.model
-                       if ancestors else table_name)
+        if direct_parent_name is None:
+            ancestors = ancestor_tables(model_table.database_table)
+            direct_name = (ancestors[-1].clientapp_content_type.model
+                           if ancestors else table_name)
+        else:
+            direct_name = direct_parent_name
         shown = [{k: v for k, v in rec.items() if k != 'field_assessments'}
                  for rec in ancestor_records]
         parts += [
