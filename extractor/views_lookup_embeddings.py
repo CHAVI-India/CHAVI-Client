@@ -1,5 +1,5 @@
 """
-Views for semantic search configuration and embedding management.
+Views for lookup embedding configuration and embedding management.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -12,7 +12,6 @@ from logging import getLogger
 import uuid
 
 from extractor.models import EmbeddingConfiguration, LookupEmbedding, DatabaseField, BackgroundTask
-from extractor.services.semantic_search import SemanticSearchService
 
 log = getLogger(__name__)
 
@@ -41,12 +40,17 @@ def _inflight_embedding_tasks_alive(task_ids):
 
 @login_required
 @permission_required('extractor.view_embeddingconfiguration', raise_exception=True)
-def semantic_search_settings(request):
+def lookup_embeddings(request):
     """
-    Main page for semantic search settings - shows configurations and embeddings status.
+    Main page for lookup embeddings - shows embedding configurations, the
+    number of computed embeddings per model, and embedding statistics.
     """
-    # Get all configurations
-    configs = EmbeddingConfiguration.objects.all().order_by('-is_active', '-created_at')
+    # Get all configurations, each annotated with its computed embedding count
+    configs = (
+        EmbeddingConfiguration.objects
+        .annotate(embedding_count=Count('lookupembedding'))
+        .order_by('-is_active', '-created_at')
+    )
     active_config = configs.filter(is_active=True).first()
     
     # Get embedding statistics
@@ -90,7 +94,7 @@ def semantic_search_settings(request):
         'embedding_stats': embedding_stats,
     }
     
-    return render(request, 'extractor/semantic_search_settings.html', context)
+    return render(request, 'extractor/lookup_embeddings.html', context)
 
 
 @login_required
@@ -122,7 +126,7 @@ def embedding_config_create(request):
                 EmbeddingConfiguration.objects.exclude(pk=config.pk).update(is_active=False)
             
             messages.success(request, f"Embedding configuration '{config.model_name}' created successfully!")
-            return redirect('extractor:semantic_search_settings')
+            return redirect('extractor:lookup_embeddings')
             
         except Exception as e:
             log.error(f"Error creating embedding configuration: {e}")
@@ -208,7 +212,7 @@ def embedding_config_edit(request, config_id):
                 EmbeddingConfiguration.objects.exclude(pk=config.pk).update(is_active=False)
             
             messages.success(request, f"Configuration '{config.model_name}' updated successfully!")
-            return redirect('extractor:semantic_search_settings')
+            return redirect('extractor:lookup_embeddings')
             
         except Exception as e:
             log.error(f"Error updating embedding configuration: {e}")
@@ -238,7 +242,7 @@ def embedding_config_delete(request, config_id):
     config.delete()
     messages.success(request, f"Configuration '{config_name}' and its embeddings deleted successfully!")
     
-    return redirect('extractor:semantic_search_settings')
+    return redirect('extractor:lookup_embeddings')
 
 
 @login_required
@@ -259,7 +263,7 @@ def embedding_config_activate(request, config_id):
     
     messages.success(request, f"Configuration '{config.model_name}' is now active!")
     
-    return redirect('extractor:semantic_search_settings')
+    return redirect('extractor:lookup_embeddings')
 
 
 @login_required

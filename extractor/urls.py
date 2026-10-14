@@ -52,13 +52,13 @@ urlpatterns = [
     path('extraction/jobs/<int:job_id>/review/<uuid:batch_id>/approve/', views.extraction_review_approve, name='extraction_review_approve'),
     path('extraction/jobs/<int:job_id>/review/options/', views.extraction_review_options, name='extraction_review_options'),
     
-    path('semantic-search/', views.semantic_search_settings, name='semantic_search_settings'),
-    path('semantic-search/config/create/', views.embedding_config_create, name='embedding_config_create'),
-    path('semantic-search/config/<int:config_id>/edit/', views.embedding_config_edit, name='embedding_config_edit'),
-    path('semantic-search/config/<int:config_id>/delete/', views.embedding_config_delete, name='embedding_config_delete'),
-    path('semantic-search/config/<int:config_id>/activate/', views.embedding_config_activate, name='embedding_config_activate'),
-    path('semantic-search/compute/', views.compute_embeddings, name='compute_embeddings'),
-    path('semantic-search/progress/<str:task_id>/', views.get_embedding_progress, name='get_embedding_progress'),
+    path('lookup-embeddings/', views.lookup_embeddings, name='lookup_embeddings'),
+    path('lookup-embeddings/config/create/', views.embedding_config_create, name='embedding_config_create'),
+    path('lookup-embeddings/config/<int:config_id>/edit/', views.embedding_config_edit, name='embedding_config_edit'),
+    path('lookup-embeddings/config/<int:config_id>/delete/', views.embedding_config_delete, name='embedding_config_delete'),
+    path('lookup-embeddings/config/<int:config_id>/activate/', views.embedding_config_activate, name='embedding_config_activate'),
+    path('lookup-embeddings/compute/', views.compute_embeddings, name='compute_embeddings'),
+    path('lookup-embeddings/progress/<str:task_id>/', views.get_embedding_progress, name='get_embedding_progress'),
     
     path('api/tables/<int:table_id>/fields/', views.api_get_table_fields, name='api_get_table_fields'),
 ]

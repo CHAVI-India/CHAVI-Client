@@ -4,11 +4,11 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-3xl">
-    {% url 'extractor:semantic_search_settings' as cancel_url %}
+    {% url 'extractor:lookup_embeddings' as cancel_url %}
     {% if is_edit %}
-    {% component "page_header" title="Edit Configuration" icon="fas fa-edit" subtitle="Configure the embedding model for semantic search" back_url=cancel_url back_text="Back to settings" %}{% endcomponent %}
+    {% component "page_header" title="Edit Configuration" icon="fas fa-edit" subtitle="Configure the embedding model for lookup embeddings" back_url=cancel_url back_text="Back to Lookup Embeddings" %}{% endcomponent %}
     {% else %}
-    {% component "page_header" title="New Embedding Configuration" icon="fas fa-plus" subtitle="Configure the embedding model for semantic search" back_url=cancel_url back_text="Back to settings" %}{% endcomponent %}
+    {% component "page_header" title="New Embedding Configuration" icon="fas fa-plus" subtitle="Configure the embedding model for lookup embeddings" back_url=cancel_url back_text="Back to Lookup Embeddings" %}{% endcomponent %}
     {% endif %}
 
     {% component "card" %}
@@ -180,7 +180,7 @@
                 </label>
                 <p class="text-xs text-gray-500 mt-1 ml-6">
                     Only one configuration can be active at a time — activating this deactivates the others.
-                    Once created and set active, embeddings can be computed from the semantic search settings page.
+                    Once created and set active, embeddings can be computed from the Lookup Embeddings page.
                 </p>
             </div>
 

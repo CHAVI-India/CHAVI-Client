@@ -202,7 +202,7 @@ class RoleGroupTests(TestCase):
             'extractor:client_configuration_list',
             'extractor:response_model_list',
             'extractor:instructor_message_list',
-            'extractor:semantic_search_settings',
+            'extractor:lookup_embeddings',
             'extractor:file_upload_list',
             'extractor:extraction_dashboard',
         ):

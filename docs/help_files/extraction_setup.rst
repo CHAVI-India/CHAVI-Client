@@ -37,8 +37,8 @@ Instructor Prompts
 
 These are the instructions sent to the reading service — for example, "only take values you can see in the text". They are sent in order, lowest number first. The defaults work well; change them only if results are coming back wrong.
 
-Embedding Settings
--------------------
+Lookup Embeddings
+-----------------
 
 Some fields have fixed lists of allowed answers (dropdowns). This setting teaches the system to match what a document says to the closest allowed answer — useful when wording differs, like "high blood pressure" versus "hypertension".
 

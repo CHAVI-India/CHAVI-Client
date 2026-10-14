@@ -2123,9 +2123,9 @@ def instructor_message_delete(request, message_id):
     return redirect('extractor:response_model_detail', response_model_id=response_model_id)
 
 
-# Import semantic search views
-from extractor.views_semantic_search import (
-    semantic_search_settings,
+# Import lookup embedding views
+from extractor.views_lookup_embeddings import (
+    lookup_embeddings,
     embedding_config_create,
     embedding_config_edit,
     embedding_config_delete,

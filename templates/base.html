@@ -44,7 +44,7 @@
                         {% url 'extractor:client_configuration_list' as nav_ex_clients %}
                         {% url 'extractor:response_model_list' as nav_ex_models %}
                         {% url 'extractor:instructor_message_list' as nav_ex_msgs %}
-                        {% url 'extractor:semantic_search_settings' as nav_ex_embed %}
+                        {% url 'extractor:lookup_embeddings' as nav_ex_embed %}
                         {% url 'extractor:wizard_start' as nav_ex_wizard %}
                         {% url 'deidentification:patient_list' as nav_deid %}
                         {% url 'deidentification:legacy_import' as nav_deid_legacy %}
@@ -113,7 +113,7 @@
                             {% component "nav_dropdown_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
                             {% endif %}
                             {% if perms.extractor.view_embeddingconfiguration %}
-                            {% component "nav_dropdown_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_ex_embed icon="fa-brain" label="Lookup Embeddings" %}{% endcomponent %}
                             {% endif %}
                             {% endif %}
                             {% if perms.extractor.add_responsemodel %}
@@ -263,7 +263,7 @@
                 {% component "nav_mobile_item" href=nav_ex_msgs icon="fa-comment-dots" label="Instructor Prompts" %}{% endcomponent %}
                 {% endif %}
                 {% if perms.extractor.view_embeddingconfiguration %}
-                {% component "nav_mobile_item" href=nav_ex_embed icon="fa-brain" label="Embedding Settings" %}{% endcomponent %}
+                {% component "nav_mobile_item" href=nav_ex_embed icon="fa-brain" label="Lookup Embeddings" %}{% endcomponent %}
                 {% endif %}
                 {% if perms.extractor.add_responsemodel %}
                 {% component "nav_mobile_item" href=nav_ex_wizard icon="fa-hat-wizard" label="Start Wizard" %}{% endcomponent %}

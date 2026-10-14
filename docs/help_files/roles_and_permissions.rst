@@ -48,7 +48,7 @@ Seven groups are created automatically by the database migration
        Cannot change LLM settings.
    * - **LLM Configuration**
      - Full management of LLM client configurations, response models, database
-       table/field mappings, instructor prompts and semantic-search embedding
+       table/field mappings, instructor prompts and lookup embedding
        configurations. Read-only view of uploads, extraction jobs and results.
    * - **Deidentification Operator**
      - Views the deidentification patient list, triggers deidentification
