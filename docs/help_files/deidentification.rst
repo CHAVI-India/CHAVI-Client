@@ -19,6 +19,12 @@ To de-identify:
 
 Each job runs in the background and appears under :doc:`Task Runs <getting_around>`.
 
+De-identification runs on a dedicated single worker, so batches are always
+processed one after another, in the order they were started. If you start
+another batch while one is already running, the newer one waits in the
+queue — its task run stays pending-looking until the running batch
+finishes, then picks up automatically.
+
 One patient at a time
 ----------------------
 

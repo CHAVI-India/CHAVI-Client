@@ -75,6 +75,26 @@ After the image has been pulled, you can start the containers by running the fol
    docker-compose up -d
 ..
 
+Background Task Workers
+-----------------------
+
+Two Celery workers process background jobs:
+
+* ``chaviclient-celery-worker`` — general tasks (DICOM retrieval, ZIP and
+  clinical data downloads, archive sweeps, scheduled jobs). Runs with two
+  slots (``--concurrency=2``) on the ``default`` queue.
+* ``chaviclient-celery-deid-worker`` — deidentification only. Runs with a
+  single slot (``--concurrency=1``) on the dedicated ``deid`` queue, so
+  deidentification batches are processed strictly one after another, even
+  when several patients are de-identified at the same time. This keeps
+  memory and CPU use in check: only one copy of the text-detection models
+  is loaded at a time.
+
+A de-identification job started while another is already running waits in
+the queue; its task run shows no progress until the running batch
+finishes. Upgrading the software replaces both workers at once, and any
+interrupted de-identification run resumes from where it left off.
+
 DICOM Query/Retrieve Networking
 --------------------------------
 
@@ -116,8 +136,9 @@ at on disk depends on how the storage is mounted. Four common setups:
 * **NAS/LAN share mounted on the Docker host** — mount the share on the host
   first (NFS or SMB, for example at ``/mnt/nas/chavi-archive`` — when you put
   the mount in ``/etc/fstab``, use the ``_netdev`` option so the mount waits
-  for the network), then add the bind mount to the ``volumes:`` of **both**
-  ``chaviclient-celery-worker`` and ``chaviclient-django``::
+  for the network), then add the bind mount to the ``volumes:`` of
+  ``chaviclient-celery-worker``, ``chaviclient-celery-deid-worker`` and
+  ``chaviclient-django``::
 
     volumes:
       - chaviclient_app_data:/app
@@ -140,7 +161,7 @@ at on disk depends on how the storage is mounted. Four common setups:
      should show the share, not an empty fresh directory.
 
 * **Windows host with an SMB share (Docker Desktop)** — bind the UNC path
-  directly, no host-side mount needed, again in **both** services::
+  directly, no host-side mount needed, again in all three services::
 
     volumes:
       - //NAS_HOST/chavi-archive:/archive/dicom
@@ -151,9 +172,9 @@ at on disk depends on how the storage is mounted. Four common setups:
   mounts the share as a named volume; the credentials and the share path come
   from ``.env``. ``example_docker-compose.yml`` contains this ready to
   uncomment. Mount the volume as ``chaviclient_archive:/archive/dicom`` in
-  **both** the worker and the web service (commented lines are included in
-  the example compose), then create the location with type *Mounted share*
-  and path ``/archive/dicom``.
+  the main worker, the deid worker and the web service (commented lines
+  are included in the example compose), then create the location with type
+  *Mounted share* and path ``/archive/dicom``.
 
   **SMB/CIFS share** (works on Linux hosts and Docker Desktop on Windows)::
 
@@ -232,11 +253,14 @@ at on disk depends on how the storage is mounted. Four common setups:
 
 The ``chaviclient-django`` (web) container needs the mount too: when a location
 is saved, the form probes the path for write access in the web container — a
-path mounted only in the worker fails that validation with "location path is
-not writable". The actual archiving and de-archiving run in
-``chaviclient-celery-worker``; ``chaviclient-celery-beat`` only dispatches the
-scheduled sweep and ``chaviclient-dicom`` never touches the archive path, so
-neither of them needs the mount.
+path mounted only in the workers fails that validation with "location path is
+not writable". The actual archiving runs in ``chaviclient-celery-worker``,
+while de-archival restore (before de-identification starts, and the
+per-study safety net during a run) executes inside deidentification tasks on
+``chaviclient-celery-deid-worker`` — so all three need the mount.
+``chaviclient-celery-beat`` only dispatches the scheduled sweep and
+``chaviclient-dicom`` never touches the archive path, so neither of them needs
+the mount.
 
 Verification after a change::
 
