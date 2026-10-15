@@ -331,3 +331,33 @@ class DeidentificationChainTests(TestCase):
         parent = TaskRun.objects.get(task_id='run-ok')
         self.assertEqual(parent.status, TaskRun.Status.SUCCESS)
         self.assertIn('8 files', parent.result_summary['message'])
+
+
+class DeidQueueRoutingTests(SimpleTestCase):
+    """Deid chain tasks route to the dedicated 'deid' queue so a
+    single-concurrency worker serializes deidentification across batches."""
+
+    def _route_queue(self, task_name):
+        from celery.app.routes import Router, prepare
+
+        from chavi_client.celery import app
+
+        router = Router(prepare(app.conf.task_routes), dict(app.amqp.queues), app=app)
+        route = router.route({}, task_name)
+        queue = route.get('queue')
+        return getattr(queue, 'name', queue)
+
+    def test_deid_chain_tasks_route_to_deid_queue(self):
+        for name in (
+            'deidentification.tasks.deidentify_dicom_studies_bulk_task',
+            'deidentification.tasks.deidentify_dicom_study_task',
+            'deidentification.tasks.finalize_deidentification_batch_task',
+        ):
+            self.assertEqual(self._route_queue(name), 'deid', name)
+
+    def test_other_deid_tasks_stay_on_default_queue(self):
+        for name in (
+            'deidentification.tasks.build_dicom_download_zip_task',
+            'deidentification.tasks.import_legacy_mapping_task',
+        ):
+            self.assertEqual(self._route_queue(name), 'default', name)

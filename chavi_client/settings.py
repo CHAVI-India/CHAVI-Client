@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import socket
+from kombu import Queue as _KombuQueue
 from dotenv import load_dotenv
 from django.templatetags.static import static
 from django.urls import reverse_lazy
@@ -881,6 +882,8 @@ EXTRACTOR_DEID_CLINICAL_ALLOWLIST = {
     'mammogram', 'mammography',  # imaging study, not a date
     'ce', 'cea',           # tumour marker, not an org
     'fnac', 'fna',        # fine-needle aspiration, not an org
+    'hourly',            # dosing frequency, mis-tagged as DATE
+    'spo2', 'jvp',       # vitals, mis-tagged as PERSON
 }
 # CSV column header (lowercased) -> entity type; mapped columns are replaced
 # wholesale, unmapped columns get per-cell NER.
@@ -926,6 +929,26 @@ CELERY_BROKER_CONNECTION_MAX_RETRIES = None  # Retry indefinitely on broker conn
 CELERY_BROKER_CONNECTION_RETRY_DELAY = 5  # 5 second delay between retries
 CELERY_RESULT_EXTENDED = True  # Store extended result metadata (name, args, kwargs, origin)
 CELERY_TASK_DEFAULT_QUEUE = 'default'  # Default queue name
+
+
+# Declared queues. 'deid' is consumed by the dedicated single-slot worker
+# (chaviclient-celery-deid-worker in docker_install/example_docker-compose.yml)
+# so deidentification batches are strictly serial across the deployment —
+# concurrent batches must not load duplicate EasyOCR + NER model stacks in
+# parallel worker children. Durable so long deid links survive a broker
+# restart. 'default' keeps the kombu default (durable), matching the queue
+# the workers have always used. Must be actual kombu.Queue objects (the
+# Django config loader copies the value verbatim — no callables).
+CELERY_TASK_QUEUES = {
+    'default': _KombuQueue('default'),
+    'deid': _KombuQueue('deid', durable=True),
+}
+# Deid chain tasks run on the dedicated 'deid' queue (see above).
+CELERY_TASK_ROUTES = {
+    'deidentification.tasks.deidentify_dicom_studies_bulk_task': {'queue': 'deid'},
+    'deidentification.tasks.deidentify_dicom_study_task': {'queue': 'deid'},
+    'deidentification.tasks.finalize_deidentification_batch_task': {'queue': 'deid'},
+}
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Recycle worker after 100 tasks to prevent memory leaks
 CELERY_WORKER_LOST_WAIT = 10  # Seconds to wait before marking worker as lost
 
