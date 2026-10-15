@@ -857,12 +857,31 @@ EXTRACTOR_DEID_SCORE_THRESHOLD = 0.35
 EXTRACTOR_DEID_DATE_SHIFT_RANGE = 100
 # "hf" = HuggingFaceNerRecognizer (DEID_HF_NER_MODEL); "none" = spaCy+rules only.
 EXTRACTOR_DEID_NER_BACKEND = "hf"
+# OpenMed (local clinical PII NER, pip openmed[hf]) as an alternative engine.
+# True clinical-domain token classifier: no general-domain false positives
+# (Nottingham/Grade/mammogram) while still catching names, places, dates,
+# record numbers — incl. village names the Stanford model misses.
+EXTRACTOR_DEID_OPENMED_ENABLED = True
+EXTRACTOR_DEID_OPENMED_MODEL = "pii_superclinical_large"
+# OpenMed Nemotron-PII label confidence floor (0..1).
+EXTRACTOR_DEID_OPENMED_THRESHOLD = 0.55
 # Entity types dropped entirely from text-deid results. 'ID' is the
 # ai4privacy catch-all — on clinical notes it eats measurements, lymph-node
 # counts and marker names (p16, D2-40); real identifiers are covered by the
 # pattern recognizers instead. 'AGE' is not redacted (age is not a direct
 # identifier and ages are needed for extraction).
 EXTRACTOR_DEID_DROP_ENTITY_TYPES = {'ID', 'AGE', 'NRP'}
+# Clinical terms that general-domain NER (spaCy/Stanford) mis-tags as PII
+# (PERSON/LOCATION/DATE/ORG). Matched whole-span, case-insensitive, on
+# every engine, and dropped before redaction. Extend as new clinical
+# false positives surface in review.
+EXTRACTOR_DEID_CLINICAL_ALLOWLIST = {
+    'nottingham',           # grading system, not a city
+    'grade i', 'grade ii', 'grade iii', 'grade iv',  # histological grade
+    'mammogram', 'mammography',  # imaging study, not a date
+    'ce', 'cea',           # tumour marker, not an org
+    'fnac', 'fna',        # fine-needle aspiration, not an org
+}
 # CSV column header (lowercased) -> entity type; mapped columns are replaced
 # wholesale, unmapped columns get per-cell NER.
 EXTRACTOR_DEID_CSV_COLUMN_MAP = {

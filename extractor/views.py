@@ -1052,6 +1052,8 @@ def file_upload_detail(request, file_id):
         'deid_enabled': getattr(settings, 'EXTRACTOR_DEID_ENABLED', True),
     }
     deid_enabled = context['deid_enabled']
+    context['deid_openmed_enabled'] = bool(getattr(
+        settings, 'EXTRACTOR_DEID_OPENMED_ENABLED', True))
     if deid_enabled:
         from extractor.models import ClientConfiguration
         context['deid_llm_configs'] = list(
@@ -1259,7 +1261,7 @@ def processed_text_deidentify(request, processed_text_id):
             messages.error(request, "Invalid deidentification configuration choice.")
             return redirect(next_url)
         client_config_id = int(client_config_id)
-    if backend not in ('default', 'presidio', 'llm'):
+    if backend not in ('default', 'presidio', 'llm', 'openmed'):
         messages.error(request, "Unknown deidentification engine.")
         return redirect(next_url)
     if backend in ('default', 'llm'):

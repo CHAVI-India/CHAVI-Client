@@ -1832,3 +1832,53 @@ Note recall/precision deltas per entity type in `docs/` (or the evaluation sheet
     OpenAI-compat chat + lenient JSON parsing (array / 'entities' object /
     single object / fenced), because small models do not reliably emit the
     exact requested schema.
+
+## Follow-up (2026-10-15): OpenMed engine + age/duration/allowlist fixes
+
+After the real-model A/B, three refinements landed:
+
+1. **Age + durations never redacted** (user requirement). `_filter_results`
+   now drops DATE_TIME spans that are ages ("Age 56 years", "age: 56",
+   "age 56", "56 years old") and intervals ("1 month", "2 weeks", "3
+   days", "3 months"). Real dates still shift. Applies to every engine.
+   (spaCy tags the whole "Age 56 years" as one DATE span, so the leading
+   "age" word had to be allowed in the age regex.)
+
+2. **Clinical-term allowlist** (`EXTRACTOR_DEID_CLINICAL_ALLOWLIST`).
+   General-domain NER (spaCy/Stanford) mis-tags clinical vocabulary as
+   PII — "Nottingham"→LOCATION, "Grade III"→PERSON, "mammogram"→DATE.
+   Whole-span, case-insensitive, dropped before redaction on every
+   engine. Fixed the pathology over-redaction that was present on all
+   three engines.
+
+3. **OpenMed engine** (`extractor/services/openmed_ner.py`). OpenMed
+   (Apache-2.0, local clinical PII NER, `pip openmed[hf]`, model
+   `pii_superclinical_large`) plugs in as a third Presidio ad-hoc
+   recognizer — same pattern as the LLM engine. Returns true offsets
+   (no verbatim search). Only a curated Nemotron-PII label subset maps
+   to Presidio types; `age` maps to AGE and is dropped by the filter.
+   Backend `openmed` flows through the dispatch view, Celery task, and
+   `deidentify_processed --backend openmed`; engine selector + badge in
+   the UI.
+
+### Engine architecture note (evaluated)
+The LLM/OpenMed engines run their replacement NER **alongside** spaCy
+NER (union) on the rules-only analyzer, not instead of it. `SlimSpacyNlpEngine`
+(spaCy without the NER component) was prototyped and found to reduce
+over-redaction but *increase* leaks on small replacement models (they
+miss what spaCy caught — initials, address parts). For a deid system
+recall beats precision; precision is handled by the allowlist instead.
+`_build_analyzer(slim_ner=...)` is kept as an option.
+
+### 3-way A/B on the synthetic Indian docs (scripts/ab_deid_test.py)
+| doc | Presidio+Stanford | OpenMed | LLM gemma4:e2b |
+|---|---|---|---|
+| clinical | leaks=1 (Patia) | leaks=2 (Apollo Hospital, PIN) | leaks=0 |
+| radiology | leaks=0 | leaks=1 (RAD/ no.) | leaks=1 (RAD/ no.) |
+| pathology | leaks=0 lost=0 | leaks=0 lost=0 | leaks=0 lost=0 |
+| age/durations | preserved | preserved | preserved |
+
+Each engine has a different recall profile; all now preserve age,
+durations and clinical terms. LLM is strongest on free-text clinical
+notes (village names, hospital names, PINs) but slowest; Presidio is
+fastest. The per-file engine selector is the intended way to pick.

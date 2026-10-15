@@ -19,7 +19,7 @@ class Command(BaseCommand):
             '--sync', action='store_true',
             help='Run in-process instead of dispatching Celery tasks')
         parser.add_argument(
-            '--backend', choices=['default', 'presidio', 'llm'],
+            '--backend', choices=['default', 'presidio', 'openmed', 'llm'],
             default='default',
             help='Deid engine: default (follows the configured default), '
                  'presidio (rules + Stanford NER) or llm (rules + local LLM)')

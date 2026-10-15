@@ -4034,6 +4034,147 @@ class DurationFilterTests(SimpleTestCase):
         self.assertFalse(self._kept('age 56 years', 'DATE_TIME', '56 years'))
         self.assertFalse(self._kept('a 56-year-old man', 'DATE_TIME', '56-year-old'))
 
+    def test_age_with_leading_word_dropped(self):
+        # spaCy tags the whole 'Age 56 years' as one DATE span
+        self.assertFalse(
+            self._kept('Age 56 years, Sex: Male', 'DATE_TIME', 'Age 56 years'))
+
+    def test_bare_age_expressions_dropped(self):
+        self.assertFalse(self._kept('DOB 12/04/1968, age: 56', 'DATE_TIME', 'age: 56'))
+        self.assertFalse(self._kept('admitted at age 56', 'DATE_TIME', 'age 56'))
+        self.assertFalse(self._kept('he is 56 years old', 'DATE_TIME', '56 years old'))
+
+
+class AgeDurationRegressionTests(SimpleTestCase):
+    """End-to-end: age and duration survive deid, real dates shift.
+
+    Regression guard for the A/B finding that 'Age 56 years' (a single
+    spaCy DATE span) was redacted as <DATE> on both engines while
+    clinical intervals ('1 month', '2 weeks') must remain.
+    """
+
+    def test_age_and_durations_survive_dates_shift(self):
+        from unittest import mock
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+
+        class FakeResult:
+            def __init__(self, etype, start, end, score=0.9):
+                self.entity_type = etype
+                self.start = start
+                self.end = end
+                self.score = score
+
+        text = ('Age 56 years, symptomatic for 1 month with fever 3 days. '
+                'Admitted 01/02/2024, follow up in 2 weeks.')
+        spans = [
+            ('DATE_TIME', 'Age 56 years'),
+            ('DATE_TIME', '1 month'),
+            ('DATE_TIME', '3 days'),
+            ('DATE_TIME', '01/02/2024'),
+            ('DATE_TIME', '2 weeks'),
+        ]
+        results = [
+            FakeResult(et, text.find(s), text.find(s) + len(s))
+            for et, s in spans
+        ]
+        kept = S._filter_results(text, results)
+        kept_surfaces = {text[r.start:r.end] for r in kept}
+        self.assertEqual(kept_surfaces, {'01/02/2024'})
+
+
+class ClinicalAllowlistTests(SimpleTestCase):
+    """Clinical terms mis-tagged by general-domain NER survive on
+    every engine (whole-span, case-insensitive match)."""
+
+    def _kept(self, text, etype, surface):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+
+        class R:
+            def __init__(self):
+                self.entity_type = etype
+                self.start = text.find(surface)
+                self.end = self.start + len(surface)
+                self.score = 0.95
+        return len(S._filter_results(text, [R()])) == 1
+
+    def test_nottingham_survives_as_location(self):
+        self.assertFalse(self._kept(
+            'Grade III (Nottingham 8/9)', 'LOCATION', 'Nottingham'))
+
+    def test_grade_survives_as_person(self):
+        self.assertFalse(self._kept(
+            'ductal carcinoma, Grade III', 'PERSON', 'Grade III'))
+
+    def test_mammogram_survives_as_date(self):
+        self.assertFalse(self._kept(
+            'follow up with mammogram', 'DATE_TIME', 'mammogram'))
+
+    def test_real_place_still_redacted(self):
+        self.assertTrue(self._kept(
+            'from Kolkata to Patia', 'LOCATION', 'Kolkata'))
+
+
+class OpenMedNerRecognizerTests(SimpleTestCase):
+    def test_labels_mapped_offsets_preserved(self):
+        from extractor.services.openmed_ner import OpenMedNerRecognizer
+
+        rec = OpenMedNerRecognizer(threshold=0.5)
+        text = 'Rajesh Kumar from Patia on 01/02/2024'
+        rec._extract = mock.Mock(return_value=[
+            ('first_name', 0.99, 0, 6),
+            ('last_name', 0.99, 7, 12),
+            ('city', 0.8, 17, 22),
+            ('date', 0.95, 27, 37),
+            # unmapped clinical label must be dropped
+            ('medical_condition', 0.9, 17, 22),
+            # below-threshold mapped label must be dropped
+            ('postcode', 0.4, 0, 6),
+        ])
+        found = rec._find(text)
+        self.assertEqual(
+            found,
+            [('PERSON', 0.99, 0, 6), ('PERSON', 0.99, 7, 12),
+             ('LOCATION', 0.8, 17, 22), ('DATE_TIME', 0.95, 27, 37)])
+
+    def test_age_label_maps_to_age(self):
+        from extractor.services.openmed_ner import OpenMedNerRecognizer
+        rec = OpenMedNerRecognizer(threshold=0.5)
+        rec._extract = mock.Mock(return_value=[('age', 0.99, 0, 2)])
+        self.assertEqual(rec._find('56'), [('AGE', 0.99, 0, 2)])
+
+    def test_analyze_caches_per_text(self):
+        from extractor.services.openmed_ner import OpenMedNerRecognizer
+        rec = OpenMedNerRecognizer(threshold=0.5)
+        rec._extract = mock.Mock(return_value=[('name', 0.9, 0, 3)])
+        rec.analyze('abc', entities=None, nlp_artifacts=None)
+        rec.analyze('abc', entities=None, nlp_artifacts=None)
+        self.assertEqual(rec._extract.call_count, 1)
+
+    def test_openmed_error_wrapped(self):
+        from extractor.services.openmed_ner import (
+            OpenMedNerError, OpenMedNerRecognizer)
+        rec = OpenMedNerRecognizer(threshold=0.5)
+        rec._extract = mock.Mock(side_effect=RuntimeError('boom'))
+        with self.assertRaises(OpenMedNerError):
+            rec._find('abc')
+
+
+class DeidBackendResolutionTests(SimpleTestCase):
+    def test_openmed_backend_resolves_without_config(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        backend, config = S._resolve_backend('openmed', None)
+        self.assertEqual(backend, 'openmed')
+        self.assertIsNone(config)
+
+    def test_unknown_backend_rejected(self):
+        from extractor.services.text_deidentification import (
+            LlmDeidConfigurationError, TextDeidentificationService as S)
+        with self.assertRaises(LlmDeidConfigurationError):
+            S._resolve_backend('bogus', None)
+
 
 class DeidDispatchViewTests(TestCase):
     def setUp(self):

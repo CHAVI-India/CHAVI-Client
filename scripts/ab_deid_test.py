@@ -134,7 +134,7 @@ PII_TOKENS = [
     'Rajesh Kumar', 'Bhaskar Kumar', 'Meena Nair', 'Subhojit Das',
     'Prasant Roy', 'Anirban Ghosh', 'S. K. Bose', 'Ritu Mandal',
     'Patia', 'Mahishadal', 'West Medinipur', 'Salt Lake', 'Ghat Road',
-    'Kolkata',
+    'Kolkata', 'Apollo Hospital', 'KOLKATA MEDICAL INSTITUTE',
     'MR/26/092837', 'RAD/26/004512', 'HP/26/011111',
     '8412 3456 7890', '841234567890',
     '98312 45678', '9831245678',
@@ -147,6 +147,8 @@ CLINICAL_TOKENS = [
     'lymph nodes', 'p16', 'D2-40', 'Ki-67', 'HER2',
     '4 x 3.5', '12 mm', 'EC-T', 'triple-positive', 'Nottingham',
     'cT2 N1 M0',
+    # age must survive deid (not a direct identifier)
+    '56 years',
 ]
 
 # Dates (shifted, not removed — checked separately).
@@ -328,10 +330,13 @@ def main():
         # each engine needs its own source row
         pt_pres = prepare(doc_name, content, ext)
         pt_llm = prepare(doc_name, content, ext)
+        pt_om = prepare(doc_name, content, ext)
         results = {}
         if not args.llm_only:
             results['Presidio + Stanford'] = run_engine(
                 pt_pres, 'presidio', 'presidio', None)
+            results['OpenMed clinical NER'] = run_engine(
+                pt_om, 'openmed', 'openmed', None)
         results['LLM NER (gemma4:e2b)'] = run_engine(
             pt_llm, 'llm', 'llm', cfg.id)
         report.append((doc_name, results))

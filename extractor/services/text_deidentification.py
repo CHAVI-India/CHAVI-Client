@@ -89,13 +89,14 @@ class TextDeidentificationService:
     def _resolve_backend(cls, backend, client_config_id):
         """Resolve the deid engine for a run.
 
-        Returns ('presidio', None) or ('llm', ClientConfiguration).
-        'default'/None follows the model-based default: a
-        ClientConfiguration with enable_text_deid + is_default_deid makes
-        the LLM engine the default; otherwise the existing rule-based
-        engine (with Stanford NER when configured) runs. Re-validates the
-        chosen configuration at dispatch time so a config edited after
-        save (or a legacy row) can never be used for deid.
+        Returns ('presidio', None), ('llm', ClientConfiguration) or
+        ('openmed', None). 'default'/None follows the model-based
+        default: a ClientConfiguration with enable_text_deid +
+        is_default_deid makes the LLM engine the default; otherwise the
+        existing rule-based engine (with Stanford NER when configured)
+        runs. Re-validates the chosen configuration at dispatch time so
+        a config edited after save (or a legacy row) can never be used
+        for deid.
         """
         from extractor.models import ClientConfiguration
 
@@ -105,10 +106,12 @@ class TextDeidentificationService:
             backend = 'llm' if has_default else 'presidio'
         if backend == 'presidio':
             return 'presidio', None
+        if backend == 'openmed':
+            return 'openmed', None
         if backend != 'llm':
             raise LlmDeidConfigurationError(
                 f"Unknown deid backend {backend!r} "
-                "(expected 'default', 'presidio' or 'llm').")
+                "(expected 'default', 'presidio', 'openmed' or 'llm').")
 
         if client_config_id:
             config = ClientConfiguration.objects.filter(
@@ -146,15 +149,26 @@ class TextDeidentificationService:
 
     @classmethod
     def _get_llm_analyzer(cls):
-        """Analyzer without the HF/Stanford NER — the LLM recognizer is
-        supplied per run as an ad-hoc recognizer."""
+        """Rules + spaCy NER analyzer without the HF/Stanford NER — a
+        replacement NER (LLM or OpenMed) is supplied per run as an
+        ad-hoc recognizer and runs alongside spaCy NER (union: the
+        replacement model improves recall, spaCy catches what it
+        misses). Precision is handled by _filter_results' clinical
+        allowlist, which drops general-domain false positives
+        ('Nottingham', 'Grade III', 'mammogram') on every engine.
+        """
         if cls._llm_analyzer is None:
             cls._llm_analyzer, _ = cls._build_analyzer(include_hf_ner=False)
         return cls._llm_analyzer
 
     @classmethod
-    def _build_analyzer(cls, include_hf_ner=None):
+    def _build_analyzer(cls, include_hf_ner=None, slim_ner=False):
+        nlp_engine = None
+        if slim_ner:
+            from presidio_analyzer.nlp_engine import SlimSpacyNlpEngine
+            nlp_engine = SlimSpacyNlpEngine(supported_languages=['en'])
         analyzer = AnalyzerEngine(
+            nlp_engine=nlp_engine,
             supported_languages=["en"],
             context_aware_enhancer=LemmaContextAwareEnhancer(
                 context_similarity_factor=0.35,
@@ -237,10 +251,14 @@ class TextDeidentificationService:
             backend, client_config_id)
         if backend_name == 'llm':
             engine_mode = 'llm'
-            llm_recognizer = LlmNerRecognizer(llm_config)
+            ner_recognizer = LlmNerRecognizer(llm_config)
+        elif backend_name == 'openmed':
+            from extractor.services.openmed_ner import OpenMedNerRecognizer
+            engine_mode = 'openmed'
+            ner_recognizer = OpenMedNerRecognizer()
         else:
             _, engine_mode = cls._get_analyzer()
-            llm_recognizer = None
+            ner_recognizer = None
 
         date_range = getattr(settings, 'EXTRACTOR_DEID_DATE_SHIFT_RANGE', 100)
         shift = random.randint(-date_range, date_range)
@@ -249,10 +267,10 @@ class TextDeidentificationService:
         path = str(processed_text.processed_file_path or '')
         if path.endswith('.csv'):
             new_content, entities, columns, repl = cls._deidentify_csv(
-                content, shift, patient, llm_recognizer)
+                content, shift, patient, ner_recognizer)
         else:
             new_content, entities, repl = cls._deidentify_text(
-                content, shift, patient, llm_recognizer)
+                content, shift, patient, ner_recognizer)
             columns = []
 
         # Aggregate identical (tag, original) pairs into the review map.
@@ -284,7 +302,12 @@ class TextDeidentificationService:
             deid_model=(
                 llm_config.llm_model_name
                 if backend_name == 'llm'
-                else (settings.DEID_HF_NER_MODEL if engine_mode == 'full' else '')
+                else (getattr(
+                    settings, 'EXTRACTOR_DEID_OPENMED_MODEL',
+                    'pii_superclinical_large')
+                    if backend_name == 'openmed'
+                    else (settings.DEID_HF_NER_MODEL
+                          if engine_mode == 'full' else ''))
             ),
             deid_entities=entities,
             deid_csv_columns_flagged=columns,
@@ -353,14 +376,14 @@ class TextDeidentificationService:
         return count
 
     @classmethod
-    def _deidentify_text(cls, content, shift, patient, llm_recognizer=None):
-        if llm_recognizer is not None:
+    def _deidentify_text(cls, content, shift, patient, ner_recognizer=None):
+        if ner_recognizer is not None:
             analyzer = cls._get_llm_analyzer()
         else:
             analyzer, _ = cls._get_analyzer()
         ad_hoc = build_patient_recognizers(patient)
-        if llm_recognizer is not None:
-            ad_hoc = [llm_recognizer] + ad_hoc
+        if ner_recognizer is not None:
+            ad_hoc = [ner_recognizer] + ad_hoc
         results = analyzer.analyze(
             text=content,
             language='en',
@@ -375,7 +398,7 @@ class TextDeidentificationService:
         return new_content, cls._entity_counts(results), repl
 
     @classmethod
-    def _deidentify_csv(cls, content, shift, patient, llm_recognizer=None):
+    def _deidentify_csv(cls, content, shift, patient, ner_recognizer=None):
         """Header-aware CSV pass: mapped columns are replaced wholesale;
         unmapped columns get per-cell NER with a shared tag map."""
         column_map = getattr(settings, 'EXTRACTOR_DEID_CSV_COLUMN_MAP', {})
@@ -383,7 +406,7 @@ class TextDeidentificationService:
         rows = list(reader)
         if not rows:
             return cls._deidentify_text(
-                content, shift, patient, llm_recognizer) + ([],)
+                content, shift, patient, ner_recognizer) + ([],)
 
         headers = rows[0]
         col_types = [column_map.get(h.strip().lower()) for h in headers]
@@ -391,16 +414,16 @@ class TextDeidentificationService:
             # No recognizable headers — treat the whole thing as text so
             # PHI in unmapped CSVs is still caught.
             new_content, counts, repl = cls._deidentify_text(
-                content, shift, patient, llm_recognizer)
+                content, shift, patient, ner_recognizer)
             return new_content, counts, [], repl
 
-        if llm_recognizer is not None:
+        if ner_recognizer is not None:
             analyzer = cls._get_llm_analyzer()
         else:
             analyzer, _ = cls._get_analyzer()
         ad_hoc = build_patient_recognizers(patient)
-        if llm_recognizer is not None:
-            ad_hoc = [llm_recognizer] + ad_hoc
+        if ner_recognizer is not None:
+            ad_hoc = [ner_recognizer] + ad_hoc
         tag_map = {}
         all_results = []
         repl = []
@@ -457,12 +480,20 @@ class TextDeidentificationService:
         """
         drop_types = getattr(
             settings, 'EXTRACTOR_DEID_DROP_ENTITY_TYPES', {'ID', 'AGE', 'NRP'})
+        allowlist = {
+            t.lower() for t in getattr(
+                settings, 'EXTRACTOR_DEID_CLINICAL_ALLOWLIST', set())}
         kept = []
         for r in results:
             surface = text[r.start:r.end].strip()
             if r.entity_type in drop_types:
                 continue
             if not surface:
+                continue
+            # Clinical terminology that general-domain NER mis-tags as
+            # PII (PERSON/LOCATION/DATE/ORG) — dropped whole-span so the
+            # clinical content survives on every engine.
+            if surface.lower() in allowlist:
                 continue
             # Mid-word spans are HF tokenization artifacts (e.g. 'oph' of
             # 'oropharynx', 'ally' of 'clinically') — real PHI spans align
@@ -475,11 +506,14 @@ class TextDeidentificationService:
                     (b_end < len(text) and text[b_end].isalnum()):
                 continue
             # Bare digits/percentages are never real dates (ages, counts),
-            # and explicit age surfaces ('56 Years', '56-year-old') are not
-            # redacted — age is not a direct identifier.
+            # and age/duration surfaces ('Age 56 years', '56 Years',
+            # '56-year-old', 'age: 56', '1 month') are not redacted —
+            # ages and clinical intervals are content, not identifiers.
+            # Real dates still shift as usual.
             if (r.entity_type == 'DATE_TIME' and re.match(
                     r'^\d{1,3}%?$'
-                    r'|^\d{1,3}\s*[-\s]?(years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
+                    r'|^(?:age\b:?\s*)?\d{1,3}\s*[-\s]?(years?\s+old|yrs?\s+old|years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
+                    r'|^age\b:?\s*\d{1,3}\s*(years?|yrs?)?\.?$'
                     r'|^\d{1,3}\s+(years?|months?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$',
                     surface, re.I)):
                 continue
