@@ -606,6 +606,9 @@ def client_configuration_create(request):
                 context_size=context_size,
                 extraction_concurrency=extraction_concurrency,
                 model_max_tokens=model_max_tokens,
+                enable_text_deid=request.POST.get('enable_text_deid') == 'on',
+                deid_local_certified=request.POST.get('deid_local_certified') == 'on',
+                is_default_deid=request.POST.get('is_default_deid') == 'on',
             )
             configuration.full_clean()
             configuration.save()
@@ -672,6 +675,10 @@ def client_configuration_edit(request, config_id):
         new_refresh_key = request.POST.get('model_api_refresh_key')
         if new_refresh_key:
             configuration.model_api_refresh_key = new_refresh_key
+
+        configuration.enable_text_deid = request.POST.get('enable_text_deid') == 'on'
+        configuration.deid_local_certified = request.POST.get('deid_local_certified') == 'on'
+        configuration.is_default_deid = request.POST.get('is_default_deid') == 'on'
         
         try:
             configuration.full_clean()

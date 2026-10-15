@@ -3735,3 +3735,79 @@ class ClientConfigurationDeidValidationTests(TestCase):
         c = self._make(base_url='http://192.168.1.50:11434',
                        enable_text_deid=True, deid_local_certified=True)
         c.full_clean()  # no ValidationError
+
+
+from django.test import TestCase
+from django.urls import reverse
+from django.contrib.auth.models import User, Permission
+
+
+class ClientConfigurationDeidViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('smoke')
+        self.user.user_permissions.set(Permission.objects.filter(
+            codename__in=['add_clientconfiguration', 'change_clientconfiguration',
+                          'view_clientconfiguration']))
+
+    def test_create_with_deid_fields(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('extractor:client_configuration_create'), {
+            'llm_model_name': 'gemma4:4b', 'model_provider': 'Local (Ollama)',
+            'model_api_key': 'ollama', 'model_base_url': 'http://localhost:11434',
+            'request_timeout': '60', 'context_size': '8192',
+            'extraction_concurrency': '1',
+            'enable_text_deid': 'on', 'deid_local_certified': 'on',
+            'is_default_deid': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        from extractor.models import ClientConfiguration
+        cfg = ClientConfiguration.objects.get(llm_model_name='gemma4:4b')
+        self.assertTrue(cfg.enable_text_deid)
+        self.assertTrue(cfg.deid_local_certified)
+        self.assertTrue(cfg.is_default_deid)
+
+    def test_create_cloud_with_deid_rejected(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('extractor:client_configuration_create'), {
+            'llm_model_name': 'gpt-4', 'model_provider': 'OpenAI',
+            'model_api_key': 'sk-x', 'model_base_url': 'https://api.openai.com/v1',
+            'request_timeout': '60', 'context_size': '8192',
+            'extraction_concurrency': '1',
+            'enable_text_deid': 'on', 'deid_local_certified': 'on',
+        })
+        from extractor.models import ClientConfiguration
+        self.assertFalse(ClientConfiguration.objects.filter(
+            llm_model_name='gpt-4').exists())
+        final = self.client.get(reverse('extractor:client_configuration_create'))
+        self.assertTrue(any('cloud provider' in str(m)
+                            for m in final.context['messages']))
+
+    def test_edit_round_trip_and_templates_render(self):
+        from extractor.models import ClientConfiguration
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            enable_text_deid=True, deid_local_certified=True,
+            is_default_deid=True)
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('extractor:client_configuration_edit', args=[cfg.id]), {
+            'llm_model_name': 'gemma4:4b', 'model_provider': 'Local (Ollama)',
+            'model_base_url': 'http://localhost:11434',
+            'request_timeout': '60', 'context_size': '8192',
+            'extraction_concurrency': '1',
+            'enable_text_deid': 'on', 'deid_local_certified': 'on',
+        })
+        cfg.refresh_from_db()
+        self.assertTrue(cfg.enable_text_deid)
+        self.assertFalse(cfg.is_default_deid)  # checkbox unticked clears it
+        # templates render
+        self.client.get(reverse('extractor:client_configuration_list'))
+        self.assertContains(
+            self.client.get(reverse('extractor:client_configuration_detail', args=[cfg.id])),
+            'Text Deidentification')
+        self.assertContains(
+            self.client.get(reverse('extractor:client_configuration_edit', args=[cfg.id])),
+            'deid_local_certified')
+        self.assertContains(
+            self.client.get(reverse('extractor:client_configuration_create')),
+            'deid_local_certified')

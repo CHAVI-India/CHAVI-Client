@@ -65,6 +65,23 @@
                     </div>
 
                     <div>
+                        <p class="text-sm font-medium text-gray-500">Text Deidentification</p>
+                        <p class="text-lg text-gray-800">
+                            {% if configuration.enable_text_deid %}
+                                Enabled
+                                {% if configuration.is_default_deid %}
+                                    {% component "badge" style="success" extra_class="ml-2" %}Default engine{% endcomponent %}
+                                {% endif %}
+                                {% if not configuration.deid_local_certified %}
+                                    {% component "badge" style="danger" extra_class="ml-2" %}Not certified{% endcomponent %}
+                                {% endif %}
+                            {% else %}
+                                Not enabled
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div>
                         <p class="text-sm font-medium text-gray-500">Created At</p>
                         <p class="text-lg text-gray-800">{{ configuration.created_at|date:"M d, Y H:i" }}</p>
                     </div>
