@@ -3669,3 +3669,69 @@ class TableExtractParallelTests(TableExtractTests):
             self._client.chat.completions.create_with_completion.call_count,
             1)
 
+
+
+class ClientConfigurationDeidValidationTests(TestCase):
+    """Deid opt-in validation on ClientConfiguration."""
+
+    def _make(self, **kw):
+        from extractor.models import ClientConfiguration
+        defaults = dict(
+            llm_model_name='test-model',
+            model_provider=kw.pop('provider', 'Local (Ollama)'),
+            model_api_key='ollama',
+            model_base_url=kw.pop('base_url', 'http://localhost:11434'),
+        )
+        defaults.update(kw)
+        return ClientConfiguration(**defaults)
+
+    def test_local_certified_clean(self):
+        from django.core.exceptions import ValidationError
+        c = self._make(enable_text_deid=True, deid_local_certified=True)
+        try:
+            c.full_clean()
+        except ValidationError as e:
+            self.fail(f"full_clean raised: {e.message_dict}")
+
+    def test_cloud_provider_rejected_for_deid(self):
+        from django.core.exceptions import ValidationError
+        c = self._make(provider='OpenAI', base_url='https://api.openai.com/v1',
+                       enable_text_deid=True, deid_local_certified=True)
+        with self.assertRaises(ValidationError):
+            c.full_clean()
+
+    def test_public_url_rejected_for_deid(self):
+        from django.core.exceptions import ValidationError
+        # provider not on the cloud list, but URL is public
+        c = self._make(provider='Other', base_url='https://llm.example.com/v1',
+                       enable_text_deid=True, deid_local_certified=True)
+        with self.assertRaises(ValidationError):
+            c.full_clean()
+
+    def test_certification_required(self):
+        from django.core.exceptions import ValidationError
+        c = self._make(enable_text_deid=True, deid_local_certified=False)
+        with self.assertRaises(ValidationError):
+            c.full_clean()
+
+    def test_default_requires_enable(self):
+        from django.core.exceptions import ValidationError
+        c = self._make(enable_text_deid=False, is_default_deid=True)
+        with self.assertRaises(ValidationError):
+            c.full_clean()
+
+    def test_only_one_default(self):
+        from django.core.exceptions import ValidationError
+        first = self._make(enable_text_deid=True, deid_local_certified=True,
+                           is_default_deid=True)
+        first.full_clean()
+        first.save()
+        second = self._make(enable_text_deid=True, deid_local_certified=True,
+                            is_default_deid=True)
+        with self.assertRaises(ValidationError):
+            second.full_clean()
+
+    def test_lan_ip_allowed(self):
+        c = self._make(base_url='http://192.168.1.50:11434',
+                       enable_text_deid=True, deid_local_certified=True)
+        c.full_clean()  # no ValidationError

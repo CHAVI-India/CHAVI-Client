@@ -83,6 +83,23 @@ class ClientConfiguration(models.Model):
                   "Leave empty to use the model default. Available values "
                   "depend on the model (e.g. low/medium/high for OpenAI, "
                   "enabled/disabled for Ollama, budget for Anthropic).")
+    enable_text_deid = models.BooleanField(
+        default=False,
+        help_text="Opt this configuration into the text deidentification NER "
+                  "role. Only local endpoints may be enabled — a cloud "
+                  "provider or public URL is rejected on save.")
+    deid_local_certified = models.BooleanField(
+        default=False,
+        help_text="Certification: I understand that patient text is sent to "
+                  "this model for deidentification and that the model runs "
+                  "locally (same machine or LAN), so the text never leaves "
+                  "the local network.")
+    is_default_deid = models.BooleanField(
+        default=False,
+        help_text="Use this configuration as the default deidentification "
+                  "engine. When set, new files are deidentified with the "
+                  "local LLM instead of the rule-based Stanford NER. "
+                  "Individual files can still override the engine.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -95,6 +112,33 @@ class ClientConfiguration(models.Model):
                 errors['model_api_key_validity'] = 'Validity date is required when API key can expire.'
             if not self.model_api_refresh_key:
                 errors['model_api_refresh_key'] = 'Refresh key is required when API key can expire.'
+            if errors:
+                raise ValidationError(errors)
+
+        if self.enable_text_deid or self.is_default_deid:
+            from extractor.services.url_policy import (
+                is_cloud_provider, is_local_endpoint)
+            errors = {}
+            if not self.enable_text_deid:
+                errors['is_default_deid'] = (
+                    'Enable text deidentification before marking it as the default.')
+            if is_cloud_provider(self.model_provider):
+                errors['model_provider'] = (
+                    'Text deidentification cannot use a cloud provider — '
+                    'patient text must not leave the local network.')
+            if not is_local_endpoint(self.model_base_url):
+                errors['model_base_url'] = (
+                    'Text deidentification requires a local endpoint '
+                    '(localhost, private/LAN or VPN address).')
+            if self.enable_text_deid and not self.deid_local_certified:
+                errors['deid_local_certified'] = (
+                    'Certification is required: confirm the model runs '
+                    'locally so patient text stays on the local network.')
+            if self.is_default_deid and ClientConfiguration.objects.exclude(
+                    pk=self.pk).filter(is_default_deid=True).exists():
+                errors['is_default_deid'] = (
+                    'Another configuration is already the default deid engine. '
+                    'Unset its "default" flag first.')
             if errors:
                 raise ValidationError(errors)
 
@@ -180,13 +224,18 @@ class ProcessedText(models.Model):
     ocr_applied = models.BooleanField(default=False, help_text="True when this version's text was produced by OCR rather than direct text extraction.")
     deidentified = models.BooleanField(default=False, help_text="True when this version's content was produced by the deidentification pipeline.")
     deidentified_source = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_derivatives', help_text="The ProcessedText version this deidentified version was derived from.")
-    deid_engine = models.CharField(max_length=20, blank=True, help_text="'full' (all recognizers incl. HF model) or 'degraded' (spaCy+rules only).")
+    deid_engine = models.CharField(max_length=20, blank=True, help_text="'full' (all recognizers incl. HF model), 'degraded' (spaCy+rules only) or 'llm' (rule-based recognizers + local LLM NER).")
     deid_model = models.CharField(max_length=255, blank=True, help_text="HF NER model used for this run (empty in degraded mode).")
     deid_entities = models.JSONField(default=dict, blank=True, help_text="Detected-entity counts by type, e.g. {'PERSON': 4, 'DATE_TIME': 12}.")
     deid_csv_columns_flagged = models.JSONField(default=list, blank=True, help_text="CSV headers mapped to PHI types by the column-map pass (CSV inputs only).")
     deid_map = models.JSONField(default=list, blank=True, help_text="Replacement map for review: [{tag, type, original, count}] — lets a reviewer see and restore what each tag replaced.")
     deid_manual_edits = models.PositiveIntegerField(default=0, help_text="Number of manual save/redact edits applied on the review page.")
     deid_date_shift_days = EncryptedIntegerField(null=True, blank=True, help_text="Random per-document day offset applied to DATE_TIME entities; subtracted during extraction to restore real dates.")
+    deid_client_config = models.ForeignKey(
+        'ClientConfiguration', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='deid_runs',
+        help_text="ClientConfiguration whose local LLM performed NER for this "
+                  "version (LLM engine only).")
     deid_reviewed = models.BooleanField(default=False, help_text="User has reviewed the deidentified text; required before extraction when EXTRACTOR_DEID_REQUIRE_REVIEW.")
     deid_reviewed_by = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_reviews')
     deid_reviewed_at = models.DateTimeField(null=True, blank=True)

@@ -60,3 +60,31 @@ def validate_base_url(value, field_label='base URL'):
             f"localhost/LAN endpoints. Use https://."
         )
     return url
+
+
+# Provider names that denote a cloud API. Text deidentification may never
+# use one: patient text must stay on the local network.
+CLOUD_PROVIDERS = ('openai', 'azure', 'anthropic', 'google', 'cohere', 'mistral')
+
+
+def is_cloud_provider(provider):
+    p = (provider or '').lower()
+    return any(name in p for name in CLOUD_PROVIDERS)
+
+
+def is_local_endpoint(base_url):
+    """True when the base URL points at loopback, a private/LAN address,
+    or a CGNAT (NetBird/Tailscale) range. Named hosts are NOT accepted —
+    locality must be provable from the address itself."""
+    url = normalize_base_url(base_url)
+    if not url:
+        return False
+    host = (urlsplit(url).hostname or '').lower()
+    if host in ('localhost', 'localhost.localdomain'):
+        return True
+    try:
+        ip = ip_address(host)
+    except ValueError:
+        return False
+    return (ip.is_loopback or ip.is_private
+            or any(ip in net for net in LAN_NETWORKS))
