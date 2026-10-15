@@ -160,6 +160,38 @@ Windows Installation
 
     python manage.py runserver 0.0.0.0:8000
 
+Running the Celery Workers
+-------------------------
+
+Background jobs — de-identification, DICOM retrieval, ZIP and clinical data
+downloads, and scheduled maintenance tasks — are processed by Celery
+workers, not by the web server. Start them before using those features;
+jobs started without a worker simply wait in the queue.
+
+Two workers are needed, and each must have a **distinct node name** (the
+``-n`` option). If two workers share the same name, the second one crashes
+at startup with ``RESOURCE_LOCKED`` on the ``...celery.pidbox`` queue — that
+queue is exclusive to the worker name, so the first worker still holds it::
+
+    celery -A chavi_client worker -l info -n general@%h -Q default -c 2
+    celery -A chavi_client worker -l info -n deid@%h -Q deid -c 1
+
+* ``general@%h`` — general tasks (retrieval, ZIP/clinical downloads,
+  scheduled jobs), two slots, ``default`` queue.
+* ``deid@%h`` — de-identification only, **one slot**, dedicated ``deid``
+  queue, so de-identification batches run strictly one after another with a
+  single copy of the text-detection models in memory.
+
+A de-identification job started while another is running waits in the
+queue; its task run shows no progress until the running batch finishes.
+Do not run the deid worker with ``-c 2`` (or add ``deid`` to the general
+worker's queues) — parallel de-identification batches load duplicate model
+stacks, which is exactly what the single-slot worker exists to prevent.
+
+(When running under Docker instead, both workers ship as containers in
+``example_docker-compose.yml`` with distinct container hostnames, so no
+``-n`` is needed there — see the :doc:`docker_installation` page.)
+
 Accessing the Application
 -----------------------
 
