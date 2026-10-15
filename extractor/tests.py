@@ -3811,3 +3811,81 @@ class ClientConfigurationDeidViewTests(TestCase):
         self.assertContains(
             self.client.get(reverse('extractor:client_configuration_create')),
             'deid_local_certified')
+
+
+from extractor.services import llm_ner
+
+
+class ChunkTextTests(SimpleTestCase):
+    def test_short_text_single_chunk(self):
+        chunks = list(llm_ner.chunk_text('hello world'))
+        self.assertEqual(chunks, [(0, 'hello world')])
+
+    def test_empty_text(self):
+        self.assertEqual(list(llm_ner.chunk_text('')), [])
+
+    def test_full_coverage_no_gaps(self):
+        text = 'Para one.\n\n' * 50 + '\n\n'.join(
+            f'Sentence {i} of paragraph two, with details.' for i in range(100))
+        chunks = list(llm_ner.chunk_text(text, max_chars=500, overlap=50))
+        covered = set()
+        for offset, chunk in chunks:
+            covered.update(range(offset, offset + len(chunk)))
+        self.assertEqual(covered, set(range(len(text))))
+
+    def test_chunks_respect_max_chars(self):
+        text = 'word ' * 5000
+        for offset, chunk in llm_ner.chunk_text(text, max_chars=1000, overlap=100):
+            self.assertLessEqual(len(chunk), 1000)
+
+    def test_progress_guaranteed_on_no_boundaries(self):
+        text = 'x' * 5000
+        chunks = list(llm_ner.chunk_text(text, max_chars=1000, overlap=100))
+        self.assertGreater(len(chunks), 1)
+        starts = [o for o, _ in chunks]
+        self.assertTrue(all(b > a for a, b in zip(starts, starts[1:])))
+
+
+class ResolveSpansTests(SimpleTestCase):
+    def test_exact_single_span(self):
+        src = 'Patient Sharma Rao visited on 01/02/2024.'
+        out = llm_ner.resolve_spans(src, [('PERSON', 'Sharma Rao')])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(src[out[0]['start']:out[0]['end']], 'Sharma Rao')
+        self.assertEqual(out[0]['type'], 'PERSON')
+
+    def test_duplicate_spans_consumed_in_order(self):
+        src = 'Dr Rao examined Rao and Rao again.'
+        out = llm_ner.resolve_spans(src, [('PERSON', 'Rao')] * 3)
+        spans = [src[e['start']:e['end']] for e in out]
+        self.assertEqual(spans, ['Rao', 'Rao', 'Rao'])
+        starts = [e['start'] for e in out]
+        self.assertEqual(starts, sorted(starts))
+        self.assertTrue(all(b > a for a, b in zip(starts, starts[1:])))
+
+    def test_whitespace_normalized_span(self):
+        src = 'Admitted: Sharma\nRao, 56 y.'
+        out = llm_ner.resolve_spans(src, [('PERSON', 'Sharma Rao')])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(src[out[0]['start']:out[0]['end']], 'Sharma\nRao')
+
+    def test_case_fallback(self):
+        src = 'referred by Dr SHARMA.'
+        out = llm_ner.resolve_spans(src, [('PERSON', 'Sharma')])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(src[out[0]['start']:out[0]['end']], 'SHARMA')
+
+    def test_unlocatable_span_dropped(self):
+        out = llm_ner.resolve_spans('hello world', [('PERSON', 'Ghost Name')])
+        self.assertEqual(out, [])
+
+    def test_blank_span_ignored(self):
+        self.assertEqual(llm_ner.resolve_spans('abc', [('PERSON', '   ')]), [])
+
+    def test_same_span_two_types_kept_once_per_type(self):
+        src = 'MR/24/012817 issued.'
+        out = llm_ner.resolve_spans(
+            src, [('MEDICAL_RECORD_NUMBER', 'MR/24/012817'),
+                  ('PERSON', 'MR')])
+        types = sorted(e['type'] for e in out)
+        self.assertEqual(types, ['MEDICAL_RECORD_NUMBER', 'PERSON'])
