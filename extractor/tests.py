@@ -7,9 +7,11 @@ from decimal import Decimal
 from unittest import mock
 from unittest.mock import Mock, patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.base import ContentFile
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 
 from extractor.models import (
     ClientConfiguration, DatabaseField, DatabaseTable, EntityTypeChoices,
@@ -3738,11 +3740,6 @@ class ClientConfigurationDeidValidationTests(TestCase):
         c.full_clean()  # no ValidationError
 
 
-from django.test import TestCase
-from django.urls import reverse
-from django.contrib.auth.models import User, Permission
-
-
 class ClientConfigurationDeidViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user('smoke')
@@ -4096,3 +4093,37 @@ class DeidDispatchViewTests(TestCase):
         self.client.force_login(anon)
         resp = self._post()
         self.assertEqual(resp.status_code, 403)
+
+
+class FileUploadDetailDeidRenderTests(TestCase):
+    def test_file_detail_engine_selector(self):
+        u = User.objects.create_user('r1')
+        u.user_permissions.set(Permission.objects.filter(
+            codename__in=['view_fileupload', 'view_processedtext',
+                          'change_processedtext']))
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            enable_text_deid=True, deid_local_certified=True,
+            is_default_deid=True)
+        up = FileUpload.objects.create(original_filename='a.pdf',
+                                      file=ContentFile(b'%PDF-1.4 fake', 'a.pdf'))
+        ProcessedText.objects.create(file_upload=up, processed_file_path='x.txt')
+        self.client.force_login(u)
+        resp = self.client.get(reverse('extractor:file_upload_detail', args=[up.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'LLM NER — gemma4:4b (default)')
+        self.assertContains(resp, 'Default (LLM NER)')
+        self.assertContains(resp, 'Presidio + Stanford NER')
+
+    def test_file_detail_no_llm_config_hidden_select(self):
+        u = User.objects.create_user('r2')
+        u.user_permissions.set(Permission.objects.filter(
+            codename__in=['view_fileupload', 'view_processedtext']))
+        up = FileUpload.objects.create(original_filename='b.pdf',
+                                      file=ContentFile(b'%PDF-1.4 fake', 'b.pdf'))
+        ProcessedText.objects.create(file_upload=up, processed_file_path='y.txt')
+        self.client.force_login(u)
+        resp = self.client.get(reverse('extractor:file_upload_detail', args=[up.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'name="backend"')

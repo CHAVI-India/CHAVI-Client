@@ -13,7 +13,7 @@
             {% else %}
             {% component "badge" style="warning" icon="fas fa-clock" %}DEID · Pending review{% endcomponent %}
             {% endif %}
-            {% component "badge" style="gray" %}NER: {{ processed_text.deid_engine|default:"unknown" }}{% endcomponent %}
+            {% component "badge" style="gray" %}NER: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %}{% endcomponent %}
         {% endfill %}
     {% endcomponent %}
     {% endwith %}

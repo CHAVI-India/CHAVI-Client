@@ -23,7 +23,7 @@
             {% fill "default" %}
             <div class="flex items-center justify-between">
                 <p>
-                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }})
+                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %})
                     — PHI shown as &lt;TAGS&gt;, dates shifted.
                     Reviewed — eligible for extraction.
                 </p>
@@ -36,7 +36,7 @@
             {% fill "default" %}
             <div class="flex items-center justify-between">
                 <p>
-                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }})
+                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %})
                     — PHI shown as &lt;TAGS&gt;, dates shifted.
                     Not yet reviewed.
                 </p>
