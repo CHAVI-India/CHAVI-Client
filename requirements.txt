@@ -153,6 +153,7 @@ pip-check-updates==0.29.0
 preshed==3.0.13
 presidio-image-redactor==0.0.60
 presidio_analyzer==2.2.364
+openmed==3.0.0
 prettytable==3.18.0
 prompt_toolkit==3.0.53
 propcache==0.5.4
