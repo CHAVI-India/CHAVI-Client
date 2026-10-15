@@ -12,6 +12,8 @@ import logging
 import re
 from bisect import bisect_right
 
+from presidio_analyzer import LocalRecognizer, RecognizerResult
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHUNK_CHARS = 3500
@@ -209,3 +211,158 @@ def resolve_spans(source, found):
                 MAX_ENTITIES_PER_SOURCE)
             break
     return sorted(out, key=lambda e: (e['start'], e['end']))
+
+
+def _normalize_entity_type(raw):
+    """Model type string -> Presidio entity, or None for unknown types."""
+    key = re.sub(r'[^a-z0-9]+', '_', (raw or '').strip().lower()).strip('_')
+    return ENTITY_TYPES.get(key)
+
+
+class LlmNerClient:
+    """Chat-completion client for the deid NER role.
+
+    Uses the same OpenAI-compatible wiring as the extraction pipeline
+    (base_url + /v1, 'ollama' dummy key for local providers). The model
+    must return a JSON array of {"type", "text"}; offsets are computed
+    by resolve_spans, never parsed from the response.
+    """
+
+    def __init__(self, client_config):
+        from openai import OpenAI
+        from extractor.services.url_policy import validate_base_url
+
+        base_url = validate_base_url(
+            client_config.model_base_url, 'model base URL')
+        if not base_url.endswith('/v1'):
+            base_url = f'{base_url}/v1'
+        provider = (client_config.model_provider or '').lower()
+        is_local = 'ollama' in provider or 'local' in provider
+        self._client = OpenAI(
+            base_url=base_url,
+            api_key='ollama' if is_local else client_config.model_api_key,
+            timeout=client_config.request_timeout,
+        )
+        self._model = client_config.llm_model_name
+
+    def _llm_call(self, chunk):
+        """One JSON-mode chat call. Returns the model's raw output as
+        [(raw_type, verbatim_span)] — entity-type mapping happens in
+        find_entities. Isolated as a method so tests can patch the
+        network boundary. Call errors propagate to find_entities, which
+        converts them to LlmNerError.
+        """
+        import instructor
+        from pydantic import BaseModel, Field
+
+        class _Hit(BaseModel):
+            type: str = Field(description='entity type')
+            text: str = Field(description='verbatim span')
+
+        class _Out(BaseModel):
+            entities: list[_Hit] = []
+
+        try:
+            client = instructor.from_openai(
+                self._client, mode=instructor.Mode.JSON)
+            result = client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {'role': 'system', 'content': NER_SYSTEM_PROMPT},
+                    {'role': 'user', 'content': chunk},
+                ],
+                response_model=_Out,
+                max_retries=1,
+                temperature=0,
+            )
+        except LlmNerError:
+            raise
+        out = []
+        for hit in (result.entities if result else []):
+            if not (hit.text or '').strip():
+                continue
+            out.append((hit.type, hit.text))
+        return out
+
+    def find_entities(self, chunk):
+        """One chunk -> [(presidio_type, verbatim_span)].
+
+        Maps the model's type names onto the pipeline's Presidio
+        entities; unknown types are dropped with a warning. Any failure
+        at the network boundary becomes LlmNerError so a deid run fails
+        loudly rather than emitting under-redacted output.
+        """
+        try:
+            raw = self._llm_call(chunk)
+        except LlmNerError:
+            raise
+        except Exception as e:
+            raise LlmNerError(
+                f'LLM NER call failed for model {self._model!r}: {e}') from e
+        out = []
+        for raw_type, span in raw:
+            entity_type = _normalize_entity_type(raw_type)
+            if entity_type is None:
+                logger.warning(
+                    'LLM NER unknown entity type dropped: %r', raw_type)
+                continue
+            out.append((entity_type, span))
+        return out
+
+    def find_entities_in_text(self, text):
+        """Whole text -> [{'type','start','end','score'}] with global,
+        de-duplicated offsets (overlapping chunks re-find boundary
+        entities; duplicates collapse on (type, start, end))."""
+        if not text or not text.strip():
+            return []
+        results = []
+        seen = set()
+        for offset, chunk in chunk_text(text):
+            for found in resolve_spans(chunk, self.find_entities(chunk)):
+                start, end = found['start'] + offset, found['end'] + offset
+                key = (found['type'], start, end)
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({
+                    'type': found['type'], 'start': start, 'end': end,
+                    'score': LLM_NER_SCORE,
+                })
+        return sorted(results, key=lambda r: (r['start'], r['end']))
+
+
+class LlmNerRecognizer(LocalRecognizer):
+    """Presidio adapter so the LLM plugs into the existing analyzer as an
+    ad-hoc recognizer — all downstream deid logic (filters, overlap
+    resolution, date shifting, tagging, CSV handling) is unchanged.
+
+    Results carry no context enhancement (the LLM already applied
+    context); they pass the analyzer's threshold untouched at
+    LLM_NER_SCORE (0.9), which outranks rule recognizers' moderate
+    scores while deterministic patterns (e.g. 0.95 MRN) still win.
+    """
+
+    def __init__(self, client_config, cache=None):
+        super().__init__(
+            supported_entities=sorted(set(ENTITY_TYPES.values())),
+            name='LlmNerRecognizer',
+            supported_language='en',
+        )
+        self._client = LlmNerClient(client_config)
+        self._cache = cache if cache is not None else {}
+
+    def analyze(self, text, entities=None, nlp_artifacts=None, **kwargs):
+        if not text or not text.strip():
+            return []
+        found = self._cache.get(text)
+        if found is None:
+            found = self._client.find_entities_in_text(text)
+            self._cache[text] = found
+        return [
+            RecognizerResult(entity_type=e['type'], start=e['start'],
+                             end=e['end'], score=e['score'])
+            for e in found
+        ]
+
+    def evaluate(self, **kwargs):
+        return []

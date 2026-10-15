@@ -4,6 +4,7 @@ import threading
 import time
 from contextlib import nullcontext
 from decimal import Decimal
+from unittest import mock
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
@@ -3889,3 +3890,76 @@ class ResolveSpansTests(SimpleTestCase):
                   ('PERSON', 'MR')])
         types = sorted(e['type'] for e in out)
         self.assertEqual(types, ['MEDICAL_RECORD_NUMBER', 'PERSON'])
+
+
+class LlmNerClientTests(TestCase):
+    def _config(self, **kw):
+        from extractor.models import ClientConfiguration
+        defaults = dict(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434')
+        defaults.update(kw)
+        return ClientConfiguration.objects.create(**defaults)
+
+    def test_entity_types_mapped_and_offsets_found(self):
+        from extractor.services import llm_ner
+        cfg = self._config()
+        client = llm_ner.LlmNerClient(cfg)
+        text = 'Patient Sharma Rao admitted on 01/02/2024 to AIIMS.'
+        with mock.patch.object(
+                llm_ner.LlmNerClient, '_llm_call',
+                return_value=[('person', 'Sharma Rao'), ('date', '01/02/2024'),
+                              ('organization', 'AIIMS'), ('junk_type', 'AIIMS')]):
+            results = client.find_entities_in_text(text)
+        got = {(r['type'], text[r['start']:r['end']]) for r in results}
+        self.assertIn(('PERSON', 'Sharma Rao'), got)
+        self.assertIn(('DATE_TIME', '01/02/2024'), got)
+        self.assertIn(('ORGANIZATION', 'AIIMS'), got)
+        self.assertEqual(len(results), 3)  # unknown type dropped
+
+    def test_chunked_text_global_offsets_and_overlap_dedupe(self):
+        from extractor.services import llm_ner
+        cfg = self._config()
+        client = llm_ner.LlmNerClient(cfg)
+        filler = 'Normal clinical sentence number. ' * 200  # ~5.8k chars
+        text = filler + 'Sharma Rao' + filler
+        with mock.patch.object(
+                llm_ner.LlmNerClient, '_llm_call',
+                side_effect=lambda chunk: (
+                    [('person', 'Sharma Rao')]
+                    if 'Sharma Rao' in chunk else [])):
+            results = client.find_entities_in_text(text)
+        self.assertEqual(len(results), 1)  # overlap double-hit deduped
+        self.assertEqual(results[0]['type'], 'PERSON')
+        self.assertEqual(text[results[0]['start']:results[0]['end']], 'Sharma Rao')
+
+    def test_llm_failure_raises(self):
+        from extractor.services import llm_ner
+        cfg = self._config()
+        client = llm_ner.LlmNerClient(cfg)
+        with mock.patch.object(
+                llm_ner.LlmNerClient, '_llm_call',
+                side_effect=RuntimeError('connection refused')):
+            with self.assertRaises(llm_ner.LlmNerError):
+                client.find_entities_in_text('some text')
+
+
+class LlmNerRecognizerTests(TestCase):
+    def test_cache_serves_repeated_text_without_second_call(self):
+        from extractor.models import ClientConfiguration
+        from extractor.services import llm_ner
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434')
+        rec = llm_ner.LlmNerRecognizer(cfg)
+        with mock.patch.object(
+                llm_ner.LlmNerClient, 'find_entities_in_text',
+                return_value=[{'type': 'PERSON', 'start': 0, 'end': 5,
+                               'score': llm_ner.LLM_NER_SCORE}]) as m:
+            first = rec.analyze('Rao K.', language='en')
+            second = rec.analyze('Rao K.', language='en')
+        self.assertEqual(m.call_count, 1)
+        self.assertEqual(len(first), 1)
+        self.assertEqual(first[0].entity_type, 'PERSON')
+        self.assertEqual((first[0].start, first[0].end), (0, 5))
+        self.assertEqual(len(second), 1)
