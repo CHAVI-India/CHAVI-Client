@@ -1810,3 +1810,25 @@ Note recall/precision deltas per entity type in `docs/` (or the evaluation sheet
     the whole "Aadhaar 123412341234" as PERSON and the intentional
     containment rule in `_resolve_overlaps` then wins over IN_AADHAAR.
     Pre-existing on both engines; digits are still redacted.
+- Task 9 (partial, automated): synthetic Indian clinical A/B executed with
+  `gemma4:e2b` (4.6B Q4_K_M, Ollama 0.40.4) on 3 documents (discharge
+  summary, CT radiology, histopathology) via `scripts/ab_deid_test.py`:
+  - Duration false-positives ("1 month", "2 weeks", "3 days", "3 months"):
+    now preserved on **both** engines.
+  - All dates shifted on both engines; clinical numerics (4 x 3.5 cm,
+    12 mm, HER2, Ki-67, p16, D2-40, node counts) all preserved.
+  - LLM advantage: caught village name "Patia" (Stanford missed it);
+    consolidated the full postal address into one LOCATION span.
+  - LLM gap: missed the radiology report number "RAD/26/004512"
+    (rules split it into MRN tags; note "RAD/" prefix is not in the
+    MRN rule either — the model's miss is the only leak).
+  - Shared (spaCy layer, both engines): "Grade III" redacted as PERSON,
+    "Nottingham" as LOCATION in the pathology grading line; "Age 56
+    years" and "mammogram" as DATE in the clinical note. These are
+    candidates for a shared allowlist, engine-independent.
+  - Latency (warm model, ~1KB docs): Presidio+Stanford ~0.2-4s;
+    LLM ~4-15s per call (first call + cold model ~40s).
+  - `LlmNerClient._llm_call` switched from instructor JSON-mode to raw
+    OpenAI-compat chat + lenient JSON parsing (array / 'entities' object /
+    single object / fenced), because small models do not reliably emit the
+    exact requested schema.

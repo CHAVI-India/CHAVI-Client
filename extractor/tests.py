@@ -4263,3 +4263,42 @@ class LlmDeidEndToEndTests(TestCase):
         out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
         self.assertNotIn('Rajesh Kumar', out)
         self.assertEqual(calls_for_name, 1)
+
+
+class LlmNerParseTests(SimpleTestCase):
+    def test_plain_array(self):
+        from extractor.services.llm_ner import _parse_entity_output
+        out = _parse_entity_output(
+            '[{"type": "person", "text": "Rao K"}, '
+            '{"type": "date", "text": "01/02/2024"}]')
+        self.assertEqual(out, [('person', 'Rao K'), ('date', '01/02/2024')])
+
+    def test_single_object(self):
+        from extractor.services.llm_ner import _parse_entity_output
+        out = _parse_entity_output('{"type": "person", "text": "Rao K"}')
+        self.assertEqual(out, [('person', 'Rao K')])
+
+    def test_entities_wrapper_object(self):
+        from extractor.services.llm_ner import _parse_entity_output
+        out = _parse_entity_output(
+            '{"entities": [{"type": "person", "text": "Rao K"}]}')
+        self.assertEqual(out, [('person', 'Rao K')])
+
+    def test_code_fences_and_prose(self):
+        from extractor.services.llm_ner import _parse_entity_output
+        out = _parse_entity_output(
+            'Here are the findings:\n```json\n'
+            '[{"type": "person", "text": "Rao K"}]\n```\nDone.')
+        self.assertEqual(out, [('person', 'Rao K')])
+
+    def test_empty_array(self):
+        from extractor.services.llm_ner import _parse_entity_output
+        self.assertEqual(_parse_entity_output('[]'), [])
+
+    def test_garbage_raises(self):
+        from extractor.services.llm_ner import (
+            LlmNerParseError, _parse_entity_output)
+        with self.assertRaises(LlmNerParseError):
+            _parse_entity_output('no identifiable information found')
+        with self.assertRaises(LlmNerParseError):
+            _parse_entity_output('')

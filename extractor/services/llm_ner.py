@@ -26,6 +26,10 @@ class LlmNerError(Exception):
     """LLM call or config problem — deid run must fail, not degrade."""
 
 
+class LlmNerParseError(Exception):
+    """Internal: model output was not recoverable JSON."""
+
+
 # model-side type name (lowercase) -> Presidio entity used by the pipeline
 ENTITY_TYPES = {
     'person': 'PERSON', 'name': 'PERSON', 'patient': 'PERSON',
@@ -213,6 +217,47 @@ def resolve_spans(source, found):
     return sorted(out, key=lambda e: (e['start'], e['end']))
 
 
+def _parse_entity_output(content):
+    """Lenient parse of a model JSON response.
+
+    Small models are inconsistent about wrapping: accept a JSON array
+    of {"type", "text"}, an object with an 'entities' key, or a single
+    {"type", "text"} object; strip code fences and surrounding prose by
+    taking the outermost JSON value. Returns [(raw_type, span)]; raises
+    LlmNerParseError when no JSON can be recovered.
+    """
+    import json
+
+    text = (content or '').strip()
+    if text.startswith('```'):
+        text = text.strip('`').strip()
+        if text.lower().startswith('json'):
+            text = text[4:].strip()
+
+    candidates = [text]
+    for open_ch, close_ch in (('[', ']'), ('{', '}')):
+        start, end = text.find(open_ch), text.rfind(close_ch)
+        if start != -1 and end > start:
+            candidates.append(text[start:end + 1])
+
+    for cand in candidates:
+        try:
+            data = json.loads(cand)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(data, dict):
+            data = data.get('entities', [data])
+        if not isinstance(data, list):
+            continue
+        out = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            out.append((str(item.get('type', '')), str(item.get('text', ''))))
+        return out
+    raise LlmNerParseError(f'unparseable model output: {content[:200]!r}')
+
+
 def _normalize_entity_type(raw):
     """Model type string -> Presidio entity, or None for unknown types."""
     key = re.sub(r'[^a-z0-9]+', '_', (raw or '').strip().lower()).strip('_')
@@ -246,43 +291,35 @@ class LlmNerClient:
         self._model = client_config.llm_model_name
 
     def _llm_call(self, chunk):
-        """One JSON-mode chat call. Returns the model's raw output as
+        """One chat call -> the model's raw output as
         [(raw_type, verbatim_span)] — entity-type mapping happens in
-        find_entities. Isolated as a method so tests can patch the
-        network boundary. Call errors propagate to find_entities, which
-        converts them to LlmNerError.
+        find_entities. Small models need lenient parsing (array / 'entities'
+        object / single object), so this is a raw JSON-mode-less call with
+        a strict prompt, retried once on unparseable output. Isolated as a
+        method so tests can patch the network boundary. Call errors
+        propagate to find_entities, which converts them to LlmNerError.
         """
-        import instructor
-        from pydantic import BaseModel, Field
+        last_error = None
+        for _attempt in (1, 2):
+            try:
+                content = self._raw_chat(chunk)
+                return _parse_entity_output(content)
+            except LlmNerParseError as e:
+                last_error = e
+        raise LlmNerParseError(
+            f'LLM NER returned unparseable JSON for model {self._model!r} '
+            f'after 2 attempts: {last_error}')
 
-        class _Hit(BaseModel):
-            type: str = Field(description='entity type')
-            text: str = Field(description='verbatim span')
-
-        class _Out(BaseModel):
-            entities: list[_Hit] = []
-
-        try:
-            client = instructor.from_openai(
-                self._client, mode=instructor.Mode.JSON)
-            result = client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {'role': 'system', 'content': NER_SYSTEM_PROMPT},
-                    {'role': 'user', 'content': chunk},
-                ],
-                response_model=_Out,
-                max_retries=1,
-                temperature=0,
-            )
-        except LlmNerError:
-            raise
-        out = []
-        for hit in (result.entities if result else []):
-            if not (hit.text or '').strip():
-                continue
-            out.append((hit.type, hit.text))
-        return out
+    def _raw_chat(self, chunk):
+        completion = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {'role': 'system', 'content': NER_SYSTEM_PROMPT},
+                {'role': 'user', 'content': chunk},
+            ],
+            temperature=0,
+        )
+        return completion.choices[0].message.content or ''
 
     def find_entities(self, chunk):
         """One chunk -> [(presidio_type, verbatim_span)].
