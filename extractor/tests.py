@@ -4036,3 +4036,63 @@ class DurationFilterTests(SimpleTestCase):
     def test_age_surfaces_still_dropped(self):
         self.assertFalse(self._kept('age 56 years', 'DATE_TIME', '56 years'))
         self.assertFalse(self._kept('a 56-year-old man', 'DATE_TIME', '56-year-old'))
+
+
+class DeidDispatchViewTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import Permission
+        from extractor.models import FileUpload, ProcessedText
+        self.user = User.objects.create_user('deid_tester')
+        self.user.user_permissions.set(
+            Permission.objects.filter(
+                codename__in=['view_processedtext', 'change_processedtext',
+                              'view_fileupload']))
+        self.upload = FileUpload.objects.create(original_filename='a.pdf')
+        self.pt = ProcessedText.objects.create(
+            file_upload=self.upload, processed_file_path='x.txt',
+            content_length=3)
+        self.path = reverse('extractor:processed_text_deidentify',
+                            args=[self.pt.id])
+
+    def _post(self, **extra):
+        return self.client.post(self.path, {'next': '/', **extra})
+
+    @mock.patch('extractor.tasks.deidentify_processed_text_task.delay')
+    def test_default_dispatch(self, delay):
+        self.client.force_login(self.user)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(delay.call_count, 1)
+        args, kwargs = delay.call_args
+        self.assertEqual(kwargs['backend'], 'default')
+        self.assertIsNone(kwargs['client_config_id'])
+
+    @mock.patch('extractor.tasks.deidentify_processed_text_task.delay')
+    def test_llm_dispatch_with_encoded_option(self, delay):
+        from extractor.models import ClientConfiguration
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            enable_text_deid=True, deid_local_certified=True)
+        self.client.force_login(self.user)
+        resp = self._post(**{'backend': f'llm:{cfg.id}'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(delay.call_count, 1)
+        args, kwargs = delay.call_args
+        self.assertEqual(kwargs['backend'], 'llm')
+        self.assertEqual(kwargs['client_config_id'], cfg.id)
+
+    @mock.patch('extractor.tasks.deidentify_processed_text_task.delay')
+    def test_llm_dispatch_bad_config_no_task(self, delay):
+        self.client.force_login(self.user)
+        resp = self._post(**{'backend': 'llm'})
+        self.assertEqual(delay.call_count, 0)
+        final = self.client.get('/')
+        self.assertTrue(any('deid' in str(m).lower()
+                            for m in final.context['messages']))
+
+    def test_permission_required(self):
+        anon = User.objects.create_user('noperm')
+        self.client.force_login(anon)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 403)

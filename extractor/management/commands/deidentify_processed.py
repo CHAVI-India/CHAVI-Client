@@ -18,6 +18,15 @@ class Command(BaseCommand):
         parser.add_argument(
             '--sync', action='store_true',
             help='Run in-process instead of dispatching Celery tasks')
+        parser.add_argument(
+            '--backend', choices=['default', 'presidio', 'llm'],
+            default='default',
+            help='Deid engine: default (follows the configured default), '
+                 'presidio (rules + Stanford NER) or llm (rules + local LLM)')
+        parser.add_argument(
+            '--client-config', type=int, default=None,
+            help='ClientConfiguration id for --backend llm (default: the '
+                 'default deid configuration)')
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -46,7 +55,9 @@ class Command(BaseCommand):
             done = failed = 0
             for pt in targets:
                 try:
-                    if TextDeidentificationService.deidentify(pt):
+                    if TextDeidentificationService.deidentify(
+                            pt, backend=options['backend'],
+                            client_config_id=options['client_config']):
                         done += 1
                 except Exception as e:
                     failed += 1
@@ -67,7 +78,10 @@ class Command(BaseCommand):
                 task_name=f"Deidentify processed file {pt.id}",
                 status='pending',
             )
-            deidentify_processed_text_task.delay(task.task_id, pt.id)
+            deidentify_processed_text_task.delay(
+                task.task_id, pt.id,
+                backend=options['backend'],
+                client_config_id=options['client_config'])
             dispatched += 1
 
         self.stdout.write(self.style.SUCCESS(

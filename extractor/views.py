@@ -1051,6 +1051,17 @@ def file_upload_detail(request, file_id):
         'dependent_results_count': dependent_results.count(),
         'deid_enabled': getattr(settings, 'EXTRACTOR_DEID_ENABLED', True),
     }
+    deid_enabled = context['deid_enabled']
+    if deid_enabled:
+        from extractor.models import ClientConfiguration
+        context['deid_llm_configs'] = list(
+            ClientConfiguration.objects.filter(
+                enable_text_deid=True, deid_local_certified=True))
+        context['deid_default_is_llm'] = ClientConfiguration.objects.filter(
+            enable_text_deid=True, is_default_deid=True).exists()
+    else:
+        context['deid_llm_configs'] = []
+        context['deid_default_is_llm'] = False
 
     return render(request, 'extractor/file_upload_detail.html', context)
 
@@ -1237,15 +1248,45 @@ def processed_text_deidentify(request, processed_text_id):
         messages.warning(request, "Deidentification is already in progress for this file.")
         return redirect(next_url)
 
+    backend = (request.POST.get('backend') or 'default').strip()
+    client_config_id = request.POST.get('client_config_id') or None
+    # The UI encodes the engine choice as 'llm:<config_id>' in one select
+    if ':' in backend:
+        backend, _, encoded_id = backend.partition(':')
+        client_config_id = encoded_id or client_config_id
+    if client_config_id:
+        if not str(client_config_id).isdigit():
+            messages.error(request, "Invalid deidentification configuration choice.")
+            return redirect(next_url)
+        client_config_id = int(client_config_id)
+    if backend not in ('default', 'presidio', 'llm'):
+        messages.error(request, "Unknown deidentification engine.")
+        return redirect(next_url)
+    if backend in ('default', 'llm'):
+        from extractor.services.text_deidentification import (
+            LlmDeidConfigurationError, TextDeidentificationService)
+        try:
+            TextDeidentificationService._resolve_backend(
+                backend, client_config_id)
+        except LlmDeidConfigurationError as e:
+            messages.error(request, str(e))
+            return redirect(next_url)
+
     task = BackgroundTask.objects.create(
         task_id=f"deid-{processed_text_id}-{int(timezone.now().timestamp())}",
         task_name=f"Deidentify processed file {processed_text_id}",
         status='pending',
     )
     from extractor.tasks import deidentify_processed_text_task
-    deidentify_processed_text_task.delay(task.task_id, processed_text_id, user_id=request.user.id)
+    deidentify_processed_text_task.delay(
+        task.task_id, processed_text_id, user_id=request.user.id,
+        backend=backend, client_config_id=client_config_id)
 
-    messages.success(request, f"Deidentification started for '{processed_text.file_upload.original_filename}'.")
+    messages.success(
+        request,
+        f"Deidentification started for "
+        f"'{processed_text.file_upload.original_filename}' "
+        f"(engine: {backend}).")
     return redirect(next_url)
 
 
