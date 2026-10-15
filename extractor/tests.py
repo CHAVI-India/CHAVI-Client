@@ -4127,3 +4127,139 @@ class FileUploadDetailDeidRenderTests(TestCase):
         resp = self.client.get(reverse('extractor:file_upload_detail', args=[up.id]))
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, 'name="backend"')
+
+
+class LlmDeidEndToEndTests(TestCase):
+    """Full deidentify() run on the LLM engine with the model mocked.
+
+    Verifies: engine/model/config recorded, Indian names redacted by the
+    LLM, dates shifted (not replaced with <DATE> when parseable), rule
+    recognizers still active (Aadhaar caught without the LLM naming it),
+    durations NOT redacted, and the review map populated.
+    """
+
+    def setUp(self):
+        from pathlib import Path
+        from django.conf import settings
+        from extractor.models import (
+            ClientConfiguration, FileUpload, ProcessedText)
+        self.media = Path(settings.MEDIA_ROOT)
+        self.cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            enable_text_deid=True, deid_local_certified=True,
+            is_default_deid=True)
+        self.upload = FileUpload.objects.create(original_filename='note.pdf')
+        self.content = (
+            'Mr Rajesh Kumar from Village Patia, Kolkata, was admitted on '
+            '01/02/2024. Aadhaar 123412341234. He had symptoms for 1 month '
+            'before presentation. Follow up advised in 2 weeks.')
+        self.pt = self._write_processed('uploads/test_note.txt', self.content)
+
+    def _write_processed(self, rel_path, content):
+        from pathlib import Path
+        from django.conf import settings
+        from extractor.models import ProcessedText
+        pt = ProcessedText.objects.create(
+            file_upload=self.upload, processed_file_path=rel_path,
+            content_length=len(content))
+        path = Path(settings.MEDIA_ROOT) / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding='utf-8')
+        return pt
+
+    def _llm_side_effect(self, chunk):
+        # The model "finds" the Indian names (which the gazetteer/NER may
+        # miss) but nothing else — rules cover Aadhaar + dates.
+        found = []
+        for name in ('Rajesh Kumar', 'Patia'):
+            if name in chunk:
+                found.append(('person', name))
+        if 'Kolkata' in chunk:
+            found.append(('location', 'Kolkata'))
+        return found
+
+    def test_llm_deidentify_text(self):
+        from pathlib import Path
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        with mock.patch('extractor.services.llm_ner.LlmNerClient._llm_call',
+                        side_effect=lambda chunk:
+                        self._llm_side_effect(chunk)):
+            new = S.deidentify(self.pt, backend='llm',
+                               client_config_id=self.cfg.id)
+        self.assertIsNotNone(new)
+        self.assertEqual(new.deid_engine, 'llm')
+        self.assertEqual(new.deid_model, 'gemma4:4b')
+        self.assertEqual(new.deid_client_config_id, self.cfg.id)
+        out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
+        # LLM-found entities redacted
+        self.assertNotIn('Rajesh Kumar', out)
+        self.assertNotIn('Patia', out)
+        self.assertNotIn('Kolkata', out)
+        self.assertRegex(out, r'<PERSON_\d+>')
+        # Rule recognizer still covers the Aadhaar digits without LLM
+        # help. (The digits may be subsumed into a wider spaCy PERSON
+        # span by the intentional containment rule in _resolve_overlaps —
+        # either way the digits must not survive.)
+        self.assertNotIn('123412341234', out)
+        # Duration NOT redacted — the persistent false positive
+        self.assertIn('1 month', out)
+        self.assertIn('2 weeks', out)
+        # Real date shifted by the recorded offset (or unchanged when the
+        # random offset happened to be 0)
+        from datetime import timedelta
+        from dateutil.parser import parse as parse_date
+        shift = new.deid_date_shift_days
+        self.assertIsNotNone(shift)
+        if shift != 0:
+            self.assertNotIn('01/02/2024', out)
+            shifted = (parse_date('01/02/2024', dayfirst=True)
+                       + timedelta(days=shift)).strftime('%d/%m/%Y')
+            self.assertIn(shifted, out)
+        # Review map populated
+        self.assertTrue(new.deid_map)
+
+    def test_default_resolution_picks_llm(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        with mock.patch('extractor.services.llm_ner.LlmNerClient._llm_call',
+                        side_effect=lambda chunk:
+                        self._llm_side_effect(chunk)):
+            new = S.deidentify(self.pt)  # backend defaults -> LLM (default cfg set)
+        self.assertEqual(new.deid_engine, 'llm')
+
+    def test_presidio_engine_unaffected(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        new = S.deidentify(self.pt, backend='presidio')
+        self.assertIn(new.deid_engine, ('full', 'degraded'))
+        self.assertIsNone(new.deid_client_config_id)
+        out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
+        self.assertNotIn('123412341234', out)  # rules still work
+
+    def test_llm_csv_cell_caching(self):
+        """Identical unmapped cell values cost ONE LLM call per run.
+
+        Layout trick: 'dob' IS in EXTRACTOR_DEID_CSV_COLUMN_MAP so the CSV
+        goes through the header-aware path (fully unmapped CSVs fall back
+        to whole-text deid), while 'subject' cells go through per-cell NER
+        where the recognizer's run-cache must absorb the repeats.
+        """
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        csv_content = (
+            'dob,subject\n'
+            '01/02/2024,Rajesh Kumar\n'
+            '02/02/2024,Rajesh Kumar\n'
+            '03/02/2024,Rajesh Kumar\n')
+        pt2 = self._write_processed('uploads/test_note.csv', csv_content)
+        with mock.patch(
+                'extractor.services.llm_ner.LlmNerClient._llm_call',
+                wraps=lambda chunk: self._llm_side_effect(chunk)) as m:
+            new = S.deidentify(pt2, backend='llm', client_config_id=self.cfg.id)
+        calls_for_name = sum(
+            1 for c in m.call_args_list if 'Rajesh Kumar' in c.args[0])
+        out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
+        self.assertNotIn('Rajesh Kumar', out)
+        self.assertEqual(calls_for_name, 1)
