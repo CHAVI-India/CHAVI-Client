@@ -3963,3 +3963,76 @@ class LlmNerRecognizerTests(TestCase):
         self.assertEqual(first[0].entity_type, 'PERSON')
         self.assertEqual((first[0].start, first[0].end), (0, 5))
         self.assertEqual(len(second), 1)
+
+
+class DeidBackendResolutionTests(TestCase):
+    def _cfg(self, **kw):
+        from extractor.models import ClientConfiguration
+        defaults = dict(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            enable_text_deid=True, deid_local_certified=True)
+        defaults.update(kw)
+        return ClientConfiguration.objects.create(**defaults)
+
+    def test_default_without_config_is_presidio(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        self.assertEqual(S._resolve_backend('default', None), ('presidio', None))
+
+    def test_default_with_default_config_is_llm(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        cfg = self._cfg(is_default_deid=True)
+        backend, got = S._resolve_backend(None, None)
+        self.assertEqual(backend, 'llm')
+        self.assertEqual(got.id, cfg.id)
+
+    def test_explicit_llm_without_config_raises(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S, LlmDeidConfigurationError)
+        with self.assertRaises(LlmDeidConfigurationError):
+            S._resolve_backend('llm', None)
+
+    def test_llm_with_uncertified_config_raises(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S, LlmDeidConfigurationError)
+        cfg = self._cfg(deid_local_certified=False)
+        with self.assertRaises(LlmDeidConfigurationError):
+            S._resolve_backend('llm', cfg.id)
+
+    def test_unknown_backend_raises(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S, LlmDeidConfigurationError)
+        with self.assertRaises(LlmDeidConfigurationError):
+            S._resolve_backend('magic', None)
+
+
+class DurationFilterTests(SimpleTestCase):
+    def _kept(self, text, etype, surface=None):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+
+        class R:
+            def __init__(self):
+                self.entity_type = etype
+                s = surface if surface is not None else text
+                self.start = text.find(s)
+                self.end = self.start + len(s)
+                self.score = 0.9
+        r = R()
+        return len(S._filter_results(text, [r])) == 1
+
+    def test_bare_duration_months_dropped(self):
+        self.assertFalse(self._kept('follow up after 1 month', 'DATE_TIME', '1 month'))
+
+    def test_bare_duration_weeks_days_dropped(self):
+        self.assertFalse(self._kept('take for 2 weeks', 'DATE_TIME', '2 weeks'))
+        self.assertFalse(self._kept('waited 3 days', 'DATE_TIME', '3 days'))
+
+    def test_real_date_kept(self):
+        self.assertTrue(self._kept('admitted on 01/02/2024', 'DATE_TIME', '01/02/2024'))
+
+    def test_age_surfaces_still_dropped(self):
+        self.assertFalse(self._kept('age 56 years', 'DATE_TIME', '56 years'))
+        self.assertFalse(self._kept('a 56-year-old man', 'DATE_TIME', '56-year-old'))

@@ -30,10 +30,16 @@ from extractor.services.deid_recognizers import (
     build_patient_recognizers,
     build_text_recognizers,
 )
+from extractor.services.llm_ner import LlmNerRecognizer
+from extractor.services.url_policy import is_cloud_provider, is_local_endpoint
 
 logger = logging.getLogger(__name__)
 
 TAG_RE = re.compile(r'<[A-Z_]+(_\d+)?>')
+
+
+class LlmDeidConfigurationError(ValueError):
+    """LLM deid engine requested but no usable local configuration exists."""
 
 # surface format -> strftime code for re-emitting shifted dates
 _DATE_FORMATS = [
@@ -77,6 +83,60 @@ def _normalize_tag_key(text: str) -> str:
 class TextDeidentificationService:
     _analyzer = None       # lazy per-process singleton
     _engine_mode = None    # 'full' | 'degraded'
+    _llm_analyzer = None   # lazy singleton without HF NER (rules only)
+
+    @classmethod
+    def _resolve_backend(cls, backend, client_config_id):
+        """Resolve the deid engine for a run.
+
+        Returns ('presidio', None) or ('llm', ClientConfiguration).
+        'default'/None follows the model-based default: a
+        ClientConfiguration with enable_text_deid + is_default_deid makes
+        the LLM engine the default; otherwise the existing rule-based
+        engine (with Stanford NER when configured) runs. Re-validates the
+        chosen configuration at dispatch time so a config edited after
+        save (or a legacy row) can never be used for deid.
+        """
+        from extractor.models import ClientConfiguration
+
+        if backend in (None, '', 'default'):
+            has_default = ClientConfiguration.objects.filter(
+                enable_text_deid=True, is_default_deid=True).exists()
+            backend = 'llm' if has_default else 'presidio'
+        if backend == 'presidio':
+            return 'presidio', None
+        if backend != 'llm':
+            raise LlmDeidConfigurationError(
+                f"Unknown deid backend {backend!r} "
+                "(expected 'default', 'presidio' or 'llm').")
+
+        if client_config_id:
+            config = ClientConfiguration.objects.filter(
+                id=client_config_id).first()
+        else:
+            config = (
+                ClientConfiguration.objects.filter(
+                    enable_text_deid=True, is_default_deid=True).first()
+                or ClientConfiguration.objects.filter(
+                    enable_text_deid=True).first())
+        if config is None:
+            raise LlmDeidConfigurationError(
+                'No enabled text-deid configuration. Enable one on the LLM '
+                'configuration page (local model + certification).')
+        problems = []
+        if not config.enable_text_deid:
+            problems.append('text deidentification is not enabled')
+        if not config.deid_local_certified:
+            problems.append('local execution is not certified')
+        if is_cloud_provider(config.model_provider):
+            problems.append('a cloud provider is not allowed')
+        if not is_local_endpoint(config.model_base_url):
+            problems.append('the endpoint is not local')
+        if problems:
+            raise LlmDeidConfigurationError(
+                f"Client configuration '{config.llm_model_name}' is not "
+                f"usable for text deid: {'; '.join(problems)}.")
+        return 'llm', config
 
     @classmethod
     def _get_analyzer(cls):
@@ -85,7 +145,15 @@ class TextDeidentificationService:
         return cls._analyzer, cls._engine_mode
 
     @classmethod
-    def _build_analyzer(cls):
+    def _get_llm_analyzer(cls):
+        """Analyzer without the HF/Stanford NER — the LLM recognizer is
+        supplied per run as an ad-hoc recognizer."""
+        if cls._llm_analyzer is None:
+            cls._llm_analyzer, _ = cls._build_analyzer(include_hf_ner=False)
+        return cls._llm_analyzer
+
+    @classmethod
+    def _build_analyzer(cls, include_hf_ner=None):
         analyzer = AnalyzerEngine(
             supported_languages=["en"],
             context_aware_enhancer=LemmaContextAwareEnhancer(
@@ -95,7 +163,10 @@ class TextDeidentificationService:
         )
         engine_mode = 'degraded'
 
-        backend = getattr(settings, 'EXTRACTOR_DEID_NER_BACKEND', 'hf')
+        if include_hf_ner is None:
+            backend = getattr(settings, 'EXTRACTOR_DEID_NER_BACKEND', 'hf')
+        else:
+            backend = 'hf' if include_hf_ner else 'none'
         if backend == 'hf':
             try:
                 from presidio_analyzer.predefined_recognizers.ner import (
@@ -142,10 +213,15 @@ class TextDeidentificationService:
     # ------------------------------------------------------------------
 
     @classmethod
-    def deidentify(cls, processed_text, user=None):
+    def deidentify(cls, processed_text, user=None, backend='default',
+                   client_config_id=None):
         """Produce a deidentified version of a ProcessedText row.
 
-        Returns the new ProcessedText row, or None when skipped.
+        backend selects the engine: 'default' (follows the configured
+        default), 'presidio' (rules + Stanford NER when configured) or
+        'llm' (rules + local LLM NER via client_config_id or the default
+        deid configuration). Returns the new ProcessedText row, or None
+        when skipped.
         """
         from extractor.models import ProcessedText
         from extractor.services.file_processor import FileProcessorService
@@ -157,6 +233,15 @@ class TextDeidentificationService:
         if not content:
             raise ValueError("Cannot read source processed text content")
 
+        backend_name, llm_config = cls._resolve_backend(
+            backend, client_config_id)
+        if backend_name == 'llm':
+            engine_mode = 'llm'
+            llm_recognizer = LlmNerRecognizer(llm_config)
+        else:
+            _, engine_mode = cls._get_analyzer()
+            llm_recognizer = None
+
         date_range = getattr(settings, 'EXTRACTOR_DEID_DATE_SHIFT_RANGE', 100)
         shift = random.randint(-date_range, date_range)
 
@@ -164,10 +249,10 @@ class TextDeidentificationService:
         path = str(processed_text.processed_file_path or '')
         if path.endswith('.csv'):
             new_content, entities, columns, repl = cls._deidentify_csv(
-                content, shift, patient)
+                content, shift, patient, llm_recognizer)
         else:
             new_content, entities, repl = cls._deidentify_text(
-                content, shift, patient)
+                content, shift, patient, llm_recognizer)
             columns = []
 
         # Aggregate identical (tag, original) pairs into the review map.
@@ -181,7 +266,6 @@ class TextDeidentificationService:
                     'tag': e['tag'], 'type': e['type'],
                     'original': e['original'], 'count': 1}
 
-        _, engine_mode = cls._get_analyzer()
         file_upload = processed_text.file_upload
         version = FileProcessorService._next_version(file_upload)
         new_path = cls._output_path(file_upload, version, path or '.txt')
@@ -198,22 +282,28 @@ class TextDeidentificationService:
             deidentified_source=processed_text,
             deid_engine=engine_mode,
             deid_model=(
-                settings.DEID_HF_NER_MODEL if engine_mode == 'full' else ''
+                llm_config.llm_model_name
+                if backend_name == 'llm'
+                else (settings.DEID_HF_NER_MODEL if engine_mode == 'full' else '')
             ),
             deid_entities=entities,
             deid_csv_columns_flagged=columns,
             deid_map=list(deid_map.values()),
             deid_date_shift_days=shift,
+            deid_client_config=llm_config,
         )
 
     @classmethod
-    def deidentify_if_needed(cls, processed_text, user=None):
+    def deidentify_if_needed(cls, processed_text, user=None, backend='default',
+                             client_config_id=None):
         """Dispatch-safe wrapper: skip when deid output already exists."""
         if not getattr(settings, 'EXTRACTOR_DEID_ENABLED', True):
             return None
         if processed_text.deid_derivatives.exists():
             return processed_text.deid_derivatives.order_by('-version').first()
-        return cls.deidentify(processed_text, user=user)
+        return cls.deidentify(
+            processed_text, user=user, backend=backend,
+            client_config_id=client_config_id)
 
     @classmethod
     def save_manual_edit(cls, processed_text, new_content, user=None):
@@ -263,14 +353,20 @@ class TextDeidentificationService:
         return count
 
     @classmethod
-    def _deidentify_text(cls, content, shift, patient):
-        analyzer, _ = cls._get_analyzer()
+    def _deidentify_text(cls, content, shift, patient, llm_recognizer=None):
+        if llm_recognizer is not None:
+            analyzer = cls._get_llm_analyzer()
+        else:
+            analyzer, _ = cls._get_analyzer()
+        ad_hoc = build_patient_recognizers(patient)
+        if llm_recognizer is not None:
+            ad_hoc = [llm_recognizer] + ad_hoc
         results = analyzer.analyze(
             text=content,
             language='en',
             score_threshold=getattr(
                 settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35),
-            ad_hoc_recognizers=build_patient_recognizers(patient),
+            ad_hoc_recognizers=ad_hoc,
         )
         results = cls._resolve_overlaps(cls._filter_results(content, results))
         repl = []
@@ -279,14 +375,15 @@ class TextDeidentificationService:
         return new_content, cls._entity_counts(results), repl
 
     @classmethod
-    def _deidentify_csv(cls, content, shift, patient):
+    def _deidentify_csv(cls, content, shift, patient, llm_recognizer=None):
         """Header-aware CSV pass: mapped columns are replaced wholesale;
         unmapped columns get per-cell NER with a shared tag map."""
         column_map = getattr(settings, 'EXTRACTOR_DEID_CSV_COLUMN_MAP', {})
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
         if not rows:
-            return cls._deidentify_text(content, shift, patient) + ([],)
+            return cls._deidentify_text(
+                content, shift, patient, llm_recognizer) + ([],)
 
         headers = rows[0]
         col_types = [column_map.get(h.strip().lower()) for h in headers]
@@ -294,10 +391,16 @@ class TextDeidentificationService:
             # No recognizable headers — treat the whole thing as text so
             # PHI in unmapped CSVs is still caught.
             new_content, counts, repl = cls._deidentify_text(
-                content, shift, patient)
+                content, shift, patient, llm_recognizer)
             return new_content, counts, [], repl
 
-        analyzer, _ = cls._get_analyzer()
+        if llm_recognizer is not None:
+            analyzer = cls._get_llm_analyzer()
+        else:
+            analyzer, _ = cls._get_analyzer()
+        ad_hoc = build_patient_recognizers(patient)
+        if llm_recognizer is not None:
+            ad_hoc = [llm_recognizer] + ad_hoc
         tag_map = {}
         all_results = []
         repl = []
@@ -331,7 +434,7 @@ class TextDeidentificationService:
                         text=cell, language='en',
                         score_threshold=getattr(
                             settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35),
-                        ad_hoc_recognizers=build_patient_recognizers(patient),
+                        ad_hoc_recognizers=ad_hoc,
                     )
                     results = cls._resolve_overlaps(
                         cls._filter_results(cell, results))
@@ -375,7 +478,9 @@ class TextDeidentificationService:
             # and explicit age surfaces ('56 Years', '56-year-old') are not
             # redacted — age is not a direct identifier.
             if (r.entity_type == 'DATE_TIME' and re.match(
-                    r'^\d{1,3}%?$|^\d{1,3}\s*[-\s]?(years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$',
+                    r'^\d{1,3}%?$'
+                    r'|^\d{1,3}\s*[-\s]?(years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
+                    r'|^\d{1,3}\s+(years?|months?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$',
                     surface, re.I)):
                 continue
             if r.entity_type == 'LOCATION':
