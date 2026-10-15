@@ -24,7 +24,8 @@ The Docker Compose setup includes the following containers:
 | chaviclient-database | PostgreSQL 17 database |
 | chaviclient-rabbitmq | RabbitMQ message broker with management UI (ports 5672 and 15672) |
 | chaviclient-django | Django web application (Gunicorn) |
-| chaviclient-celery-worker | Celery worker for asynchronous task processing |
+| chaviclient-celery-worker | Celery worker for asynchronous task processing (queue `default`) |
+| chaviclient-celery-deid-worker | Dedicated deidentification worker (queue `deid`, concurrency 1 — all deid batches run strictly serial) |
 | chaviclient-celery-beat | Celery beat scheduler for periodic tasks |
 | chaviclient-dicom | Inbound DICOM server (C-ECHO/C-STORE/C-FIND SCP on port 11112) |
 | chaviclient-proxy | Nginx reverse proxy |
@@ -116,6 +117,7 @@ connection makes firewall and PACS-side setup straightforward:
 | Container | DICOM role |
 | ------ | ------ |
 | `chaviclient-celery-worker` | **Outbound Q/R SCU.** Retrieval jobs (manual `/dicom-server/retrieve/` and scheduled auto-retrieval) open TCP associations from here to each remote node's `host:port` — C-ECHO, C-FIND, C-MOVE and C-GET. |
+| `chaviclient-celery-deid-worker` | **No DICOM role** — consumes only the `deid` queue at concurrency 1 so deid batches from different patients/runs are serialized and a single EasyOCR + NER model stack is loaded. Runs the de-archival restore in-process — needs the DICOM archive mount if archival is in use. |
 | `chaviclient-django` | Runs the **C-ECHO test button** on `/dicom-server/nodes/` synchronously — another outbound SCU source. |
 | `chaviclient-dicom` | **Inbound SCP only.** Receives C-STORE deliveries on the published port `11112` (direct pushes from modalities/PACS and C-MOVE sub-operations). |
 | `chaviclient-celery-beat` | Schedules auto-retrieval tasks via RabbitMQ; opens no DICOM connections itself. |

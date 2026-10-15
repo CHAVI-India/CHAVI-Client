@@ -81,7 +81,7 @@ services:
       # DICOM archive (optional — uncomment together with one of the
       # chaviclient_archive definitions in the top-level volumes: section):
       # - chaviclient_archive:/archive/dicom
-    command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "--concurrency=2"]
+    command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "-Q", "default", "--concurrency=2"]
     # Pin remote DICOM node hostnames to IPs here if container DNS fails:
     #extra_hosts:
     #  - "www.dicomserver.co.uk=198.244.176.149"
@@ -95,6 +95,34 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
+
+  # Deidentification runs on its own queue with a single worker slot so all
+  # deid batches are strictly serial across the deployment (see
+  # CELERY_TASK_ROUTES in chavi_client/settings.py). Must be upgraded in the
+  # same step as the app image: without it, deid tasks publish to the 'deid'
+  # queue and are never consumed.
+  chaviclient-celery-deid-worker:
+    image: chaviapp/chaviclient:main
+    container_name: chaviclient-celery-deid-worker
+    restart: always
+    depends_on:
+      chaviclient-database:
+        condition: service_healthy
+      chaviclient-rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - chaviclient_app_data:/app
+      - ./media:/app/media
+      - ./static:/app/static
+      - ./logs:/app/logs
+      # DICOM archive (optional — same mount path as the other workers;
+      # de-archival restore runs in-process inside deid tasks, so this
+      # worker needs it too. Uncomment together with one of the
+      # chaviclient_archive definitions in the top-level volumes: section):
+      # - chaviclient_archive:/archive/dicom
+    command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "-Q", "deid", "--concurrency=1"]
 
   chaviclient-celery-beat:
     image: chaviapp/chaviclient:main
