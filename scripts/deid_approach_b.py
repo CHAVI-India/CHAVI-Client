@@ -34,100 +34,13 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ---------------------------------------------------------------------------
-# Reuse the document + token catalog from the Approach-A A/B script.
+# Catalog + scoring + propagation + safenet live in the shared
+# ground-truth module (single source of truth for the A/B dataset).
 # ---------------------------------------------------------------------------
-
-def load_catalog():
-    src = io.open('scripts/ab_deid_test.py', encoding='utf-8').read()
-    ns = {}
-    exec(compile(src[src.index('DOC_CLINICAL'):src.index('\ndef ')],
-                 'catalog', 'exec'), ns)
-    return ns['DOCS'], ns['PII_TOKENS'], ns['CLINICAL_TOKENS'], ns['DATES']
-
-
-DOCS, PII_TOKENS, CLINICAL_TOKENS, DATES = load_catalog()
-
-
-# ---------------------------------------------------------------------------
-# Minimal safety net: ONLY the structured IDs small models reliably miss.
-# (The point of the experiment is that clinical content is protected by the
-#  LLM's judgment, not by a bag of protection regexes.)
-# ---------------------------------------------------------------------------
-
-SAFENET = [
-    ('IN_AADHAAR', re.compile(r'\b\d{4}\s\d{4}\s\d{4}\b|\b\d{12}\b')),
-    ('MEDICAL_RECORD_NUMBER', re.compile(r'\b[A-Z]{2,3}/\d{2}/\d{4,}\b')),
-    ('IN_MOBILE_NUMBER', re.compile(r'\+91\s?\d{5}\s?\d{5}\b')),
-]
-
-
-def safenet_spans(text):
-    out = []
-    for etype, pat in SAFENET:
-        for m in pat.finditer(text):
-            out.append({'type': etype, 'start': m.start(), 'end': m.end(),
-                        'score': 0.95})
-    return out
-
-
-# Entity types that repeat verbatim in a note and should be redacted at
-# every occurrence. Dates are excluded: a short date surface (e.g. '2/2') is
-# a substring of other dates ('12/2/24'), so blind propagation is unsafe.
-PROPAGATE_TYPES = {
-    'PERSON', 'LOCATION', 'ORGANIZATION', 'MEDICAL_RECORD_NUMBER',
-    'IN_AADHAAR', 'IN_MOBILE_NUMBER', 'IN_PINCODE', 'IN_ABHA', 'IN_UPI',
-    'IN_DRIVING_LICENSE', 'PATIENT_ID',
-}
-
-
-def propagate_spans(text, span_list):
-    """Extend each identified entity to ALL identical occurrences in text.
-
-    Small models report a repeated name once; de-identification requires
-    every occurrence to be redacted. This is deterministic (findall), so the
-    recall gap is closed in code, not by asking the LLM to re-list the name.
-    `finditer` owns all occurrence discovery (it always re-finds the original
-    position, since text[a:b] == surface); input de-duplication uses a
-    separate set so single-occurrence entities are not swallowed.
-    """
-    dedup, input_seen = [], set()
-    for s in span_list:
-        key = (s['type'], s['start'], s['end'])
-        if key in input_seen:
-            continue
-        input_seen.add(key)
-        dedup.append(s)
-    out, out_seen = [], set()
-    for s in dedup:
-        t, a, b = s['type'], s['start'], s['end']
-        surface = text[a:b]
-        if t not in PROPAGATE_TYPES or not surface.strip():
-            key = (t, a, b)
-            if key not in out_seen:
-                out_seen.add(key)
-                out.append(s)
-            continue
-        for m in re.finditer(re.escape(surface), text):
-            key = (t, m.start(), m.end())
-            if key in out_seen:
-                continue
-            out_seen.add(key)
-            out.append({'type': t, 'start': m.start(), 'end': m.end(),
-                       'score': s.get('score', 0.9)})
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Scoring (identical logic to the Approach-A A/B)
-# ---------------------------------------------------------------------------
-
-def score(source, out):
-    sl, out_l = source.lower(), out.lower()
-    leaks = [t for t in PII_TOKENS if t.lower() in sl and t.lower() in out_l]
-    lost = [t for t in CLINICAL_TOKENS
-            if t.lower() in sl and t.lower() not in out_l]
-    unshifted = [d for d in DATES if d in source and d in out]
-    return leaks, lost, unshifted
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from deid_ground_truth import (
+    DOCS, PII_TOKENS, CLINICAL_TOKENS, DATES, score, propagate_spans,
+    PROPAGATE_TYPES, build_safenet_spans)
 
 
 # ---------------------------------------------------------------------------
@@ -698,14 +611,14 @@ def run():
             t0 = time.monotonic()
             s1 = llm.find_entities_in_text(text)
             if use_safenet:
-                s1 = s1 + safenet_spans(text)
+                s1 = s1 + build_safenet_spans(text)
             calls, passes_used = 1, 1
             union = {(s['type'], s['start'], s['end']): s for s in s1}
             extra = []
             if args.passes >= 2:
                 s2 = llm.find_entities_in_text(text)
                 if use_safenet:
-                    s2 = s2 + safenet_spans(text)
+                    s2 = s2 + build_safenet_spans(text)
                 calls += 1
                 passes_used = 2
                 extra = [s for s in s2
@@ -714,7 +627,7 @@ def run():
                 if extra and args.passes >= 3:
                     s3 = llm.find_entities_in_text(text)
                     if use_safenet:
-                        s3 = s3 + safenet_spans(text)
+                        s3 = s3 + build_safenet_spans(text)
                     calls += 1
                     passes_used = 3
                 for s in s2 + s3:
@@ -733,7 +646,7 @@ def run():
             spans = [{'type': x.entity_type, 'start': x.start, 'end': x.end,
                       'score': x.score} for x in r]
             if use_safenet:
-                spans = spans + safenet_spans(text)
+                spans = spans + build_safenet_spans(text)
             return spans, 1, 1, [], t0
 
         eng_desc = 'openmed single-pass'
