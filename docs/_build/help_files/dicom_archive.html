@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>DICOM Archive &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="De-identifying Patient Data" href="deidentification.html" />
+    <link rel="prev" title="Setting Up the DICOM Server" href="dicom_server_setup.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="deidentification.html" title="De-identifying Patient Data"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dicom_server_setup.html" title="Setting Up the DICOM Server"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">DICOM Archive</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="dicom-archive">
+<h1>DICOM Archive<a class="headerlink" href="#dicom-archive" title="Link to this heading">¶</a></h1>
+<p>The DICOM Archive moves local DICOM study folders off the app’s media volume into a configurable location — another local folder or a NAS/LAN share mounted on the machine — and restores them on demand. It frees up local disk for incoming studies without losing any data, and deidentification always gets the files it needs: archived studies are restored automatically before a deidentification run touches them.</p>
+<p>No DICOM network transfer is involved: archiving is plain file move/copy of the study folders, so the archive location just needs to be a directory the app (and the Celery worker) can read and write.</p>
+<p>Everything on this page needs the matching user permissions (see <a class="reference internal" href="#dicom-archive-permissions"><span class="std std-ref">Permissions and roles</span></a> at the end).</p>
+<section id="archive-locations">
+<h2>Archive locations<a class="headerlink" href="#archive-locations" title="Link to this heading">¶</a></h2>
+<p>Locations are managed under <strong>Data Import → DICOM Archive → Locations</strong>. Each location has:</p>
+<ul class="simple">
+<li><p><strong>Name</strong> — a friendly label, e.g. “NAS archive”.</p></li>
+<li><p><strong>Type</strong> — <em>Local folder</em> or <em>Mounted share (NAS/LAN)</em>. A local folder may be an absolute path or a path relative to the media root; a mounted share must be an absolute path to the mounted point.</p></li>
+<li><p><strong>Path</strong> — checked for write access when you save (the directory is created if needed). A path the app cannot write to is rejected with an error.</p></li>
+<li><p><strong>Default</strong> — one location is the default target for the scheduled sweep (below). New locations are not the default until you say so.</p></li>
+<li><p><strong>Active</strong> — untick to stop using a location without deleting it.</p></li>
+</ul>
+<p><em>Test</em> button (🔌 per row on the Locations page, and a <strong>Test path</strong> button on
+the add/edit form that probes the values you are typing before you save):
+checks that the path is <strong>reachable</strong>, <strong>writable</strong>, and that a real <strong>write
+succeeds</strong> — it writes a small persistent file,
+<code class="docutils literal notranslate"><span class="pre">chavi_archive_write_test.txt</span></code>, into the location. Open that file on the
+share (Windows Explorer, or <code class="docutils literal notranslate"><span class="pre">ls</span></code> it from the host) to confirm the write
+really landed where you think it did; the file is safe to delete. If the
+directory does not exist yet it is created by the test (the app does the
+same when the location is saved or an archive runs).</p>
+<p>A location that still holds archived studies cannot be deleted — de-archive (or delete) its studies first.</p>
+</section>
+<section id="archiving-a-study">
+<h2>Archiving a study<a class="headerlink" href="#archiving-a-study" title="Link to this heading">¶</a></h2>
+<p>Under <strong>Browse Studies</strong> you see every study that has a local folder, with its archive status:</p>
+<ul class="simple">
+<li><p><strong>Local</strong> — files are on the media volume, nothing archived.</p></li>
+<li><p><strong>Archiving… / Restoring…</strong> — a task is currently moving the files.</p></li>
+<li><p><strong>Archived</strong> — the files live in the archive location; the row is not selectable (de-archive it from the Archived list first).</p></li>
+<li><p><strong>De-archived</strong> — was archived, has been restored locally; it can be archived again.</p></li>
+</ul>
+<p>Tick the studies you want and pick the target location, then click <strong>Archive Selected</strong>. The work runs in the background as a Celery task — the page shows a progress box while it runs and links to the task run list. One bad study (for example a folder that disappeared mid-run) is reported as a failure and never stops the rest of the batch.</p>
+<p>By default archiving <strong>moves</strong> the study folder (the local copy is gone afterwards). If you keep the “local copy is kept” option in the configuration, archiving copies instead and the local folder stays.</p>
+<p>Either way, when a patient’s last study folder is moved away, the now-empty per-patient folder under <code class="docutils literal notranslate"><span class="pre">processed_dicom</span></code> is cleaned up. The same tidy-up happens on the archive side when a patient’s last study there is de-archived.</p>
+</section>
+<section id="scheduled-archival">
+<h2>Scheduled archival<a class="headerlink" href="#scheduled-archival" title="Link to this heading">¶</a></h2>
+<p>The <strong>Configuration</strong> page holds the scheduled-sweep policy:</p>
+<ul class="simple">
+<li><p><strong>Enabled</strong> — turn the sweep on.</p></li>
+<li><p><strong>Archive studies older than</strong> — a study is a candidate once it is this many days old (counted from its study date).</p></li>
+<li><p><strong>After archiving</strong> — delete the local copy, or keep it.</p></li>
+<li><p><strong>Schedule</strong> — five cron fields (minute, hour, day of week, day of month, month); an asterisk means “every”.</p></li>
+<li><p><strong>Batch limit</strong> — how many studies one sweep may archive; the oldest eligible ones are taken first.</p></li>
+</ul>
+<p>Saving the configuration updates the Celery beat schedule automatically. The sweep archives into the default active location; if there is none it falls back to the first active location. With the sweep disabled, or nothing eligible, it does nothing.</p>
+</section>
+<section id="archived-studies-and-de-archival">
+<h2>Archived studies and de-archival<a class="headerlink" href="#archived-studies-and-de-archival" title="Link to this heading">¶</a></h2>
+<p>The <strong>Archived Studies</strong> page lists the studies that currently live in an archive location (studies that have been de-archived are hidden by default but can be shown with the status filter). Each row shows the location, size and instance count.</p>
+<p>Tick archived studies and click <strong>De-archive Selected</strong> to restore them to their original local paths. If the patient was re-ingested in the meantime, the restored files are merged into the existing local folder without overwriting anything. If a restore cannot complete (for example the archive folder is missing), the record stays <em>Archived</em> so you can retry.</p>
+</section>
+<section id="deidentification-of-archived-studies">
+<h2>Deidentification of archived studies<a class="headerlink" href="#deidentification-of-archived-studies" title="Link to this heading">¶</a></h2>
+<p>You never have to de-archive a study by hand before deidentifying it. When a deidentification run starts, any archived studies in the roster are restored first; if one of them cannot be restored, the run fails with a message naming the study and nothing is deidentified. As a safety net, each study is also checked again right before it is processed — so a study that gets archived between the start of the run and its turn is restored on the spot (or the run skips it with a recorded error instead of touching missing files).</p>
+</section>
+<section id="deleting-studies-and-patients">
+<h2>Deleting studies and patients<a class="headerlink" href="#deleting-studies-and-patients" title="Link to this heading">¶</a></h2>
+<p>Deleting a study (or a patient, which cascades to all of their studies) also deletes the DICOM files on disk: the local folder and, when the study was archived, the archived copy. The database row and the files stay consistent either way.</p>
+</section>
+<section id="permissions-and-roles">
+<span id="dicom-archive-permissions"></span><h2>Permissions and roles<a class="headerlink" href="#permissions-and-roles" title="Link to this heading">¶</a></h2>
+<p>The archive uses the standard Django model permissions on the <em>Dicom Archive</em>
+models (Archive Configuration, Archive Location, Archived Study). The full
+permission set is part of the shipped <strong>DICOM Administrator</strong> role — that
+group manages the archive configuration, locations, and can archive and
+de-archive studies (added by migration <code class="docutils literal notranslate"><span class="pre">client_app.0031</span></code>). See
+<a class="reference internal" href="roles_and_permissions.html"><span class="doc">Roles and Permissions</span></a> for how roles work and how to assign them.</p>
+<p>If a user needs only part of the feature (for example: may archive but not
+reconfigure, or view-only), grant individual permissions directly under
+<em>Users → (user) → user permissions</em> — the <em>Dicom Archive</em> section offers
+view/change/add/delete on each of the three models. The page-to-permission
+table and a smoke-test checklist live in <code class="docutils literal notranslate"><span class="pre">dicom_archive/PERMISSIONS.md</span></code> in
+the source tree.</p>
+</section>
+<section id="running-under-docker">
+<h2>Running under Docker<a class="headerlink" href="#running-under-docker" title="Link to this heading">¶</a></h2>
+<p>Inside the containers the app’s media root is <code class="docutils literal notranslate"><span class="pre">/app/media</span></code> and study folders live at <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom/&lt;patient</span> <span class="pre">ID&gt;/&lt;study</span> <span class="pre">UID&gt;</span></code>, so <strong>a location path is always a path inside the containers</strong>. Three common setups:</p>
+<ul class="simple">
+<li><p><strong>Another folder in the media volume</strong> — no compose change; use a relative path like <code class="docutils literal notranslate"><span class="pre">dicom_archive</span></code> (resolves to <code class="docutils literal notranslate"><span class="pre">/app/media/dicom_archive</span></code>). Caveat: same physical disk as the source data.</p></li>
+<li><p><strong>NAS/LAN share mounted on the Docker host</strong> — mount it on the host (for example at <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code>) and add the bind mount <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive:/archive/dicom</span></code> to the <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code>, <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-deid-worker</span></code> and <code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code> services; create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p></li>
+<li><p><strong>Windows host with an SMB share</strong> — bind the UNC path directly (<code class="docutils literal notranslate"><span class="pre">//NAS_HOST/chavi-archive:/archive/dicom</span></code>), again in all three services.</p></li>
+</ul>
+<p>The django (web) container needs the mount too because the location form probes the path for write access when it is saved — a path mounted only in the workers fails that validation — and the deid worker needs it because de-archival restore runs inside deidentification tasks. The full section with all three scenarios and the verification commands is on the <a class="reference internal" href="docker_installation.html"><span class="doc">Docker Installation Method</span></a> page (“DICOM Archive Storage (NAS/LAN)”).</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DICOM Archive</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#archive-locations">Archive locations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#archiving-a-study">Archiving a study</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scheduled-archival">Scheduled archival</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#archived-studies-and-de-archival">Archived studies and de-archival</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#deidentification-of-archived-studies">Deidentification of archived studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#deleting-studies-and-patients">Deleting studies and patients</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#permissions-and-roles">Permissions and roles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-under-docker">Running under Docker</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="dicom_server_setup.html"
+                          title="previous chapter">Setting Up the DICOM Server</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="deidentification.html"
+                          title="next chapter">De-identifying Patient Data</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/dicom_archive.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="deidentification.html" title="De-identifying Patient Data"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dicom_server_setup.html" title="Setting Up the DICOM Server"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">DICOM Archive</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

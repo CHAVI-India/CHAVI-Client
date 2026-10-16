@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Database Backup and Restore &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Roles and Permissions" href="roles_and_permissions.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="roles_and_permissions.html" title="Roles and Permissions"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Database Backup and Restore</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="database-backup-and-restore">
+<h1>Database Backup and Restore<a class="headerlink" href="#database-backup-and-restore" title="Link to this heading">¶</a></h1>
+<p>This guide describes how to backup and restore the PostgreSQL database used by the CHAVI client in a Dockerized environment.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The database runs in a dedicated container named <code class="docutils literal notranslate"><span class="pre">chaviclient-database</span></code> (see <code class="docutils literal notranslate"><span class="pre">docker_install/example_docker-compose.yml</span></code>).</p></li>
+<li><p>Database credentials are set in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file referenced by docker-compose.</p></li>
+<li><p>Backups should be stored in a persistent directory on the host (e.g. <code class="docutils literal notranslate"><span class="pre">/mnt/share/chavi_client/backups</span></code>).</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Always ensure your backup directory is writable by the user running the backup script.</p>
+</div>
+</section>
+<section id="relevant-environment-variables">
+<h2>Relevant Environment Variables<a class="headerlink" href="#relevant-environment-variables" title="Link to this heading">¶</a></h2>
+<p>Check your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file for these variables, which are used in both backup and restore commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">POSTGRES_DB</span><span class="o">=</span>your_db_name
+<span class="nv">POSTGRES_USER</span><span class="o">=</span>your_db_user
+<span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>your_db_password
+</pre></div>
+</div>
+</section>
+<section id="backup-the-database">
+<h2>Backup the Database<a class="headerlink" href="#backup-the-database" title="Link to this heading">¶</a></h2>
+<ol class="arabic">
+<li><p><strong>Create a backup directory (if not already present):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span>/mnt/share/chavi_client/backups
+</pre></div>
+</div>
+</li>
+<li><p><strong>Create a backup script (e.g. ``backup.sh``):</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="nv">BACKUP_DIR</span><span class="o">=</span>/mnt/share/chavi_client/backups
+<span class="nv">DB_NAME</span><span class="o">=</span>your_db_name<span class="w">        </span><span class="c1"># Set from POSTGRES_DB in .env</span>
+<span class="nv">DB_USER</span><span class="o">=</span>your_db_user<span class="w">        </span><span class="c1"># Set from POSTGRES_USER in .env</span>
+<span class="nv">CONTAINER_NAME</span><span class="o">=</span>chaviclient-database
+<span class="nv">TIMESTAMP</span><span class="o">=</span><span class="k">$(</span>date<span class="w"> </span>+<span class="s2">"%F_%H-%M-%S"</span><span class="k">)</span>
+<span class="nv">BACKUP_FILE</span><span class="o">=</span><span class="s2">"</span><span class="nv">$BACKUP_DIR</span><span class="s2">/backup_</span><span class="si">${</span><span class="nv">DB_NAME</span><span class="si">}</span><span class="s2">_</span><span class="nv">$TIMESTAMP</span><span class="s2">.sql"</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-t<span class="w"> </span><span class="nv">$CONTAINER_NAME</span><span class="w"> </span>pg_dump<span class="w"> </span>-U<span class="w"> </span><span class="nv">$DB_USER</span><span class="w"> </span><span class="nv">$DB_NAME</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="nv">$BACKUP_FILE</span><span class="s2">"</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">"Backup completed: </span><span class="nv">$BACKUP_FILE</span><span class="s2">"</span>
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">your_db_name</span></code> and <code class="docutils literal notranslate"><span class="pre">your_db_user</span></code> with the actual values from your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p>
+</li>
+<li><p><strong>Make the script executable:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>chmod<span class="w"> </span>+x<span class="w"> </span>backup.sh
+</pre></div>
+</div>
+</li>
+<li><p><strong>Run the backup script:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./backup.sh
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="automating-backups">
+<h2>Automating Backups<a class="headerlink" href="#automating-backups" title="Link to this heading">¶</a></h2>
+<p>You can automate backups with a cron job (Linux/macOS) or Task Scheduler (Windows).</p>
+</section>
+<section id="restore-the-database">
+<h2>Restore the Database<a class="headerlink" href="#restore-the-database" title="Link to this heading">¶</a></h2>
+<p>To restore a backup, use the following steps:</p>
+<ol class="arabic">
+<li><p><strong>Copy your backup file to the host if needed.</strong></p></li>
+<li><p><strong>Run the restore command:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">BACKUP_FILE</span><span class="o">=</span>/mnt/share/chavi_client/backups/backup_your_db_name_YYYY-MM-DD_HH-MM-SS.sql
+<span class="nv">DB_NAME</span><span class="o">=</span>your_db_name<span class="w">        </span><span class="c1"># Set from POSTGRES_DB in .env</span>
+<span class="nv">DB_USER</span><span class="o">=</span>your_db_user<span class="w">        </span><span class="c1"># Set from POSTGRES_USER in .env</span>
+<span class="nv">CONTAINER_NAME</span><span class="o">=</span>chaviclient-database
+cat<span class="w"> </span><span class="nv">$BACKUP_FILE</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-i<span class="w"> </span><span class="nv">$CONTAINER_NAME</span><span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span><span class="nv">$DB_USER</span><span class="w"> </span><span class="nv">$DB_NAME</span>
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">your_db_name</span></code> and the backup filename as appropriate.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The container name (<code class="docutils literal notranslate"><span class="pre">chaviclient-database</span></code>) must match the name in your <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>. If you change it, update the scripts accordingly.</p>
+</div>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Ensure the database container is running before performing backup or restore.</p></li>
+<li><p>Check permissions on the backup directory.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">ps</span></code> to verify container names.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Database Backup and Restore</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#relevant-environment-variables">Relevant Environment Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#backup-the-database">Backup the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#automating-backups">Automating Backups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#restore-the-database">Restore the Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="roles_and_permissions.html"
+                          title="previous chapter">Roles and Permissions</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/database_backup.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="roles_and_permissions.html" title="Roles and Permissions"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Database Backup and Restore</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

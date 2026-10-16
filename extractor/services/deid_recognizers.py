@@ -88,13 +88,13 @@ def build_text_recognizers():
             name="MedicalRecordNumberRecognizer",
             patterns=[
                 # Prefixed segmented IDs: MR/26/092837, OP/26/093450,
-                # AS/26/011111/040 — the letter-letter/digits/digits shape is
-                # unambiguous on its own; near-certain score so NER's
+                # RAD/26/004512, AS/26/011111/040 — the letters/digits shape
+                # is unambiguous on its own; near-certain score so NER's
                 # short prefix tags (e.g. 'MR' as ORGANIZATION) can't
                 # outvote it and leave the digits behind.
                 Pattern(
                     "Prefixed segmented record number",
-                    r"\b[A-Z]{2}/\d{2}/\d{4,}\b", 0.95),
+                    r"\b[A-Z]{2,3}/\d{2}/\d{4,}\b", 0.95),
                 # Segmented identifiers: S-23-004512, MR-23-004512
                 Pattern(
                     "Segmented record number",

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Docker Installation Method &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Configuration Guide" href="configuration.html" />
+    <link rel="prev" title="Installation Guide" href="installation.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration Guide"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation Guide"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Docker Installation Method</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="docker-installation-method">
+<h1>Docker Installation Method<a class="headerlink" href="#docker-installation-method" title="Link to this heading">¶</a></h1>
+<p>This method will install the Chavi application using Docker containers.</p>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
+<p>Docker Desktop:</p>
+<ul class="simple">
+<li><p>Docker Desktop is a platform for building, shipping, and running applications using containers.</p></li>
+<li><p>It provides a container runtime, a command line interface, and a platform for building and shipping containerized applications.</p></li>
+<li><p>It is available for Windows and macOS.</p></li>
+</ul>
+<p>Please refere to the official Docker documentation for installation instructions:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.docker.com/desktop/install/windows-install/">Docker Desktop for Windows</a></p></li>
+<li><p><a class="reference external" href="https://docs.docker.com/desktop/install/mac-install/">Docker Desktop for macOS</a></p></li>
+</ul>
+<p>After Docker Desktop is installed, you can start the Docker application. Please ensure that proxy settings are configured correctly in the Docker Desktop settings. Without this Docker Desktop will not be able to access the internet.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<p>Create a folder in a location where the CHAVI client application will be installed.
+Inside this folder, create the following three files:</p>
+<ul class="simple">
+<li><p>.env</p></li>
+<li><p>docker-compose.yml</p></li>
+<li><p>ngnix.conf</p></li>
+</ul>
+<p>The contents of the files are as follows:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres:17</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-database</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"5433:5432"</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_postgres_data:/var/lib/postgresql/data</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">healthcheck</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">test</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"CMD-SHELL"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"pg_isready</span><span class="nv"> </span><span class="s">-U</span><span class="nv"> </span><span class="s">$${POSTGRES_USER}</span><span class="nv"> </span><span class="s">-d</span><span class="nv"> </span><span class="s">$${POSTGRES_DB}"</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<span class="w">      </span><span class="nt">retries</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="w">  </span><span class="nt">chaviclient-rabbitmq</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rabbitmq:4-management</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-rabbitmq</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"5672:5672"</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"15672:15672"</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_rabbitmq_data:/var/lib/rabbitmq</span>
+<span class="w">    </span><span class="nt">healthcheck</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">test</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"CMD-SHELL"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"rabbitmqctl</span><span class="nv"> </span><span class="s">status"</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span>
+<span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span>
+<span class="w">      </span><span class="nt">retries</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+
+<span class="w">  </span><span class="nt">chaviclient-django</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-django</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">chaviclient-rabbitmq</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span><span class="w">      </span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">      </span><span class="c1"># DICOM archive (optional — same mount path as the worker; needed for</span>
+<span class="w">      </span><span class="c1"># the location write-probe and the "Test location" button. Uncomment</span>
+<span class="w">      </span><span class="c1"># together with one of the chaviclient_archive definitions in the</span>
+<span class="w">      </span><span class="c1"># top-level volumes: section):</span>
+<span class="w">      </span><span class="c1"># - chaviclient_archive:/archive/dicom</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"./entrypoint.docker.sh"</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="c1"># If a remote DICOM node can't be resolved by DNS, pin it here</span>
+<span class="w">    </span><span class="c1"># (e.g. a node with only a static IP):</span>
+<span class="w">    </span><span class="c1">#extra_hosts:</span>
+<span class="w">    </span><span class="c1">#  - "www.dicomserver.co.uk=198.244.176.149"</span>
+
+<span class="w">  </span><span class="c1"># Outbound DICOM Q/R (C-ECHO/C-FIND/C-MOVE/C-GET) originates here.</span>
+<span class="w">  </span><span class="c1"># No published ports needed — the container only needs outbound TCP</span>
+<span class="w">  </span><span class="c1"># to each remote node's host:port configured in the web UI.</span>
+<span class="w">  </span><span class="nt">chaviclient-celery-worker</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-celery-worker</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">chaviclient-rabbitmq</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">      </span><span class="c1"># DICOM archive (optional — uncomment together with one of the</span>
+<span class="w">      </span><span class="c1"># chaviclient_archive definitions in the top-level volumes: section):</span>
+<span class="w">      </span><span class="c1"># - chaviclient_archive:/archive/dicom</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"celery"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-A"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"chavi_client"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"worker"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-l"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"info"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-Q"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"default"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--concurrency=2"</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="c1"># Pin remote DICOM node hostnames to IPs here if container DNS fails:</span>
+<span class="w">    </span><span class="c1">#extra_hosts:</span>
+<span class="w">    </span><span class="c1">#  - "www.dicomserver.co.uk=198.244.176.149"</span>
+<span class="w">    </span><span class="c1"># GPU (optional): uncomment on hosts with an NVIDIA GPU and the</span>
+<span class="w">    </span><span class="c1"># nvidia-container-toolkit installed. Lookup-table embedding computation</span>
+<span class="w">    </span><span class="c1"># then auto-detects and runs on CUDA; without this block it stays on CPU.</span>
+<span class="w">    </span><span class="c1"># deploy:</span>
+<span class="w">    </span><span class="c1">#   resources:</span>
+<span class="w">    </span><span class="c1">#     reservations:</span>
+<span class="w">    </span><span class="c1">#       devices:</span>
+<span class="w">    </span><span class="c1">#         - driver: nvidia</span>
+<span class="w">    </span><span class="c1">#           count: all</span>
+<span class="w">    </span><span class="c1">#           capabilities: [gpu]</span>
+
+<span class="w">  </span><span class="c1"># Deidentification runs on its own queue with a single worker slot so all</span>
+<span class="w">  </span><span class="c1"># deid batches are strictly serial across the deployment (see</span>
+<span class="w">  </span><span class="c1"># CELERY_TASK_ROUTES in chavi_client/settings.py). Must be upgraded in the</span>
+<span class="w">  </span><span class="c1"># same step as the app image: without it, deid tasks publish to the 'deid'</span>
+<span class="w">  </span><span class="c1"># queue and are never consumed.</span>
+<span class="w">  </span><span class="nt">chaviclient-celery-deid-worker</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-celery-deid-worker</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">chaviclient-rabbitmq</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/app/static</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">      </span><span class="c1"># DICOM archive (optional — same mount path as the other workers;</span>
+<span class="w">      </span><span class="c1"># de-archival restore runs in-process inside deid tasks, so this</span>
+<span class="w">      </span><span class="c1"># worker needs it too. Uncomment together with one of the</span>
+<span class="w">      </span><span class="c1"># chaviclient_archive definitions in the top-level volumes: section):</span>
+<span class="w">      </span><span class="c1"># - chaviclient_archive:/archive/dicom</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"celery"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-A"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"chavi_client"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"worker"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-l"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"info"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-Q"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"deid"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--concurrency=1"</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">chaviclient-celery-beat</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-celery-beat</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">chaviclient-rabbitmq</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"celery"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-A"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"chavi_client"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"beat"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-l"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"info"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--scheduler"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"django_celery_beat.schedulers:DatabaseScheduler"</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="c1"># Inbound DICOM SCP (C-ECHO/C-STORE/C-FIND). The published port must</span>
+<span class="w">  </span><span class="c1"># equal the listen port configured at /dicom-server/config/ — remote</span>
+<span class="w">  </span><span class="c1"># PACS must reach the Docker host on this port for C-MOVE deliveries.</span>
+<span class="w">  </span><span class="nt">chaviclient-dicom</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviapp/chaviclient:main</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-dicom</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">chaviclient-database</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_healthy</span>
+<span class="w">      </span><span class="nt">chaviclient-django</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_started</span>
+<span class="w">    </span><span class="nt">env_file</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.env</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient_app_data:/app</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./media:/app/media</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./logs:/app/logs</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"11112:11112"</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"python"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"-m"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"dicom_server"</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">chaviclient-proxy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nginx:latest</span>
+<span class="w">    </span><span class="nt">container_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-proxy</span>
+<span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always</span>
+<span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"8001:80"</span>
+<span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./nginx.conf:/etc/nginx/nginx.conf:ro</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./static:/static:ro</span>
+<span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chaviclient-django</span>
+
+<span class="nt">volumes</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient_postgres_data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient_app_data</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chaviclient_rabbitmq_data</span><span class="p">:</span>
+
+<span class="w">  </span><span class="c1"># --- DICOM archive storage (optional) -------------------------------------</span>
+<span class="w">  </span><span class="c1"># Uncomment ONE of the two chaviclient_archive definitions below, fill in</span>
+<span class="w">  </span><span class="c1"># the parameters (in .env for option A), and uncomment the</span>
+<span class="w">  </span><span class="c1"># "- chaviclient_archive:/archive/dicom" line in BOTH the</span>
+<span class="w">  </span><span class="c1"># chaviclient-celery-worker and chaviclient-django services (same mount</span>
+<span class="w">  </span><span class="c1"># path in both).</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option A — network share (SMB/CIFS). Requires NETWORK_USER,</span>
+<span class="w">  </span><span class="c1"># NETWORK_DOMAIN, NETWORK_PASSWORD and NETWORK_PATH in .env, e.g.</span>
+<span class="w">  </span><span class="c1"># NETWORK_PATH=//nas.example.com/chavi-archive</span>
+<span class="w">  </span><span class="c1"># NOTE: uid=0,gid=0 + 0666/0777 is deliberate — this image runs the app as</span>
+<span class="w">  </span><span class="c1"># a non-root system user (appuser) whose uid is not pinned, so the share</span>
+<span class="w">  </span><span class="c1"># must be world-writable inside the container. Access to the share itself</span>
+<span class="w">  </span><span class="c1"># is still protected by the SMB credentials above.</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     type: cifs</span>
+<span class="w">  </span><span class="c1">#     o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"</span>
+<span class="w">  </span><span class="c1">#     device: ${NETWORK_PATH}</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option B — a specific local folder instead (on a Windows host with</span>
+<span class="w">  </span><span class="c1"># Docker Desktop, e.g. the archive lives on D:\chavi-archive; on Linux use</span>
+<span class="w">  </span><span class="c1"># the absolute host path):</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver: local</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     o: bind</span>
+<span class="w">  </span><span class="c1">#     type: none</span>
+<span class="w">  </span><span class="c1">#     device: "D:/chavi-archive"</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># Option C — NFS share on a Linux host (host needs the NFS client:</span>
+<span class="w">  </span><span class="c1"># apt-get install nfs-common). Requires NAS_IP and NAS_PATH in .env,</span>
+<span class="w">  </span><span class="c1"># e.g. NAS_PATH=/volume1/chavi-archive. "hard" retries I/O forever (data</span>
+<span class="w">  </span><span class="c1"># integrity); use "soft" to let archive tasks fail per-study if the NAS</span>
+<span class="w">  </span><span class="c1"># drops.</span>
+<span class="w">  </span><span class="c1">#</span>
+<span class="w">  </span><span class="c1"># chaviclient_archive:</span>
+<span class="w">  </span><span class="c1">#   driver: local</span>
+<span class="w">  </span><span class="c1">#   driver_opts:</span>
+<span class="w">  </span><span class="c1">#     type: nfs</span>
+<span class="w">  </span><span class="c1">#     o: addr=${NAS_IP},nfsvers=4.1,hard,noatime</span>
+<span class="w">  </span><span class="c1">#     device: ":${NAS_PATH}"</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Sets the max number of simultaneous connections that can be opened by a worker process</span>
+events<span class="w"> </span><span class="o">{</span>
+<span class="w">   </span>worker_connections<span class="w"> </span><span class="m">1024</span><span class="p">;</span>
+<span class="o">}</span>
+
+http<span class="w"> </span><span class="o">{</span>
+<span class="w">   </span>server<span class="w"> </span><span class="o">{</span>
+<span class="w">       </span>include<span class="w"> </span>mime.types<span class="p">;</span>
+<span class="w">       </span>default_type<span class="w"> </span>application/octet-stream<span class="p">;</span>
+<span class="w">       </span>sendfile<span class="w"> </span>on<span class="p">;</span>
+<span class="w">       </span>keepalive_timeout<span class="w"> </span><span class="m">3600</span><span class="p">;</span>
+<span class="w">       </span>listen<span class="w"> </span><span class="m">80</span><span class="p">;</span>
+<span class="w">       </span>client_max_body_size<span class="w"> </span>10G<span class="p">;</span><span class="w"> </span><span class="c1"># Add this line to increase the maximum upload size to 1024MB</span>
+
+<span class="w">       </span><span class="c1"># Requests to /static/ are served directly from the /static/ directory</span>
+<span class="w">       </span>location<span class="w"> </span>/static/<span class="w"> </span><span class="o">{</span>
+<span class="w">           </span><span class="nb">alias</span><span class="w"> </span>/static/<span class="p">;</span>
+<span class="w">           </span>expires<span class="w"> </span>7d<span class="p">;</span>
+<span class="w">       </span><span class="o">}</span>
+
+<span class="w">       </span><span class="c1"># Configuration for serving media files</span>
+<span class="w">       </span><span class="c1"># location /media/ {</span>
+<span class="w">       </span><span class="c1">#     alias /home/app/web/mediafiles/;</span>
+<span class="w">       </span><span class="c1"># }</span>
+
+<span class="w">       </span><span class="c1"># Handles all other requests</span>
+<span class="w">       </span>location<span class="w"> </span>/<span class="w"> </span><span class="o">{</span>
+<span class="w">           </span><span class="c1"># Forward requests to Django application</span>
+<span class="w">           </span>proxy_pass<span class="w"> </span>http://chaviclient-django:8000<span class="p">;</span>
+
+<span class="w">           </span><span class="c1"># Pass important headers to Django for proper request handling</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>Host<span class="w"> </span><span class="nv">$host</span><span class="p">;</span><span class="w">                          </span><span class="c1"># Original host header</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Real-IP<span class="w"> </span><span class="nv">$remote_addr</span><span class="p">;</span><span class="w">             </span><span class="c1"># Client's real IP</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-For<span class="w"> </span><span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span><span class="w">  </span><span class="c1"># Chain of IP addresses</span>
+<span class="w">           </span>proxy_set_header<span class="w"> </span>X-Forwarded-Proto<span class="w"> </span><span class="nv">$scheme</span><span class="p">;</span><span class="w">          </span><span class="c1"># Original protocol (http/https)</span>
+
+<span class="w">           </span><span class="c1"># Add timeout settings for long-running requests</span>
+<span class="w">           </span>proxy_read_timeout<span class="w"> </span>3600s<span class="p">;</span>
+<span class="w">           </span>proxy_connect_timeout<span class="w"> </span>3600s<span class="p">;</span>
+<span class="w">           </span>proxy_send_timeout<span class="w"> </span>3600s<span class="p">;</span>
+<span class="w">       </span><span class="o">}</span>
+<span class="w">   </span><span class="o">}</span>
+<span class="o">}</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">SECRET_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-SECRET_KEY
+<span class="nv">DJANGO_DEBUG</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>True
+<span class="nv">DJANGO_ALLOWED_HOSTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">127</span>.0.0.1,localhost
+<span class="nv">DJANGO_CSRF_TRUSTED_ORIGINS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>http://localhost:8001,http://127.0.0.1:8001
+
+<span class="c1"># Django DB</span>
+<span class="nv">DJANGO_DB_ENGINE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>django.db.backends.postgresql<span class="w"> </span><span class="c1"># Add engine of the database</span>
+<span class="nv">DJANGO_DB_NAME</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient<span class="w"> </span><span class="c1"># Add name of the database</span>
+<span class="nv">DJANGO_DB_USER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>postgres<span class="w"> </span><span class="c1"># Add username of the database</span>
+<span class="nv">DJANGO_DB_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-password<span class="w"> </span><span class="c1"># Add password of the database</span>
+<span class="nv">DJANGO_DB_HOST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient-database<span class="w"> </span><span class="c1"># Add host of the database</span>
+<span class="nv">DJANGO_DB_PORT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">5432</span><span class="w"> </span><span class="c1"># Add port of the database</span>
+
+<span class="c1"># Postgres</span>
+<span class="nv">POSTGRES_USER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>postgres
+<span class="nv">POSTGRES_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>your-password
+<span class="nv">POSTGRES_DB</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>chaviclient
+
+<span class="c1"># Django Superuser</span>
+<span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin
+<span class="nv">DJANGO_SUPERUSER_PASSWORD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin
+<span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>admin@example.com
+
+
+<span class="c1"># API Settings for Lookup Data</span>
+<span class="nv">LOOKUP_API_URL</span><span class="o">=</span>http://backend.chavi.ai/api/v1/lookup/
+<span class="nv">LOOKUP_API_KEY</span><span class="o">=</span>secret-api-key-from-chavi-server
+<span class="nv">LOOKUP_API_TIMEOUT</span><span class="o">=</span><span class="m">120</span>
+<span class="nv">HTTP_PROXY</span><span class="o">=</span>http://yourproxy:port
+<span class="nv">HTTPS_PROXY</span><span class="o">=</span>http://yourproxy:port
+
+<span class="c1"># Celery &amp; RabbitMQ</span>
+<span class="nv">CELERY_BROKER_URL</span><span class="o">=</span>amqp://chaviuser:chavipassword@chaviclient-rabbitmq:5672/chavi_vhost
+<span class="nv">RABBITMQ_DEFAULT_USER</span><span class="o">=</span>chaviuser
+<span class="nv">RABBITMQ_DEFAULT_PASS</span><span class="o">=</span>chavipassword
+<span class="nv">RABBITMQ_DEFAULT_VHOST</span><span class="o">=</span>chavi_vhost
+
+<span class="c1"># DICOM archive on a network share (only needed for the CIFS/NFS options in</span>
+<span class="c1"># example_docker-compose.yml; keep this file's permissions at 600 and never</span>
+<span class="c1"># commit it to version control)</span>
+<span class="c1"># NETWORK_USER = your-smb-user</span>
+<span class="c1"># NETWORK_DOMAIN = your-smb-domain</span>
+<span class="c1"># NETWORK_PASSWORD = your-smb-password</span>
+<span class="c1"># NETWORK_PATH = //server/share-name</span>
+<span class="c1"># NAS_IP = 192.168.1.100</span>
+<span class="c1"># NAS_PATH = /volume1/chavi-archive</span>
+</pre></div>
+</div>
+<p>After these files have been created you can start editing the .env file. Ensure that the password fields are properly set. If a proxy is used for network access, please ensure that the proxy settings are configured correctly in the .env file.</p>
+<p>After the .env file has been edited, you can start the Docker containers by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+<section id="updating-the-software">
+<h2>Updating the Software<a class="headerlink" href="#updating-the-software" title="Link to this heading">¶</a></h2>
+<p>Before any update, please take a backup of the database. To do so please refer to the <a class="reference internal" href="database_backup.html"><span class="doc">Database Backup and Restore</span></a> page.</p>
+<p>Stop all running containers in the Docker Desktop application.</p>
+<p>After the backup has been taken, you will have to delete the old image and pull the new image.</p>
+<p>In Docker desktop, please go to the images section and delete the old image for the CHAVI client. After this is deleted, we would suggest also that you delete the volume created for the chaviclient. However DO NOT delete the volume created for the database.</p>
+<p>Once this is done you can pull the new image by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>pull
+</pre></div>
+</div>
+<p>After the image has been pulled, you can start the containers by running the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
+</div>
+</section>
+<section id="background-task-workers">
+<h2>Background Task Workers<a class="headerlink" href="#background-task-workers" title="Link to this heading">¶</a></h2>
+<p>Two Celery workers process background jobs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code> — general tasks (DICOM retrieval, ZIP and
+clinical data downloads, archive sweeps, scheduled jobs). Runs with two
+slots (<code class="docutils literal notranslate"><span class="pre">--concurrency=2</span></code>) on the <code class="docutils literal notranslate"><span class="pre">default</span></code> queue.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chaviclient-celery-deid-worker</span></code> — deidentification only. Runs with a
+single slot (<code class="docutils literal notranslate"><span class="pre">--concurrency=1</span></code>) on the dedicated <code class="docutils literal notranslate"><span class="pre">deid</span></code> queue, so
+deidentification batches are processed strictly one after another, even
+when several patients are de-identified at the same time. This keeps
+memory and CPU use in check: only one copy of the text-detection models
+is loaded at a time.</p></li>
+</ul>
+<p>A de-identification job started while another is already running waits in
+the queue; its task run shows no progress until the running batch
+finishes. Upgrading the software replaces both workers at once, and any
+interrupted de-identification run resumes from where it left off.</p>
+</section>
+<section id="dicom-query-retrieve-networking">
+<h2>DICOM Query/Retrieve Networking<a class="headerlink" href="#dicom-query-retrieve-networking" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">chaviclient-dicom</span></code> container only runs the <strong>inbound</strong> DICOM service
+(C-ECHO / C-STORE / C-FIND) on published port <code class="docutils literal notranslate"><span class="pre">11112</span></code>. All <strong>outbound</strong>
+Query/Retrieve connections to remote DICOM nodes are opened by the
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code> container (retrieval jobs) and the
+<code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code> container (the C-ECHO test button on the Remote nodes
+page).</p>
+<ul class="simple">
+<li><p>Outbound connections need no compose changes — the worker only needs to
+reach each remote node’s <code class="docutils literal notranslate"><span class="pre">host:port</span></code> (LAN IP or public hostname).</p></li>
+<li><p><strong>C-MOVE</strong> additionally requires the remote PACS to connect back to the
+Docker host on port <code class="docutils literal notranslate"><span class="pre">11112</span></code> — the host firewall must allow it and the
+PACS-side destination for our AE title must point at the host IP.</p></li>
+<li><p><strong>C-GET</strong> (<code class="docutils literal notranslate"><span class="pre">prefer</span> <span class="pre">C-GET</span></code> on the remote node) receives instances over the
+same outbound association, so use it when the Docker host is behind NAT or
+the remote cannot connect back.</p></li>
+<li><p>The published port must match the listen port configured at
+<code class="docutils literal notranslate"><span class="pre">/dicom-server/config/</span></code> and <code class="docutils literal notranslate"><span class="pre">bind_address</span></code> must remain <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code>.</p></li>
+</ul>
+<p>See <code class="docutils literal notranslate"><span class="pre">docker_install/README.md</span></code> in the repository for the full networking
+table and verification commands.</p>
+</section>
+<section id="dicom-archive-storage-nas-lan">
+<h2>DICOM Archive Storage (NAS/LAN)<a class="headerlink" href="#dicom-archive-storage-nas-lan" title="Link to this heading">¶</a></h2>
+<p>If you use the DICOM Archive (see <a class="reference internal" href="dicom_archive.html"><span class="doc">DICOM Archive</span></a>), remember that the
+app’s media root inside the containers is <code class="docutils literal notranslate"><span class="pre">/app/media</span></code> and study folders
+live at <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom/&lt;patient</span> <span class="pre">ID&gt;/&lt;study</span> <span class="pre">UID&gt;</span></code>. A location’s
+path is therefore always a path <strong>inside the containers</strong> — what it points
+at on disk depends on how the storage is mounted. Four common setups:</p>
+<ul>
+<li><p><strong>Another folder in the app’s media volume</strong> — no compose change. Create the
+location with a relative path, for example <code class="docutils literal notranslate"><span class="pre">dicom_archive</span></code>; it resolves to
+<code class="docutils literal notranslate"><span class="pre">/app/media/dicom_archive</span></code> (host: <code class="docutils literal notranslate"><span class="pre">&lt;compose</span> <span class="pre">dir&gt;/media/dicom_archive</span></code>).
+Caveat: the archive then lives on the same physical disk as the source data.</p></li>
+<li><p><strong>NAS/LAN share mounted on the Docker host</strong> — mount the share on the host
+first (NFS or SMB, for example at <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code> — when you put
+the mount in <code class="docutils literal notranslate"><span class="pre">/etc/fstab</span></code>, use the <code class="docutils literal notranslate"><span class="pre">_netdev</span></code> option so the mount waits
+for the network), then add the bind mount to the <code class="docutils literal notranslate"><span class="pre">volumes:</span></code> of
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code>, <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-deid-worker</span></code> and
+<code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="o">-</span> <span class="n">chaviclient_app_data</span><span class="p">:</span><span class="o">/</span><span class="n">app</span>
+  <span class="o">-</span> <span class="o">./</span><span class="n">media</span><span class="p">:</span><span class="o">/</span><span class="n">app</span><span class="o">/</span><span class="n">media</span>
+  <span class="o">-</span> <span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">nas</span><span class="o">/</span><span class="n">chavi</span><span class="o">-</span><span class="n">archive</span><span class="p">:</span><span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>Create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code> inside the containers does <strong>not</strong> need to be created
+beforehand — the app creates it (with a write probe) when the location
+is saved, and again at the start of every archive run. But the <em>host</em>
+side needs a check: if <code class="docutils literal notranslate"><span class="pre">/mnt/nas/chavi-archive</span></code> does not exist on the
+Docker host, Docker silently creates it as an empty directory and mounts
+<strong>that</strong> — archiving then succeeds, but the data lands on the host disk
+instead of the NAS. Before starting the containers, confirm the share is
+really mounted on the host (<code class="docutils literal notranslate"><span class="pre">df</span> <span class="pre">-h</span> <span class="pre">/mnt/nas/chavi-archive</span></code> should show
+the NAS, and on Windows the SMB share must be reachable); after start,
+<code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">exec</span> <span class="pre">chaviclient-celery-worker</span> <span class="pre">ls</span> <span class="pre">-ld</span> <span class="pre">/archive/dicom</span></code>
+should show the share, not an empty fresh directory.</p>
+</div>
+</li>
+<li><p><strong>Windows host with an SMB share (Docker Desktop)</strong> — bind the UNC path
+directly, no host-side mount needed, again in all three services:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="o">-</span> <span class="o">//</span><span class="n">NAS_HOST</span><span class="o">/</span><span class="n">chavi</span><span class="o">-</span><span class="n">archive</span><span class="p">:</span><span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>Create the location with type <em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+</li>
+<li><p><strong>Docker-managed share volume — no host-side mount at all</strong> — Docker itself
+mounts the share as a named volume; the credentials and the share path come
+from <code class="docutils literal notranslate"><span class="pre">.env</span></code>. <code class="docutils literal notranslate"><span class="pre">example_docker-compose.yml</span></code> contains this ready to
+uncomment. Mount the volume as <code class="docutils literal notranslate"><span class="pre">chaviclient_archive:/archive/dicom</span></code> in
+the main worker, the deid worker and the web service (commented lines
+are included in the example compose), then create the location with type
+<em>Mounted share</em> and path <code class="docutils literal notranslate"><span class="pre">/archive/dicom</span></code>.</p>
+<p><strong>SMB/CIFS share</strong> (works on Linux hosts and Docker Desktop on Windows):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>volumes:
+  chaviclient_archive:
+    driver_opts:
+      type: cifs
+      o: "username=${NETWORK_USER},domain=${NETWORK_DOMAIN},password=${NETWORK_PASSWORD},rw,uid=0,gid=0,file_mode=0666,dir_mode=0777"
+      device: ${NETWORK_PATH}        # e.g. //nas.example.com/chavi-archive
+</pre></div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">NETWORK_USER</span></code>, <code class="docutils literal notranslate"><span class="pre">NETWORK_DOMAIN</span></code>, <code class="docutils literal notranslate"><span class="pre">NETWORK_PASSWORD</span></code> and
+<code class="docutils literal notranslate"><span class="pre">NETWORK_PATH</span></code> in <code class="docutils literal notranslate"><span class="pre">.env</span></code> (keep the <code class="docutils literal notranslate"><span class="pre">.env</span></code> at permissions <code class="docutils literal notranslate"><span class="pre">600</span></code> and
+never commit it). If the NAS only speaks SMB and the mount fails silently,
+add <code class="docutils literal notranslate"><span class="pre">vers=3.0</span></code> (or <code class="docutils literal notranslate"><span class="pre">vers=2.1</span></code>) to the <code class="docutils literal notranslate"><span class="pre">o:</span></code> options and make sure the
+CIFS client is installed on a Linux host (<code class="docutils literal notranslate"><span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">cifs-utils</span></code>;
+Docker Desktop on Windows needs nothing extra).</p>
+<p>Hardening variant: instead of putting the username and password in the
+compose options, keep them in a credentials file on the Docker host —
+<code class="docutils literal notranslate"><span class="pre">/etc/docker-smb-credentials</span></code> containing <code class="docutils literal notranslate"><span class="pre">username=</span></code>, <code class="docutils literal notranslate"><span class="pre">password=</span></code> and
+<code class="docutils literal notranslate"><span class="pre">domain=</span></code>, set to <code class="docutils literal notranslate"><span class="pre">chmod</span> <span class="pre">600</span></code> — and use
+<code class="docutils literal notranslate"><span class="pre">o:</span> <span class="pre">&quot;credentials=/etc/docker-smb-credentials,rw,uid=0,gid=0,file_mode=0666,dir_mode=0777&quot;</span></code>.</p>
+<p><strong>NFS share</strong> (Linux hosts; the host needs the NFS client —
+<code class="docutils literal notranslate"><span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nfs-common</span></code> on Debian/Ubuntu, <code class="docutils literal notranslate"><span class="pre">dnf</span> <span class="pre">install</span> <span class="pre">nfs-utils</span></code>
+on RHEL-based distros):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="n">chaviclient_archive</span><span class="p">:</span>
+    <span class="n">driver</span><span class="p">:</span> <span class="n">local</span>
+    <span class="n">driver_opts</span><span class="p">:</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">nfs</span>
+      <span class="n">o</span><span class="p">:</span> <span class="n">addr</span><span class="o">=</span><span class="mf">192.168.1.100</span><span class="p">,</span><span class="n">nfsvers</span><span class="o">=</span><span class="mf">4.1</span><span class="p">,</span><span class="n">hard</span><span class="p">,</span><span class="n">noatime</span>
+      <span class="n">device</span><span class="p">:</span> <span class="s2">":/volume1/chavi-archive"</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">hard</span></code> (the default) retries I/O forever — data-integrity safe, but a
+dead NAS will stall archive operations; use <code class="docutils literal notranslate"><span class="pre">soft</span></code> instead if you would
+rather have the archive task fail per-study than block, which this
+application is built to record and recover from. <code class="docutils literal notranslate"><span class="pre">noatime</span></code> skips
+access-time updates and is a small performance win for large file copies.</p>
+<p><strong>A specific local folder</strong> (e.g. the archive lives on <code class="docutils literal notranslate"><span class="pre">D:\chavi-archive</span></code>
+with Docker Desktop on Windows, or a data disk on a Linux host):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">volumes</span><span class="p">:</span>
+  <span class="n">chaviclient_archive</span><span class="p">:</span>
+    <span class="n">driver</span><span class="p">:</span> <span class="n">local</span>
+    <span class="n">driver_opts</span><span class="p">:</span>
+      <span class="n">o</span><span class="p">:</span> <span class="n">bind</span>
+      <span class="nb">type</span><span class="p">:</span> <span class="n">none</span>
+      <span class="n">device</span><span class="p">:</span> <span class="s2">"D:/chavi-archive"</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">uid=0,gid=0</span></code> with <code class="docutils literal notranslate"><span class="pre">file_mode=0666,dir_mode=0777</span></code> in the CIFS
+example is deliberate: this image runs the app as a non-root system user
+(<code class="docutils literal notranslate"><span class="pre">appuser</span></code>) whose uid is <em>not</em> pinned, so the share must be
+world-writable <strong>inside the container</strong> — check yours with
+<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">exec</span> <span class="pre">chaviclient-django</span> <span class="pre">id</span></code>. Do not use
+<code class="docutils literal notranslate"><span class="pre">uid=1000,gid=1000</span></code> (a common copy-paste) unless the app really runs
+as uid 1000; with <code class="docutils literal notranslate"><span class="pre">dir_mode=0770</span></code> that user would not be able to
+write the share at all. Access to the share itself remains protected by
+the SMB/NFS credentials either way, and the only processes in these
+containers are Django and Celery.</p>
+</div>
+<p>Caveats of Docker-managed shares:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">driver_opts</span></code> are fixed when the volume is <em>created</em>. To change the
+options, remove the volume first (<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">volume</span> <span class="pre">rm</span> <span class="pre">chaviclient_archive</span></code>)
+and start again — only Docker’s mount metadata is removed, the data on
+the share itself is untouched.</p></li>
+<li><p>If the share is unreachable when the containers start, the volume mount
+fails and the containers will not start. Start the stack with the NAS up;
+after a NAS reboot that happened while the stack was running, restart the
+containers (<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">down</span> <span class="pre">&amp;&amp;</span> <span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span> <span class="pre">-d</span></code>) if mounts
+have gone stale (“Host is down”).</p></li>
+</ul>
+</li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">chaviclient-django</span></code> (web) container needs the mount too: when a location
+is saved, the form probes the path for write access in the web container — a
+path mounted only in the workers fails that validation with “location path is
+not writable”. The actual archiving runs in <code class="docutils literal notranslate"><span class="pre">chaviclient-celery-worker</span></code>,
+while de-archival restore (before de-identification starts, and the
+per-study safety net during a run) executes inside deidentification tasks on
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-deid-worker</span></code> — so all three need the mount.
+<code class="docutils literal notranslate"><span class="pre">chaviclient-celery-beat</span></code> only dispatches the scheduled sweep and
+<code class="docutils literal notranslate"><span class="pre">chaviclient-dicom</span></code> never touches the archive path, so neither of them needs
+the mount.</p>
+<p>Verification after a change:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">ls</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span>
+</pre></div>
+</div>
+<p>then create the mounted location in the UI (it must pass validation) — or
+better, press the <strong>Test location</strong> button, which writes a small
+<code class="docutils literal notranslate"><span class="pre">chavi_archive_write_test.txt</span></code> you can open on the share to prove the write
+landed there — then archive one study, and confirm the files under the share:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">exec</span> <span class="n">chaviclient</span><span class="o">-</span><span class="n">celery</span><span class="o">-</span><span class="n">worker</span> <span class="n">find</span> <span class="o">/</span><span class="n">archive</span><span class="o">/</span><span class="n">dicom</span> <span class="o">-</span><span class="n">name</span> <span class="s1">'*.dcm'</span> <span class="o">|</span> <span class="n">head</span>
+</pre></div>
+</div>
+<p>When the “delete local copy after archiving” option is on, the study’s folder
+under <code class="docutils literal notranslate"><span class="pre">/app/media/processed_dicom</span></code> disappears after the archive succeeds; de-
+archiving restores it to the original path.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Docker Installation Method</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#updating-the-software">Updating the Software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#background-task-workers">Background Task Workers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dicom-query-retrieve-networking">DICOM Query/Retrieve Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dicom-archive-storage-nas-lan">DICOM Archive Storage (NAS/LAN)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="installation.html"
+                          title="previous chapter">Installation Guide</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="configuration.html"
+                          title="next chapter">Configuration Guide</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/docker_installation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration Guide"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation Guide"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Docker Installation Method</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

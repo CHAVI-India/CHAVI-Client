@@ -514,8 +514,28 @@ class TextDeidentificationService:
                     r'^\d{1,3}%?$'
                     r'|^(?:age\b:?\s*)?\d{1,3}\s*[-\s]?(years?\s+old|yrs?\s+old|years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
                     r'|^age\b:?\s*\d{1,3}\s*(years?|yrs?)?\.?$'
-                    r'|^\d{1,3}\s+(years?|months?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$',
+                    r'|^\d{1,3}\s*(years?|yrs?|y)?\s*/\s*[MF]\b\.?$'
+                    r'|^[MF]\s*/\s*\d{1,3}\s*(years?|yrs?|y)?\b\.?$'
+                    r'|^\d{1,3}(?:\s*-\s*\d{1,3})?\s+(years?|months?|mnths?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$'
+                    r'|^\d{1,3}\s*/\s*min\b\.?$'
+                    r'|^\d{1,2}:\d{2}$'
+                    r'|^[a-z][a-z]+\s+\d+(?:\.\d+)?\s*(g|mg|gm|ml)?\b\.?$',
                     surface, re.I)):
+                continue
+            # Fraction counter ('Fraction 10/25 completed') — the N/ N looks
+            # like a date but is a treatment count.
+            if (r.entity_type == 'DATE_TIME'
+                    and re.match(r'^\d{1,2}/\d{1,2}$', surface)
+                    and re.search(r'fraction\s*$',
+                                  text[max(0, r.start - 12):r.start], re.I)):
+                continue
+            # Clinical content that NER mis-tags as person/organisation:
+            # lab values ('Hb 9.8'), drug lines ('Tab Tramadol', 'Inj Lasix'),
+            # vitals ('SpO2'). Real names never start with these clinical
+            # prefixes in clinical notes.
+            if r.entity_type in ('PERSON', 'ORGANIZATION') and re.match(
+                    r'^(hb|h\.b\.?|tabs?\b|inj\b|caps?\b|iv\b|po\b|oral\b|spo2?|s\.p\.o|jvp|ef\b|bp\b|pr\b|hr\b|wt\b|lmp\b)',
+                    surface, re.I):
                 continue
             if r.entity_type == 'LOCATION':
                 # Specimen/grid labels (A3, A5-A10, 11-A14), lowercase words

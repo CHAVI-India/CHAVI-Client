@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Pathology &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Immunohistochemistry" href="immunohistochemistry.html" />
+    <link rel="prev" title="Lesion Response" href="lesion_response.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="immunohistochemistry.html" title="Immunohistochemistry"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="lesion_response.html" title="Lesion Response"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Pathology</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="pathology">
+<h1>Pathology<a class="headerlink" href="#pathology" title="Link to this heading">¶</a></h1>
+<p>The Pathology module captures detailed information from pathological examination of tissue specimens. This includes histological characteristics, tumor measurements, and various pathological features that help determine diagnosis, staging, and treatment planning.</p>
+<p>As the pathology form can collect report from various types of specimen, all fields except the tumor site and tumor side are optional. Fields have been arranged in tabs inside the form to ensure that the user can enter the data easily.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Pathology is linked to a diagnosis and there can be multiple pathologies for a single diagnosis. Diagnosis is in turn linked to a patient ID.</p>
+<p>Pathology -&gt; Diagnosis -&gt; Patient</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The immunohistochemistry, cytogenetics, gene expression and somatic genomic alterations modules are linked to the pathology report and are available as tabs in the pathology form. This allows the data to be easily linked to the main pathology. You can enter multiple data for these related tables.</p>
+<p>Immunohistochemistry -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Cytogenetics -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Gene Expression -&gt; Pathology -&gt; Diagnosis -&gt; Patient
+Somatic Genomic Alterations -&gt; Pathology -&gt; Diagnosis -&gt; Patient</p>
+</div>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Pathology Fields</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form Field Name</p></th>
+<th class="head"><p>Database Field Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>diagnosis</p></td>
+<td><p>The diagnosis this pathology report is associated with</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date of Pathology</p></td>
+<td><p>date_pathology</p></td>
+<td><p>The date when the pathology specimen was collected or the pathology report was issued</p></td>
+</tr>
+<tr class="row-even"><td><p>Specimen Type</p></td>
+<td><p>specimen_type</p></td>
+<td><p>Type of specimen (e.g., Core Biopsy, Surgical Resection, Fine Needle Aspiration, Excision Biopsy)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Tumor Site</p></td>
+<td><p>tumor_site</p></td>
+<td><p>Anatomical location of the tumor as defined by the Foundational Model of Anatomy (FMA)</p></td>
+</tr>
+<tr class="row-even"><td><p>Tumor Side</p></td>
+<td><p>tumor_side</p></td>
+<td><p>The side of the body where the tumor is located (e.g., Left, Right, Bilateral)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Histological Type</p></td>
+<td><p>histological_type</p></td>
+<td><p>Primary histological classification of the tumor (e.g., Adenocarcinoma, Squamous Cell Carcinoma)</p></td>
+</tr>
+<tr class="row-even"><td><p>Histological Grade</p></td>
+<td><p>histological_grade</p></td>
+<td><p>Degree of differentiation of the tumor cells (e.g., Grade 1, Grade 2, Grade 3)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Greatest Dimension of Tumor</p></td>
+<td><p>greatest_dimension_of_tumor</p></td>
+<td><p>The primary dimension of the tumor measured in the specified units</p></td>
+</tr>
+<tr class="row-even"><td><p>Additional Tumor Dimension 1</p></td>
+<td><p>additional_tumor_dimension_1</p></td>
+<td><p>The second dimension of the tumor measured in the specified units</p></td>
+</tr>
+<tr class="row-odd"><td><p>Additional Tumor Dimension 2</p></td>
+<td><p>additional_tumor_dimension_2</p></td>
+<td><p>The third dimension of the tumor measured in the specified units</p></td>
+</tr>
+<tr class="row-even"><td><p>Tumor Dimension Unit</p></td>
+<td><p>tumor_dimesion_unit</p></td>
+<td><p>Unit of measurement for the tumor dimensions</p></td>
+</tr>
+<tr class="row-odd"><td><p>Tumor Focality</p></td>
+<td><p>tumor_focality</p></td>
+<td><p>Whether the tumor is unifocal (single focus), multifocal (multiple foci), or multicentric</p></td>
+</tr>
+<tr class="row-even"><td><p>Lymphatic/Vascular Invasion</p></td>
+<td><p>lymphatic_vascular_invasion</p></td>
+<td><p>Presence or absence of lymphatic/vascular invasion (Present/Absent/Not Reported)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Perineural Invasion</p></td>
+<td><p>perineural_invasion</p></td>
+<td><p>Presence or absence of perineural invasion (Present/Absent/Not Reported)</p></td>
+</tr>
+<tr class="row-even"><td><p>Dermal Lymphatic Invasion</p></td>
+<td><p>dermal_lymphatic_vascular_invasion</p></td>
+<td><p>Presence or absence of dermal lymphatic invasion (Present/Absent/Not Reported)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Necrosis</p></td>
+<td><p>necrosis</p></td>
+<td><p>Presence or absence of necrosis (Present/Absent/Not Reported)</p></td>
+</tr>
+<tr class="row-even"><td><p>Necrosis Percentage</p></td>
+<td><p>necrosis_percentage</p></td>
+<td><p>Percentage of necrosis in the specimen (0-100%)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Mitotic Count</p></td>
+<td><p>mitotic_count</p></td>
+<td><p>Number of mitoses per 10 high power field or 2 square mm</p></td>
+</tr>
+<tr class="row-even"><td><p>Margin Status</p></td>
+<td><p>margin_status</p></td>
+<td><p>Status of the surgical margins (Positive/Negative/Close)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Closest Margin Distance</p></td>
+<td><p>closest_margin_distance</p></td>
+<td><p>Distance to the closest margin of the specimen</p></td>
+</tr>
+<tr class="row-even"><td><p>Closest Margin Distance Unit</p></td>
+<td><p>closest_margin_distance_unit</p></td>
+<td><p>Unit of measurement for the closest margin distance</p></td>
+</tr>
+<tr class="row-odd"><td><p>Treatment Effect</p></td>
+<td><p>treatment_effect</p></td>
+<td><p>Degree of response to prior therapy</p></td>
+</tr>
+<tr class="row-even"><td><p>Primary Gleason Grade</p></td>
+<td><p>primary_gleason_grade</p></td>
+<td><p>Primary Gleason grade of the specimen (for prostate cancer)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Secondary Gleason Grade</p></td>
+<td><p>secondary_gleason_grade</p></td>
+<td><p>Secondary Gleason grade of the specimen (for prostate cancer)</p></td>
+</tr>
+<tr class="row-even"><td><p>Lymph Nodes Removed</p></td>
+<td><p>lymph_nodes_removed</p></td>
+<td><p>Whether lymph nodes were removed in the specimen</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lymph Nodes in Specimen</p></td>
+<td><p>lymph_nodes_in_specimen</p></td>
+<td><p>Total number of lymph nodes found in the specimen</p></td>
+</tr>
+<tr class="row-even"><td><p>Lymph Node Extracapsular Extension</p></td>
+<td><p>lymph_node_extracapsular_extension</p></td>
+<td><p>Whether the lymph node had extracapsular extension</p></td>
+</tr>
+<tr class="row-odd"><td><p>Number of Uninvolved Nodes</p></td>
+<td><p>number_of_uninvolved_nodes</p></td>
+<td><p>Number of lymph nodes without any tumor involvement</p></td>
+</tr>
+<tr class="row-even"><td><p>Number of Nodes with Macrometastases</p></td>
+<td><p>number_of_nodes_with_macrometastases</p></td>
+<td><p>Number of lymph nodes with visible tumor deposits</p></td>
+</tr>
+<tr class="row-odd"><td><p>Number of Nodes with Micrometastases</p></td>
+<td><p>number_of_nodes_with_micrometastases</p></td>
+<td><p>Number of lymph nodes with microscopic tumor deposits (0.2-2.0mm)</p></td>
+</tr>
+<tr class="row-even"><td><p>Number of Nodes with Isolated Tumor Cells</p></td>
+<td><p>number_of_nodes_with_isolated_tumor_cells</p></td>
+<td><p>Number of lymph nodes with isolated tumor cells (&lt;0.2mm)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Number of Nodes with Extracapsular Extension</p></td>
+<td><p>number_of_nodes_with_extracapsular_extension</p></td>
+<td><p>Number of lymph nodes with extracapsular extension</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="special-considerations">
+<h2>Special Considerations<a class="headerlink" href="#special-considerations" title="Link to this heading">¶</a></h2>
+<p>The following tabs are available in the pathology form:</p>
+<ul class="simple">
+<li><p><strong>Pathological Features</strong> : This section has fields liuke lymphatic vascular invasion, perineural invasion, dermal lymphatic vascular invasion, necrosis, necrosis percentage and mitotic count. It is expected that these will be available in the specimen has been resected.</p></li>
+<li><p><strong>Tumor Size</strong> : This section, has fields like greatest dimension of the tumor, additional tumor dimension 1, additional tumor dimension 2, tumor dimension unit, and tumor focality. Like the other sections, it is expected that these will be available in the specimen has been resected.</p></li>
+<li><p><strong>Margin &amp; Margin Status</strong>: This section has fields like margin status, closest margin distance and closest margin distance unit. This will be applicable to the specimen has been resected.</p></li>
+<li><p><strong>Treatment Effect</strong>: This section has a single field called treatment effect. This will be applicable to the specimen has been resected after some neoadjuvant therapy.</p></li>
+<li><p><strong>Gleason Grade</strong>: This section is applicable for prostate cancers only and will have fields for primary and secondary gleason grade.</p></li>
+<li><p><strong>Nodes</strong>: This section will have fields for lymph nodes removed, lymph nodes in specimen, lymph node extracapsular extension, number of uninvolved nodes, number of nodes with macrometastases, number of nodes with micrometastases, number of nodes with isolated tumor cells and number of nodes with extracapsular extension. This data will be available if nodes have been resected.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pathology</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#special-considerations">Special Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="lesion_response.html"
+                          title="previous chapter">Lesion Response</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="immunohistochemistry.html"
+                          title="next chapter">Immunohistochemistry</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/pathology.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="immunohistochemistry.html" title="Immunohistochemistry"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="lesion_response.html" title="Lesion Response"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Pathology</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

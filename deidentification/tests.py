@@ -102,6 +102,125 @@ class IndianIdRecognizerTests(SimpleTestCase):
         )
 
 
+class BurnedInAnnotationGateTests(SimpleTestCase):
+    """(0028,0301) BurnedInAnnotation gate for pixel scrubbing."""
+
+    def test_is_no_variants(self):
+        from types import SimpleNamespace
+
+        from deidentification.utils.burnt_in_pixel_scrubbing import (
+            _burnt_in_annotation_is_no,
+        )
+
+        self.assertTrue(_burnt_in_annotation_is_no(SimpleNamespace(BurnedInAnnotation='NO')))
+        self.assertTrue(_burnt_in_annotation_is_no(SimpleNamespace(BurnedInAnnotation=' no ')))
+        self.assertFalse(_burnt_in_annotation_is_no(SimpleNamespace(BurnedInAnnotation='YES')))
+        self.assertFalse(_burnt_in_annotation_is_no(SimpleNamespace()))  # absent
+
+    def test_bia_no_skips_engine_entirely(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+
+        dcm = SimpleNamespace(BurnedInAnnotation='NO', PixelData=b'\x00')
+        with patch.object(
+            m, '_get_engine',
+            side_effect=AssertionError('engine must not be built for BIA=NO'),
+        ):
+            out, bboxes = m.scrub_burnt_in_pixels(dcm, modality='CT')
+
+        self.assertIs(out, dcm)
+        self.assertIsNone(bboxes)
+
+    def test_bia_yes_still_runs_pipeline(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock, patch
+
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+
+        dcm = SimpleNamespace(BurnedInAnnotation='YES', PixelData=b'\x00')
+        engine = MagicMock()
+        with patch.object(m, '_get_engine', return_value=engine):
+            with patch.object(m, '_image_has_burnt_in_text', return_value=True):
+                m.scrub_burnt_in_pixels(dcm, modality='CT')
+        engine.redact_and_return_bbox.assert_called_once()
+
+
+class OcrPrecheckGateTests(SimpleTestCase):
+    """OCR text-presence pre-check for pixel scrubbing."""
+
+    def _fake_dcm(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(PixelData=b'\x00')
+
+    def _fake_engine(self, words):
+        """Mock engine wired the way _image_has_burnt_in_text() uses it."""
+        import numpy as np
+        from unittest.mock import MagicMock
+
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+
+        engine = MagicMock()
+        engine._check_if_greyscale.return_value = True
+        engine._rescale_dcm_pixel_array.return_value = np.zeros((8, 8), dtype=np.uint8)
+        padded = object()
+        engine._add_padding.return_value = padded
+        analyzer = engine.image_analyzer_engine
+        analyzer.image_preprocessor.preprocess_image.return_value = (padded, {})
+        inner_ocr = MagicMock()
+        inner_ocr.perform_ocr.return_value = {
+            "text": words, "left": [0] * len(words), "top": [0] * len(words),
+            "width": [1] * len(words), "height": [1] * len(words),
+            "conf": [0.9] * len(words),
+        }
+        analyzer.ocr = m._PrimedOCR(inner_ocr)
+        return engine
+
+    def test_no_text_skips_full_pipeline(self):
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+        from unittest.mock import patch
+
+        dcm = self._fake_dcm()
+        engine = self._fake_engine(words=['', '   '])
+        with patch.object(m, '_get_engine', return_value=engine):
+            out, bboxes = m.scrub_burnt_in_pixels(dcm, modality='CT')
+
+        self.assertIs(out, dcm)
+        self.assertIsNone(bboxes)
+        engine.redact_and_return_bbox.assert_not_called()
+        engine.redact.assert_not_called()
+
+    def test_text_found_runs_full_pipeline(self):
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+        from unittest.mock import patch
+
+        dcm = self._fake_dcm()
+        engine = self._fake_engine(words=['RAMESH KUMAR'])
+        with patch.object(m, '_get_engine', return_value=engine):
+            m.scrub_burnt_in_pixels(dcm, modality='CT')
+
+        engine.redact_and_return_bbox.assert_called_once()
+        # OCR ran exactly once: the pre-check, whose result is primed and
+        # reused by the pipeline (mocked here) instead of re-running EasyOCR.
+        engine.image_analyzer_engine.ocr._ocr.perform_ocr.assert_called_once()
+
+    def test_primed_ocr_consumed_exactly_once_per_thread(self):
+        from unittest.mock import MagicMock
+
+        import deidentification.utils.burnt_in_pixel_scrubbing as m
+
+        inner = MagicMock()
+        inner.perform_ocr.return_value = 'FRESH'
+        wrapped = m._PrimedOCR(inner)
+
+        wrapped.prime('PRE-COMPUTED')
+        self.assertEqual(wrapped.perform_ocr(None), 'PRE-COMPUTED')
+        # Prime already consumed — fall through to the real engine.
+        self.assertEqual(wrapped.perform_ocr(None), 'FRESH')
+        inner.perform_ocr.assert_called_once_with(None)
+
+
 class CaseNormalizingOcrTests(SimpleTestCase):
     def _fake_ocr_result(self):
         return {
@@ -113,7 +232,7 @@ class CaseNormalizingOcrTests(SimpleTestCase):
             "conf": [90, 90, 90, -1, -1, 90],
         }
 
-    @override_settings(DEID_PIXEL_NORMALIZE_CASE=True)
+    @override_settings(DEID_PIXEL_OCR_ENGINE="tesseract", DEID_PIXEL_NORMALIZE_CASE=True)
     def test_words_title_cased_and_length_preserved(self):
         from deidentification.utils.burnt_in_pixel_scrubbing import _get_ocr
 
@@ -128,7 +247,7 @@ class CaseNormalizingOcrTests(SimpleTestCase):
             result["text"], ["Name", "Ramesh", "Kumar", "", "  ", "45Y"]
         )
 
-    @override_settings(DEID_PIXEL_NORMALIZE_CASE=False)
+    @override_settings(DEID_PIXEL_OCR_ENGINE="tesseract", DEID_PIXEL_NORMALIZE_CASE=False)
     def test_plain_tesseract_when_disabled(self):
         from presidio_image_redactor import TesseractOCR
 
@@ -136,6 +255,41 @@ class CaseNormalizingOcrTests(SimpleTestCase):
 
         ocr = _get_ocr()
         self.assertIs(type(ocr), TesseractOCR)
+
+    def test_easyocr_lines_title_cased_and_length_preserved(self):
+        from unittest.mock import MagicMock
+
+        from PIL import Image
+
+        from deidentification.utils.ocr_engines import EasyOCROCR, titlecase_word
+
+        # Length-preserving title case: a word whose title-cased form changes
+        # length (e.g. 'ß' -> 'Ss') is left untouched to keep character
+        # offsets (and bbox mapping) exact.
+        self.assertEqual(titlecase_word("RAMESH KUMAR"), "Ramesh Kumar")
+        self.assertEqual(titlecase_word("straße"), "Straße")
+        self.assertEqual(titlecase_word("ßstraße"), "ßstraße")
+        self.assertEqual(titlecase_word(""), "")
+
+        ocr = EasyOCROCR.__new__(EasyOCROCR)
+        ocr._reader = MagicMock()
+        ocr._reader.readtext.return_value = [
+            ([[0, 0], [10, 0], [10, 5], [0, 5]], "RAMESH KUMAR", 0.98),
+            ([[1, 1], [5, 1], [5, 3], [1, 3]], "", 0.5),  # blank lines dropped
+        ]
+        ocr._normalize_case = True
+
+        fake_image = Image.new("L", (20, 10))
+        result = ocr.perform_ocr(fake_image)
+        self.assertEqual(result["text"], ["Ramesh Kumar"])
+        self.assertEqual(result["left"], [0])
+        self.assertEqual(result["top"], [0])
+        self.assertEqual(result["width"], [10])
+        self.assertEqual(result["height"], [5])
+
+        ocr._normalize_case = False
+        result = ocr.perform_ocr(fake_image)
+        self.assertEqual(result["text"], ["RAMESH KUMAR"])
 
 
 class DeidentificationChainTests(TestCase):

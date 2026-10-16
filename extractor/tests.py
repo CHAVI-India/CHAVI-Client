@@ -4044,6 +4044,46 @@ class DurationFilterTests(SimpleTestCase):
         self.assertFalse(self._kept('admitted at age 56', 'DATE_TIME', 'age 56'))
         self.assertFalse(self._kept('he is 56 years old', 'DATE_TIME', '56 years old'))
 
+    def test_range_duration_dropped(self):
+        self.assertFalse(self._kept('orthopnoea since 3-4 days', 'DATE_TIME', '3-4 days'))
+
+    def test_mnth_abbrev_duration_dropped(self):
+        self.assertFalse(self._kept('swelling since 1 mnth', 'DATE_TIME', '1 mnth'))
+        self.assertFalse(self._kept('wt loss in 2 mnths', 'DATE_TIME', '2 mnths'))
+
+    def test_age_sex_formats_dropped(self):
+        # age/sex (61/F, F/46, 91 y/M) are not PII
+        self.assertFalse(self._kept('Smt X 61/F W/o Y', 'DATE_TIME', '61/F'))
+        self.assertFalse(self._kept('Smt X F/46', 'DATE_TIME', 'F/46'))
+        self.assertFalse(self._kept('Mr X 91 y/M', 'DATE_TIME', '91 y/M'))
+
+    def test_clinical_person_prefix_dropped(self):
+        # lab/drug/vital lines mis-tagged as person by NER
+        self.assertFalse(self._kept('Pre-op: Hb 9.8, creat 1.4', 'PERSON', 'Hb 9.8'))
+        self.assertFalse(self._kept('Tab Tramadol 50 mg BD', 'PERSON', 'Tab Tramadol'))
+        self.assertFalse(self._kept('SpO2 94% RA', 'PERSON', 'SpO2'))
+        self.assertFalse(self._kept('Inj Lasix 40mg IV', 'PERSON', 'Inj Lasix'))
+
+    def test_real_person_prefix_still_kept(self):
+        # a genuine name is not dropped by the clinical-prefix guard
+        self.assertTrue(self._kept('Dr. Taboo Singh', 'PERSON', 'Taboo Singh'))
+
+    def test_pulses_and_times_dropped(self):
+        self.assertFalse(self._kept('pulse 82/min', 'DATE_TIME', '82/min'))
+        self.assertFalse(self._kept('receipt at 07:45 on 02/02/2024',
+                                    'DATE_TIME', '07:45'))
+
+    def test_drug_dose_span_dropped(self):
+        self.assertFalse(self._kept('IV ceftriaxone 1 g 12 hourly',
+                                    'DATE_TIME', 'ceftriaxone 1'))
+        self.assertFalse(self._kept('Tab paracetamol 650 mg OD',
+                                    'DATE_TIME', 'paracetamol 650 mg'))
+
+    def test_fraction_counter_dropped_real_date_kept(self):
+        self.assertFalse(self._kept('Fraction 10/25 completed',
+                                    'DATE_TIME', '10/25'))
+        self.assertTrue(self._kept('admitted on 10/25', 'DATE_TIME', '10/25'))
+
 
 class AgeDurationRegressionTests(SimpleTestCase):
     """End-to-end: age and duration survive deid, real dates shift.

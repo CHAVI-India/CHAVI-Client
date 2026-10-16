@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Lesion Characteristics &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Lesion Response" href="lesion_response.html" />
+    <link rel="prev" title="Diagnosis" href="diagnosis.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="lesion_response.html" title="Lesion Response"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="diagnosis.html" title="Diagnosis"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lesion Characteristics</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="lesion-characteristics">
+<h1>Lesion Characteristics<a class="headerlink" href="#lesion-characteristics" title="Link to this heading">¶</a></h1>
+<p>The Lesion module tracks information about individual tumors or disease sites associated with a diagnosis. This module allows detailed documentation of each lesion’s characteristics and their changes over time. This form is meant to collect data about lesions visualized various imaging modalities. Addtionally it allows the user to record the imaging dataset which is related to the detection of the lesion. Patients can have one or multiple lesions and if needed each lesion data can be recorded separately.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Lesions are linked to a diagnosis and there can be multiple lesions for a single diagnosis. Diagnosis is in turn linked to a patient.</p>
+<p>Patient -&gt; Diagnosis -&gt; Lesion</p>
+</div>
+<section id="data-collection-fields">
+<h2>Data Collection Fields<a class="headerlink" href="#data-collection-fields" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Lesion Fields</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form Field Name</p></th>
+<th class="head"><p>Database Field Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Diagnosis</p></td>
+<td><p>diagnosis</p></td>
+<td><p>The diagnosis this lesion is associated with</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date Lesion Assessed</p></td>
+<td><p>date_lesion_assessed</p></td>
+<td><p>The date when this lesion was first identified or assessed by a medical professional</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion Site</p></td>
+<td><p>lesion_site</p></td>
+<td><p>The anatomical location where the lesion is found (e.g., “Left Breast”, “Right Lung”)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion Type</p></td>
+<td><p>lesion_type</p></td>
+<td><p>The type or category of the lesion (e.g., “Primary Tumor”, “Metastatic Lesion”)</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion Laterality</p></td>
+<td><p>lesion_laterality</p></td>
+<td><p>Indicates which side of the body the lesion is on (e.g., “Left”, “Right”, “Bilateral”)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion Size X-Axis</p></td>
+<td><p>lesion_size_x_axis</p></td>
+<td><p>First dimension of the lesion as reported (when a report gives ‘a × b × c’ or ‘L × W × H’, take the first value). In the unit from the Lesion Size Unit field (usually mm). Blank if no size given.</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion Size Y-Axis</p></td>
+<td><p>lesion_size_y_axis</p></td>
+<td><p>Second reported dimension (middle value of ‘a × b × c’). Blank if the report gives fewer than two dimensions.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion Size Z-Axis</p></td>
+<td><p>lesion_size_z_axis</p></td>
+<td><p>Third reported dimension (last value of ‘a × b × c’). Blank if not reported.</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion Size Unit</p></td>
+<td><p>lesion_size_unit</p></td>
+<td><p>Unit of the three size fields (mm, cm). Reports usually use mm.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion Volume</p></td>
+<td><p>lesion_volume</p></td>
+<td><p>Volume of the lesion if stated in the report (e.g. ‘volume 12.3 cc’). In the unit from the Lesion Volume Unit field. Blank if not stated.</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion Volume Unit</p></td>
+<td><p>lesion_volume_unit</p></td>
+<td><p>Unit of the lesion volume (e.g. mm³, cm³/cc).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Lesion Detection Modality</p></td>
+<td><p>lesion_detection_modality</p></td>
+<td><p>The imaging modality used to detect the lesion (e.g., “CT”, “MRI”, “PET”, “US”)</p></td>
+</tr>
+<tr class="row-even"><td><p>Lesion SUV Max</p></td>
+<td><p>lesion_suv_max</p></td>
+<td><p>The maximum Standardized Uptake Value (SUV) of the lesion (for PET scans)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Associated DICOM Studies</p></td>
+<td><p>study_instance_uid</p></td>
+<td><p>Imaging studies showing this lesion</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Lesion Characteristics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-collection-fields">Data Collection Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="diagnosis.html"
+                          title="previous chapter">Diagnosis</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="lesion_response.html"
+                          title="next chapter">Lesion Response</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/lesion.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="lesion_response.html" title="Lesion Response"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="diagnosis.html" title="Diagnosis"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lesion Characteristics</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Configuration Guide &#8212; CHAVI Client Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/chavi.css?v=622282c7" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Two Factor Authentication" href="tfa.html" />
+    <link rel="prev" title="Docker Installation Method" href="docker_installation.html" /> 
+  </head><body>
+<nav class="chavi-topnav" role="navigation" aria-label="Top navigation">
+  <div class="chavi-topnav-inner">
+    <a class="chavi-brand" href="../index.html">CHAVI Client</a>
+    <span class="chavi-nav-sub">Documentation</span>
+    <div class="chavi-nav-links">
+      <a href="../index.html">Help home</a>
+      <a href="/">Back to the app</a>
+    </div>
+  </div>
+</nav>
+
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tfa.html" title="Two Factor Authentication"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="docker_installation.html" title="Docker Installation Method"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration Guide</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="configuration-guide">
+<h1>Configuration Guide<a class="headerlink" href="#configuration-guide" title="Link to this heading">¶</a></h1>
+<p>This guide explains how to configure the application after installation. The configuration involves setting up your site information and configuring user permissions.</p>
+<section id="initial-site-configuration">
+<h2>Initial Site Configuration<a class="headerlink" href="#initial-site-configuration" title="Link to this heading">¶</a></h2>
+<ol class="arabic">
+<li><p>Access the Django Admin Interface:</p>
+<ol class="arabic simple">
+<li><p>Go to <code class="docutils literal notranslate"><span class="pre">http://&lt;your-server&gt;/admin/</span></code>. Usually the &lt;your-server&gt; is the localhost (<code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>) or the LAN IP address if you wish the server to be able to serve pages on the server.</p></li>
+<li><p>Log in with the superuser account created during installation</p></li>
+</ol>
+</li>
+<li><p>Configure Site Information:</p>
+<ol class="arabic simple">
+<li><p>Navigate to “Site Configuration” under client_app</p></li>
+<li><p>Click “Add Site Configuration”</p></li>
+<li><p>Fill in:</p></li>
+</ol>
+<blockquote>
+<div><ul class="simple">
+<li><p>CHAVI Center ID (provided by CHAVI team)</p></li>
+<li><p>Center Name (your hospital/institution name)</p></li>
+</ul>
+</div></blockquote>
+<ol class="arabic simple">
+<li><p>Click “Save”</p></li>
+</ol>
+<p>Note: Only one site configuration should exist. This is enforced by the system.</p>
+</li>
+<li><p>Project Configuration:</p>
+<ol class="arabic simple">
+<li><p>Navigate to “Projects” under client_app</p></li>
+<li><p>Click “Add Projects”</p></li>
+<li><p>Fill in:</p></li>
+</ol>
+<blockquote>
+<div><ul class="simple">
+<li><p>Project ID (provided by CHAVI team)</p></li>
+</ul>
+</div></blockquote>
+<ol class="arabic simple">
+<li><p>Click “Save”</p></li>
+</ol>
+<p>Note: Several Projects can be added.</p>
+</li>
+</ol>
+</section>
+<section id="user-groups-and-permissions">
+<h2>User Groups and Permissions<a class="headerlink" href="#user-groups-and-permissions" title="Link to this heading">¶</a></h2>
+<p>You do not need to create permission groups by hand. The application ships
+with ready-made roles — <em>Clinical Data Viewer</em>, <em>Clinical Data Entry</em>,
+<em>Data Import Operator</em>, <em>LLM Extraction Operator</em>, <em>LLM Configuration</em>,
+<em>Deidentification Operator</em> and <em>DICOM Administrator</em> — created
+automatically by the database migration. The <em>DICOM Administrator</em> role
+also covers the DICOM archive (configuration, locations, manual
+archive/de-archive).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The full description of each role, how to assign roles to users, and the
+permission checked by every page is documented on the
+<a class="reference internal" href="roles_and_permissions.html"><span class="doc">Roles and Permissions</span></a> page — use that as the reference.</p>
+</div>
+<p>In short:</p>
+<ol class="arabic simple">
+<li><p>Create the users you need (below).</p></li>
+<li><p>In Django Admin, open <strong>Users → (user) → Groups</strong> and move the wanted
+role(s) into <em>Chosen groups</em> — a user may hold several roles at once.</p></li>
+</ol>
+<p>Restricted data (lookup tables, site configuration, projects) stays
+superuser-only; there is no role that grants it.</p>
+</section>
+<section id="creating-users">
+<h2>Creating Users<a class="headerlink" href="#creating-users" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Create New User:</p>
+<ul class="simple">
+<li><p>Go to “Users” in Django Admin</p></li>
+<li><p>Click “Add User”</p></li>
+<li><p>Enter username and password</p></li>
+<li><p>Fill in required user information</p></li>
+</ul>
+</li>
+<li><p>Assign a role:</p>
+<ul class="simple">
+<li><p>In the user edit page</p></li>
+<li><p>Under “Groups”</p></li>
+<li><p>Select the appropriate shipped role (see <a class="reference internal" href="roles_and_permissions.html"><span class="doc">Roles and Permissions</span></a>)</p></li>
+<li><p>Save the user</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="security-recommendations">
+<h2>Security Recommendations<a class="headerlink" href="#security-recommendations" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Password Policy:</p>
+<ul class="simple">
+<li><p>Require strong passwords</p></li>
+<li><p>Set password expiration</p></li>
+<li><p>Implement account lockout after failed attempts</p></li>
+</ul>
+</li>
+<li><p>Data Entry Guidelines:</p>
+<ul class="simple">
+<li><p>Train users on data entry procedures</p></li>
+<li><p>Implement data validation checks</p></li>
+<li><p>Regular backup of database</p></li>
+</ul>
+</li>
+</ol>
+<p>For additional help please contact CHAVI support team.</p>
+<p>You can raise tickets for support at <a class="reference external" href="https://github.com/CHAVI-India/CHAVI-Client/issues">https://github.com/CHAVI-India/CHAVI-Client/issues</a></p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+<h3><a href="../index.html">Table of Contents</a></h3>
+<p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker_installation.html">Docker Installation Method</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#initial-site-configuration">Initial Site Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#user-groups-and-permissions">User Groups and Permissions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-users">Creating Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#security-recommendations">Security Recommendations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tfa.html">Two Factor Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_around.html">Finding Your Way Around</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Entering patient data</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example_data_entry_scenarios.html">Example Data Entry Scenarios</a></li>
+<li class="toctree-l1"><a class="reference internal" href="suggested_data_entry_flow.html">Suggested Data Entry Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_demographics.html">Patient Demographics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diagnosis.html">Diagnosis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion.html">Lesion Characteristics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lesion_response.html">Lesion Response</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pathology.html">Pathology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="immunohistochemistry.html">Immunohistochemistry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cytogenetics.html">Cytogenetics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="somatic_genomic_alterations.html">Somatic Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="germline_mutation_data.html">Germline Genomic Alterations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adverse_effects.html">Adverse Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy.html">Systemic Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="systemic_therapy_drug_schedule.html">Systemic Therapy Drug Schedule</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_therapy.html">Radiation Therapy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_volume.html">Radiation Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="radiation_dose_volume.html">Radiation Dose Volume Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surgery.html">Surgery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concomitant_medications.html">Concomitant Medications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="other_treatment.html">Other Treatment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cancer_outcomes.html">Cancer Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratory_results.html">Laboratory Results</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symptoms.html">Symptoms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stage_information.html">Stage Information</a></li>
+<li class="toctree-l1"><a class="reference internal" href="comorbidities.html">Comorbidities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_outcomes.html">Patient Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_reported_outcomes.html">Patient Reported Outcomes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_study.html">DICOM Study Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="epigenetic_modifications.html">Epigenetic Modifications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gene_expression_data.html">Gene Expression Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="patient_assessment.html">Patient Assessment</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Bringing data in</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="csv_import_wizard.html">Importing Data with the CSV Wizard</a></li>
+<li class="toctree-l1"><a class="reference internal" href="import_data.html">Importing Data (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="clinical_data_import.html">Clinical Data Import using the CHAVI Client</a></li>
+<li class="toctree-l1"><a class="reference internal" href="handling_dicom_data.html">Handling DICOM Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_data_import.html">DICOM Data Import (Admin)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_retrieval.html">Getting Scans from the Hospital Imaging System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="automatic_data_extraction.html">Pulling Data Out of Documents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_data.html">Lookup Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lookup_tables.html">Lookup Tables in CHAVI client</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">For administrators</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dicom_server_setup.html">Setting Up the DICOM Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dicom_archive.html">DICOM Archive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deidentification.html">De-identifying Patient Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="legacy_mapping_import.html">Importing Old De-identification Records</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extraction_setup.html">Setting Up Automatic Data Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roles_and_permissions.html">Roles and Permissions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="database_backup.html">Database Backup and Restore</a></li>
+</ul>
+
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="docker_installation.html"
+                          title="previous chapter">Docker Installation Method</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="tfa.html"
+                          title="next chapter">Two Factor Authentication</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/help_files/configuration.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tfa.html" title="Two Factor Authentication"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="docker_installation.html" title="Docker Installation Method"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">CHAVI Client Documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration Guide</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Tata Medical Center.
+    </div>
+  </body>
+</html>
