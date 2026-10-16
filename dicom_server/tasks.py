@@ -1,5 +1,6 @@
 """Celery tasks for DICOM query/retrieve operations."""
 import logging
+from datetime import datetime
 
 from celery import chord, group, shared_task
 from django.utils import timezone
@@ -10,7 +11,8 @@ from client_app.tasks import (
 )
 from dicom_server.models import (
     AutoRetrievalState, BulkRetrievalSchedule, RemoteDICOMNode,
-    RetrievalBatch, RetrievalBatchPatient, RetrievalJob,
+    RetrievalBatch, RetrievalBatchPatient, RetrievalJob, RetrievalJobSeries,
+    RetrievalJobStudy,
 )
 from dicom_server.services import qr_client
 
@@ -40,72 +42,117 @@ def _finish_task_run_quiet(task_run, result, error=None):
 
 
 def _job_work_items(job):
-    """Normalised retrieval items for a job.
+    """Flatten a job's study/series relations into per-series work items.
 
-    -> [{'study_instance_uid': str, 'series_instance_uids': [str]|None,
-         'remote_patient_id': str|None}] or None when the job requests a
-    C-FIND-all retrieval (no selections/study_uids). A null
-    series_instance_uids means the whole study."""
-    if job and job.selections:
-        return job.selections
-    if job and job.study_uids:
-        return [
-            {'study_instance_uid': uid, 'series_instance_uids': None,
-             'remote_patient_id': None}
-            for uid in sorted(job.study_uids)
-        ]
-    return None
+    Returns a list of dicts:
+      [{'study_instance_uid': str, 'series_instance_uid': str|None,
+        'remote_patient_id': str|None}]
+
+    A study with no series rows yields one item with series_instance_uid=None
+    (meaning "whole study"). Returns [] when job is None, unsaved, or has no studies."""
+    if job is None or job.pk is None:
+        return []
+    flat = []
+    for study in job.studies.prefetch_related('series').order_by('study_instance_uid'):
+        remote_pid = study.remote_patient_id
+        if study.series.exists():
+            for s in study.series.order_by('series_instance_uid'):
+                flat.append({
+                    'study_instance_uid': study.study_instance_uid,
+                    'series_instance_uid': s.series_instance_uid,
+                    'remote_patient_id': remote_pid,
+                })
+        else:
+            flat.append({
+                'study_instance_uid': study.study_instance_uid,
+                'series_instance_uid': None,
+                'remote_patient_id': remote_pid,
+            })
+    return flat
+
+
+def _parse_dicom_date(value):
+    """Parse a DICOM date string (YYYYMMDD) to date or None."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(str(value), '%Y%m%d').date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _mark_item_done(job, study_uid, series_uid, stats):
+    """Update the RetrievalJobStudy (and Series if applicable) with outcome."""
+    if job is None:
+        return
+    if series_uid:
+        RetrievalJobSeries.objects.filter(
+            study__job=job, study__study_instance_uid=study_uid,
+            series_instance_uid=series_uid,
+        ).update(
+            status='done',
+            completed=stats.get('completed', 0),
+            failed=stats.get('failed', 0),
+            warning=stats.get('warning', 0),
+        )
+    else:
+        job.studies.filter(study_instance_uid=study_uid).update(
+            status='done',
+            completed=stats.get('completed', 0),
+            failed=stats.get('failed', 0),
+            warning=stats.get('warning', 0),
+        )
+
+
+def _mark_item_failed(job, study_uid, series_uid, error):
+    if job is None:
+        return
+    if series_uid:
+        RetrievalJobSeries.objects.filter(
+            study__job=job, study__study_instance_uid=study_uid,
+            series_instance_uid=series_uid,
+        ).update(status='failed', failed=1)
+    else:
+        job.studies.filter(study_instance_uid=study_uid).update(
+            status='failed', failed=1,
+        )
 
 
 def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=None):
-    """Retrieve all of a job's requested items (whole studies or selected
-    series) via C-MOVE/C-GET. Returns
-    {'studies': [item results], 'instances_completed': n, 'status': ...}.
+    """Retrieve all of a job's requested items via C-MOVE/C-GET.
+    Updates RetrievalJobStudy/Series rows with outcome. Returns
+    {'studies': [item results], 'instances_completed': n, 'status': ...}."""
 
-    job may be None (fire-and-forget C-FIND-all retrieval with no job row)."""
     def _job_update(**fields):
         if job:
             for k, v in fields.items():
                 setattr(job, k, v)
             job.save()
 
-    items = _job_work_items(job)
-    if items is not None:
-        # Study/series were pre-selected — retrieve them directly instead of
-        # re-running C-FIND; connectivity failures surface as per-item stats.
-        if job and not job.studies_found:
-            _job_update(studies_found=items)
-    else:
+    # If no studies are pre-registered, run C-FIND and create them
+    if job and not job.studies.exists():
         _update_task_run(task_run, None, 10, 100, description='Querying studies (C-FIND)')
         found = qr_client.find_studies_for_patient(node, patient, patient_id_aliases)
-        _job_update(studies_found=found)
-        items = [
-            {'study_instance_uid': s['study_instance_uid'],
-             'series_instance_uids': None,
-             'remote_patient_id': s.get('remote_patient_id')}
-            for s in found
-        ]
+        for s in found:
+            RetrievalJobStudy.objects.create(
+                job=job,
+                study_instance_uid=s['study_instance_uid'],
+                remote_patient_id=s.get('remote_patient_id'),
+                study_date=_parse_dicom_date(s.get('study_date')),
+                study_description=s.get('study_description'),
+                modalities=s.get('modalities'),
+                accession_number=s.get('accession_number'),
+            )
 
-    # Flatten to (study, series|None) work units so fail-fast bookkeeping is
-    # uniform for study-level and series-level retrievals.
-    flat = []
-    for item in items:
-        study_uid = item['study_instance_uid']
-        remote_pid = item.get('remote_patient_id') or patient.patient_id
-        for series_uid in (item.get('series_instance_uids') or [None]):
-            flat.append({
-                'study_instance_uid': study_uid,
-                'series_instance_uid': series_uid,
-                'remote_patient_id': remote_pid,
-            })
-
+    flat = _job_work_items(job)
     total = len(flat)
-    item_results = []
     instances = 0
+    item_results = []  # still returned in result dict for API compat
+
     for i, target in enumerate(flat):
         study_uid = target['study_instance_uid']
         series_uid = target['series_instance_uid']
-        remote_pid = target['remote_patient_id']
+        remote_pid = target['remote_patient_id'] or patient.patient_id
         _update_task_run(
             task_run, None, 10 + int(80 * i / max(total, 1)), 100,
             description=f'Retrieving {i + 1}/{total}',
@@ -125,10 +172,11 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
                 )
         except qr_client.QRModelNotAcceptedError as e:
             logger.error('Retrieve method not supported by %s: %s', node, e)
-            # Every remaining item would hit the same rejection — mark them
-            # all failed now instead of opening doomed associations.
             stats = {'status': None, 'completed': 0, 'failed': -1, 'error': str(e)}
+            # Mark all remaining as failed
             for remaining in flat[i:]:
+                _mark_item_failed(job, remaining['study_instance_uid'],
+                                  remaining['series_instance_uid'], str(e))
                 item_results.append({
                     'study_instance_uid': remaining['study_instance_uid'],
                     'series_instance_uid': remaining['series_instance_uid'],
@@ -138,6 +186,9 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
         except Exception as e:
             logger.exception('Retrieval of %s/%s failed', study_uid, series_uid)
             stats = {'status': None, 'completed': 0, 'failed': -1, 'error': str(e)}
+            _mark_item_failed(job, study_uid, series_uid, str(e))
+
+        _mark_item_done(job, study_uid, series_uid, stats)
         item_results.append({
             'study_instance_uid': study_uid,
             'series_instance_uid': series_uid,
@@ -155,7 +206,7 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
 
     result = {'studies': item_results, 'instances_completed': instances, 'status': final}
     _job_update(
-        status=final, instances_received=instances, item_results=item_results,
+        status=final, instances_received=instances,
         completed_at=timezone.now(),
         error_log='' if failed == 0 else str(item_results),
     )
@@ -470,12 +521,21 @@ def _auto_retrieve_patient_node(node_id, patient_id, force=False):
         state.save(update_fields=['last_success_at', 'last_known_study_uids'])
         return {'skipped': False, 'found': len(found_uids), 'new': 0}
 
+    # Create job + study rows with the remote_patient_id from C-FIND
     job = RetrievalJob.objects.create(
-        node=node,
-        patient=patient,
-        created_by=None,
-        study_uids=sorted(unknown_uids),
+        node=node, patient=patient, created_by=None,
     )
+    remote_pid_by_uid = {
+        s['study_instance_uid']: s.get('remote_patient_id')
+        for s in studies if s.get('study_instance_uid')
+    }
+    RetrievalJobStudy.objects.bulk_create([
+        RetrievalJobStudy(
+            job=job, study_instance_uid=uid,
+            remote_patient_id=remote_pid_by_uid.get(uid),
+        )
+        for uid in sorted(unknown_uids)
+    ])
 
     try:
         result = task_retrieve_studies.delay(
@@ -661,6 +721,32 @@ def task_bulk_schedule_run(self, schedule_id):
     return {'schedule': schedule_id, 'batch': batch.pk, 'patients': len(patients)}
 
 
+def _populate_study_metadata(job, found_list):
+    """Copy C-FIND metadata from the found-list dicts onto job study rows."""
+    for found in found_list:
+        suid = found.get('study_instance_uid')
+        if not suid:
+            continue
+        RetrievalJobStudy.objects.filter(
+            job=job, study_instance_uid=suid,
+        ).update(
+            study_date=_parse_dicom_date(found.get('study_date')),
+            study_description=found.get('study_description'),
+            modalities=found.get('modalities'),
+            accession_number=found.get('accession_number'),
+        )
+        # Series metadata
+        for se in (found.get('series') or []):
+            RetrievalJobSeries.objects.filter(
+                study__job=job, study__study_instance_uid=suid,
+                series_instance_uid=se.get('series_instance_uid', ''),
+            ).update(
+                series_description=se.get('series_description'),
+                modality=se.get('modality'),
+                series_date=_parse_dicom_date(se.get('series_date')),
+            )
+
+
 def _record_schedule_run(schedule, status):
     schedule.last_status = status
     schedule.last_run_at = timezone.now()
@@ -716,15 +802,37 @@ def task_bulk_schedule_finalize_query(self, results, batch_id, schedule_id):
         )
         if not entries:
             continue
+        job = RetrievalJob.objects.create(
+            node=batch.node, patient=row.patient,
+            created_by=batch.created_by, batch=batch,
+        )
+        # Create study + series rows
+        study_rows = []
+        for entry in entries:
+            suid = entry['study_instance_uid']
+            study = RetrievalJobStudy(
+                job=job, study_instance_uid=suid,
+                remote_patient_id=entry.get('remote_patient_id'),
+            )
+            study_rows.append(study)
+        RetrievalJobStudy.objects.bulk_create(study_rows)
+        # Link series
+        for entry in entries:
+            suid = entry['study_instance_uid']
+            series_uids = entry.get('series_instance_uids')
+            if series_uids:
+                job_study = job.studies.get(study_instance_uid=suid)
+                RetrievalJobSeries.objects.bulk_create([
+                    RetrievalJobSeries(study=job_study, series_instance_uid=suid2)
+                    for suid2 in series_uids
+                ])
+        # Store studies_found metadata (C-FIND data for display)
         chosen_uids = {e['study_instance_uid'] for e in entries}
         found_subset = [
             s for s in (row.studies or [])
             if s.get('study_instance_uid') in chosen_uids
         ]
-        job = RetrievalJob.objects.create(
-            node=batch.node, patient=row.patient, created_by=batch.created_by,
-            selections=entries, studies_found=found_subset, batch=batch,
-        )
+        _populate_study_metadata(job, found_subset)
         row.selected = True
         row.job = job
         row.save(update_fields=['selected', 'job'])

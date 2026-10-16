@@ -18,7 +18,7 @@ from lookup.models import (
 from dicom_server.forms import BulkRetrieveForm
 from dicom_server.models import (
     PatientIDAlias, RemoteDICOMNode, RetrievalBatch, RetrievalBatchPatient,
-    RetrievalJob,
+    RetrievalJob, RetrievalJobSeries, RetrievalJobStudy,
 )
 from dicom_server.services import patient_ids
 from dicom_server.tasks import (
@@ -282,19 +282,25 @@ class RetrieveTaskTests(BulkRetrievalTestCase):
     def test_job_work_items(self):
         job = RetrievalJob.objects.create(
             node=self.node, patient=self.patient,
-            selections=[{'study_instance_uid': '1.1',
-                         'series_instance_uids': ['s1']}],
         )
-        self.assertEqual(_job_work_items(job), job.selections)
+        st = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.1',
+        )
+        RetrievalJobSeries.objects.create(study=st, series_instance_uid='s1')
+        self.assertEqual(_job_work_items(job), [
+            {'study_instance_uid': '1.1', 'series_instance_uid': 's1',
+             'remote_patient_id': None},
+        ])
         job2 = RetrievalJob.objects.create(
-            node=self.node, patient=self.patient, study_uids=['2.2'],
+            node=self.node, patient=self.patient,
         )
+        RetrievalJobStudy.objects.create(job=job2, study_instance_uid='2.2')
         self.assertEqual(
             _job_work_items(job2)[0]['study_instance_uid'], '2.2',
         )
-        self.assertIsNone(_job_work_items(
+        self.assertEqual(_job_work_items(
             RetrievalJob(node=self.node, patient=self.patient),
-        ))
+        ), [])
 
     @mock.patch('dicom_server.tasks.qr_client.get_series')
     @mock.patch('dicom_server.tasks.qr_client.get_study')
@@ -303,12 +309,15 @@ class RetrieveTaskTests(BulkRetrievalTestCase):
         mock_get_series.return_value = {'status': 0, 'completed': 1, 'failed': 0}
         job = RetrievalJob.objects.create(
             node=self.node, patient=self.patient, batch=self.batch,
-            selections=[
-                {'study_instance_uid': '1.1', 'series_instance_uids': None},
-                {'study_instance_uid': '1.2', 'series_instance_uids': ['s1', 's2'],
-                 'remote_patient_id': '25_004771'},
-            ],
         )
+        st1 = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.1',
+        )
+        st2 = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.2', remote_patient_id='25_004771',
+        )
+        RetrievalJobSeries.objects.create(study=st2, series_instance_uid='s1')
+        RetrievalJobSeries.objects.create(study=st2, series_instance_uid='s2')
         result = task_retrieve_patient_selection(job.pk)
         self.assertEqual(result['status'], 'SUCCESS')
         mock_get.assert_called_once_with(self.node, '1.1', 'MR/25/004771')
@@ -317,7 +326,11 @@ class RetrieveTaskTests(BulkRetrievalTestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, 'SUCCESS')
         self.assertEqual(job.instances_received, 4)
-        self.assertEqual(len(job.item_results), 3)
+        self.assertEqual(job.studies.filter(status='done').count(), 1)
+        self.assertEqual(
+            job.studies.get(study_instance_uid='1.2')
+                 .series.filter(status='done').count(), 2,
+        )
 
     @mock.patch('dicom_server.tasks.qr_client.get_study')
     def test_selection_task_never_raises(self, mock_get):

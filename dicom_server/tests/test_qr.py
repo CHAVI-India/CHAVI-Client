@@ -23,7 +23,7 @@ from pynetdicom.sop_class import (
 from client_app.models import (
     Patient, DICOMStudy, DICOMInstance, SiteConfiguration,
 )
-from dicom_server.models import RemoteDICOMNode, RetrievalJob
+from dicom_server.models import RemoteDICOMNode, RetrievalJob, RetrievalJobStudy
 from dicom_server.services import qr_client
 from dicom_server.scp.server import build_ae, HANDLERS
 from dicom_server.tasks import task_retrieve_studies
@@ -453,9 +453,9 @@ class QRClientTests(TransactionTestCase):
             "peer 'STUBPACS' does not support C-GET — switch to C-MOVE"
         )
         node = self._node(port=1, prefer_c_get=True)
-        job = RetrievalJob.objects.create(
-            node=node, patient=self.patient, study_uids=['1.2.3', '4.5.6'],
-        )
+        job = RetrievalJob.objects.create(node=node, patient=self.patient)
+        RetrievalJobStudy.objects.create(job=job, study_instance_uid='1.2.3')
+        RetrievalJobStudy.objects.create(job=job, study_instance_uid='4.5.6')
 
         result = task_retrieve_studies(node.pk, 'MR/25/004771', None, job.pk)
 
@@ -818,8 +818,9 @@ class QRClientTests(TransactionTestCase):
         pacs = _StubPACS([ds])
         try:
             node = self._node(port=pacs.port, prefer_c_get=True)
-            job = RetrievalJob.objects.create(
-                node=node, patient=self.patient, study_uids=[ds.StudyInstanceUID],
+            job = RetrievalJob.objects.create(node=node, patient=self.patient)
+            RetrievalJobStudy.objects.create(
+                job=job, study_instance_uid=ds.StudyInstanceUID,
             )
             with mock.patch.object(
                 qr_client, 'find_studies_for_patient',

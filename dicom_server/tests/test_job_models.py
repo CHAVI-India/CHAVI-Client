@@ -54,3 +54,39 @@ class RetrievalJobStudyTests(TestCase):
         ).select_related('job__patient').first()
         self.assertIsNotNone(result)
         self.assertEqual(result.job.patient, self.patient)
+
+
+class JobWorkItemsTests(TestCase):
+    def setUp(self):
+        SiteConfiguration.objects.create(chavi_center_id='T', center_name='T')
+        self.patient = Patient.objects.create(patient_id='P1', gender='Male')
+        self.node = RemoteDICOMNode.objects.create(
+            name='n', ae_title='TEST', host='127.0.0.1',
+        )
+
+    def test_returns_studies_with_series(self):
+        from dicom_server.tasks import _job_work_items
+        job = RetrievalJob.objects.create(node=self.node, patient=self.patient)
+        study = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.1', remote_patient_id='REM',
+        )
+        RetrievalJobSeries.objects.create(study=study, series_instance_uid='s1')
+        RetrievalJobSeries.objects.create(study=study, series_instance_uid='s2')
+        study2 = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='2.2', remote_patient_id='REM',
+        )
+        items = _job_work_items(job)
+        self.assertEqual(len(items), 3)  # 2 series + 1 whole study
+        uids = [(i['study_instance_uid'], i['series_instance_uid']) for i in items]
+        self.assertIn(('1.1', 's1'), uids)
+        self.assertIn(('1.1', 's2'), uids)
+        self.assertIn(('2.2', None), uids)
+
+    def test_empty_job_returns_empty_list(self):
+        from dicom_server.tasks import _job_work_items
+        job = RetrievalJob.objects.create(node=self.node, patient=self.patient)
+        self.assertEqual(_job_work_items(job), [])
+
+    def test_none_job_returns_empty_list(self):
+        from dicom_server.tasks import _job_work_items
+        self.assertEqual(_job_work_items(None), [])

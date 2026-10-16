@@ -17,7 +17,7 @@ from django_celery_beat.models import PeriodicTask
 from client_app.models import Patient, SiteConfiguration
 from dicom_server.models import (
     BulkRetrievalSchedule, RemoteDICOMNode, RetrievalBatch,
-    RetrievalBatchPatient, RetrievalJob,
+    RetrievalBatchPatient, RetrievalJob, RetrievalJobSeries, RetrievalJobStudy,
 )
 from dicom_server.tasks import (
     _aggregate_retrieval_batch, _prepare_bulk_schedule_batch,
@@ -335,8 +335,9 @@ class FinalizeQueryTests(ModelSetupMixin, TestCase):
         task_bulk_schedule_finalize_query(results=[], batch_id=batch.pk, schedule_id=s.pk)
         j = batch.jobs.first()
         self.assertIsNotNone(j)
-        self.assertIsNone(j.selections[0]['series_instance_uids'])
-        self.assertEqual(j.selections[0]['study_instance_uid'], 'ST-1')
+        self.assertEqual(j.studies.count(), 1)
+        self.assertEqual(j.studies.first().study_instance_uid, 'ST-1')
+        self.assertFalse(j.studies.first().series.exists())
         mock_dispatch.assert_called_once()
         args = mock_dispatch.call_args[0]
         self.assertEqual(args[0].pk, batch.pk)
@@ -360,9 +361,9 @@ class FinalizeQueryTests(ModelSetupMixin, TestCase):
         self._row(batch, 'P001', [_rt_study()])
         s = self._schedule(retrieve_new_only=False, select_modalities='RTDOSE')
         task_bulk_schedule_finalize_query(results=[], batch_id=batch.pk, schedule_id=s.pk)
-        sel = batch.jobs.first().selections[0]
+        j = batch.jobs.first()
         self.assertEqual(
-            set(sel['series_instance_uids']),
+            set(j.studies.first().series.values_list('series_instance_uid', flat=True)),
             {'S-DOSE', 'S-PLAN', 'S-STRUCT', 'S-IMG'},
         )
 
