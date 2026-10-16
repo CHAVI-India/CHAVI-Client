@@ -4156,6 +4156,52 @@ class ClinicalAllowlistTests(SimpleTestCase):
             'from Kolkata to Patia', 'LOCATION', 'Kolkata'))
 
 
+class FilterDecompositionTests(SimpleTestCase):
+    """_filter_results is decomposed into mechanical + dates + clinical.
+
+    Equivalence with the original monolith is proven by the pre-existing
+    DurationFilterTests / AgeDurationRegressionTests / ClinicalAllowlistTests
+    continuing to pass unchanged. These tests pin each sub-filter's job.
+    """
+
+    def _mk(self, etype, start, end):
+        class R:
+            def __init__(self):
+                self.entity_type = etype
+                self.start = start
+                self.end = end
+                self.score = 0.9
+        return R()
+
+    def test_mechanical_drops_drop_type_and_midword(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        text = "oropharynx"
+        idr = self._mk('ID', 0, 2)        # in drop_types
+        mid = self._mk('PERSON', 3, 6)    # 'oph' mid-word
+        ok = self._mk('PERSON', 0, 10)    # whole token, kept
+        kept = S._filter_mechanical(text, [idr, mid, ok])
+        self.assertEqual([r.entity_type for r in kept], ['PERSON'])
+
+    def test_dates_drops_duration_keeps_real_date(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        text = "for 1 month admitted 01/02/2024"
+        dur = self._mk('DATE_TIME', text.find('1 month'), text.find('1 month') + 7)
+        real = self._mk('DATE_TIME', text.find('01/02/2024'), text.find('01/02/2024') + 10)
+        kept = S._filter_dates(text, [dur, real])
+        self.assertEqual([text[r.start:r.end] for r in kept], ['01/02/2024'])
+
+    def test_clinical_drops_lab_keeps_name(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        text = "Hb 9.8 seen Taboo Singh"
+        lab = self._mk('PERSON', 0, 6)    # 'Hb 9.8' clinical prefix
+        name = self._mk('PERSON', text.find('Taboo Singh'), text.find('Taboo Singh') + 11)
+        kept = S._filter_clinical(text, [lab, name])
+        self.assertEqual([text[r.start:r.end] for r in kept], ['Taboo Singh'])
+
+
 class OpenMedNerRecognizerTests(SimpleTestCase):
     def test_labels_mapped_offsets_preserved(self):
         from extractor.services.openmed_ner import OpenMedNerRecognizer

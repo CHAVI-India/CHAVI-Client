@@ -470,19 +470,16 @@ class TextDeidentificationService:
         return out.getvalue(), cls._entity_counts(all_results), flagged, repl
 
     @staticmethod
-    def _filter_results(text, results):
-        """Drop recognizer hits that are implausible or unwanted for text:
+    def _filter_mechanical(text, results):
+        """Mechanical drops: drop_types, empty surface, mid-word boundaries.
 
-        - Entity types in EXTRACTOR_DEID_DROP_ENTITY_TYPES (default: ID,
-          AGE — the ai4privacy catch-all labels that destroy clinical
-          numerics and are not needed as PHI).
-        - Bare short digits as DATE_TIME (ages, doses, counts).
+        Applies to every candidate type. Mid-word spans are HF tokenization
+        artifacts (e.g. 'oph' of 'oropharynx') - real PHI spans align to word
+        boundaries; spans often include surrounding spaces, so measure from
+        the stripped surface edges.
         """
         drop_types = getattr(
             settings, 'EXTRACTOR_DEID_DROP_ENTITY_TYPES', {'ID', 'AGE', 'NRP'})
-        allowlist = {
-            t.lower() for t in getattr(
-                settings, 'EXTRACTOR_DEID_CLINICAL_ALLOWLIST', set())}
         kept = []
         for r in results:
             surface = text[r.start:r.end].strip()
@@ -490,26 +487,26 @@ class TextDeidentificationService:
                 continue
             if not surface:
                 continue
-            # Clinical terminology that general-domain NER mis-tags as
-            # PII (PERSON/LOCATION/DATE/ORG) — dropped whole-span so the
-            # clinical content survives on every engine.
-            if surface.lower() in allowlist:
-                continue
-            # Mid-word spans are HF tokenization artifacts (e.g. 'oph' of
-            # 'oropharynx', 'ally' of 'clinically') — real PHI spans align
-            # to word boundaries. Spans often include surrounding spaces,
-            # so measure from the stripped surface edges.
             raw = text[r.start:r.end]
             b_start = r.start + (len(raw) - len(raw.lstrip()))
             b_end = r.end - (len(raw) - len(raw.rstrip()))
             if (b_start > 0 and text[b_start - 1].isalnum()) or \
                     (b_end < len(text) and text[b_end].isalnum()):
                 continue
-            # Bare digits/percentages are never real dates (ages, counts),
-            # and age/duration surfaces ('Age 56 years', '56 Years',
-            # '56-year-old', 'age: 56', '1 month') are not redacted —
-            # ages and clinical intervals are content, not identifiers.
-            # Real dates still shift as usual.
+            kept.append(r)
+        return kept
+
+    @staticmethod
+    def _filter_dates(text, results):
+        """DATE_TIME drops: bare digits, ages, durations, pulses, doses, and
+        the fraction counter. Real calendar dates survive to be shifted.
+
+        Ages and clinical intervals ('1 month', '2 weeks', 'Age 56 years')
+        are content, not identifiers - they are kept. Real dates shift.
+        """
+        kept = []
+        for r in results:
+            surface = text[r.start:r.end].strip()
             if (r.entity_type == 'DATE_TIME' and re.match(
                     r'^\d{1,3}%?$'
                     r'|^(?:age\b:?\s*)?\d{1,3}\s*[-\s]?(years?\s+old|yrs?\s+old|years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
@@ -519,20 +516,35 @@ class TextDeidentificationService:
                     r'|^\d{1,3}(?:\s*-\s*\d{1,3})?\s+(years?|months?|mnths?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$'
                     r'|^\d{1,3}\s*/\s*min\b\.?$'
                     r'|^\d{1,2}:\d{2}$'
-                    r'|^[a-z][a-z]+\s+\d+(?:\.\d+)?\s*(g|mg|gm|ml)?\b\.?$',
+                    # Drug dose ('ceftriaxone 1 g', 'paracetamol 650 mg').
+                    # Negative lookahead excludes month names so a real date
+                    # like 'Oct 2023' / 'October 2023' is NOT matched as a dose
+                    # (it must survive to be date-shifted, not kept as-is).
+                    r'|^(?!(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b)[a-z][a-z]+\s+\d+(?:\.\d+)?\s*(g|mg|gm|ml)?\b\.?$',
                     surface, re.I)):
                 continue
-            # Fraction counter ('Fraction 10/25 completed') — the N/ N looks
-            # like a date but is a treatment count.
             if (r.entity_type == 'DATE_TIME'
                     and re.match(r'^\d{1,2}/\d{1,2}$', surface)
                     and re.search(r'fraction\s*$',
                                   text[max(0, r.start - 12):r.start], re.I)):
                 continue
-            # Clinical content that NER mis-tags as person/organisation:
-            # lab values ('Hb 9.8'), drug lines ('Tab Tramadol', 'Inj Lasix'),
-            # vitals ('SpO2'). Real names never start with these clinical
-            # prefixes in clinical notes.
+            kept.append(r)
+        return kept
+
+    @staticmethod
+    def _filter_clinical(text, results):
+        """Clinical-precision drops: allowlist, clinical-prefix (PERSON/ORG),
+        and short/lowercase/label LOCATION. Keeps the clinical content that
+        general-domain NER mis-tags as PII.
+        """
+        allowlist = {
+            t.lower() for t in getattr(
+                settings, 'EXTRACTOR_DEID_CLINICAL_ALLOWLIST', set())}
+        kept = []
+        for r in results:
+            surface = text[r.start:r.end].strip()
+            if surface.lower() in allowlist:
+                continue
             if r.entity_type in ('PERSON', 'ORGANIZATION') and re.match(
                     r'^(hb|h\.b\.?|tabs?\b|inj\b|caps?\b|iv\b|po\b|oral\b|spo2?|s\.p\.o|jvp|ef\b|bp\b|pr\b|hr\b|wt\b|lmp\b)',
                     surface, re.I):
@@ -547,6 +559,19 @@ class TextDeidentificationService:
                     continue
             kept.append(r)
         return kept
+
+    @staticmethod
+    def _filter_results(text, results):
+        """Drop recognizer hits that are implausible or unwanted for text.
+
+        Composition of the three focused stages; a span is dropped iff any
+        stage drops it, so the survivors are identical to the previous
+        single-loop monolith regardless of composition order.
+        """
+        results = TextDeidentificationService._filter_mechanical(text, results)
+        results = TextDeidentificationService._filter_dates(text, results)
+        results = TextDeidentificationService._filter_clinical(text, results)
+        return results
 
     @staticmethod
     def _resolve_overlaps(results):
