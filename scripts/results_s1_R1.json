@@ -1,0 +1,146 @@
+{
+  "config": "R1",
+  "precision": "P1",
+  "agg": [
+    12,
+    3,
+    7
+  ],
+  "rows": [
+    {
+      "doc": "AB-SYNTH clinical note (discharge summary)",
+      "leaks": [
+        "Rajesh Kumar",
+        "Patia",
+        "Apollo Hospital",
+        "700091"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.7
+    },
+    {
+      "doc": "AB-SYNTH radiology report (CT staging)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.1
+    },
+    {
+      "doc": "AB-SYNTH pathology report (histopathology)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.3
+    },
+    {
+      "doc": "AB-FIELD cardiology note (CCF)",
+      "leaks": [
+        "Saran"
+      ],
+      "lost": [
+        "61/F"
+      ],
+      "unshifted": [],
+      "time": 1.2
+    },
+    {
+      "doc": "AB-FIELD ortho discharge summary",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.2
+    },
+    {
+      "doc": "AB-FIELD medicine note (enteric fever)",
+      "leaks": [
+        "Hari Prasad",
+        "Sitapur"
+      ],
+      "lost": [],
+      "unshifted": [
+        "3/20",
+        "28/1",
+        "5/2"
+      ],
+      "time": 1.3
+    },
+    {
+      "doc": "AB-FIELD surgical oncology note",
+      "leaks": [
+        "Bhagwanpur"
+      ],
+      "lost": [],
+      "unshifted": [
+        "20/1"
+      ],
+      "time": 1.1
+    },
+    {
+      "doc": "AB-FIELD TATA OPD + IP admission note",
+      "leaks": [
+        "Garia"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.3
+    },
+    {
+      "doc": "AB-FIELD district hospital medicine note",
+      "leaks": [],
+      "lost": [
+        "07:45"
+      ],
+      "unshifted": [],
+      "time": 1.4
+    },
+    {
+      "doc": "AB-FIELD radiation oncology note (cervical Ca)",
+      "leaks": [
+        "Murshidabad"
+      ],
+      "lost": [],
+      "unshifted": [
+        "02-24"
+      ],
+      "time": 1.2
+    },
+    {
+      "doc": "AB-FIELD surgical oncology (colon, name variant)",
+      "leaks": [
+        "Dey"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.3
+    },
+    {
+      "doc": "AB-FIELD paediatric oncology note",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.4
+    },
+    {
+      "doc": "AB-FIELD day-care follow-up (name variant)",
+      "leaks": [],
+      "lost": [
+        "61/M"
+      ],
+      "unshifted": [
+        "06-23",
+        "2023"
+      ],
+      "time": 1.3
+    },
+    {
+      "doc": "AB-FIELD radiology CECT (name = city)",
+      "leaks": [
+        "Park Street"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 1.2
+    }
+  ]
+}

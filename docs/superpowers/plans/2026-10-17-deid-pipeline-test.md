@@ -749,12 +749,12 @@ git commit -m "test(deid): stage 5 final result + documented recommendation"
 
 | Config                    | leaks         | lost          | unshifted     | time          | note |
 | ------------------------- | ------------- | ------------- | ------------- | ------------- | ---- |
-| R1 (spaCy+rules)          | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
-| R2 (Stanford+rules)       | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
-| R3 (spaCy+Stanford+rules) | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
+| R1 (spaCy+rules)          | 12            | 3             | 7             | 18s           | general NER: more PII + dates leak |
+| R2 (Stanford+rules)       | 4             | 1             | 1             | 28s           | clinical NER: precise |
+| R3 (spaCy+Stanford+rules) | 4             | 4             | 1             | cached        | shipped default; spaCy adds noise |
 
 
-**Winner W:** <!-- FILL --> — reason: <!-- FILL -->
+**Winner W:** R2 (Stanford + rules) — reason: ties R3 on leaks (4) and unshifted (1) but far better precision (lost=1 vs 4). Stanford's clinical NER matches the union's PII recall while flagging far fewer false clinical terms; spaCy adds noise (lost) without adding recall. R1 (spaCy alone) is clearly worst (leaks=12, unshifted=7).
 
 ### Stage 2 — LLM additions to W (P1 + T0)
 
