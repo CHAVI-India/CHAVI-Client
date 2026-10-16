@@ -239,6 +239,57 @@ class RetrievalJob(models.Model):
         return f"Job {self.pk} {self.patient_id} <- {self.node.name} [{self.status}]"
 
 
+class RetrievalJobStudy(models.Model):
+    """One study targeted by a retrieval job. Carries C-FIND metadata and
+    retrieval outcome so the job detail view and ingest can use it."""
+    job = models.ForeignKey(
+        RetrievalJob, on_delete=models.CASCADE, related_name='studies',
+    )
+    study_instance_uid = models.CharField(max_length=255)
+    remote_patient_id = models.CharField(max_length=255, null=True, blank=True)
+    # C-FIND metadata
+    study_date = models.DateField(null=True, blank=True)
+    study_description = models.CharField(max_length=255, null=True, blank=True)
+    modalities = models.CharField(max_length=255, null=True, blank=True)
+    accession_number = models.CharField(max_length=255, null=True, blank=True)
+    # Retrieval outcome (populated by _run_job_retrieval)
+    status = models.CharField(max_length=20, null=True, blank=True)
+    completed = models.IntegerField(default=0)
+    failed = models.IntegerField(default=0)
+    warning = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ['job', 'study_instance_uid']
+        ordering = ['study_instance_uid']
+
+    def __str__(self):
+        return f'{self.job_id} / {self.study_instance_uid[:20]}'
+
+
+class RetrievalJobSeries(models.Model):
+    """One series targeted within a RetrievalJobStudy. Empty set = whole study."""
+    study = models.ForeignKey(
+        RetrievalJobStudy, on_delete=models.CASCADE, related_name='series',
+    )
+    series_instance_uid = models.CharField(max_length=255)
+    # C-FIND metadata
+    series_description = models.CharField(max_length=255, null=True, blank=True)
+    modality = models.CharField(max_length=16, null=True, blank=True)
+    series_date = models.DateField(null=True, blank=True)
+    # Retrieval outcome
+    status = models.CharField(max_length=20, null=True, blank=True)
+    completed = models.IntegerField(default=0)
+    failed = models.IntegerField(default=0)
+    warning = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ['study', 'series_instance_uid']
+        ordering = ['series_instance_uid']
+
+    def __str__(self):
+        return f'{self.study_id} / {self.series_instance_uid[:20]}'
+
+
 class PatientIDAlias(models.Model):
     """A remote PatientID used for a given patient at a given node."""
     node = models.ForeignKey(
