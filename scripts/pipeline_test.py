@@ -170,34 +170,45 @@ def _upsert_cache(path, name, cands):
 
 
 # --- precision + application ---
-def apply_precision(content, cands, precision, verbose=False):
+def apply_precision(content, cands, precision, verbose=False, workers=1):
     if precision == 'P1':
         return S._filter_results(content, cands)  # monolith == production
     # P2: mechanical + dates (same as production) + nimble (replaces clinical)
     cands = S._filter_mechanical(content, cands)
-    kept = []
+    kept, non_date = [], []
     for r in cands:
         if r.entity_type in ('DATE_TIME', 'DATE'):
             if S._filter_dates(content, [r]):
                 kept.append(r)
         else:
-            state = {'excerpt': _build_context(content, r.start, r.end, 90)}
-            ans = _so_post(state, {'is_phi': {
-                'type': 'noul', 'instructions': IS_PHI_QUESTION}})
-            p = _so_noul(ans, 'is_phi')
-            if verbose:
-                print(f'    [P2 {r.entity_type:16s} '
-                      f'{content[r.start:r.end]!r:26s} p={p:.2f} '
-                      f'-> {"DEID" if p >= PHI_THRESHOLD else "keep"}]')
-            if p >= PHI_THRESHOLD:
-                kept.append(r)
+            non_date.append(r)
+
+    def judge(r):
+        state = {'excerpt': _build_context(content, r.start, r.end, 90)}
+        ans = _so_post(state, {'is_phi': {
+            'type': 'noul', 'instructions': IS_PHI_QUESTION}})
+        return r, _so_noul(ans, 'is_phi')
+
+    if workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            judged = list(ex.map(judge, non_date))
+    else:
+        judged = [judge(r) for r in non_date]
+    for r, p in judged:
+        if verbose:
+            print(f'    [P2 {r.entity_type:16s} '
+                  f'{content[r.start:r.end]!r:26s} p={p:.2f} '
+                  f'-> {"DEID" if p >= PHI_THRESHOLD else "keep"}]')
+        if p >= PHI_THRESHOLD:
+            kept.append(r)
     return kept
 
 
 def run_doc(name, content, config, precision, shift, use_cache,
-            verbose=False):
+            verbose=False, workers=1):
     cands = gen_candidates(content, config, use_cache)
-    kept = apply_precision(content, cands, precision, verbose)
+    kept = apply_precision(content, cands, precision, verbose, workers)
     kept = S._resolve_overlaps(kept)
     spans = [{'type': r.entity_type, 'start': r.start, 'end': r.end,
               'score': r.score} for r in kept]
@@ -219,6 +230,8 @@ def main():
     ap.add_argument('--out', default=None, help='write JSON result file')
     ap.add_argument('--verbose', action='store_true')
     ap.add_argument('--no-cache', action='store_true')
+    ap.add_argument('--workers', type=int, default=1,
+                    help='parallel nimble-judge workers (P2 only)')
     args = ap.parse_args()
 
     shift = 15  # fixed; scoring only checks whether a date string changed
@@ -229,7 +242,7 @@ def main():
             continue
         t0 = time.monotonic()
         out = run_doc(name, content, args.config, args.precision, shift,
-                      not args.no_cache, args.verbose)
+                      not args.no_cache, args.verbose, args.workers)
         dt = time.monotonic() - t0
         leaks, lost, unshifted = score(content, out)
         agg[0] += len(leaks)
