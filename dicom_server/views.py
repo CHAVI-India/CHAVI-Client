@@ -26,7 +26,7 @@ from dicom_server.forms import (
 from dicom_server.models import (
     BulkRetrievalSchedule, DICOMServerConfiguration, RemoteDICOMNode,
     InboundDICOMInstance, PatientIDAlias, RetrievalBatch,
-    RetrievalBatchPatient, RetrievalJob,
+    RetrievalBatchPatient, RetrievalJob, RetrievalJobSeries, RetrievalJobStudy,
 )
 from dicom_server.services import patient_ids, qr_client
 from lookup.models import (
@@ -34,7 +34,7 @@ from lookup.models import (
     LookupLaterality, LookupMajorCancerCategory, LookupPresentation,
 )
 from dicom_server.tasks import (
-    task_bulk_schedule_run, task_finalize_batch_query,
+    _parse_dicom_date, task_bulk_schedule_run, task_finalize_batch_query,
     task_finalize_retrieval_batch, task_query_patient_studies,
     task_retrieve_patient_selection, task_retrieve_studies,
 )
@@ -253,13 +253,9 @@ class RetrievalJobDetailView(DicomPermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        uids = []
-        if self.object.studies_found:
-            uids = [
-                s.get('study_instance_uid')
-                for s in self.object.studies_found
-                if s.get('study_instance_uid')
-            ]
+        uids = list(
+            self.object.studies.values_list('study_instance_uid', flat=True)
+        )
         context['instances'] = (
             InboundDICOMInstance.objects.filter(study_instance_uid__in=uids)
             if uids else []
@@ -632,7 +628,6 @@ class BatchRetrieveView(DicomPermissionRequiredMixin, View):
                 for s in (item.studies or []) if s.get('study_instance_uid')
             }
             normalized = []
-            found_subset = []
             for entry in sel:
                 suid = (entry or {}).get('study_instance_uid')
                 study = known.get(suid)
@@ -662,14 +657,38 @@ class BatchRetrieveView(DicomPermissionRequiredMixin, View):
                     'series_instance_uids': series_req,
                     'remote_patient_id': study.get('remote_patient_id'),
                 })
-                found_subset.append(study)
             if not normalized:
                 continue
             job = RetrievalJob.objects.create(
                 node=batch.node, patient=item.patient,
-                created_by=request.user, selections=normalized,
-                studies_found=found_subset, batch=batch,
+                created_by=request.user, batch=batch,
             )
+            # Create study + series rows
+            study_objs = []
+            for entry in normalized:
+                suid = entry['study_instance_uid']
+                study_meta = known.get(suid, {})
+                study_objs.append(RetrievalJobStudy(
+                    job=job,
+                    study_instance_uid=suid,
+                    remote_patient_id=entry.get('remote_patient_id'),
+                    study_date=_parse_dicom_date(study_meta.get('study_date')),
+                    study_description=study_meta.get('study_description'),
+                    modalities=study_meta.get('modalities'),
+                    accession_number=study_meta.get('accession_number'),
+                ))
+            RetrievalJobStudy.objects.bulk_create(study_objs)
+            # Series
+            for entry in normalized:
+                series_uids = entry.get('series_instance_uids')
+                if series_uids:
+                    job_study = job.studies.get(
+                        study_instance_uid=entry['study_instance_uid'],
+                    )
+                    RetrievalJobSeries.objects.bulk_create([
+                        RetrievalJobSeries(study=job_study, series_instance_uid=su)
+                        for su in series_uids
+                    ])
             item.selected = True
             item.job = job
             item.save(update_fields=['selected', 'job'])

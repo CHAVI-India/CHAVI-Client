@@ -506,10 +506,13 @@ class BulkViewTests(BulkRetrievalTestCase):
         self.assertEqual(resp.status_code, 200, resp.content)
         job = RetrievalJob.objects.get()
         self.assertEqual(job.batch, batch)
+        study = job.studies.get()
+        self.assertEqual(study.study_instance_uid, '1.2')
+        self.assertEqual(study.remote_patient_id, 'X')
         self.assertEqual(
-            job.selections[0]['series_instance_uids'], ['s1'],
+            list(study.series.values_list('series_instance_uid', flat=True)),
+            ['s1'],
         )
-        self.assertEqual(job.selections[0]['remote_patient_id'], 'X')
         item.refresh_from_db()
         self.assertTrue(item.selected)
         self.assertEqual(item.job, job)
