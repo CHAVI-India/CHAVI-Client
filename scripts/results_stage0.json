@@ -1,0 +1,127 @@
+{
+  "config": "R3",
+  "precision": "P1",
+  "agg": [
+    4,
+    4,
+    1
+  ],
+  "rows": [
+    {
+      "doc": "AB-SYNTH clinical note (discharge summary)",
+      "leaks": [
+        "Patia"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 4.0
+    },
+    {
+      "doc": "AB-SYNTH radiology report (CT staging)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.5
+    },
+    {
+      "doc": "AB-SYNTH pathology report (histopathology)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.8
+    },
+    {
+      "doc": "AB-FIELD cardiology note (CCF)",
+      "leaks": [],
+      "lost": [
+        "61/F"
+      ],
+      "unshifted": [],
+      "time": 3.0
+    },
+    {
+      "doc": "AB-FIELD ortho discharge summary",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.7
+    },
+    {
+      "doc": "AB-FIELD medicine note (enteric fever)",
+      "leaks": [
+        "Sitapur"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.8
+    },
+    {
+      "doc": "AB-FIELD surgical oncology note",
+      "leaks": [],
+      "lost": [
+        "F/46"
+      ],
+      "unshifted": [],
+      "time": 2.9
+    },
+    {
+      "doc": "AB-FIELD TATA OPD + IP admission note",
+      "leaks": [
+        "Garia"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 3.3
+    },
+    {
+      "doc": "AB-FIELD district hospital medicine note",
+      "leaks": [],
+      "lost": [
+        "07:45"
+      ],
+      "unshifted": [],
+      "time": 2.8
+    },
+    {
+      "doc": "AB-FIELD radiation oncology note (cervical Ca)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.8
+    },
+    {
+      "doc": "AB-FIELD surgical oncology (colon, name variant)",
+      "leaks": [
+        "Dey"
+      ],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.9
+    },
+    {
+      "doc": "AB-FIELD paediatric oncology note",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 7.3
+    },
+    {
+      "doc": "AB-FIELD day-care follow-up (name variant)",
+      "leaks": [],
+      "lost": [
+        "61/M"
+      ],
+      "unshifted": [
+        "2023"
+      ],
+      "time": 2.9
+    },
+    {
+      "doc": "AB-FIELD radiology CECT (name = city)",
+      "leaks": [],
+      "lost": [],
+      "unshifted": [],
+      "time": 2.2
+    }
+  ]
+}
