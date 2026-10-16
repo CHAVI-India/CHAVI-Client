@@ -35,9 +35,9 @@
         {% endfill %}
     {% endcomponent %}
 
-    {% if job.studies_found %}
+    {% if job.studies.exists %}
     {% component "card" extra_class="mb-6" %}
-        {% fill "header" %}<h3 class="text-lg font-semibold text-gray-900">Studies ({{ job.studies_found|length }})</h3>{% endfill %}
+        {% fill "header" %}<h3 class="text-lg font-semibold text-gray-900">Studies ({{ job.studies.count }})</h3>{% endfill %}
         {% fill "body" %}
         {% component "table" %}
             {% fill "head" %}
@@ -45,14 +45,20 @@
                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Description</th>
                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Modalities</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
             {% endfill %}
             {% fill "body" %}
-                {% for s in job.studies_found %}
+                {% for s in job.studies.all %}
                 <tr>
                     <td class="px-6 py-4 text-sm font-mono text-xs">{{ s.study_instance_uid|truncatechars:45 }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.study_date }}</td>
-                    <td class="px-6 py-4 text-sm">{{ s.study_description }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.modalities }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.study_date|default:"-" }}</td>
+                    <td class="px-6 py-4 text-sm">{{ s.study_description|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">{{ s.modalities|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if s.status == 'done' %}{{ s.completed }}/{{ s.completed|add:s.failed }}
+                        {% elif s.status == 'failed' %}Failed
+                        {% else %}-{% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             {% endfill %}

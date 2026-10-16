@@ -1,4 +1,5 @@
 """Frontend tests: permission gating, config/node management, retrieval dispatch."""
+from datetime import date
 from unittest import mock
 
 from django.contrib.auth.models import Permission, User
@@ -7,7 +8,7 @@ from django.urls import reverse
 
 from client_app.models import Patient, SiteConfiguration
 from dicom_server.models import (
-    DICOMServerConfiguration, RemoteDICOMNode, RetrievalJob,
+    DICOMServerConfiguration, RemoteDICOMNode, RetrievalJob, RetrievalJobStudy,
 )
 
 
@@ -290,10 +291,11 @@ class TestJobPages(DicomFrontendTestCase):
         job = RetrievalJob.objects.create(
             node=self.node, patient=self.patient, created_by=self.perm_user,
             status=RetrievalJob.Status.SUCCESS, instances_received=3,
-            studies_found=[{
-                'study_instance_uid': '1.2.3.4', 'study_date': '20240101',
-                'study_description': 'CT Chest', 'modalities': 'CT',
-            }],
+        )
+        RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.2.3.4',
+            study_date=date(2024, 1, 1), study_description='CT Chest',
+            modalities='CT', status='done', completed=3,
         )
         self.client.force_login(self.perm_user)
         resp = self.client.get(reverse('dicom_server:job_detail', args=[job.pk]))

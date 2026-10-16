@@ -4,6 +4,7 @@ from unfold.admin import ModelAdmin
 from dicom_server.models import (
     DICOMServerConfiguration, RemoteDICOMNode, InboundDICOMInstance,
     PatientIDAlias, AutoRetrievalState, RetrievalJob,
+    RetrievalJobSeries, RetrievalJobStudy,
     RetrievalBatch, RetrievalBatchPatient,
 )
 from dicom_server.services import qr_client
@@ -96,11 +97,20 @@ class InboundDICOMInstanceAdmin(ModelAdmin):
         return False
 
 
+class RetrievalJobStudyInline(admin.TabularInline):
+    model = RetrievalJobStudy
+    extra = 0
+    readonly_fields = ['study_instance_uid', 'remote_patient_id', 'study_date',
+                       'study_description', 'modalities', 'status',
+                       'completed', 'failed', 'warning']
+
+
 @admin.register(RetrievalJob)
 class RetrievalJobAdmin(ModelAdmin):
     list_display = ['pk', 'patient', 'node', 'status', 'instances_received', 'created_by', 'created_at']
     list_filter = ['status', 'node']
-    readonly_fields = [f.name for f in RetrievalJob._meta.fields]
+    readonly_fields = [f.name for f in RetrievalJob._meta.fields if f.name not in ('study_uids', 'selections', 'item_results', 'studies_found')]
+    inlines = [RetrievalJobStudyInline]
 
     def has_add_permission(self, request):
         return False
