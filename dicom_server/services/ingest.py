@@ -11,7 +11,7 @@ from pydicom.dataset import Dataset
 from client_app.models import (
     Patient, DICOMStudy, DICOMSeries, DICOMInstance, _make_canonical_id,
 )
-from dicom_server.models import InboundDICOMInstance, PatientIDAlias
+from dicom_server.models import InboundDICOMInstance, PatientIDAlias, RetrievalJob, RetrievalJobStudy
 from dicom_server.services.classifier import classify_study
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,19 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
     if not study_uid or not sop_uid:
         return reject(STATUS_MISSING_ATTRIBUTE, 'Missing StudyInstanceUID or SOPInstanceUID')
 
-    patient = find_patient(raw_patient_id)
+    # Resolve patient: prefer the running retrieval job (authoritative),
+    # fall back to find_patient for unsolicited C-STOREs.
+    job_study = (
+        RetrievalJobStudy.objects
+        .filter(study_instance_uid=study_uid, job__status=RetrievalJob.Status.RUNNING)
+        .select_related('job__patient')
+        .first()
+    )
+    if job_study:
+        patient = job_study.job.patient
+    else:
+        patient = find_patient(raw_patient_id)
+
     if patient is None:
         return reject(STATUS_UNKNOWN_PATIENT, f'Unknown PatientID {raw_patient_id}')
     if not patient.chavi_consent:

@@ -336,3 +336,37 @@ class CMovePatientIDFlowTests(TransactionTestCase):
             self.assertEqual(dcm_path.parent.parent.name, sanitize(self.patient.patient_id))
         finally:
             pacs.shutdown()
+
+    def test_ingest_uses_running_job_patient_not_find_patient(self):
+        """When a RUNNING job exists for the study, ingest uses that job's
+        patient directly — even if find_patient would resolve differently."""
+        from dicom_server.services.ingest import ingest_dataset
+        from dicom_server.models import RetrievalJob, RetrievalJobStudy
+
+        # Create a second patient that find_patient would match (exact match)
+        other_patient = Patient.objects.create(patient_id='xx_12345', gender='Female')
+        Patient.objects.filter(pk=other_patient.pk).update(chavi_consent=True)
+
+        # The running job says this study belongs to self.patient (MR/xx/12345)
+        node = RemoteDICOMNode.objects.create(
+            name='n', ae_title='TEST', host='127.0.0.1',
+        )
+        job = RetrievalJob.objects.create(
+            node=node, patient=self.patient, status=RetrievalJob.Status.RUNNING,
+        )
+
+        ds = make_test_dataset(patient_id='xx_12345')
+        RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid=ds.StudyInstanceUID,
+            remote_patient_id='xx_12345',
+        )
+
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0x0000)
+        # File should be stored under the JOB's patient, not the other one
+        self.assertEqual(result.patient, self.patient)
+
+        # Verify the file on disk has the job's patient ID
+        from pydicom import dcmread
+        ds_disk = dcmread(result.file_path)
+        self.assertEqual(ds_disk.PatientID, self.patient.patient_id)
