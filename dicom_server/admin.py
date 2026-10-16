@@ -109,7 +109,7 @@ class RetrievalJobStudyInline(admin.TabularInline):
 class RetrievalJobAdmin(ModelAdmin):
     list_display = ['pk', 'patient', 'node', 'status', 'instances_received', 'created_by', 'created_at']
     list_filter = ['status', 'node']
-    readonly_fields = [f.name for f in RetrievalJob._meta.fields if f.name not in ('study_uids', 'selections', 'item_results', 'studies_found')]
+    readonly_fields = [f.name for f in RetrievalJob._meta.fields]
     inlines = [RetrievalJobStudyInline]
 
     def has_add_permission(self, request):

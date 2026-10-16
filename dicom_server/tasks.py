@@ -826,7 +826,7 @@ def task_bulk_schedule_finalize_query(self, results, batch_id, schedule_id):
                     RetrievalJobSeries(study=job_study, series_instance_uid=suid2)
                     for suid2 in series_uids
                 ])
-        # Store studies_found metadata (C-FIND data for display)
+        # Populate C-FIND metadata onto the study/series rows (for display)
         chosen_uids = {e['study_instance_uid'] for e in entries}
         found_subset = [
             s for s in (row.studies or [])

@@ -204,27 +204,9 @@ class RetrievalJob(models.Model):
     patient = models.ForeignKey('client_app.Patient', on_delete=models.PROTECT, related_name='retrieval_jobs')
     created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
-    study_uids = models.JSONField(
-        null=True, blank=True,
-        help_text="Requested Study Instance UIDs (null = all studies found for the patient)",
-    )
-    selections = models.JSONField(
-        null=True, blank=True,
-        help_text='[{"study_instance_uid": ..., "series_instance_uids": [...]|null, '
-                  '"remote_patient_id": ...}] — null series list = whole study. '
-                  'Takes precedence over study_uids.',
-    )
-    item_results = models.JSONField(
-        null=True, blank=True,
-        help_text='Per-study/series outcome log: [{study_instance_uid, '
-                  'series_instance_uid|null, status, completed, failed, ...}]',
-    )
     batch = models.ForeignKey(
         'RetrievalBatch', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='jobs',
-    )
-    studies_found = models.JSONField(
-        null=True, blank=True, help_text="Study-level C-FIND results",
     )
     instances_received = models.IntegerField(default=0)
     celery_task_id = models.CharField(max_length=255, blank=True, default='')

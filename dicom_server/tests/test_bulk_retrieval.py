@@ -152,11 +152,10 @@ class BatchModelTests(BulkRetrievalTestCase):
         batch = RetrievalBatch.objects.create(node=self.node)
         job = RetrievalJob.objects.create(
             node=self.node, patient=patient, batch=batch,
-            selections=[{'study_instance_uid': '1.2.3',
-                         'series_instance_uids': None}],
         )
+        RetrievalJobStudy.objects.create(job=job, study_instance_uid='1.2.3')
         self.assertEqual(batch.jobs.count(), 1)
-        self.assertEqual(job.selections[0]['study_instance_uid'], '1.2.3')
+        self.assertEqual(job.studies.first().study_instance_uid, '1.2.3')
 
 
 class FormTests(BulkRetrievalTestCase):
@@ -337,9 +336,8 @@ class RetrieveTaskTests(BulkRetrievalTestCase):
         mock_get.side_effect = RuntimeError('boom')
         job = RetrievalJob.objects.create(
             node=self.node, patient=self.patient,
-            selections=[{'study_instance_uid': '1.1',
-                         'series_instance_uids': None}],
         )
+        RetrievalJobStudy.objects.create(job=job, study_instance_uid='1.1')
         result = task_retrieve_patient_selection(job.pk)
         self.assertEqual(result['status'], 'FAILED')
         job.refresh_from_db()
