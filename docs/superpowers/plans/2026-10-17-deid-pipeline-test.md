@@ -761,12 +761,12 @@ git commit -m "test(deid): stage 5 final result + documented recommendation"
 
 | Config      | leaks         | lost          | unshifted     | time          | note |
 | ----------- | ------------- | ------------- | ------------- | ------------- | ---- |
-| W           | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
-| W + gemma   | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
-| W + OpenMed | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
+| W           | 4             | 1             | 1             | cached        | Stanford+rules baseline |
+| W + gemma   | 1             | 1             | 1             | 394s          | recovers 3 Stanford-missed locations |
+| W + OpenMed | 2             | 1             | 1             | 120s          | recovers Mahishadal only |
 
 
-**Best recall R\*:** <!-- FILL --> — reason: <!-- FILL -->
+**Best recall R\*:** R2+gemma — reason: leaks=1 (only the name variant 'Dey'; unshifted=1 is the bare-year '2023' artifact). gemma recovers the 3 locations (Mahishadal, West Medinipur, Sitapur) that Stanford and OpenMed both miss, at zero cost to precision (lost=1) or dates (unshifted=1). OpenMed recovers only 1 of the 3 (leaks=2).
 
 ### Stage 3 — precision on R\* (T0)
 
