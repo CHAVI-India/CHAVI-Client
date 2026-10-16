@@ -35,7 +35,8 @@
                         {% url 'client_app:homepage' as nav_home %}
                         {% url 'data_import:session_list' as nav_csv %}
                         {% url 'client_app:bulk_dicom_upload' as nav_dicom_up %}
-                        {% url 'client_app:bulk_dicom_session_list' as nav_dicom_sessions %}
+                        {% url 'dicom_server:retrieve' as nav_dicom_import_single %}
+                        {% url 'dicom_server:retrieve_bulk' as nav_dicom_import_bulk %}
                         {% url 'dicom_server:dashboard' as nav_dicom_srv %}
                         {% url 'dicom_archive:dashboard' as nav_archive %}
                         {% url 'extractor:extraction_dashboard' as nav_ex_dash %}
@@ -54,19 +55,35 @@
                         {% component "nav_link" href=nav_home icon="fa-home" label="Home" active_on="homepage" %}{% endcomponent %}
 
                         {% if user.is_authenticated %}
-                        <!-- Data Import Dropdown -->
-                        {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.client_app.view_bulkdicomuploadsession or perms.dicom_server.view_remotedicomnode or perms.dicom_archive.view_archiveconfiguration %}
-                        {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,dicom_server,dicom_archive,bulk_dicom" %}
+                        <!-- Data Import Dropdown (clinical + DICOM sections) -->
+                        {% if perms.data_import.view_fileimportsession or perms.client_app.add_bulkdicomuploadsession or perms.dicom_server.add_retrievaljob %}
+                        {% component "nav_dropdown" icon="fa-file-import" label="Data Import" active_on="data_import,bulk_dicom,retrieve" width="w-60" %}
                             {% fill "items" %}
                             {% if perms.data_import.view_fileimportsession %}
+                            {% component "nav_dropdown_item" section="Clinical" %}{% endcomponent %}
                             {% component "nav_dropdown_item" href=nav_csv icon="fa-file-csv" label="CSV Data Import" %}{% endcomponent %}
                             {% endif %}
+                            {% if perms.client_app.add_bulkdicomuploadsession or perms.dicom_server.add_retrievaljob %}
+                            {% if perms.data_import.view_fileimportsession %}
+                            {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
+                            {% endif %}
+                            {% component "nav_dropdown_item" section="DICOM" %}{% endcomponent %}
                             {% if perms.client_app.add_bulkdicomuploadsession %}
                             {% component "nav_dropdown_item" href=nav_dicom_up icon="fa-file-medical" label="DICOM Upload" %}{% endcomponent %}
                             {% endif %}
-                            {% if perms.client_app.view_bulkdicomuploadsession %}
-                            {% component "nav_dropdown_item" href=nav_dicom_sessions icon="fa-list" label="DICOM Sessions" %}{% endcomponent %}
+                            {% if perms.dicom_server.add_retrievaljob %}
+                            {% component "nav_dropdown_item" href=nav_dicom_import_bulk icon="fa-cloud-download" label="DICOM Import (Bulk)" %}{% endcomponent %}
+                            {% component "nav_dropdown_item" href=nav_dicom_import_single icon="fa-download" label="DICOM Import (Single)" %}{% endcomponent %}
                             {% endif %}
+                            {% endif %}
+                            {% endfill %}
+                        {% endcomponent %}
+                        {% endif %}
+
+                        <!-- DICOM Configuration Dropdown -->
+                        {% if perms.dicom_server.view_remotedicomnode or perms.dicom_archive.view_archiveconfiguration %}
+                        {% component "nav_dropdown" icon="fa-sliders-h" label="DICOM Config" active_on="dicom_server,dicom_archive" width="w-60" %}
+                            {% fill "items" %}
                             {% if perms.dicom_server.view_remotedicomnode %}
                             {% component "nav_dropdown_item" href=nav_dicom_srv icon="fa-network-wired" label="DICOM Server" %}{% endcomponent %}
                             {% endif %}

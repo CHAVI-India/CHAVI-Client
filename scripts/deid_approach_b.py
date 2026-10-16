@@ -462,61 +462,43 @@ def review_deid(content, shift, S, RecognizerResult, llm_chat, verbose=False,
 # ---------------------------------------------------------------------------
 # Approach E: System-1 (Jev-style) per-tag judge.
 #
-#   Local decision model (nimble) answers, per spaCy candidate tag, whether
-#   the span is PHI (noul) and, if so, its type (serial noul questions, spaCy's
-#   own type first). It sees the tag plus the surrounding sentences, so it
-#   keeps clinical terms / durations / ages and redacts real PII — replacing
-#   the brittle clinical-regex filter. Dates are shifted in code.
+#   The local decision model (nimble) answers ONE noul question per spaCy
+#   candidate tag. It sees the tag plus its immediate context, so it keeps
+#   clinical terms / durations / ages and redacts real PII — replacing the
+#   brittle clinical-regex filter. There are no Stage-2 type questions: a
+#   de-identified span keeps spaCy's own type. Dates are shifted in code.
 #
-#   Two stages per tag:
-#     DATE_TIME  -> 1 noul: "calendar date?"  (yes=shift in code, no=keep)
-#     other      -> Stage 1 noul: "is this PHI?"  (no=keep)
-#                   Stage 2 noul: serial type questions, spaCy type first
+#   One question per tag:
+#     DATE_TIME  -> "does the marked value represent a duration/age?"
+#                   YES -> keep;   NO -> it is a date, code shifts it.
+#     other      -> "is this PHI?"   NO -> keep;   YES -> deidentify (spaCy
+#                   type).
 # ---------------------------------------------------------------------------
 
 SYSTEMONE_URL = 'http://localhost:11434/v1/systemone'
 SYSTEMONE_MODEL = 'nimble'
 PHI_THRESHOLD = 0.5     # noul >= this -> deidentify
-TYPE_THRESHOLD = 0.25   # min noul to trust a Stage-2 type answer
 
-CAT_ORDER = ['PERSON', 'LOCATION', 'ORGANIZATION', 'PHONE', 'ID', 'DATE_TIME']
+IS_DURATION_QUESTION = (
+    'Look only at the text inside the «...» marks. As a standalone value, '
+    'does the marked text express a length of time (e.g. "1 month", "2 '
+    'weeks", "3-4 days", "10 days", "1 year") or a person\'s age in years '
+    '(e.g. "56 years", "61/F", "F/46")? Answer YES only if the marked text '
+    'ITSELF is a length of time or an age. Ignore words outside the marks '
+    'such as "since", "for", "W/o", "S/o". Answer NO if the marked text is a '
+    'calendar date or year (e.g. "2015", "01/02/2024", "1.2.24", "2/2") or '
+    'anything else.')
 
-CAT_Q = {
-    'PERSON': ('a person\'s name (the patient, a relative, or a doctor/staff '
-               'member)?'),
-    'LOCATION': ('a location or address (village, town, city, state, street, '
-                 'or house)?'),
-    'ORGANIZATION': ('an organisation such as a hospital, clinic, laboratory, '
-                     'or department?'),
-    'PHONE': 'a telephone or mobile number?',
-    'ID': ('an identifier number (medical record number, Aadhaar, ABHA, PIN '
-           'code, UPI, registration/report/case number, or driving licence)?'),
-    'DATE_TIME': ('a calendar date or a specific point in time (a day, month, '
-                  'or year)?'),
-}
-
-_ID_TYPES = {
-    'MEDICAL_RECORD_NUMBER', 'IN_AADHAAR', 'IN_MOBILE_NUMBER', 'IN_PINCODE',
-    'IN_ABHA', 'IN_UPI', 'IN_DRIVING_LICENSE', 'IN_NATIONAL_ID', 'IN_PASSPORT',
-    'IN_BANK_NUMBER', 'IN_IBAN', 'IN_SOCIAL_SECURITY_NUMBER', 'IN_CREDIT_CARD',
-    'PATIENT_ID',
-}
-
-
-def _spacy_to_cat(etype):
-    if etype == 'PERSON':
-        return 'PERSON'
-    if etype == 'LOCATION':
-        return 'LOCATION'
-    if etype == 'ORGANIZATION':
-        return 'ORGANIZATION'
-    if etype in ('PHONE_NUMBER', 'IN_MOBILE_NUMBER'):
-        return 'PHONE'
-    if etype in _ID_TYPES:
-        return 'ID'
-    if etype == 'DATE_TIME':
-        return 'DATE_TIME'
-    return 'ID'
+IS_PHI_QUESTION = (
+    'Is the span marked «...» personally identifiable or private medical '
+    'information that should be de-identified from this clinical note? Count '
+    'it as PHI only if it is a person\'s name, a location/address, an '
+    'organisation, a phone or ID number, or a calendar date. Do NOT count it '
+    'if it is a diagnosis or disease ("DM", "CCF", "Hypertension"), a '
+    'medication or drug ("Tab Amlodipine 5", "Tramadol", "Ceftriaxone"), a '
+    'dose, a lab value, a vital sign ("SpO2", "BP", "HR"), a clinical role '
+    '("Attendant", "Doctor", "Nurse"), a duration/interval, or an age. If it '
+    'is a medical term, answer NO.')
 
 
 def _so_post(state, questions):
@@ -533,59 +515,46 @@ def _so_noul(answers, name):
     return float(answers.get(name, {}).get('noul', 0.0))
 
 
-def _build_context(text, start, end):
-    """The tag plus surrounding sentences, with the span marked «...»."""
+def _build_context(text, start, end, window=90):
+    """The tag plus immediate context, with the span marked «...».
+
+    window = chars on each side. Two sizes are used deliberately:
+      PHI question     -> 90: keeps the disambiguating sentence while a
+          larger window would swallow other PII from neighbouring lines and
+          bias the model toward "yes, PHI" for clinical terms.
+      Duration question -> 40: the value is date-specific; a wider window
+          pulls in other dates/durations that bias the answer (e.g. "since
+          2015" near "10 days" reads as a duration; "61/F" near "1.2.24"
+          reads as a date). A tight window avoids that.
+    """
     surf = text[start:end]
-    ws = max(0, start - 250)
-    we = min(len(text), end + 250)
+    ws = max(0, start - window)
+    we = min(len(text), end + window)
     excerpt = text[ws:we]
     rel = start - ws
     return excerpt[:rel] + '«' + surf + '»' + excerpt[rel + len(surf):]
 
 
 def judge_tag(text, start, end, spacy_type):
-    """Judge one spaCy candidate tag. Returns (presidio_type_or_None, p, calls).
-    None == 'keep, do not de-identify'."""
-    state = {'excerpt': _build_context(text, start, end)}
-    cat = _spacy_to_cat(spacy_type)
-    if cat == 'DATE_TIME':
-        # One question: real date (-> code shifts) vs duration/age (-> keep).
-        ans = _so_post(state, {'is_date': {
-            'type': 'noul',
-            'instructions': ('Is the span marked «...» a calendar date or a '
-                             'specific point in time (a day, month, or year) '
-                             '— as opposed to a duration/interval such as '
-                             '"1 month" or an age such as "56 years"?')}})
-        p = _so_noul(ans, 'is_date')
-        return ('DATE_TIME' if p >= PHI_THRESHOLD else None, p, 1)
-    # Stage 1: is this PHI that should be de-identified?
-    ans1 = _so_post(state, {'is_phi': {
-        'type': 'noul',
-        'instructions': ('Is the span marked «...» personally identifiable or '
-                         'private medical information that should be '
-                         'de-identified from this clinical note? Names of '
-                         'people, locations/addresses, organisations, phone '
-                         'or ID numbers, and calendar dates count. Diagnoses, '
-                         'medications, doses, lab values, vitals, '
-                         'durations/intervals, and ages do not.')}})
-    p = _so_noul(ans1, 'is_phi')
+    """Judge one spaCy candidate tag with ONE noul question. Returns
+    (presidio_type_or_None, p, calls). None == 'keep, do not de-identify'.
+      DATE_TIME -> 'does the marked value represent a duration/age?'
+                   YES -> keep;  NO -> it is a date, code shifts it.
+      other     -> 'is this PHI?'  NO -> keep;  YES -> deidentify using the
+                   original spaCy type (no further type questions)."""
+    state = {'excerpt': _build_context(text, start, end, window=40)}
+    if spacy_type == 'DATE_TIME':
+        ans = _so_post(state, {'is_duration': {
+            'type': 'noul', 'instructions': IS_DURATION_QUESTION}})
+        p = _so_noul(ans, 'is_duration')
+        return (None if p >= PHI_THRESHOLD else 'DATE_TIME', p, 1)
+    state = {'excerpt': _build_context(text, start, end, window=90)}
+    ans = _so_post(state, {'is_phi': {
+        'type': 'noul', 'instructions': IS_PHI_QUESTION}})
+    p = _so_noul(ans, 'is_phi')
     if p < PHI_THRESHOLD:
         return (None, p, 1)
-    # Stage 2: serial type questions, spaCy's own type first.
-    order = [cat] + [c for c in CAT_ORDER if c != cat]
-    q2 = {f't_{c}': {'type': 'noul',
-                     'instructions': 'Is the span marked «...» ' + CAT_Q[c]}
-          for c in order}
-    ans2 = _so_post(state, q2)
-    scores = {c: _so_noul(ans2, f't_{c}') for c in order}
-    best = max(scores, key=scores.get)
-    if scores[best] < TYPE_THRESHOLD:
-        best = cat  # not confident -> trust spaCy's type
-    if best == 'ID':
-        return (spacy_type, p, 2)      # keep the specific ID subtype
-    if best == 'PHONE':
-        return ('PHONE_NUMBER', p, 2)
-    return (best, p, 2)
+    return (spacy_type, p, 1)
 
 
 def systemone_deid(content, shift, S, RecognizerResult, verbose=False):
@@ -626,15 +595,73 @@ def systemone_deid(content, shift, S, RecognizerResult, verbose=False):
     return out, calls, len(cands) - len(results)
 
 
+def apipe_nimble_deid(content, shift, S, RecognizerResult, llm_rec,
+                      verbose=False):
+    """A-prime pipeline (spaCy NER + rules + gemma NER candidates) -> the
+    local System-1 judge (nimble) decides each NON-date span with one noul
+    question ("is this PHI?"). DATE_TIME/DATE spans are skipped for nimble
+    entirely and handled in code via the production date filter (drops
+    durations/ages, keeps real calendar dates which are then shifted). Repeated
+    occurrences propagated; dates shifted in code.
+    """
+    from django.conf import settings
+    analyzer = S._get_llm_analyzer()
+    thr = getattr(settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35)
+    raw = analyzer.analyze(text=content, language='en', score_threshold=thr,
+                           ad_hoc_recognizers=[llm_rec])
+    seen, cands = set(), []
+    for r in raw:
+        key = (r.start, r.end)
+        if key in seen:
+            continue
+        seen.add(key)
+        cands.append(r)
+    kept, calls = [], 0
+    for r in cands:
+        if r.entity_type in ('DATE_TIME', 'DATE'):
+            # Skip nimble; production date filter drops durations/ages and
+            # keeps real dates (shifted in code).
+            if S._filter_results(content, [r]):
+                kept.append(r)
+            continue
+        state = {'excerpt': _build_context(content, r.start, r.end, window=90)}
+        ans = _so_post(state, {'is_phi': {
+            'type': 'noul', 'instructions': IS_PHI_QUESTION}})
+        p = _so_noul(ans, 'is_phi')
+        calls += 1
+        if verbose:
+            print(f'    [judge {r.entity_type:22s} '
+                  f'{content[r.start:r.end]!r:26s} '
+                  f'p={p:.2f} -> {"DEID" if p >= PHI_THRESHOLD else "keep"}]')
+        if p >= PHI_THRESHOLD:
+            kept.append(r)
+    spans = [{'type': r.entity_type, 'start': r.start, 'end': r.end,
+              'score': 0.9} for r in kept]
+    spans = propagate_spans(content, spans)
+    results = [RecognizerResult(entity_type=s['type'], start=s['start'],
+                                end=s['end'], score=s.get('score', 0.9))
+               for s in spans]
+    results = S._resolve_overlaps(results)
+    repl = []
+    out = S._apply_replacements(content, results, shift, {}, repl)
+    if verbose:
+        print(f'    [apipe: cands={len(cands)} kept={len(results)} '
+              f'nimble_calls={calls}]')
+    return out, calls, len(cands) - len(results)
+
+
 def run():
     ap = argparse.ArgumentParser()
     ap.add_argument('--engine', default='llm',
-                    choices=['llm', 'openmed', 'review', 'union', 'systemone'],
+                    choices=['llm', 'openmed', 'review', 'union', 'systemone',
+                            'apipe'],
                     help='llm = multi-pass gemma; openmed = single-pass '
                          'clinical NER; review = spaCy+rules base + LLM '
                          'reviewer; union = spaCy+rules+OpenMed union; '
                          'systemone = spaCy+rules candidates, per-tag nimble '
-                         'System-1 judge (dates in code)')
+                         'judge (dates in code); apipe = A-prime '
+                         '(spaCy+rules+gemma NER) + nimble judge on non-date '
+                         'spans, dates in code')
     ap.add_argument('--passes', type=int, default=3,
                     help='max passes (llm engine only; 1 = baseline)')
     ap.add_argument('--no-safenet', action='store_true')
@@ -742,6 +769,17 @@ def run():
 
         eng_desc = ('systemone (spaCy+rules candidates, per-tag nimble '
                     'judge with context; replaces clinical filter)')
+    elif args.engine == 'apipe':
+        from extractor.services.llm_ner import LlmNerRecognizer
+        apipe_cfg = ClientConfiguration.objects.get(
+            llm_model_name='gemma4:e2b')
+        apipe_llm_rec = LlmNerRecognizer(apipe_cfg)
+
+        def identify(_text):
+            raise NotImplementedError  # apipe path does not use identify()
+
+        eng_desc = ('apipe (A-prime: spaCy+rules+gemma NER candidates -> '
+                    'nimble judge on non-date spans; dates in code)')
 
     print(f'Approach ({eng_desc}) | '
           f'safenet={"on" if use_safenet else "off"} docs={len(docs)}')
@@ -782,6 +820,10 @@ def run():
         elif args.engine == 'systemone':
             out, calls, extra = systemone_deid(
                 content, shift, S, RecognizerResult,
+                verbose=not args.quiet)
+        elif args.engine == 'apipe':
+            out, calls, extra = apipe_nimble_deid(
+                content, shift, S, RecognizerResult, apipe_llm_rec,
                 verbose=not args.quiet)
         else:
             span_list, calls, _passes_used, extra, _t0 = identify(content)
