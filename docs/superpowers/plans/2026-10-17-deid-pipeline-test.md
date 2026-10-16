@@ -773,20 +773,27 @@ git commit -m "test(deid): stage 5 final result + documented recommendation"
 
 | Config                 | leaks         | lost          | unshifted     | time          | note |
 | ---------------------- | ------------- | ------------- | ------------- | ------------- | ---- |
-| P1 (production filter) | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
-| P2 (nimble judge)      | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> |      |
+| P1 (production filter) | 1             | 1             | 1             | instant       | per-doc identical to P2 |
+| P2 (nimble judge)      | 1             | 1             | 1             | 1736s (~29m)  | nimble makes the same decisions |
 
 
-**Best precision P\*:** <!-- FILL --> — reason: <!-- FILL -->
+**Best precision P\*:** P1 (production filter) — reason: **tie with P2**, and the per-doc results are *identical* (same leaks/lost/unshifted on every note). On this candidate set the nimble System-1 judge redacts exactly what the production filter redacts. Tie-break to P1: it is instant, fully deterministic, needs no Ollama/`nimble`, and is the already-shipped mechanism. (Nimble is retained as a viable fallback — e.g. if the clinical regex bag were retired.)
 
 ### Stage 5 — assembled (R\* + P\* + T0)
 
 
-| Config    | leaks         | lost          | unshifted     | time          | note               |
-| --------- | ------------- | ------------- | ------------- | ------------- | ------------------ |
-| R\* + P\* | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | <!-- FILL --> | vs shipped default |
+| Config    | leaks         | lost          | unshifted     | time          | vs shipped default      |
+| --------- | ------------- | ------------- | ------------- | ------------- | ----------------------- |
+| R\* + P\* | 1             | 1             | 1             | ~6.5m (gemma) | beats R3+P1+T0 (4,4,1) |
 
 
 ### Recommendation
 
-<!-- FILL: the recommended (R*, P*), its (leaks, lost, unshifted), the trade-offs vs the alternatives (recall vs clinical precision vs dates), and whether to replace the shipped default R3+P1+T0. Note any gemma-specific issues (name+age span merging, short-date interference) if gemma is in the winner. -->
+**Recommended pipeline: `R2 + gemma + P1 + T0`** = Stanford NER + rules + `gemma4:e2b` NER (ad-hoc) for recall, the **production clinical filter** (P1) for precision, and **code-based dates** (T0).
+
+- **Result:** `leaks=1, lost=1, unshifted=1` — the single best of every config tested.
+- **vs the shipped default** (`R3+P1+T0` = spaCy+Stanford+rules, `leaks=4, lost=4, unshifted=1`): **strictly better on leaks (4→1) and lost (4→1), tied on unshifted.**
+- **Why it wins:** Stanford (R2) is a precise clinical NER that already matches the spaCy+Stanford union's PII recall with far fewer false clinical terms (lost 1 vs 4). Adding **gemma** recovers the locations Stanford misses (Mahishadal, West Medinipur, Sitapur), cutting leaks 4→1, while the production filter keeps that low lost=1. OpenMed is a weaker LLM addition here (recovers only 1 of the 3 missed locations → leaks=2).
+- **Remaining (known, minor) gaps:** the 1 leak is the surname variant `Dey` (a name-initial/variant case no detector reliably catches); the 1 unshifted is the bare year `2023` (a bare year shifted by +15 days stays `2023` — a scoring artifact, not a real unshifted full date).
+- **Precision mechanism (P1 vs P2):** the nimble System-1 judge is **per-doc identical** to the production filter on this candidate set, so it is not *needed* for accuracy — but it is a strong, regex-free fallback if the clinical-regex bag is ever retired.
+- **Trade-off / cost of adopting:** `R2+gemma` requires the local `gemma4:e2b` Ollama model and a `ClientConfiguration` row (CPU-only, within the constraint). It adds per-document NER latency (~40 s/note) — **latency is out of scope for this decision**. Recommend making `R2+gemma+P1+T0` the **default de-identification pipeline** (fall back to `R2+P1+T0` when a local LLM is unavailable), keeping `R3+P1+T0` as the no-LLM baseline.
