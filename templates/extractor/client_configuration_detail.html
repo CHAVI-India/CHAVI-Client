@@ -297,6 +297,17 @@ function getCookie(name) {
     return cookieValue;
 }
 
+// Read the CSRF token from the server-rendered hidden input (present via
+// {% csrf_token %} on this page). This is robust to the custom
+// CSRF_COOKIE_NAME setting — reading document.cookie by the default
+// 'csrftoken' name returns null because this project names it
+// 'chaviclient_csrftoken'.
+function getCsrfToken() {
+    const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (el && el.value) return el.value;
+    return getCookie('chaviclient_csrftoken') || getCookie('csrftoken') || '';
+}
+
 function closeTestModal() {
     document.getElementById('test-modal').classList.add('hidden');
 }
@@ -341,7 +352,7 @@ async function testConnection() {
         const response = await fetch('{% url "extractor:client_configuration_test_connection" configuration.id %}', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
+                'X-CSRFToken': getCsrfToken(),
                 'Content-Type': 'application/json',
             },
         });
@@ -448,7 +459,7 @@ async function discoverCapabilities() {
         const response = await fetch('{% url "extractor:client_configuration_discover_capabilities" configuration.id %}', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
+                'X-CSRFToken': getCsrfToken(),
                 'Content-Type': 'application/json',
             },
         });
@@ -533,7 +544,7 @@ async function setReasoning() {
     const response = await fetch('{% url "extractor:client_configuration_set_reasoning" configuration.id %}', {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
+            'X-CSRFToken': getCsrfToken(),
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ reasoning_effort: value }),

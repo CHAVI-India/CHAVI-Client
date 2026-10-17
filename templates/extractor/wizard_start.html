@@ -107,6 +107,7 @@
     {% endcomponent %}
 </div>
 
+<div style="display:none">{% csrf_token %}</div>
 <script>
 function getCookie(name) {
     let cookieValue = null;
@@ -121,6 +122,14 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+// Read the CSRF token from the server-rendered hidden input ({% csrf_token %}
+// above). Robust to the custom CSRF_COOKIE_NAME setting ('chaviclient_csrftoken').
+function getCsrfToken() {
+    const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (el && el.value) return el.value;
+    return getCookie('chaviclient_csrftoken') || getCookie('csrftoken') || '';
 }
 
 function addProgressLog(message, type = 'info') {
@@ -175,7 +184,7 @@ async function startSchemaRefresh() {
         const response = await fetch('{% url "extractor:wizard_start_refresh_schema" %}', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
+                'X-CSRFToken': getCsrfToken(),
                 'Content-Type': 'application/json',
             },
         });
