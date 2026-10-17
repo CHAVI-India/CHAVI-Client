@@ -481,7 +481,7 @@ def deidentify_processed_text_task(self, task_id, processed_text_id,
     the default deid configuration).
     """
     from django.conf import settings
-    from extractor.models import ProcessedText
+    from extractor.models import ProcessedText, TextDeidentificationPipelineConfig
     from extractor.services.text_deidentification import TextDeidentificationService
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -499,9 +499,11 @@ def deidentify_processed_text_task(self, task_id, processed_text_id,
         pt = ProcessedText.objects.select_related(
             'file_upload__patient_id').get(id=processed_text_id)
         user = User.objects.filter(id=user_id).first() if user_id else None
+        pipeline = (TextDeidentificationPipelineConfig.objects
+                    .filter(id=pipeline_id).first() if pipeline_id else None)
         new_version = TextDeidentificationService.deidentify(
             pt, user=user, backend=backend,
-            client_config_id=client_config_id, pipeline_id=pipeline_id)
+            client_config_id=client_config_id, pipeline=pipeline)
         if new_version is None:
             task.mark_complete({'success': True, 'skipped': 'already deidentified'})
             return

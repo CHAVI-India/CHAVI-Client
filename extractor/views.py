@@ -1467,6 +1467,12 @@ def processed_text_deid_review(request, processed_id):
 
     content = FileProcessorService.get_processed_content(processed_text)
 
+    # Original (pre-deid) source text, for side-by-side verification.
+    original_content = ''
+    source = processed_text.deidentified_source
+    if source is not None:
+        original_content = FileProcessorService.get_processed_content(source)
+
     # Live tag inventory: regex over the current content so manual edits are
     # reflected without storing spans.
     tag_counts = {}
@@ -1482,6 +1488,7 @@ def processed_text_deid_review(request, processed_id):
     context = {
         'processed_text': processed_text,
         'content': content,
+        'original_content': original_content,
         'tag_counts': tag_counts,
         'deid_map': deid_map,
         'next': next_url,

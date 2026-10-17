@@ -159,30 +159,65 @@ class TextDeidentificationPipelineConfig(models.Model):
     bundle.
     """
     name = models.CharField(max_length=200, unique=True, blank=True,
-        help_text="Auto-generated from the chosen stages when blank; "
-                  "editable. Must be unique.")
-    slug = models.SlugField(unique=True, blank=True,
+        help_text="Human-friendly label for this pipeline, shown in the "
+                  "pipeline list. Leave blank to auto-generate one from the "
+                  "chosen stages (e.g. 'stanford-deidentifier-base · "
+                  "no-LLM · rules'). Must be unique across pipelines.")
+    slug = models.SlugField(unique=True, blank=True, max_length=200,
         help_text="Stable unique technical id, auto-derived from the name.")
 
     ner_engine = models.CharField(max_length=12,
         choices=DeidNerEngineChoices.choices,
-        default=DeidNerEngineChoices.SPACY)
+        default=DeidNerEngineChoices.SPACY,
+        help_text="Which machine detects personal information in the text. "
+                  "'spaCy (bundled)' uses the built-in detector and needs no "
+                  "further setup. Choose 'HuggingFace model' to use a "
+                  "specialized NER model instead — then fill in the model id "
+                  "in the field below. The model runs locally; only the model "
+                  "itself is downloaded from huggingface.co (on first use), "
+                  "patient text never leaves this machine.")
     hf_model_id = models.CharField(max_length=255, blank=True,
-        help_text="HuggingFace model id when the engine is a HuggingFace "
-                  "model, e.g. 'StanfordAIMI/stanford-deidentifier-base'. "
-                  "Downloaded on first use.")
+        help_text="HuggingFace model id in the form 'owner/model-name' — the "
+                  "last part of the model's URL on huggingface.co. It must be "
+                  "a token-classification (NER) model, i.e. a model trained "
+                  "to label words in text as names, dates, etc. Browse "
+                  "options at https://huggingface.co/models?pipeline_tag=token-classification . "
+                  "Recommended for clinical text: "
+                  "StanfordAIMI/stanford-deidentifier-base (https://huggingface.co/StanfordAIMI/stanford-deidentifier-base) "
+                  "or OpenMed/OpenMed-PII-SuperClinical-Large-434M-v1 "
+                  "(https://huggingface.co/OpenMed/OpenMed-PII-SuperClinical-Large-434M-v1). "
+                  "The model is downloaded automatically from huggingface.co "
+                  "the first time the pipeline runs — you do not upload or "
+                  "install anything. When you switch to a different model, "
+                  "you must also update the 'HF label map' below to match "
+                  "the new model's labels.")
     hf_token = EncryptedCharField(max_length=255, blank=True,
-        help_text="HuggingFace access token (huggingface.co/settings/tokens). "
-                  "Used to download the model and for private/gated models. "
-                  "Leave blank for public models.")
+        help_text="HuggingFace access token, only needed for private or "
+                  "gated models. Create one at "
+                  "https://huggingface.co/settings/tokens (a 'Read' token "
+                  "is enough) and paste it here. Leave blank for public "
+                  "models — the recommended clinical models are public and "
+                  "need no token. Stored encrypted.")
     hf_label_map = models.JSONField(default=deid_rules.default_hf_label_map,
         blank=True,
-        help_text="Maps the model's labels to the types this pipeline "
-                  "redacts. Pre-filled with clinical defaults.")
+        help_text="JSON that translates the NER model's own entity labels "
+                  "into the privacy types this pipeline redacts. Keys are "
+                  "the model's labels — find them on the model's page under "
+                  "config.json, in the 'id2label' list (or the 'Labels' "
+                  "table in the README). Values are the privacy types "
+                  "(e.g. PERSON, DATE_TIME, ORGANIZATION, PHONE_NUMBER, "
+                  "MEDICAL_RECORD_NUMBER). Any model label not listed here "
+                  "is ignored, so when you change the model, check that all "
+                  "its identifier labels are mapped. Pre-filled with the "
+                  "mapping for StanfordAIMI/stanford-deidentifier-base.")
     hf_threshold = models.FloatField(default=0.20,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
-        help_text="Confidence floor for the HuggingFace model (lower = "
-                  "catches more, redacts more by mistake).")
+        help_text="Confidence the NER model must reach before a match is "
+                  "redacted (0 = redact everything the model suggests, 1 = "
+                  "only its most certain matches). Lower = catches more but "
+                  "redacts more by mistake; for de-identification the "
+                  "recommended 0.20 favours over-redaction. Raise toward "
+                  "0.5 if too much normal clinical text is being redacted.")
 
     system2_model = models.ForeignKey(
         'ClientConfiguration', null=True, blank=True, on_delete=models.PROTECT,
@@ -191,8 +226,9 @@ class TextDeidentificationPipelineConfig(models.Model):
                                   deid_local_certified=True),
         help_text="Optional large language model that runs on this machine or "
                   "your local network, to help catch personal details the main "
-                  "detector misses. Cloud services are not allowed. Leave "
-                  "empty to use only the main detector.")
+                  "detector misses. Only locally-cleared System-2 models from "
+                  "'Client Configurations' are offered — cloud services are "
+                  "not allowed. Leave empty to use only the main detector.")
 
     system_1_model_integration = models.BooleanField(default=False,
         help_text="Ask a fast second-check model to review each flagged item "
@@ -204,25 +240,37 @@ class TextDeidentificationPipelineConfig(models.Model):
         related_name='deid_pipelines_s1',
         limit_choices_to=models.Q(model_type='system1'),
         help_text="Which second-check model to use. Needed only when the "
-                  "second-check option is on. An external API endpoint is "
-                  "allowed for these.")
+                  "second-check option is on above — pick a System-1 model "
+                  "from 'Client Configurations'. An external API endpoint is "
+                  "allowed for these, but the model only ever sees a small "
+                  "flagged passage, not the whole document.")
     system_1_threshold = models.FloatField(default=0.5,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
-        help_text="How confident the second-check model must be to keep an "
-                  "item redacted (0-1).")
+        help_text="How confident the second-check model must be about a "
+                  "flagged item before it is redacted (0-1). Default 0.5. "
+                  "Lower = redact when uncertain; higher = keep items the "
+                  "model is unsure about.")
     system_1_window = models.PositiveIntegerField(default=90,
         validators=[MinValueValidator(8)],
-        help_text="Surrounding text (chars each side) shown to the second-"
-                  "check model.")
+        help_text="How much surrounding text (characters on each side of the "
+                  "flagged item) is shown to the second-check model so it can "
+                  "judge context. Default 90; usually no need to change.")
     extractor_date_shift_range = models.PositiveIntegerField(
         default=90, null=True, blank=True,
-        help_text="Date shift range. A random offset within +/- this many "
-                  "days is applied to each document's real dates. Null falls "
-                  "back to the EXTRACTOR_DEID_DATE_SHIFT_RANGE setting.")
+        help_text="Each deidentified document's dates are moved by a random "
+                  "offset within +/- this many days (kept consistent per "
+                  "document so clinical timelines stay believable). 90 is a "
+                  "good default; use a larger range (e.g. 180-365) if notes "
+                  "reference long-term follow-up. Leave blank to use the "
+                  "site-wide default (EXTRACTOR_DEID_DATE_SHIFT_RANGE).")
     rules = models.JSONField(default=deid_rules.default_rules, blank=True,
-        help_text="Rules and regex patterns that decide what is redacted "
-                  "versus kept. Ships with clinical defaults; view and extend "
-                  "here. Edits apply to this pipeline only.")
+        help_text="JSON of the rules and regex patterns that decide what is "
+                  "redacted versus kept (entity types to drop, clinical-term "
+                  "allowlist, date-keep patterns, location rules). Valid JSON "
+                  "is required or saving is refused. Ships with clinical "
+                  "defaults — extend here to stop over-redaction of terms "
+                  "your hospital uses (e.g. add a ward name to "
+                  "'clinical_allowlist'). Edits apply to this pipeline only.")
     min_confidence = models.FloatField(default=0.35,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         help_text="Minimum confidence (0-1) an item must have before it is "
@@ -231,8 +279,10 @@ class TextDeidentificationPipelineConfig(models.Model):
                   "redactions).")
 
     is_default = models.BooleanField(default=False,
-        help_text="Pipeline new files use by default. Only one may be "
-                  "default.")
+        help_text="Mark to make this the pipeline new files are deidentified "
+                  "with. Only one pipeline may be the default — ticking this "
+                  "while another is default is rejected until the other is "
+                  "un-ticked.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

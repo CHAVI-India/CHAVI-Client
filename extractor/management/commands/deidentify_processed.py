@@ -53,16 +53,20 @@ class Command(BaseCommand):
             return
 
         if options['sync']:
+            from extractor.models import TextDeidentificationPipelineConfig
             from extractor.services.text_deidentification import (
                 TextDeidentificationService,
             )
+            pipeline = (TextDeidentificationPipelineConfig.objects
+                        .filter(id=options['pipeline']).first()
+                        if options['pipeline'] else None)
             done = failed = 0
             for pt in targets:
                 try:
                     if TextDeidentificationService.deidentify(
                             pt, backend=options['backend'],
                             client_config_id=options['client_config'],
-                            pipeline_id=options['pipeline']):
+                            pipeline=pipeline):
                         done += 1
                 except Exception as e:
                     failed += 1
