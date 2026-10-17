@@ -30,6 +30,7 @@ from extractor.services.deid_recognizers import (
     build_patient_recognizers,
     build_text_recognizers,
 )
+from extractor.services import deid_rules
 from extractor.services.llm_ner import LlmNerRecognizer
 from extractor.services.url_policy import is_cloud_provider, is_local_endpoint
 
@@ -86,60 +87,42 @@ class TextDeidentificationService:
     _llm_analyzer = None   # lazy singleton without HF NER (rules only)
 
     @classmethod
-    def _resolve_backend(cls, backend, client_config_id):
-        """Resolve the deid engine for a run.
-
-        Returns ('presidio', None), ('llm', ClientConfiguration) or
-        ('openmed', None). 'default'/None follows the model-based
-        default: a ClientConfiguration with enable_text_deid +
-        is_default_deid makes the LLM engine the default; otherwise the
-        existing rule-based engine (with Stanford NER when configured)
-        runs. Re-validates the chosen configuration at dispatch time so
-        a config edited after save (or a legacy row) can never be used
-        for deid.
+    def _resolve_pipeline(cls, pipeline, backend, client_config_id):
+        """Resolve (pipeline, openmed) for a run. `openmed` is 'openmed' or
+        None. `pipeline` (a TextDeidentificationPipelineConfig) wins when
+        given; otherwise `backend` is resolved: 'default' -> the default
+        pipeline, 'presidio'/'llm' -> legacy equivalents, 'openmed' -> the
+        legacy OpenMed path.
         """
-        from extractor.models import ClientConfiguration
+        from extractor.models import ClientConfiguration, \
+            TextDeidentificationPipelineConfig as P
 
-        if backend in (None, '', 'default'):
-            has_default = ClientConfiguration.objects.filter(
-                enable_text_deid=True, is_default_deid=True).exists()
-            backend = 'llm' if has_default else 'presidio'
-        if backend == 'presidio':
-            return 'presidio', None
+        if pipeline is not None:
+            return pipeline, None
+        backend = (backend or 'default')
         if backend == 'openmed':
-            return 'openmed', None
-        if backend != 'llm':
-            raise LlmDeidConfigurationError(
-                f"Unknown deid backend {backend!r} "
-                "(expected 'default', 'presidio', 'openmed' or 'llm').")
-
-        if client_config_id:
-            config = ClientConfiguration.objects.filter(
-                id=client_config_id).first()
-        else:
-            config = (
-                ClientConfiguration.objects.filter(
-                    enable_text_deid=True, is_default_deid=True).first()
-                or ClientConfiguration.objects.filter(
-                    enable_text_deid=True).first())
-        if config is None:
-            raise LlmDeidConfigurationError(
-                'No enabled text-deid configuration. Enable one on the LLM '
-                'configuration page (local model + certification).')
-        problems = []
-        if not config.enable_text_deid:
-            problems.append('text deidentification is not enabled')
-        if not config.deid_local_certified:
-            problems.append('local execution is not certified')
-        if is_cloud_provider(config.model_provider):
-            problems.append('a cloud provider is not allowed')
-        if not is_local_endpoint(config.model_base_url):
-            problems.append('the endpoint is not local')
-        if problems:
-            raise LlmDeidConfigurationError(
-                f"Client configuration '{config.llm_model_name}' is not "
-                f"usable for text deid: {'; '.join(problems)}.")
-        return 'llm', config
+            return None, 'openmed'
+        if backend in ('', 'default'):
+            default = P.objects.filter(is_default=True).first()
+            if default is None:
+                raise LlmDeidConfigurationError(
+                    'No default deidentification pipeline is configured.')
+            return default, None
+        if backend == 'presidio':
+            return P(ner_engine='hf', hf_model_id=settings.DEID_HF_NER_MODEL,
+                     hf_label_map=settings.DEID_HF_LABEL_MAP,
+                     hf_threshold=settings.DEID_HF_NER_THRESHOLD,
+                     min_confidence=getattr(
+                         settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35)), None
+        if backend == 'llm':
+            cfg = ClientConfiguration.objects.filter(id=client_config_id).first()
+            if cfg is None:
+                raise LlmDeidConfigurationError(
+                    'No configuration for the llm backend.')
+            return P(ner_engine='spacy', system2_model=cfg,
+                     min_confidence=getattr(
+                         settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35)), None
+        raise LlmDeidConfigurationError(f"Unknown deid backend {backend!r}.")
 
     @classmethod
     def _get_analyzer(cls):
@@ -227,14 +210,14 @@ class TextDeidentificationService:
     # ------------------------------------------------------------------
 
     @classmethod
-    def deidentify(cls, processed_text, user=None, backend='default',
-                   client_config_id=None):
+    def deidentify(cls, processed_text, user=None, pipeline=None,
+                   backend='default', client_config_id=None):
         """Produce a deidentified version of a ProcessedText row.
 
-        backend selects the engine: 'default' (follows the configured
-        default), 'presidio' (rules + Stanford NER when configured) or
-        'llm' (rules + local LLM NER via client_config_id or the default
-        deid configuration). Returns the new ProcessedText row, or None
+        `pipeline` (a TextDeidentificationPipelineConfig) selects the
+        pipeline; when None, `backend` is resolved (default -> the default
+        pipeline, 'presidio'/'llm' -> legacy equivalents, 'openmed' -> the
+        legacy OpenMed path). Returns the new ProcessedText row, or None
         when skipped.
         """
         from extractor.models import ProcessedText
@@ -243,35 +226,53 @@ class TextDeidentificationService:
         if processed_text.deidentified:
             return None
 
+        pipeline, openmed = cls._resolve_pipeline(
+            pipeline, backend, client_config_id)
         content = FileProcessorService.get_processed_content(processed_text)
         if not content:
             raise ValueError("Cannot read source processed text content")
 
-        backend_name, llm_config = cls._resolve_backend(
-            backend, client_config_id)
-        if backend_name == 'llm':
-            engine_mode = 'llm'
-            ner_recognizer = LlmNerRecognizer(llm_config)
-        elif backend_name == 'openmed':
-            from extractor.services.openmed_ner import OpenMedNerRecognizer
-            engine_mode = 'openmed'
-            ner_recognizer = OpenMedNerRecognizer()
-        else:
-            _, engine_mode = cls._get_analyzer()
-            ner_recognizer = None
-
-        date_range = getattr(settings, 'EXTRACTOR_DEID_DATE_SHIFT_RANGE', 100)
+        date_range = (pipeline.extractor_date_shift_range
+                      if (pipeline is not None
+                          and pipeline.extractor_date_shift_range is not None)
+                      else getattr(settings, 'EXTRACTOR_DEID_DATE_SHIFT_RANGE',
+                                   90))
         shift = random.randint(-date_range, date_range)
 
         patient = processed_text.file_upload.patient_id
         path = str(processed_text.processed_file_path or '')
-        if path.endswith('.csv'):
-            new_content, entities, columns, repl = cls._deidentify_csv(
-                content, shift, patient, ner_recognizer)
+
+        if openmed:
+            # legacy OpenMed path (unchanged behaviour)
+            from extractor.services.openmed_ner import OpenMedNerRecognizer
+            ner_recognizer = OpenMedNerRecognizer()
+            engine_mode = 'openmed'
+            deid_model = getattr(
+                settings, 'EXTRACTOR_DEID_OPENMED_MODEL',
+                'pii_superclinical_large')
+            s2_cfg = None
+            if path.endswith('.csv'):
+                new_content, entities, columns, repl = cls._deidentify_csv(
+                    content, shift, patient, ner_recognizer)
+            else:
+                new_content, entities, repl = cls._deidentify_text(
+                    content, shift, patient, ner_recognizer)
+                columns = []
+            deid_pipeline_row = None
         else:
-            new_content, entities, repl = cls._deidentify_text(
-                content, shift, patient, ner_recognizer)
-            columns = []
+            if path.endswith('.csv'):
+                new_content, entities, columns, repl = cls._deidentify_csv_for(
+                    content, shift, patient, pipeline)
+            else:
+                new_content, entities, repl = cls._deidentify_text_for(
+                    content, shift, patient, pipeline)
+                columns = []
+            engine_mode = pipeline.ner_engine
+            deid_model = (pipeline.hf_model_id if pipeline.ner_engine == 'hf'
+                          else (pipeline.system2_model.llm_model_name
+                                if pipeline.system2_model_id else ''))
+            s2_cfg = pipeline.system2_model if pipeline.system2_model_id else None
+            deid_pipeline_row = pipeline if pipeline.pk else None
 
         # Aggregate identical (tag, original) pairs into the review map.
         deid_map = {}
@@ -299,21 +300,13 @@ class TextDeidentificationService:
             deidentified=True,
             deidentified_source=processed_text,
             deid_engine=engine_mode,
-            deid_model=(
-                llm_config.llm_model_name
-                if backend_name == 'llm'
-                else (getattr(
-                    settings, 'EXTRACTOR_DEID_OPENMED_MODEL',
-                    'pii_superclinical_large')
-                    if backend_name == 'openmed'
-                    else (settings.DEID_HF_NER_MODEL
-                          if engine_mode == 'full' else ''))
-            ),
+            deid_model=deid_model,
             deid_entities=entities,
             deid_csv_columns_flagged=columns,
             deid_map=list(deid_map.values()),
             deid_date_shift_days=shift,
-            deid_client_config=llm_config,
+            deid_client_config=s2_cfg,
+            deid_pipeline=deid_pipeline_row,
         )
 
     @classmethod
@@ -469,17 +462,165 @@ class TextDeidentificationService:
 
         return out.getvalue(), cls._entity_counts(all_results), flagged, repl
 
+    _analyzer_cache = {}
+
+    @classmethod
+    def _build_analyzer_for(cls, pipeline):
+        import os
+        key = (pipeline.ner_engine,
+               pipeline.hf_model_id if pipeline.ner_engine == 'hf' else None,
+               pipeline.hf_threshold)
+        if key in cls._analyzer_cache:
+            return cls._analyzer_cache[key]
+        nlp_engine = None
+        if pipeline.ner_engine == 'hf':
+            from presidio_analyzer.nlp_engine import SlimSpacyNlpEngine
+            nlp_engine = SlimSpacyNlpEngine(supported_languages=['en'])
+        analyzer = AnalyzerEngine(
+            nlp_engine=nlp_engine, supported_languages=['en'],
+            context_aware_enhancer=LemmaContextAwareEnhancer(
+                context_similarity_factor=0.35,
+                min_score_with_context_similarity=0.4))
+        if pipeline.ner_engine == 'hf':
+            if pipeline.hf_token:
+                os.environ['HF_TOKEN'] = pipeline.hf_token
+            from presidio_analyzer.predefined_recognizers.ner import (
+                HuggingFaceNerRecognizer)
+            try:
+                recognizer = HuggingFaceNerRecognizer(
+                    model_name=pipeline.hf_model_id,
+                    label_mapping=pipeline.hf_label_map,
+                    threshold=pipeline.hf_threshold,
+                    aggregation_strategy='simple', device='cpu',
+                    supported_language='en')
+                analyzer.registry.add_recognizer(recognizer)
+            except Exception as e:
+                logger.warning(f"HF NER {pipeline.hf_model_id} failed to load: {e}")
+        if getattr(settings, 'DEID_LENIENT_INDIAN_IDS', True):
+            from deidentification.utils.indian_id_recognizers import (
+                build_indian_id_recognizers)
+            for recognizer in build_indian_id_recognizers():
+                analyzer.registry.add_recognizer(recognizer)
+        for recognizer in build_text_recognizers():
+            analyzer.registry.add_recognizer(recognizer)
+        cls._analyzer_cache[key] = analyzer
+        return analyzer
+
+    @classmethod
+    def _apply_precision(cls, text, results, pipeline):
+        rules = pipeline.rules
+        results = cls._filter_mechanical(text, results, rules)
+        results = cls._filter_dates(text, results, rules)
+        if pipeline.system_1_model_integration:
+            results = cls._filter_system1(text, results, pipeline)
+        else:
+            results = cls._filter_clinical(text, results, rules)
+        return results
+
+    @classmethod
+    def _filter_system1(cls, text, results, pipeline):
+        from extractor.services import system1_judge
+        kept = []
+        for r in results:
+            if r.entity_type in ('DATE_TIME', 'DATE'):
+                kept.append(r)
+                continue
+            p = system1_judge.judge_span(
+                pipeline.system_1_model, text, r.start, r.end,
+                threshold=pipeline.system_1_threshold,
+                window=pipeline.system_1_window)
+            if p >= pipeline.system_1_threshold:
+                kept.append(r)
+        return kept
+
+    @classmethod
+    def _deidentify_text_for(cls, content, shift, patient, pipeline):
+        analyzer = cls._build_analyzer_for(pipeline)
+        ad_hoc = build_patient_recognizers(patient)
+        if pipeline.system2_model_id:
+            ad_hoc = [LlmNerRecognizer(pipeline.system2_model)] + ad_hoc
+        results = analyzer.analyze(
+            text=content, language='en',
+            score_threshold=pipeline.min_confidence,
+            ad_hoc_recognizers=ad_hoc)
+        results = cls._apply_precision(content, results, pipeline)
+        results = cls._resolve_overlaps(results)
+        repl = []
+        new_content = cls._apply_replacements(content, results, shift, {}, repl)
+        return new_content, cls._entity_counts(results), repl
+
+    @classmethod
+    def _deidentify_csv_for(cls, content, shift, patient, pipeline):
+        column_map = getattr(settings, 'EXTRACTOR_DEID_CSV_COLUMN_MAP', {})
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+        if not rows:
+            new_content, counts, repl = cls._deidentify_text_for(
+                content, shift, patient, pipeline)
+            return new_content, counts, [], repl
+        headers = rows[0]
+        col_types = [column_map.get(h.strip().lower()) for h in headers]
+        if not any(col_types):
+            new_content, counts, repl = cls._deidentify_text_for(
+                content, shift, patient, pipeline)
+            return new_content, counts, [], repl
+        analyzer = cls._build_analyzer_for(pipeline)
+        ad_hoc = build_patient_recognizers(patient)
+        if pipeline.system2_model_id:
+            ad_hoc = [LlmNerRecognizer(pipeline.system2_model)] + ad_hoc
+        tag_map = {}
+        all_results = []
+        repl = []
+        flagged = [headers[i] for i, t in enumerate(col_types) if t is not None]
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        for row in rows[1:]:
+            for i, cell in enumerate(row):
+                if not cell.strip() or i >= len(col_types):
+                    continue
+                col_type = col_types[i]
+                if col_type == 'DATE_TIME':
+                    shifted = _shifted_date_text(cell.strip(), shift)
+                    repl.append({'tag': shifted, 'type': 'DATE_TIME',
+                                 'original': cell.strip()})
+                    row[i] = shifted
+                    all_results.append(_FakeResult('DATE_TIME', cell))
+                elif col_type is not None:
+                    tag = cls._tag_for(col_type, cell, tag_map)
+                    repl.append({'tag': tag, 'type': col_type,
+                                 'original': cell.strip()})
+                    row[i] = tag
+                    all_results.append(_FakeResult(col_type, cell))
+                else:
+                    results = analyzer.analyze(
+                        text=cell, language='en',
+                        score_threshold=pipeline.min_confidence,
+                        ad_hoc_recognizers=ad_hoc)
+                    results = cls._apply_precision(cell, results, pipeline)
+                    results = cls._resolve_overlaps(results)
+                    row[i] = cls._apply_replacements(
+                        cell, results, shift, tag_map, repl)
+                    all_results.extend(
+                        _FakeResult(r.entity_type, cell) for r in results)
+            writer.writerow(row)
+        return out.getvalue(), cls._entity_counts(all_results), flagged, repl
+
     @staticmethod
-    def _filter_mechanical(text, results):
+    def _rules(rules):
+        return rules if rules else deid_rules.default_rules()
+
+    @staticmethod
+    def _filter_mechanical(text, results, rules=None):
         """Mechanical drops: drop_types, empty surface, mid-word boundaries.
 
         Applies to every candidate type. Mid-word spans are HF tokenization
         artifacts (e.g. 'oph' of 'oropharynx') - real PHI spans align to word
         boundaries; spans often include surrounding spaces, so measure from
-        the stripped surface edges.
+        the stripped surface edges. drop_types comes from the pipeline rules.
         """
-        drop_types = getattr(
-            settings, 'EXTRACTOR_DEID_DROP_ENTITY_TYPES', {'ID', 'AGE', 'NRP'})
+        rules = TextDeidentificationService._rules(rules)
+        drop_types = set(rules['drop_entity_types'])
         kept = []
         for r in results:
             surface = text[r.start:r.end].strip()
@@ -497,31 +638,20 @@ class TextDeidentificationService:
         return kept
 
     @staticmethod
-    def _filter_dates(text, results):
-        """DATE_TIME drops: bare digits, ages, durations, pulses, doses, and
-        the fraction counter. Real calendar dates survive to be shifted.
+    def _filter_dates(text, results, rules=None):
+        """DATE_TIME drops: durations/ages/doses (rules['date_keep_patterns'])
+        and the fraction counter. Real calendar dates survive to be shifted.
 
         Ages and clinical intervals ('1 month', '2 weeks', 'Age 56 years')
         are content, not identifiers - they are kept. Real dates shift.
         """
+        rules = TextDeidentificationService._rules(rules)
+        patterns = [re.compile(p, re.I) for p in rules['date_keep_patterns']]
         kept = []
         for r in results:
             surface = text[r.start:r.end].strip()
-            if (r.entity_type == 'DATE_TIME' and re.match(
-                    r'^\d{1,3}%?$'
-                    r'|^(?:age\b:?\s*)?\d{1,3}\s*[-\s]?(years?\s+old|yrs?\s+old|years?|yrs?|y/o|y\.o\.|-?year-?old)\.?$'
-                    r'|^age\b:?\s*\d{1,3}\s*(years?|yrs?)?\.?$'
-                    r'|^\d{1,3}\s*(years?|yrs?|y)?\s*/\s*[MF]\b\.?$'
-                    r'|^[MF]\s*/\s*\d{1,3}\s*(years?|yrs?|y)?\b\.?$'
-                    r'|^\d{1,3}(?:\s*-\s*\d{1,3})?\s+(years?|months?|mnths?|mths?|mos?|weeks?|wks?|days?|hrs?|hours?|mins?|minutes?)\b\.?$'
-                    r'|^\d{1,3}\s*/\s*min\b\.?$'
-                    r'|^\d{1,2}:\d{2}$'
-                    # Drug dose ('ceftriaxone 1 g', 'paracetamol 650 mg').
-                    # Negative lookahead excludes month names so a real date
-                    # like 'Oct 2023' / 'October 2023' is NOT matched as a dose
-                    # (it must survive to be date-shifted, not kept as-is).
-                    r'|^(?!(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b)[a-z][a-z]+\s+\d+(?:\.\d+)?\s*(g|mg|gm|ml)?\b\.?$',
-                    surface, re.I)):
+            if (r.entity_type == 'DATE_TIME'
+                    and any(p.match(surface) for p in patterns)):
                 continue
             if (r.entity_type == 'DATE_TIME'
                     and re.match(r'^\d{1,2}/\d{1,2}$', surface)
@@ -532,45 +662,42 @@ class TextDeidentificationService:
         return kept
 
     @staticmethod
-    def _filter_clinical(text, results):
+    def _filter_clinical(text, results, rules=None):
         """Clinical-precision drops: allowlist, clinical-prefix (PERSON/ORG),
-        and short/lowercase/label LOCATION. Keeps the clinical content that
-        general-domain NER mis-tags as PII.
-        """
-        allowlist = {
-            t.lower() for t in getattr(
-                settings, 'EXTRACTOR_DEID_CLINICAL_ALLOWLIST', set())}
+        and short/lowercase/label LOCATION. Rules come from the pipeline."""
+        rules = TextDeidentificationService._rules(rules)
+        allowlist = {t.lower() for t in rules['clinical_allowlist']}
+        prefix = re.compile(rules['clinical_prefix_pattern'], re.I)
+        loc = rules['location']
+        loc_pattern = re.compile(loc['pattern'])
         kept = []
         for r in results:
             surface = text[r.start:r.end].strip()
             if surface.lower() in allowlist:
                 continue
-            if r.entity_type in ('PERSON', 'ORGANIZATION') and re.match(
-                    r'^(hb|h\.b\.?|tabs?\b|inj\b|caps?\b|iv\b|po\b|oral\b|spo2?|s\.p\.o|jvp|ef\b|bp\b|pr\b|hr\b|wt\b|lmp\b)',
-                    surface, re.I):
+            if r.entity_type in ('PERSON', 'ORGANIZATION') and prefix.match(surface):
                 continue
             if r.entity_type == 'LOCATION':
-                # Specimen/grid labels (A3, A5-A10, 11-A14), lowercase words
-                # ('anterior', 'trabeculae') and short tokens are never real
-                # locations. Genuine address tokens (Newtown, Kolkata,
-                # PIN 700160) are title-case or long digit runs and survive.
-                if (len(surface) <= 3 or surface.islower()
-                        or re.match(r'^[A-Za-z]?-?\d[\w-]*$', surface)):
+                # Specimen/grid labels (A3, A5-A10), lowercase words and short
+                # tokens are never real locations; genuine address tokens are
+                # title-case or long digit runs and survive.
+                if (len(surface) < loc['min_length']
+                        or (loc.get('reject_lowercase') and surface.islower())
+                        or loc_pattern.match(surface)):
                     continue
             kept.append(r)
         return kept
 
     @staticmethod
-    def _filter_results(text, results):
+    def _filter_results(text, results, rules=None):
         """Drop recognizer hits that are implausible or unwanted for text.
 
         Composition of the three focused stages; a span is dropped iff any
-        stage drops it, so the survivors are identical to the previous
-        single-loop monolith regardless of composition order.
+        stage drops it. `rules` is the pipeline's rule bundle (None = defaults).
         """
-        results = TextDeidentificationService._filter_mechanical(text, results)
-        results = TextDeidentificationService._filter_dates(text, results)
-        results = TextDeidentificationService._filter_clinical(text, results)
+        results = TextDeidentificationService._filter_mechanical(text, results, rules)
+        results = TextDeidentificationService._filter_dates(text, results, rules)
+        results = TextDeidentificationService._filter_clinical(text, results, rules)
         return results
 
     @staticmethod

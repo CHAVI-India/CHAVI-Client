@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Edit pipeline - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    {% url 'extractor:pipeline_list' as list_url %}
+    {% url 'extractor:pipeline_detail' pipeline.id as detail_url %}
+    {% component "page_header" title="Edit deidentification pipeline" icon="fas fa-filter" back_url=list_url back_text="Back to pipelines" %}{% endcomponent %}
+    {% component "card" %}{% fill "body" %}
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="mt-6 flex space-x-3">
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Save pipeline{% endcomponent %}
+                {% component "button" style="secondary" href=detail_url %}Cancel{% endcomponent %}
+            </div>
+        </form>
+        {% component "info_box" style="info" %}
+            {% fill "default" %}
+            Rule-based recognizers are always on. The rules and HF label map
+            are JSON — validate the JSON before saving (the server rejects
+            invalid JSON or an unknown System-1 configuration).
+            {% endfill %}
+        {% endcomponent %}
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Delete pipeline - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-8">
+    {% url 'extractor:pipeline_list' as list_url %}
+    {% component "page_header" title="Delete deidentification pipeline" icon="fas fa-trash" back_url=list_url back_text="Back to pipelines" %}{% endcomponent %}
+    {% component "card" %}{% fill "body" %}
+    {% component "info_box" style="danger" %}
+        {% fill "default" %}
+        <p class="text-sm text-gray-700">
+            Delete pipeline <strong>{{ pipeline.display_name }}</strong>?
+            Deidentified versions already produced keep their stored results;
+            this only removes the configuration.
+        </p>
+        {% endfill %}
+    {% endcomponent %}
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        <div class="flex space-x-3">
+            {% component "button" style="danger" type="submit" icon="fas fa-trash" %}Delete{% endcomponent %}
+            {% component "button" style="secondary" href=list_url %}Cancel{% endcomponent %}
+        </div>
+    </form>
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

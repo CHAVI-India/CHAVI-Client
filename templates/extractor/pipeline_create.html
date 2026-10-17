@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% block title %}New deidentification pipeline - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    {% url 'extractor:pipeline_list' as list_url %}
+    {% component "page_header" title="New deidentification pipeline" icon="fas fa-filter" back_url=list_url back_text="Back to pipelines" %}{% endcomponent %}
+    {% component "card" %}{% fill "body" %}
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="mt-6 flex space-x-3">
+                {% component "button" style="primary" type="submit" icon="fas fa-save" %}Create pipeline{% endcomponent %}
+                {% component "button" style="secondary" href=list_url %}Cancel{% endcomponent %}
+            </div>
+        </form>
+        {% component "info_box" style="info" %}
+            {% fill "default" %}
+            Rule-based recognizers are always on. Choose the NER engine, an
+            optional System-2 recall pass, an optional System-1 second check,
+            and the date-shift range. Leave the name blank to auto-generate
+            one. The rules and HF label map are JSON — pre-filled with clinical
+            defaults and editable.
+            {% endfill %}
+        {% endcomponent %}
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

@@ -1,4 +1,5 @@
 from django import forms
+from extractor.models import TextDeidentificationPipelineConfig
 
 
 class ReviewApprovalForm(forms.Form):
@@ -34,3 +35,22 @@ class ExtractionRecordReviewForm(forms.Form):
                         choices.append((str(current.pk), str(current)))
                 form_field.choices = choices
             self.fields[db_field.clientapp_field_name] = form_field
+
+
+class TextDeidentificationPipelineConfigForm(forms.ModelForm):
+    """Crispy-rendered form for a deidentification pipeline. The JSON rule
+    bundle and HF label map are edited as textareas (valid JSON)."""
+
+    class Meta:
+        model = TextDeidentificationPipelineConfig
+        fields = [
+            'name', 'ner_engine', 'hf_model_id', 'hf_token', 'hf_label_map',
+            'hf_threshold', 'system2_model', 'system_1_model_integration',
+            'system_1_model', 'system_1_threshold', 'system_1_window',
+            'rules', 'min_confidence', 'extractor_date_shift_range',
+            'is_default',
+        ]
+        widgets = {
+            'rules': forms.Textarea(attrs={'class': 'font-mono text-xs', 'rows': '12'}),
+            'hf_label_map': forms.Textarea(attrs={'rows': '5'}),
+        }

@@ -136,24 +136,21 @@
                                 <form method="post" action="{% url 'extractor:processed_text_deidentify' processed.id %}" class="inline-flex items-center gap-2">
                                     {% csrf_token %}
                                     <input type="hidden" name="next" value="{{ request.path }}">
-                                    {% if deid_llm_configs or deid_openmed_enabled %}
                                     <select name="backend"
                                             class="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
-                                            title="Deidentification engine">
-                                        <option value="default">
-                                            {% if deid_default_is_llm %}Default (LLM NER){% else %}Default (Presidio + Stanford){% endif %}
-                                        </option>
-                                        <option value="presidio">Presidio + Stanford NER</option>
+                                            title="Deidentification pipeline / engine">
+                                        <option value="default">Default pipeline</option>
+                                        {% for p in deid_pipelines %}
+                                        <option value="pipeline:{{ p.id }}">Pipeline: {{ p.name }}{% if p.is_default %} (default){% endif %}</option>
+                                        {% endfor %}
+                                        <option value="presidio">Legacy: Presidio + Stanford NER</option>
                                         {% if deid_openmed_enabled %}
-                                        <option value="openmed">OpenMed clinical NER (local)</option>
+                                        <option value="openmed">Legacy: OpenMed clinical NER</option>
                                         {% endif %}
                                         {% for cfg in deid_llm_configs %}
-                                        <option value="llm:{{ cfg.id }}">LLM NER — {{ cfg.llm_model_name }}{% if cfg.is_default_deid %} (default){% endif %}</option>
+                                        <option value="llm:{{ cfg.id }}">Legacy: LLM NER — {{ cfg.llm_model_name }}</option>
                                         {% endfor %}
                                     </select>
-                                    {% else %}
-                                    <input type="hidden" name="backend" value="default">
-                                    {% endif %}
                                     <span title="Run deidentification on this version">
                                     {% component "button" style="primary" type="submit" icon="fas fa-user-shield" %}Run deid{% endcomponent %}
                                     </span>

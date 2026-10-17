@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Pipeline: {{ pipeline.display_name }} - CHAVI Client{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+    {% url 'extractor:pipeline_list' as list_url %}
+    {% url 'extractor:pipeline_edit' pipeline.id as edit_url %}
+    {% url 'extractor:pipeline_delete' pipeline.id as delete_url %}
+    {% component "page_header" title=pipeline.display_name icon="fas fa-filter" back_url=list_url back_text="Back to pipelines" %}
+        {% fill "actions" %}
+            {% component "button" style="secondary" href=edit_url icon="fas fa-edit" %}Edit{% endcomponent %}
+            {% component "button" style="danger" href=delete_url icon="fas fa-trash" %}Delete{% endcomponent %}
+        {% endfill %}
+    {% endcomponent %}
+
+    {% component "card" %}{% fill "body" %}
+    <dl class="space-y-3 text-sm">
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">Name</dt>
+            <dd class="text-gray-800 font-medium">{{ pipeline.name }}</dd>
+        </div>
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">Slug</dt>
+            <dd class="text-gray-800">{{ pipeline.slug }}</dd>
+        </div>
+        {% if pipeline.is_default %}
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">Default</dt>
+            <dd>{% component "badge" style="success" %}Default pipeline{% endcomponent %}</dd>
+        </div>
+        {% endif %}
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">NER engine</dt>
+            <dd class="text-gray-800">
+                {{ pipeline.get_ner_engine_display }}
+                {% if pipeline.ner_engine == 'hf' %}( {{ pipeline.hf_model_id }} , threshold {{ pipeline.hf_threshold }} ){% endif %}
+            </dd>
+        </div>
+        <div class="flex items-start">
+            <dt class="w-48 text-gray-500">System-2 LLM</dt>
+            <dd class="text-gray-800">
+                {% if pipeline.system2_model %}{{ pipeline.system2_model.llm_model_name }} ({{ pipeline.system2_model.model_base_url }}){% else %}<span class="text-gray-400">none</span>{% endif %}
+            </dd>
+        </div>
+        <div class="flex items-start">
+            <dt class="w-48 text-gray-500">System-1 second check</dt>
+            <dd class="text-gray-800">
+                {% if pipeline.system_1_model %}
+                    {{ pipeline.system_1_model.llm_model_name }}
+                    ({{ pipeline.system_1_model.model_base_url }})
+                    · threshold {{ pipeline.system_1_threshold }} · window ±{{ pipeline.system_1_window }}
+                {% else %}<span class="text-gray-400">off</span>{% endif %}
+            </dd>
+        </div>
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">Date-shift range</dt>
+            <dd class="text-gray-800">
+                {% if pipeline.extractor_date_shift_range is not None %}±{{ pipeline.extractor_date_shift_range }} days{% else %}settings fallback (±{{ default_date_shift }} days){% endif %}
+            </dd>
+        </div>
+        <div class="flex items-center">
+            <dt class="w-48 text-gray-500">Min confidence</dt>
+            <dd class="text-gray-800">{{ pipeline.min_confidence }}</dd>
+        </div>
+        {% if pipeline.ner_engine == 'hf' %}
+        <div class="flex items-start">
+            <dt class="w-48 text-gray-500">HF label map</dt>
+            <dd class="text-gray-800"><pre class="text-xs bg-gray-50 rounded p-2 overflow-auto">{{ pipeline.hf_label_map }}</pre></dd>
+        </div>
+        {% endif %}
+        <div class="flex items-start">
+            <dt class="w-48 text-gray-500">Rules</dt>
+            <dd class="text-gray-800"><pre class="text-xs bg-gray-50 rounded p-2 overflow-auto max-h-64">{{ pipeline.rules }}</pre></dd>
+        </div>
+    </dl>
+    {% endfill %}{% endcomponent %}
+</div>
+{% endblock %}

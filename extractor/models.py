@@ -4,7 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_delete
-from django.core.validators import FileExtensionValidator,URLValidator
+from django.core.validators import FileExtensionValidator,URLValidator,MinValueValidator,MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from pgvector.django import VectorField
 from extractor.services.url_policy import normalize_base_url, validate_base_url
+from extractor.services import deid_rules
 from logging import getLogger
 
 log = getLogger(__name__)
@@ -26,6 +27,17 @@ class ProcessingStatusChoices(models.TextChoices):
     PROCESSING = 'processing', 'Processing'
     COMPLETED = 'completed', 'Completed'
     FAILED = 'failed', 'Failed'
+
+
+class ModelTypeChoices(models.TextChoices):
+    SYSTEM2 = 'system2', 'Traditional autoregressive LLM (System 2)'
+    SYSTEM1 = 'system1', 'Decision model (System 1)'
+
+
+class DeidNerEngineChoices(models.TextChoices):
+    SPACY = 'spacy', 'spaCy (bundled)'
+    HF = 'hf', 'HuggingFace model'
+
 
 # Create your models here.
 
@@ -83,23 +95,19 @@ class ClientConfiguration(models.Model):
                   "Leave empty to use the model default. Available values "
                   "depend on the model (e.g. low/medium/high for OpenAI, "
                   "enabled/disabled for Ollama, budget for Anthropic).")
-    enable_text_deid = models.BooleanField(
-        default=False,
-        help_text="Opt this configuration into the text deidentification NER "
-                  "role. Only local endpoints may be enabled — a cloud "
-                  "provider or public URL is rejected on save.")
+    model_type = models.CharField(
+        max_length=12, choices=ModelTypeChoices.choices,
+        default=ModelTypeChoices.SYSTEM2,
+        help_text="Kind of model. System 2 = a traditional autoregressive "
+                  "large language model (extraction, and the main "
+                  "de-identification LLM). System 1 = a fast decision model "
+                  "that judges short text snippets.")
     deid_local_certified = models.BooleanField(
         default=False,
-        help_text="Certification: I understand that patient text is sent to "
-                  "this model for deidentification and that the model runs "
-                  "locally (same machine or LAN), so the text never leaves "
-                  "the local network.")
-    is_default_deid = models.BooleanField(
-        default=False,
-        help_text="Use this configuration as the default deidentification "
-                  "engine. When set, new files are deidentified with the "
-                  "local LLM instead of the rule-based Stanford NER. "
-                  "Individual files can still override the engine.")
+        help_text="I certify this model runs locally (same machine or local "
+                  "network) so patient text does not leave the local network. "
+                  "This is the clearance that allows the model to be used in "
+                  "text de-identification.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -115,30 +123,18 @@ class ClientConfiguration(models.Model):
             if errors:
                 raise ValidationError(errors)
 
-        if self.enable_text_deid or self.is_default_deid:
+        if self.deid_local_certified:
             from extractor.services.url_policy import (
                 is_cloud_provider, is_local_endpoint)
             errors = {}
-            if not self.enable_text_deid:
-                errors['is_default_deid'] = (
-                    'Enable text deidentification before marking it as the default.')
             if is_cloud_provider(self.model_provider):
                 errors['model_provider'] = (
-                    'Text deidentification cannot use a cloud provider — '
-                    'patient text must not leave the local network.')
+                    'A model certified for local de-identification cannot use '
+                    'a cloud provider.')
             if not is_local_endpoint(self.model_base_url):
                 errors['model_base_url'] = (
-                    'Text deidentification requires a local endpoint '
-                    '(localhost, private/LAN or VPN address).')
-            if self.enable_text_deid and not self.deid_local_certified:
-                errors['deid_local_certified'] = (
-                    'Certification is required: confirm the model runs '
-                    'locally so patient text stays on the local network.')
-            if self.is_default_deid and ClientConfiguration.objects.exclude(
-                    pk=self.pk).filter(is_default_deid=True).exists():
-                errors['is_default_deid'] = (
-                    'Another configuration is already the default deid engine. '
-                    'Unset its "default" flag first.')
+                    'A model certified for local de-identification must use a '
+                    'local endpoint.')
             if errors:
                 raise ValidationError(errors)
 
@@ -152,6 +148,183 @@ class ClientConfiguration(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class TextDeidentificationPipelineConfig(models.Model):
+    """One configurable text-deid pipeline.
+
+    Always-on (not fields): Presidio + rule recognizers, and the date-shift
+    algorithm. Per pipeline: NER engine, optional System-2 LLM pass, optional
+    System-1 second-check, the date-shift range, and the editable rules/regex
+    bundle.
+    """
+    name = models.CharField(max_length=200, unique=True, blank=True,
+        help_text="Auto-generated from the chosen stages when blank; "
+                  "editable. Must be unique.")
+    slug = models.SlugField(unique=True, blank=True,
+        help_text="Stable unique technical id, auto-derived from the name.")
+
+    ner_engine = models.CharField(max_length=12,
+        choices=DeidNerEngineChoices.choices,
+        default=DeidNerEngineChoices.SPACY)
+    hf_model_id = models.CharField(max_length=255, blank=True,
+        help_text="HuggingFace model id when the engine is a HuggingFace "
+                  "model, e.g. 'StanfordAIMI/stanford-deidentifier-base'. "
+                  "Downloaded on first use.")
+    hf_token = EncryptedCharField(max_length=255, blank=True,
+        help_text="HuggingFace access token (huggingface.co/settings/tokens). "
+                  "Used to download the model and for private/gated models. "
+                  "Leave blank for public models.")
+    hf_label_map = models.JSONField(default=deid_rules.default_hf_label_map,
+        blank=True,
+        help_text="Maps the model's labels to the types this pipeline "
+                  "redacts. Pre-filled with clinical defaults.")
+    hf_threshold = models.FloatField(default=0.20,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Confidence floor for the HuggingFace model (lower = "
+                  "catches more, redacts more by mistake).")
+
+    system2_model = models.ForeignKey(
+        'ClientConfiguration', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='deid_pipelines_s2',
+        limit_choices_to=models.Q(model_type='system2',
+                                  deid_local_certified=True),
+        help_text="Optional large language model that runs on this machine or "
+                  "your local network, to help catch personal details the main "
+                  "detector misses. Cloud services are not allowed. Leave "
+                  "empty to use only the main detector.")
+
+    system_1_model_integration = models.BooleanField(default=False,
+        help_text="Ask a fast second-check model to review each flagged item "
+                  "before it is redacted, deciding redact or keep. Off "
+                  "(default) uses the built-in rules instead, which is "
+                  "faster.")
+    system_1_model = models.ForeignKey(
+        'ClientConfiguration', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='deid_pipelines_s1',
+        limit_choices_to=models.Q(model_type='system1'),
+        help_text="Which second-check model to use. Needed only when the "
+                  "second-check option is on. An external API endpoint is "
+                  "allowed for these.")
+    system_1_threshold = models.FloatField(default=0.5,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="How confident the second-check model must be to keep an "
+                  "item redacted (0-1).")
+    system_1_window = models.PositiveIntegerField(default=90,
+        validators=[MinValueValidator(8)],
+        help_text="Surrounding text (chars each side) shown to the second-"
+                  "check model.")
+    extractor_date_shift_range = models.PositiveIntegerField(
+        default=90, null=True, blank=True,
+        help_text="Date shift range. A random offset within +/- this many "
+                  "days is applied to each document's real dates. Null falls "
+                  "back to the EXTRACTOR_DEID_DATE_SHIFT_RANGE setting.")
+    rules = models.JSONField(default=deid_rules.default_rules, blank=True,
+        help_text="Rules and regex patterns that decide what is redacted "
+                  "versus kept. Ships with clinical defaults; view and extend "
+                  "here. Edits apply to this pipeline only.")
+    min_confidence = models.FloatField(default=0.35,
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Minimum confidence (0-1) an item must have before it is "
+                  "redacted. Higher = stricter (fewer false redactions, more "
+                  "misses). Lower = more thorough (more catches, more false "
+                  "redactions).")
+
+    is_default = models.BooleanField(default=False,
+        help_text="Pipeline new files use by default. Only one may be "
+                  "default.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ner_engine', 'hf_model_id', 'system2_model',
+                        'system_1_model', 'system_1_model_integration'],
+                name='deid_pipeline_unique_identity'),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.ner_engine == DeidNerEngineChoices.HF:
+            if not (self.hf_model_id or '').strip():
+                errors['hf_model_id'] = (
+                    'Enter a HuggingFace model id - required for a '
+                    'HuggingFace NER engine.')
+        else:
+            if (self.hf_model_id or '').strip():
+                errors['hf_model_id'] = (
+                    'Clear the HuggingFace model id; it is only used for a '
+                    'HuggingFace NER engine.')
+        if self.system_1_model_integration:
+            if self.system_1_model_id is None:
+                errors['system_1_model'] = (
+                    'Choose a second-check (System-1) model, or switch the '
+                    'second-check option off.')
+        else:
+            if self.system_1_model_id is not None:
+                errors['system_1_model'] = (
+                    'The second-check option is off, so a System-1 model '
+                    'cannot be selected.')
+        if self.system2_model_id is not None:
+            from extractor.services.url_policy import (
+                is_cloud_provider, is_local_endpoint)
+            s2 = self.system2_model
+            problems = []
+            if s2.model_type != ModelTypeChoices.SYSTEM2:
+                problems.append('it is not a System-2 model')
+            if is_cloud_provider(s2.model_provider):
+                problems.append('a cloud provider is not allowed')
+            if not is_local_endpoint(s2.model_base_url):
+                problems.append('its endpoint is not local')
+            if not s2.deid_local_certified:
+                problems.append('local execution is not certified')
+            if problems:
+                errors['system2_model'] = (
+                    f"'{s2.llm_model_name}' cannot be used for the local-LLM "
+                    f"pass: " + ', '.join(problems) + '.')
+        if self.is_default and TextDeidentificationPipelineConfig.objects.exclude(
+                pk=self.pk).filter(is_default=True).exists():
+            errors['is_default'] = (
+                'Another pipeline is already the default. Unset its '
+                '"default" flag first.')
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if not (self.name or '').strip():
+            self.name = self._generate_name()
+        if not (self.slug or '').strip():
+            from django.utils.text import slugify
+            base = slugify(self.name) or 'pipeline'
+            slug, i = base, 2
+            while TextDeidentificationPipelineConfig.objects.filter(
+                    slug=slug).exclude(pk=self.pk).exists():
+                slug, i = f'{base}-{i}', i + 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def _generate_name(self):
+        ner = ('spaCy' if self.ner_engine == DeidNerEngineChoices.SPACY
+               else (self.hf_model_id or 'HF model').split('/')[-1])
+        s2 = (self.system2_model.llm_model_name
+              if self.system2_model_id else 'no-LLM')
+        s1 = ('second-check' if self.system_1_model_integration else 'rules')
+        base = ' · '.join([ner, s2, s1])
+        i = 2
+        while TextDeidentificationPipelineConfig.objects.filter(
+                name=base).exclude(pk=self.pk).exists():
+            base, i = f'{base} ({i})', i + 1
+        return base
+
+    @property
+    def display_name(self):
+        return self.name or (f'Pipeline {self.pk}' if self.pk else 'New pipeline')
+
+    def __str__(self):
+        return self.display_name
 
 
 def file_upload_path(instance, filename):
@@ -236,6 +409,10 @@ class ProcessedText(models.Model):
         on_delete=models.SET_NULL, related_name='deid_runs',
         help_text="ClientConfiguration whose local LLM performed NER for this "
                   "version (LLM engine only).")
+    deid_pipeline = models.ForeignKey(
+        'TextDeidentificationPipelineConfig', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='deid_runs',
+        help_text="The pipeline that produced this deidentified version.")
     deid_reviewed = models.BooleanField(default=False, help_text="User has reviewed the deidentified text; required before extraction when EXTRACTOR_DEID_REQUIRE_REVIEW.")
     deid_reviewed_by = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_reviews')
     deid_reviewed_at = models.DateTimeField(null=True, blank=True)

@@ -35,7 +35,7 @@ from extractor.services.review import (
 )
 from extractor.forms import ReviewApprovalForm
 from extractor.tasks import advance_extraction_job
-from extractor.models import FileUpload, ProcessedText
+from extractor.models import FileUpload, ProcessedText, TextDeidentificationPipelineConfig
 
 log = getLogger(__name__)
 
@@ -606,9 +606,8 @@ def client_configuration_create(request):
                 context_size=context_size,
                 extraction_concurrency=extraction_concurrency,
                 model_max_tokens=model_max_tokens,
-                enable_text_deid=request.POST.get('enable_text_deid') == 'on',
+                model_type=request.POST.get('model_type') or 'system2',
                 deid_local_certified=request.POST.get('deid_local_certified') == 'on',
-                is_default_deid=request.POST.get('is_default_deid') == 'on',
             )
             configuration.full_clean()
             configuration.save()
@@ -676,9 +675,8 @@ def client_configuration_edit(request, config_id):
         if new_refresh_key:
             configuration.model_api_refresh_key = new_refresh_key
 
-        configuration.enable_text_deid = request.POST.get('enable_text_deid') == 'on'
+        configuration.model_type = request.POST.get('model_type') or 'system2'
         configuration.deid_local_certified = request.POST.get('deid_local_certified') == 'on'
-        configuration.is_default_deid = request.POST.get('is_default_deid') == 'on'
         
         try:
             configuration.full_clean()
@@ -1058,11 +1056,13 @@ def file_upload_detail(request, file_id):
         from extractor.models import ClientConfiguration
         context['deid_llm_configs'] = list(
             ClientConfiguration.objects.filter(
-                enable_text_deid=True, deid_local_certified=True))
-        context['deid_default_is_llm'] = ClientConfiguration.objects.filter(
-            enable_text_deid=True, is_default_deid=True).exists()
+                model_type='system2', deid_local_certified=True))
+        context['deid_pipelines'] = list(
+            TextDeidentificationPipelineConfig.objects.order_by('name'))
+        context['deid_default_is_llm'] = False
     else:
         context['deid_llm_configs'] = []
+        context['deid_pipelines'] = []
         context['deid_default_is_llm'] = False
 
     return render(request, 'extractor/file_upload_detail.html', context)
@@ -1227,6 +1227,67 @@ def processed_text_ocr(request, processed_text_id):
 
 
 @login_required
+@permission_required('extractor.view_textdeidentificationpipelineconfig', raise_exception=True)
+def pipeline_list(request):
+    from extractor.models import TextDeidentificationPipelineConfig
+    pipelines = TextDeidentificationPipelineConfig.objects.order_by('name')
+    return render(request, 'extractor/pipeline_list.html', {'pipelines': pipelines})
+
+
+@login_required
+@permission_required('extractor.add_textdeidentificationpipelineconfig', raise_exception=True)
+def pipeline_create(request):
+    from extractor.forms import TextDeidentificationPipelineConfigForm
+    form = TextDeidentificationPipelineConfigForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        pipeline = form.save()
+        messages.success(request, f"Pipeline '{pipeline.display_name}' created.")
+        return redirect('extractor:pipeline_detail', pipeline_id=pipeline.id)
+    return render(request, 'extractor/pipeline_create.html', {'form': form})
+
+
+@login_required
+@permission_required('extractor.view_textdeidentificationpipelineconfig', raise_exception=True)
+def pipeline_detail(request, pipeline_id):
+    from extractor.models import TextDeidentificationPipelineConfig
+    from django.conf import settings
+    pipeline = get_object_or_404(TextDeidentificationPipelineConfig, id=pipeline_id)
+    context = {
+        'pipeline': pipeline,
+        'default_date_shift': getattr(settings, 'EXTRACTOR_DEID_DATE_SHIFT_RANGE', 90),
+    }
+    return render(request, 'extractor/pipeline_detail.html', context)
+
+
+@login_required
+@permission_required('extractor.change_textdeidentificationpipelineconfig', raise_exception=True)
+def pipeline_edit(request, pipeline_id):
+    from extractor.models import TextDeidentificationPipelineConfig
+    from extractor.forms import TextDeidentificationPipelineConfigForm
+    pipeline = get_object_or_404(TextDeidentificationPipelineConfig, id=pipeline_id)
+    form = TextDeidentificationPipelineConfigForm(request.POST or None, instance=pipeline)
+    if request.method == 'POST' and form.is_valid():
+        pipeline = form.save()
+        messages.success(request, f"Pipeline '{pipeline.display_name}' updated.")
+        return redirect('extractor:pipeline_detail', pipeline_id=pipeline.id)
+    return render(request, 'extractor/pipeline_edit.html',
+                  {'form': form, 'pipeline': pipeline})
+
+
+@login_required
+@permission_required('extractor.delete_textdeidentificationpipelineconfig', raise_exception=True)
+def pipeline_delete(request, pipeline_id):
+    from extractor.models import TextDeidentificationPipelineConfig
+    pipeline = get_object_or_404(TextDeidentificationPipelineConfig, id=pipeline_id)
+    if request.method == 'POST':
+        name = pipeline.display_name
+        pipeline.delete()
+        messages.success(request, f"Pipeline '{name}' deleted.")
+        return redirect('extractor:pipeline_list')
+    return render(request, 'extractor/pipeline_delete.html', {'pipeline': pipeline})
+
+
+@login_required
 @permission_required('extractor.change_processedtext', raise_exception=True)
 @require_http_methods(["POST"])
 def processed_text_deidentify(request, processed_text_id):
@@ -1252,27 +1313,43 @@ def processed_text_deidentify(request, processed_text_id):
 
     backend = (request.POST.get('backend') or 'default').strip()
     client_config_id = request.POST.get('client_config_id') or None
-    # The UI encodes the engine choice as 'llm:<config_id>' in one select
+    pipeline_id = request.POST.get('pipeline_id') or None
+    # The UI encodes engine choices as 'llm:<config_id>' / 'pipeline:<id>'
+    # in a single select.
     if ':' in backend:
         backend, _, encoded_id = backend.partition(':')
-        client_config_id = encoded_id or client_config_id
+        if encoded_id:
+            if backend == 'pipeline':
+                pipeline_id = encoded_id
+            else:  # 'llm:<id>'
+                client_config_id = encoded_id or client_config_id
     if client_config_id:
         if not str(client_config_id).isdigit():
             messages.error(request, "Invalid deidentification configuration choice.")
             return redirect(next_url)
         client_config_id = int(client_config_id)
-    if backend not in ('default', 'presidio', 'llm', 'openmed'):
+    if pipeline_id:
+        if not str(pipeline_id).isdigit():
+            messages.error(request, "Invalid deidentification pipeline choice.")
+            return redirect(next_url)
+        pipeline_id = int(pipeline_id)
+    if backend not in ('default', 'presidio', 'llm', 'openmed', 'pipeline'):
         messages.error(request, "Unknown deidentification engine.")
         return redirect(next_url)
-    if backend in ('default', 'llm'):
-        from extractor.services.text_deidentification import (
-            LlmDeidConfigurationError, TextDeidentificationService)
-        try:
-            TextDeidentificationService._resolve_backend(
-                backend, client_config_id)
-        except LlmDeidConfigurationError as e:
-            messages.error(request, str(e))
-            return redirect(next_url)
+    from extractor.services.text_deidentification import (
+        LlmDeidConfigurationError, TextDeidentificationService)
+    try:
+        if pipeline_id:
+            if not TextDeidentificationPipelineConfig.objects.filter(
+                    id=pipeline_id).exists():
+                messages.error(request, "Deidentification pipeline not found.")
+                return redirect(next_url)
+        else:
+            TextDeidentificationService._resolve_pipeline(
+                None, backend, client_config_id)
+    except LlmDeidConfigurationError as e:
+        messages.error(request, str(e))
+        return redirect(next_url)
 
     task = BackgroundTask.objects.create(
         task_id=f"deid-{processed_text_id}-{int(timezone.now().timestamp())}",
@@ -1282,13 +1359,15 @@ def processed_text_deidentify(request, processed_text_id):
     from extractor.tasks import deidentify_processed_text_task
     deidentify_processed_text_task.delay(
         task.task_id, processed_text_id, user_id=request.user.id,
-        backend=backend, client_config_id=client_config_id)
+        backend=backend, client_config_id=client_config_id,
+        pipeline_id=pipeline_id)
 
+    engine_label = 'pipeline' if pipeline_id else backend
     messages.success(
         request,
         f"Deidentification started for "
         f"'{processed_text.file_upload.original_filename}' "
-        f"(engine: {backend}).")
+        f"(engine: {engine_label}).")
     return redirect(next_url)
 
 

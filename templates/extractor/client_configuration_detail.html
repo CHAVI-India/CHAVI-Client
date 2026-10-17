@@ -67,16 +67,17 @@
                     <div>
                         <p class="text-sm font-medium text-gray-500">Text Deidentification</p>
                         <p class="text-lg text-gray-800">
-                            {% if configuration.enable_text_deid %}
-                                Enabled
-                                {% if configuration.is_default_deid %}
-                                    {% component "badge" style="success" extra_class="ml-2" %}Default engine{% endcomponent %}
-                                {% endif %}
-                                {% if not configuration.deid_local_certified %}
+                            {% if configuration.model_type == 'system2' %}
+                                System-2 (autoregressive LLM)
+                                {% if configuration.deid_local_certified %}
+                                    {% component "badge" style="success" extra_class="ml-2" %}Local certified{% endcomponent %}
+                                {% else %}
                                     {% component "badge" style="danger" extra_class="ml-2" %}Not certified{% endcomponent %}
                                 {% endif %}
+                            {% elif configuration.model_type == 'system1' %}
+                                System-1 (decision model)
                             {% else %}
-                                Not enabled
+                                No deid role
                             {% endif %}
                         </p>
                     </div>

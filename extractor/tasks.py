@@ -471,7 +471,7 @@ def ocr_processed_text_task(self, task_id, processed_text_id, user_id=None):
 @shared_task(bind=True, max_retries=0)
 def deidentify_processed_text_task(self, task_id, processed_text_id,
                                    user_id=None, backend='default',
-                                   client_config_id=None):
+                                   client_config_id=None, pipeline_id=None):
     """
     Celery task: deidentify a ProcessedText version into a new versioned
     row. Progress is tracked on the BackgroundTask row created by the view
@@ -501,7 +501,7 @@ def deidentify_processed_text_task(self, task_id, processed_text_id,
         user = User.objects.filter(id=user_id).first() if user_id else None
         new_version = TextDeidentificationService.deidentify(
             pt, user=user, backend=backend,
-            client_config_id=client_config_id)
+            client_config_id=client_config_id, pipeline_id=pipeline_id)
         if new_version is None:
             task.mark_complete({'success': True, 'skipped': 'already deidentified'})
             return

@@ -3675,7 +3675,7 @@ class TableExtractParallelTests(TableExtractTests):
 
 
 class ClientConfigurationDeidValidationTests(TestCase):
-    """Deid opt-in validation on ClientConfiguration."""
+    """model_type + deid_local_certified validation on ClientConfiguration."""
 
     def _make(self, **kw):
         from extractor.models import ClientConfiguration
@@ -3684,59 +3684,59 @@ class ClientConfigurationDeidValidationTests(TestCase):
             model_provider=kw.pop('provider', 'Local (Ollama)'),
             model_api_key='ollama',
             model_base_url=kw.pop('base_url', 'http://localhost:11434'),
+            model_type=kw.pop('model_type', 'system2'),
         )
         defaults.update(kw)
         return ClientConfiguration(**defaults)
 
-    def test_local_certified_clean(self):
+    def test_system2_local_certified_clean(self):
         from django.core.exceptions import ValidationError
-        c = self._make(enable_text_deid=True, deid_local_certified=True)
+        c = self._make(model_type='system2', deid_local_certified=True)
         try:
             c.full_clean()
         except ValidationError as e:
             self.fail(f"full_clean raised: {e.message_dict}")
 
-    def test_cloud_provider_rejected_for_deid(self):
+    def test_system2_cloud_provider_rejected(self):
         from django.core.exceptions import ValidationError
-        c = self._make(provider='OpenAI', base_url='https://api.openai.com/v1',
-                       enable_text_deid=True, deid_local_certified=True)
+        c = self._make(model_type='system2', provider='OpenAI',
+                       base_url='https://api.openai.com/v1',
+                       deid_local_certified=True)
         with self.assertRaises(ValidationError):
             c.full_clean()
 
-    def test_public_url_rejected_for_deid(self):
+    def test_system2_public_url_rejected(self):
         from django.core.exceptions import ValidationError
         # provider not on the cloud list, but URL is public
-        c = self._make(provider='Other', base_url='https://llm.example.com/v1',
-                       enable_text_deid=True, deid_local_certified=True)
+        c = self._make(model_type='system2', provider='Other',
+                       base_url='https://llm.example.com/v1',
+                       deid_local_certified=True)
         with self.assertRaises(ValidationError):
             c.full_clean()
 
-    def test_certification_required(self):
-        from django.core.exceptions import ValidationError
-        c = self._make(enable_text_deid=True, deid_local_certified=False)
-        with self.assertRaises(ValidationError):
-            c.full_clean()
+    def test_system2_not_certified_is_still_valid(self):
+        # A System-2 model not certified for local deid is still a valid
+        # configuration (it just can't be selected as a pipeline's LLM pass;
+        # that restriction is enforced on the pipeline, not the config).
+        c = self._make(model_type='system2', deid_local_certified=False)
+        c.full_clean()  # no ValidationError
 
-    def test_default_requires_enable(self):
-        from django.core.exceptions import ValidationError
-        c = self._make(enable_text_deid=False, is_default_deid=True)
-        with self.assertRaises(ValidationError):
-            c.full_clean()
+    def test_system2_lan_ip_allowed(self):
+        c = self._make(model_type='system2', base_url='http://192.168.1.50:11434',
+                       deid_local_certified=True)
+        c.full_clean()  # no ValidationError
 
-    def test_only_one_default(self):
-        from django.core.exceptions import ValidationError
-        first = self._make(enable_text_deid=True, deid_local_certified=True,
-                           is_default_deid=True)
-        first.full_clean()
-        first.save()
-        second = self._make(enable_text_deid=True, deid_local_certified=True,
-                            is_default_deid=True)
-        with self.assertRaises(ValidationError):
-            second.full_clean()
+    def test_system1_remote_allowed(self):
+        # A System-1 decision model may use a remote endpoint; no local
+        # certification is required.
+        c = self._make(model_type='system1', provider='OpenAI',
+                       base_url='https://api.openai.com/v1',
+                       deid_local_certified=False)
+        c.full_clean()  # no ValidationError
 
-    def test_lan_ip_allowed(self):
-        c = self._make(base_url='http://192.168.1.50:11434',
-                       enable_text_deid=True, deid_local_certified=True)
+    def test_system1_cloud_provider_clean(self):
+        c = self._make(model_type='system1', provider='OpenAI',
+                       base_url='https://api.openai.com/v1')
         c.full_clean()  # no ValidationError
 
 
@@ -3747,22 +3747,20 @@ class ClientConfigurationDeidViewTests(TestCase):
             codename__in=['add_clientconfiguration', 'change_clientconfiguration',
                           'view_clientconfiguration']))
 
-    def test_create_with_deid_fields(self):
+    def test_create_with_model_type(self):
         self.client.force_login(self.user)
         resp = self.client.post(reverse('extractor:client_configuration_create'), {
             'llm_model_name': 'gemma4:4b', 'model_provider': 'Local (Ollama)',
             'model_api_key': 'ollama', 'model_base_url': 'http://localhost:11434',
             'request_timeout': '60', 'context_size': '8192',
             'extraction_concurrency': '1',
-            'enable_text_deid': 'on', 'deid_local_certified': 'on',
-            'is_default_deid': 'on',
+            'model_type': 'system2', 'deid_local_certified': 'on',
         })
         self.assertEqual(resp.status_code, 302)
         from extractor.models import ClientConfiguration
         cfg = ClientConfiguration.objects.get(llm_model_name='gemma4:4b')
-        self.assertTrue(cfg.enable_text_deid)
+        self.assertEqual(cfg.model_type, 'system2')
         self.assertTrue(cfg.deid_local_certified)
-        self.assertTrue(cfg.is_default_deid)
 
     def test_create_cloud_with_deid_rejected(self):
         self.client.force_login(self.user)
@@ -3771,7 +3769,7 @@ class ClientConfigurationDeidViewTests(TestCase):
             'model_api_key': 'sk-x', 'model_base_url': 'https://api.openai.com/v1',
             'request_timeout': '60', 'context_size': '8192',
             'extraction_concurrency': '1',
-            'enable_text_deid': 'on', 'deid_local_certified': 'on',
+            'model_type': 'system2', 'deid_local_certified': 'on',
         })
         from extractor.models import ClientConfiguration
         self.assertFalse(ClientConfiguration.objects.filter(
@@ -3785,19 +3783,17 @@ class ClientConfigurationDeidViewTests(TestCase):
         cfg = ClientConfiguration.objects.create(
             llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
             model_api_key='ollama', model_base_url='http://localhost:11434',
-            enable_text_deid=True, deid_local_certified=True,
-            is_default_deid=True)
+            model_type='system2', deid_local_certified=True)
         self.client.force_login(self.user)
         resp = self.client.post(reverse('extractor:client_configuration_edit', args=[cfg.id]), {
             'llm_model_name': 'gemma4:4b', 'model_provider': 'Local (Ollama)',
             'model_base_url': 'http://localhost:11434',
             'request_timeout': '60', 'context_size': '8192',
             'extraction_concurrency': '1',
-            'enable_text_deid': 'on', 'deid_local_certified': 'on',
+            'model_type': 'system1', 'deid_local_certified': 'on',
         })
         cfg.refresh_from_db()
-        self.assertTrue(cfg.enable_text_deid)
-        self.assertFalse(cfg.is_default_deid)  # checkbox unticked clears it
+        self.assertEqual(cfg.model_type, 'system1')
         # templates render
         self.client.get(reverse('extractor:client_configuration_list'))
         self.assertContains(
@@ -3808,7 +3804,7 @@ class ClientConfigurationDeidViewTests(TestCase):
             'deid_local_certified')
         self.assertContains(
             self.client.get(reverse('extractor:client_configuration_create')),
-            'deid_local_certified')
+            'model_type')
 
 
 from extractor.services import llm_ner
@@ -3962,47 +3958,69 @@ class LlmNerRecognizerTests(TestCase):
         self.assertEqual(len(second), 1)
 
 
-class DeidBackendResolutionTests(TestCase):
+class DeidPipelineResolutionTests(TestCase):
     def _cfg(self, **kw):
         from extractor.models import ClientConfiguration
         defaults = dict(
             llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
             model_api_key='ollama', model_base_url='http://localhost:11434',
-            enable_text_deid=True, deid_local_certified=True)
+            model_type='system2', deid_local_certified=True)
         defaults.update(kw)
         return ClientConfiguration.objects.create(**defaults)
 
-    def test_default_without_config_is_presidio(self):
+    def test_default_resolves_to_default_pipeline(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S)
-        self.assertEqual(S._resolve_backend('default', None), ('presidio', None))
+        from extractor.models import TextDeidentificationPipelineConfig as P
+        pipeline, openmed = S._resolve_pipeline(None, 'default', None)
+        self.assertIsNone(openmed)
+        self.assertTrue(P.objects.filter(id=pipeline.id, is_default=True).exists())
 
-    def test_default_with_default_config_is_llm(self):
+    def test_presidio_backend_builds_hf_pipeline(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S)
-        cfg = self._cfg(is_default_deid=True)
-        backend, got = S._resolve_backend(None, None)
-        self.assertEqual(backend, 'llm')
-        self.assertEqual(got.id, cfg.id)
+        from django.conf import settings
+        pipeline, openmed = S._resolve_pipeline(None, 'presidio', None)
+        self.assertIsNone(openmed)
+        self.assertEqual(pipeline.ner_engine, 'hf')
+        self.assertEqual(pipeline.hf_model_id, settings.DEID_HF_NER_MODEL)
+
+    def test_llm_backend_uses_config(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        cfg = self._cfg()
+        pipeline, openmed = S._resolve_pipeline(None, 'llm', cfg.id)
+        self.assertIsNone(openmed)
+        self.assertEqual(pipeline.system2_model_id, cfg.id)
+        self.assertEqual(pipeline.ner_engine, 'spacy')
 
     def test_explicit_llm_without_config_raises(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S, LlmDeidConfigurationError)
         with self.assertRaises(LlmDeidConfigurationError):
-            S._resolve_backend('llm', None)
+            S._resolve_pipeline(None, 'llm', None)
 
-    def test_llm_with_uncertified_config_raises(self):
+    def test_openmed_backend(self):
         from extractor.services.text_deidentification import (
-            TextDeidentificationService as S, LlmDeidConfigurationError)
-        cfg = self._cfg(deid_local_certified=False)
-        with self.assertRaises(LlmDeidConfigurationError):
-            S._resolve_backend('llm', cfg.id)
+            TextDeidentificationService as S)
+        pipeline, openmed = S._resolve_pipeline(None, 'openmed', None)
+        self.assertIsNone(pipeline)
+        self.assertEqual(openmed, 'openmed')
+
+    def test_pipeline_wins_over_backend(self):
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        from extractor.models import TextDeidentificationPipelineConfig as P
+        p = P.objects.filter(is_default=True).first()
+        got, openmed = S._resolve_pipeline(p, 'presidio', None)
+        self.assertIsNone(openmed)
+        self.assertEqual(got.id, p.id)
 
     def test_unknown_backend_raises(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S, LlmDeidConfigurationError)
         with self.assertRaises(LlmDeidConfigurationError):
-            S._resolve_backend('magic', None)
+            S._resolve_pipeline(None, 'magic', None)
 
 
 class DurationFilterTests(SimpleTestCase):
@@ -4247,21 +4265,6 @@ class OpenMedNerRecognizerTests(SimpleTestCase):
             rec._find('abc')
 
 
-class DeidBackendResolutionTests(SimpleTestCase):
-    def test_openmed_backend_resolves_without_config(self):
-        from extractor.services.text_deidentification import (
-            TextDeidentificationService as S)
-        backend, config = S._resolve_backend('openmed', None)
-        self.assertEqual(backend, 'openmed')
-        self.assertIsNone(config)
-
-    def test_unknown_backend_rejected(self):
-        from extractor.services.text_deidentification import (
-            LlmDeidConfigurationError, TextDeidentificationService as S)
-        with self.assertRaises(LlmDeidConfigurationError):
-            S._resolve_backend('bogus', None)
-
-
 class DeidDispatchViewTests(TestCase):
     def setUp(self):
         from django.contrib.auth.models import Permission
@@ -4297,7 +4300,7 @@ class DeidDispatchViewTests(TestCase):
         cfg = ClientConfiguration.objects.create(
             llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
             model_api_key='ollama', model_base_url='http://localhost:11434',
-            enable_text_deid=True, deid_local_certified=True)
+            model_type='system2', deid_local_certified=True)
         self.client.force_login(self.user)
         resp = self._post(**{'backend': f'llm:{cfg.id}'})
         self.assertEqual(resp.status_code, 302)
@@ -4312,7 +4315,8 @@ class DeidDispatchViewTests(TestCase):
         resp = self._post(**{'backend': 'llm'})
         self.assertEqual(delay.call_count, 0)
         final = self.client.get('/')
-        self.assertTrue(any('deid' in str(m).lower()
+        self.assertTrue(any('llm' in str(m).lower()
+                            or 'configuration' in str(m).lower()
                             for m in final.context['messages']))
 
     def test_permission_required(self):
@@ -4331,29 +4335,31 @@ class FileUploadDetailDeidRenderTests(TestCase):
         cfg = ClientConfiguration.objects.create(
             llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
             model_api_key='ollama', model_base_url='http://localhost:11434',
-            enable_text_deid=True, deid_local_certified=True,
-            is_default_deid=True)
+            model_type='system2', deid_local_certified=True)
         up = FileUpload.objects.create(original_filename='a.pdf',
                                       file=ContentFile(b'%PDF-1.4 fake', 'a.pdf'))
         ProcessedText.objects.create(file_upload=up, processed_file_path='x.txt')
         self.client.force_login(u)
         resp = self.client.get(reverse('extractor:file_upload_detail', args=[up.id]))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, 'LLM NER — gemma4:4b (default)')
-        self.assertContains(resp, 'Default (LLM NER)')
-        self.assertContains(resp, 'Presidio + Stanford NER')
+        self.assertContains(resp, 'Legacy: LLM NER — gemma4:4b')
+        self.assertContains(resp, 'Default pipeline')
+        self.assertContains(resp, 'Legacy: Presidio + Stanford NER')
 
     def test_file_detail_no_llm_config_hidden_select(self):
         u = User.objects.create_user('r2')
         u.user_permissions.set(Permission.objects.filter(
-            codename__in=['view_fileupload', 'view_processedtext']))
+            codename__in=['view_fileupload', 'view_processedtext',
+                          'change_processedtext']))
         up = FileUpload.objects.create(original_filename='b.pdf',
                                       file=ContentFile(b'%PDF-1.4 fake', 'b.pdf'))
         ProcessedText.objects.create(file_upload=up, processed_file_path='y.txt')
         self.client.force_login(u)
         resp = self.client.get(reverse('extractor:file_upload_detail', args=[up.id]))
         self.assertEqual(resp.status_code, 200)
-        self.assertNotContains(resp, 'name="backend"')
+        # the pipeline selector always renders (at least the default)
+        self.assertContains(resp, 'name="backend"')
+        self.assertContains(resp, 'Default pipeline')
 
 
 class LlmDeidEndToEndTests(TestCase):
@@ -4374,8 +4380,7 @@ class LlmDeidEndToEndTests(TestCase):
         self.cfg = ClientConfiguration.objects.create(
             llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
             model_api_key='ollama', model_base_url='http://localhost:11434',
-            enable_text_deid=True, deid_local_certified=True,
-            is_default_deid=True)
+            model_type='system2', deid_local_certified=True)
         self.upload = FileUpload.objects.create(original_filename='note.pdf')
         self.content = (
             'Mr Rajesh Kumar from Village Patia, Kolkata, was admitted on '
@@ -4416,7 +4421,7 @@ class LlmDeidEndToEndTests(TestCase):
             new = S.deidentify(self.pt, backend='llm',
                                client_config_id=self.cfg.id)
         self.assertIsNotNone(new)
-        self.assertEqual(new.deid_engine, 'llm')
+        self.assertEqual(new.deid_engine, 'spacy')
         self.assertEqual(new.deid_model, 'gemma4:4b')
         self.assertEqual(new.deid_client_config_id, self.cfg.id)
         out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
@@ -4447,20 +4452,21 @@ class LlmDeidEndToEndTests(TestCase):
         # Review map populated
         self.assertTrue(new.deid_map)
 
-    def test_default_resolution_picks_llm(self):
+    def test_default_resolution_picks_default_pipeline(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S)
         with mock.patch('extractor.services.llm_ner.LlmNerClient._llm_call',
                         side_effect=lambda chunk:
                         self._llm_side_effect(chunk)):
-            new = S.deidentify(self.pt)  # backend defaults -> LLM (default cfg set)
-        self.assertEqual(new.deid_engine, 'llm')
+            new = S.deidentify(self.pt)  # default backend -> default pipeline
+        self.assertEqual(new.deid_engine, 'spacy')
+        self.assertIsNone(new.deid_client_config_id)
 
     def test_presidio_engine_unaffected(self):
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S)
         new = S.deidentify(self.pt, backend='presidio')
-        self.assertIn(new.deid_engine, ('full', 'degraded'))
+        self.assertEqual(new.deid_engine, 'hf')
         self.assertIsNone(new.deid_client_config_id)
         out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
         self.assertNotIn('123412341234', out)  # rules still work

@@ -27,6 +27,12 @@ urlpatterns = [
     path('client-configurations/<int:config_id>/test-connection/', views.client_configuration_test_connection, name='client_configuration_test_connection'),
     path('client-configurations/<int:config_id>/discover-capabilities/', views.client_configuration_discover_capabilities, name='client_configuration_discover_capabilities'),
     path('client-configurations/<int:config_id>/set-reasoning/', views.client_configuration_set_reasoning, name='client_configuration_set_reasoning'),
+
+    path('deid-pipelines/', views.pipeline_list, name='pipeline_list'),
+    path('deid-pipelines/create/', views.pipeline_create, name='pipeline_create'),
+    path('deid-pipelines/<int:pipeline_id>/', views.pipeline_detail, name='pipeline_detail'),
+    path('deid-pipelines/<int:pipeline_id>/edit/', views.pipeline_edit, name='pipeline_edit'),
+    path('deid-pipelines/<int:pipeline_id>/delete/', views.pipeline_delete, name='pipeline_delete'),
     
     path('files/', views.file_upload_list, name='file_upload_list'),
     path('files/upload/', views.file_upload_create, name='file_upload_create'),

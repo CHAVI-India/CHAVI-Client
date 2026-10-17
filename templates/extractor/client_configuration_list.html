@@ -28,9 +28,11 @@
             {% endfill %}
             {% fill "body" %}
             <p class="text-sm text-gray-600 mb-2">{{ config.model_provider }}
-                {% if config.enable_text_deid %}
-                    {% component "badge" style="accent" extra_class="ml-1" %}DEID{% endcomponent %}
-                    {% if config.is_default_deid %}{% component "badge" style="success" extra_class="ml-1" %}Default{% endcomponent %}{% endif %}
+                {% if config.model_type == 'system2' %}
+                    {% component "badge" style="accent" extra_class="ml-1" %}System-2{% endcomponent %}
+                    {% if config.deid_local_certified %}{% component "badge" style="success" extra_class="ml-1" %}Deid-ready{% endcomponent %}{% endif %}
+                {% elif config.model_type == 'system1' %}
+                    {% component "badge" style="accent" extra_class="ml-1" %}System-1{% endcomponent %}
                 {% endif %}
             </p>
             <div class="space-y-2">

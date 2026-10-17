@@ -141,21 +141,29 @@
                     Text deidentification (local LLM NER)
                 </h3>
                 <p class="text-sm text-gray-500 mb-4">
-                    Optional role: this model becomes the NER engine for the text
-                    deidentification pipeline, replacing the Stanford NER. Rule-based
-                    recognizers (Aadhaar, ABHA, MRN patterns, dates, patient IDs) keep
-                    running alongside. The model must run on this machine or the local
-                    network — deidentified clinical text never leaves the local network.
-                    Cloud providers are rejected for this role.
+                    Model role: a <strong>System-2</strong> (autoregressive) model can
+                    be selected as the NER engine inside a deidentification pipeline,
+                    running alongside the rule-based recognizers. A
+                    <strong>System-1</strong> (decision) model judges candidate spans and
+                    may run locally or on a remote endpoint. A System-2 model used for
+                    text deidentification must run on this machine or the local network
+                    — deidentified clinical text never leaves the local network; cloud
+                    providers are rejected for that role.
                 </p>
                 <div class="space-y-3">
-                    <div class="flex items-start">
-                        <input type="checkbox" id="enable_text_deid" name="enable_text_deid"
-                               {% if configuration.enable_text_deid %}checked{% endif %}
-                               class="h-4 w-4 mt-1 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
-                        <label for="enable_text_deid" class="ml-2 text-sm font-medium text-gray-700">
-                            Enable this configuration for text deidentification
+                    <div>
+                        <label for="model_type" class="block text-sm font-medium text-gray-700 mb-1">
+                            Model role
                         </label>
+                        <select id="model_type" name="model_type"
+                                class="w-full border border-gray-300 rounded-md text-sm py-2 px-3 focus:ring-chavi-primary focus:border-chavi-primary">
+                            <option value="system2" {% if configuration.model_type == 'system2' %}selected{% endif %}>System-2 — autoregressive LLM (NER engine in a deid pipeline)</option>
+                            <option value="system1" {% if configuration.model_type == 'system1' %}selected{% endif %}>System-1 — decision model (judges candidate spans; local or remote)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            The deidentification default is set on a deidentification
+                            pipeline, not here.
+                        </p>
                     </div>
                     <div class="flex items-start">
                         <input type="checkbox" id="deid_local_certified" name="deid_local_certified"
@@ -164,16 +172,8 @@
                         <label for="deid_local_certified" class="ml-2 text-sm text-gray-700">
                             I understand and certify: this model runs locally (same machine
                             or local network) and patient text will not leave the local network.
-                        </label>
-                    </div>
-                    <div class="flex items-start">
-                        <input type="checkbox" id="is_default_deid" name="is_default_deid"
-                               {% if configuration.is_default_deid %}checked{% endif %}
-                               class="h-4 w-4 mt-1 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary">
-                        <label for="is_default_deid" class="ml-2 text-sm text-gray-700">
-                            Make this the default deidentification engine for new files
-                            <span class="text-gray-500">(overridable per file; only one
-                            configuration may be the default)</span>
+                            <span class="text-gray-500">(required for a System-2 model
+                            used for text deidentification)</span>
                         </label>
                     </div>
                 </div>

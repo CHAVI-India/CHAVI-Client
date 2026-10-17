@@ -27,6 +27,10 @@ class Command(BaseCommand):
             '--client-config', type=int, default=None,
             help='ClientConfiguration id for --backend llm (default: the '
                  'default deid configuration)')
+        parser.add_argument(
+            '--pipeline', type=int, default=None,
+            help='Use a specific TextDeidentificationPipelineConfig id '
+                 '(overrides --backend)')
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -57,7 +61,8 @@ class Command(BaseCommand):
                 try:
                     if TextDeidentificationService.deidentify(
                             pt, backend=options['backend'],
-                            client_config_id=options['client_config']):
+                            client_config_id=options['client_config'],
+                            pipeline_id=options['pipeline']):
                         done += 1
                 except Exception as e:
                     failed += 1
@@ -81,7 +86,8 @@ class Command(BaseCommand):
             deidentify_processed_text_task.delay(
                 task.task_id, pt.id,
                 backend=options['backend'],
-                client_config_id=options['client_config'])
+                client_config_id=options['client_config'],
+                pipeline_id=options['pipeline'])
             dispatched += 1
 
         self.stdout.write(self.style.SUCCESS(
