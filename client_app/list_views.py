@@ -4,6 +4,7 @@ This file contains ListView and UpdateView for each model to allow viewing and e
 """
 from django.views.generic import ListView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Case, When, Count, IntegerField
 from django.urls import reverse
 from .models import *
 from .forms import *
@@ -78,6 +79,69 @@ class PatientDicomFileListView(BaseListView):
             context['patient'] = Patient.objects.get(patient_id=patient_id)
             context['add_url'] = reverse('client_app:patientdicomfile_add') + f'?patient={patient_id}'
         # No frontend edit view exists for DICOM files; hide the edit action.
+        context['can_edit'] = False
+        return context
+
+
+class DICOMStudyListView(BaseListView):
+    """Lists DICOM studies (optionally filtered by patient).
+
+    Each study is rendered with a summarized breakdown of its child
+    DICOMSeries (modality, date) and instance counts. DICOM studies are
+    created by the DICOM processing pipeline, not manually, so there is
+    no add/edit action here.
+    """
+    model = DICOMStudy
+    template_name = "client_app/dicomstudy_list.html"
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset().annotate(
+            has_study_date=Case(
+                When(study_date__isnull=False, then=1),
+                default=0,
+                output_field=IntegerField(),
+            )
+        ).order_by('-has_study_date', '-study_date', '-created_at')
+        patient_id = self.request.GET.get('patient_id')
+        if patient_id:
+            queryset = queryset.filter(patient__patient_id=patient_id)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        patient_id = self.request.GET.get('patient_id')
+        if patient_id:
+            context['patient'] = Patient.objects.filter(patient_id=patient_id).first()
+
+        # Summarized child series (with instance counts) for the studies on
+        # this page only — instances are counted in the DB, not loaded.
+        page_studies = list(context['page_obj'].object_list)
+        study_pks = [study.pk for study in page_studies]
+        series_by_study = {}
+        instance_total_by_study = {}
+        series_qs = (
+            DICOMSeries.objects.filter(study_id__in=study_pks)
+            .annotate(instance_count=Count('instances'))
+            .order_by('series_date', 'modality', 'series_instance_uid')
+        )
+        for series in series_qs:
+            series_by_study.setdefault(series.study_id, []).append(series)
+            instance_total_by_study[series.study_id] = (
+                instance_total_by_study.get(series.study_id, 0) + series.instance_count
+            )
+
+        context['studies'] = [
+            {
+                'study': study,
+                'series': series_by_study.get(study.pk, []),
+                'series_count': len(series_by_study.get(study.pk, [])),
+                'instance_count': instance_total_by_study.get(study.pk, 0),
+            }
+            for study in page_studies
+        ]
+        # No frontend add/edit views exist for DICOM studies.
+        context['can_add'] = False
         context['can_edit'] = False
         return context
 

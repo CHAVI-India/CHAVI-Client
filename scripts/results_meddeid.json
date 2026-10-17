@@ -1,0 +1,778 @@
+{
+  "n": 20,
+  "seed": 42,
+  "notes": [
+    "en-gb-synthetic-02207",
+    "en-us-synthetic-01952",
+    "en-gb-synthetic-00773",
+    "en-gb-synthetic-01825",
+    "en-gb-synthetic-00703",
+    "en-us-synthetic-02250",
+    "en-us-synthetic-00772",
+    "en-gb-synthetic-02432",
+    "en-gb-synthetic-00346",
+    "en-us-synthetic-01634",
+    "en-gb-synthetic-00523",
+    "en-us-synthetic-03357",
+    "en-gb-synthetic-02172",
+    "en-us-synthetic-01436",
+    "en-us-synthetic-00988",
+    "en-us-synthetic-03440",
+    "en-us-synthetic-03299",
+    "en-gb-synthetic-00844",
+    "en-us-synthetic-00158",
+    "en-us-synthetic-00454"
+  ],
+  "results": [
+    {
+      "label": "R1 (spaCy+rules)",
+      "config": "R1",
+      "precision": 0.5615384615384615,
+      "precision_metric": 0.5615384615384615,
+      "recall": 0.6239316239316239,
+      "f1": 0.5910931174089069,
+      "tp": 73,
+      "pred": 130,
+      "gold": 117,
+      "over_red": 57,
+      "leaks": 44,
+      "percat": {
+        "Name": [
+          28,
+          43
+        ],
+        "Age_Birthdate": [
+          6,
+          10
+        ],
+        "ID": [
+          10,
+          22
+        ],
+        "Date": [
+          10,
+          10
+        ],
+        "Organization": [
+          2,
+          9
+        ],
+        "Contactdetails": [
+          9,
+          9
+        ],
+        "Address_Location": [
+          8,
+          11
+        ],
+        "Profession": [
+          0,
+          3
+        ]
+      },
+      "per_note": [
+        {
+          "id": "en-gb-synthetic-02207",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 4,
+          "tp": 3,
+          "precision": 0.75,
+          "recall": 0.6,
+          "f1": 0.667
+        },
+        {
+          "id": "en-us-synthetic-01952",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 7,
+          "tp": 5,
+          "precision": 0.714,
+          "recall": 0.714,
+          "f1": 0.714
+        },
+        {
+          "id": "en-gb-synthetic-00773",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 4,
+          "tp": 3,
+          "precision": 0.75,
+          "recall": 0.6,
+          "f1": 0.667
+        },
+        {
+          "id": "en-gb-synthetic-01825",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 7,
+          "tp": 4,
+          "precision": 0.571,
+          "recall": 0.667,
+          "f1": 0.615
+        },
+        {
+          "id": "en-gb-synthetic-00703",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 10,
+          "tp": 3,
+          "precision": 0.3,
+          "recall": 0.6,
+          "f1": 0.4
+        },
+        {
+          "id": "en-us-synthetic-02250",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 7,
+          "tp": 4,
+          "precision": 0.571,
+          "recall": 0.8,
+          "f1": 0.667
+        },
+        {
+          "id": "en-us-synthetic-00772",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 5,
+          "tp": 4,
+          "precision": 0.8,
+          "recall": 0.571,
+          "f1": 0.667
+        },
+        {
+          "id": "en-gb-synthetic-02432",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 8,
+          "tp": 4,
+          "precision": 0.5,
+          "recall": 0.667,
+          "f1": 0.571
+        },
+        {
+          "id": "en-gb-synthetic-00346",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 9,
+          "tp": 6,
+          "precision": 0.667,
+          "recall": 1.0,
+          "f1": 0.8
+        },
+        {
+          "id": "en-us-synthetic-01634",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 5,
+          "tp": 3,
+          "precision": 0.6,
+          "recall": 0.6,
+          "f1": 0.6
+        },
+        {
+          "id": "en-gb-synthetic-00523",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 6,
+          "tp": 2,
+          "precision": 0.333,
+          "recall": 0.4,
+          "f1": 0.364
+        },
+        {
+          "id": "en-us-synthetic-03357",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 7,
+          "tp": 3,
+          "precision": 0.429,
+          "recall": 0.6,
+          "f1": 0.5
+        },
+        {
+          "id": "en-gb-synthetic-02172",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 5,
+          "tp": 4,
+          "precision": 0.8,
+          "recall": 0.8,
+          "f1": 0.8
+        },
+        {
+          "id": "en-us-synthetic-01436",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 4,
+          "tp": 3,
+          "precision": 0.75,
+          "recall": 0.5,
+          "f1": 0.6
+        },
+        {
+          "id": "en-us-synthetic-00988",
+          "lang": "en-US",
+          "gold": 8,
+          "pred": 7,
+          "tp": 3,
+          "precision": 0.429,
+          "recall": 0.375,
+          "f1": 0.4
+        },
+        {
+          "id": "en-us-synthetic-03440",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 6,
+          "tp": 3,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        {
+          "id": "en-us-synthetic-03299",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 7,
+          "tp": 5,
+          "precision": 0.714,
+          "recall": 1.0,
+          "f1": 0.833
+        },
+        {
+          "id": "en-gb-synthetic-00844",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 6,
+          "tp": 2,
+          "precision": 0.333,
+          "recall": 0.333,
+          "f1": 0.333
+        },
+        {
+          "id": "en-us-synthetic-00158",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 6,
+          "tp": 4,
+          "precision": 0.667,
+          "recall": 0.571,
+          "f1": 0.615
+        },
+        {
+          "id": "en-us-synthetic-00454",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 10,
+          "tp": 5,
+          "precision": 0.5,
+          "recall": 0.714,
+          "f1": 0.588
+        }
+      ],
+      "time": 19.9
+    },
+    {
+      "label": "R2 (Stanford+rules)",
+      "config": "R2",
+      "precision": 0.6794871794871795,
+      "precision_metric": 0.6794871794871795,
+      "recall": 0.905982905982906,
+      "f1": 0.7765567765567766,
+      "tp": 106,
+      "pred": 156,
+      "gold": 117,
+      "over_red": 50,
+      "leaks": 11,
+      "percat": {
+        "Name": [
+          40,
+          43
+        ],
+        "Age_Birthdate": [
+          6,
+          10
+        ],
+        "ID": [
+          22,
+          22
+        ],
+        "Date": [
+          10,
+          10
+        ],
+        "Organization": [
+          9,
+          9
+        ],
+        "Contactdetails": [
+          9,
+          9
+        ],
+        "Address_Location": [
+          10,
+          11
+        ],
+        "Profession": [
+          0,
+          3
+        ]
+      },
+      "per_note": [
+        {
+          "id": "en-gb-synthetic-02207",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "id": "en-us-synthetic-01952",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 9,
+          "tp": 7,
+          "precision": 0.778,
+          "recall": 1.0,
+          "f1": 0.875
+        },
+        {
+          "id": "en-gb-synthetic-00773",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 5,
+          "tp": 4,
+          "precision": 0.8,
+          "recall": 0.8,
+          "f1": 0.8
+        },
+        {
+          "id": "en-gb-synthetic-01825",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 12,
+          "tp": 6,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.667
+        },
+        {
+          "id": "en-gb-synthetic-00703",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 6,
+          "tp": 3,
+          "precision": 0.5,
+          "recall": 0.6,
+          "f1": 0.545
+        },
+        {
+          "id": "en-us-synthetic-02250",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 9,
+          "tp": 4,
+          "precision": 0.444,
+          "recall": 0.8,
+          "f1": 0.571
+        },
+        {
+          "id": "en-us-synthetic-00772",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 8,
+          "tp": 7,
+          "precision": 0.875,
+          "recall": 1.0,
+          "f1": 0.933
+        },
+        {
+          "id": "en-gb-synthetic-02432",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 11,
+          "tp": 6,
+          "precision": 0.545,
+          "recall": 1.0,
+          "f1": 0.706
+        },
+        {
+          "id": "en-gb-synthetic-00346",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 11,
+          "tp": 6,
+          "precision": 0.545,
+          "recall": 1.0,
+          "f1": 0.706
+        },
+        {
+          "id": "en-us-synthetic-01634",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 10,
+          "tp": 5,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.667
+        },
+        {
+          "id": "en-gb-synthetic-00523",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 8,
+          "tp": 4,
+          "precision": 0.5,
+          "recall": 0.8,
+          "f1": 0.615
+        },
+        {
+          "id": "en-us-synthetic-03357",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "id": "en-gb-synthetic-02172",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 8,
+          "tp": 4,
+          "precision": 0.5,
+          "recall": 0.8,
+          "f1": 0.615
+        },
+        {
+          "id": "en-us-synthetic-01436",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 0.833,
+          "f1": 0.909
+        },
+        {
+          "id": "en-us-synthetic-00988",
+          "lang": "en-US",
+          "gold": 8,
+          "pred": 7,
+          "tp": 7,
+          "precision": 1.0,
+          "recall": 0.875,
+          "f1": 0.933
+        },
+        {
+          "id": "en-us-synthetic-03440",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 0.833,
+          "f1": 0.909
+        },
+        {
+          "id": "en-us-synthetic-03299",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 9,
+          "tp": 5,
+          "precision": 0.556,
+          "recall": 1.0,
+          "f1": 0.714
+        },
+        {
+          "id": "en-gb-synthetic-00844",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 0.833,
+          "f1": 0.909
+        },
+        {
+          "id": "en-us-synthetic-00158",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 10,
+          "tp": 7,
+          "precision": 0.7,
+          "recall": 1.0,
+          "f1": 0.824
+        },
+        {
+          "id": "en-us-synthetic-00454",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 8,
+          "tp": 6,
+          "precision": 0.75,
+          "recall": 0.857,
+          "f1": 0.8
+        }
+      ],
+      "time": 39.6
+    },
+    {
+      "label": "R3 shipped (spaCy+Stanford+rules)",
+      "config": "R3",
+      "precision": 0.5094339622641509,
+      "precision_metric": 0.5094339622641509,
+      "recall": 0.9230769230769231,
+      "f1": 0.6565349544072949,
+      "tp": 108,
+      "pred": 212,
+      "gold": 117,
+      "over_red": 104,
+      "leaks": 9,
+      "percat": {
+        "Name": [
+          42,
+          43
+        ],
+        "Age_Birthdate": [
+          6,
+          10
+        ],
+        "ID": [
+          22,
+          22
+        ],
+        "Date": [
+          10,
+          10
+        ],
+        "Organization": [
+          9,
+          9
+        ],
+        "Contactdetails": [
+          9,
+          9
+        ],
+        "Address_Location": [
+          10,
+          11
+        ],
+        "Profession": [
+          0,
+          3
+        ]
+      },
+      "per_note": [
+        {
+          "id": "en-gb-synthetic-02207",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 7,
+          "tp": 5,
+          "precision": 0.714,
+          "recall": 1.0,
+          "f1": 0.833
+        },
+        {
+          "id": "en-us-synthetic-01952",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 9,
+          "tp": 7,
+          "precision": 0.778,
+          "recall": 1.0,
+          "f1": 0.875
+        },
+        {
+          "id": "en-gb-synthetic-00773",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 5,
+          "tp": 4,
+          "precision": 0.8,
+          "recall": 0.8,
+          "f1": 0.8
+        },
+        {
+          "id": "en-gb-synthetic-01825",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 14,
+          "tp": 6,
+          "precision": 0.429,
+          "recall": 1.0,
+          "f1": 0.6
+        },
+        {
+          "id": "en-gb-synthetic-00703",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 13,
+          "tp": 4,
+          "precision": 0.308,
+          "recall": 0.8,
+          "f1": 0.444
+        },
+        {
+          "id": "en-us-synthetic-02250",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 12,
+          "tp": 4,
+          "precision": 0.333,
+          "recall": 0.8,
+          "f1": 0.471
+        },
+        {
+          "id": "en-us-synthetic-00772",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 10,
+          "tp": 7,
+          "precision": 0.7,
+          "recall": 1.0,
+          "f1": 0.824
+        },
+        {
+          "id": "en-gb-synthetic-02432",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 15,
+          "tp": 6,
+          "precision": 0.4,
+          "recall": 1.0,
+          "f1": 0.571
+        },
+        {
+          "id": "en-gb-synthetic-00346",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 14,
+          "tp": 6,
+          "precision": 0.429,
+          "recall": 1.0,
+          "f1": 0.6
+        },
+        {
+          "id": "en-us-synthetic-01634",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 12,
+          "tp": 5,
+          "precision": 0.417,
+          "recall": 1.0,
+          "f1": 0.588
+        },
+        {
+          "id": "en-gb-synthetic-00523",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 12,
+          "tp": 4,
+          "precision": 0.333,
+          "recall": 0.8,
+          "f1": 0.471
+        },
+        {
+          "id": "en-us-synthetic-03357",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 7,
+          "tp": 5,
+          "precision": 0.714,
+          "recall": 1.0,
+          "f1": 0.833
+        },
+        {
+          "id": "en-gb-synthetic-02172",
+          "lang": "en-GB",
+          "gold": 5,
+          "pred": 10,
+          "tp": 5,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.667
+        },
+        {
+          "id": "en-us-synthetic-01436",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 7,
+          "tp": 5,
+          "precision": 0.714,
+          "recall": 0.833,
+          "f1": 0.769
+        },
+        {
+          "id": "en-us-synthetic-00988",
+          "lang": "en-US",
+          "gold": 8,
+          "pred": 12,
+          "tp": 7,
+          "precision": 0.583,
+          "recall": 0.875,
+          "f1": 0.7
+        },
+        {
+          "id": "en-us-synthetic-03440",
+          "lang": "en-US",
+          "gold": 6,
+          "pred": 9,
+          "tp": 5,
+          "precision": 0.556,
+          "recall": 0.833,
+          "f1": 0.667
+        },
+        {
+          "id": "en-us-synthetic-03299",
+          "lang": "en-US",
+          "gold": 5,
+          "pred": 10,
+          "tp": 5,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.667
+        },
+        {
+          "id": "en-gb-synthetic-00844",
+          "lang": "en-GB",
+          "gold": 6,
+          "pred": 9,
+          "tp": 5,
+          "precision": 0.556,
+          "recall": 0.833,
+          "f1": 0.667
+        },
+        {
+          "id": "en-us-synthetic-00158",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 11,
+          "tp": 7,
+          "precision": 0.636,
+          "recall": 1.0,
+          "f1": 0.778
+        },
+        {
+          "id": "en-us-synthetic-00454",
+          "lang": "en-US",
+          "gold": 7,
+          "pred": 14,
+          "tp": 6,
+          "precision": 0.429,
+          "recall": 0.857,
+          "f1": 0.571
+        }
+      ],
+      "time": 50.9
+    }
+  ]
+}

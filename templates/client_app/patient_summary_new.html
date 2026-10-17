@@ -150,13 +150,9 @@
             {% component "badge" count=dicom_studies.count %}{% endcomponent %}
           </div>
           <div class="flex gap-2">
-            {% url 'client_app:patientdicomfile_list' as dicom_list_url %}
-            {% if caps.view_patientdicomfile %}
+            {% url 'client_app:dicomstudy_list' as dicom_list_url %}
+            {% if caps.view_dicomstudy %}
             {% component "link_chip" url=dicom_list_url param="patient_id" value=patient.patient_id label="View All" icon="fas fa-list" %}{% endcomponent %}
-            {% endif %}
-            {% url 'client_app:patientdicomfile_add' as dicom_add_url %}
-            {% if caps.add_patientdicomfile %}
-            {% component "link_chip" url=dicom_add_url param="patient" value=patient.patient_id label="Add" icon="fas fa-plus" style="primary" %}{% endcomponent %}
             {% endif %}
           </div>
         </div>

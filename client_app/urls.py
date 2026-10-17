@@ -87,6 +87,7 @@ urlpatterns = [
     path('germline-genomic-alterations/', list_views.GermlineGenomicAlterationsListView.as_view(), name='germlinegenomicalterations_list'),
     path('germline-genomic-alterations/<uuid:pk>/edit/', list_views.GermlineGenomicAlterationsUpdateView.as_view(), name='germlinegenomicalterations_edit'),
     path('dicom-file/', list_views.PatientDicomFileListView.as_view(), name='patientdicomfile_list'),
+    path('dicom-studies/', list_views.DICOMStudyListView.as_view(), name='dicomstudy_list'),
     
     # Diagnosis-level
     path('diagnosis/', list_views.DiagnosisListView.as_view(), name='diagnosis_list'),

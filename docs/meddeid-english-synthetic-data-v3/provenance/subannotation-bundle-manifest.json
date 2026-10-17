@@ -1,0 +1,473 @@
+{
+  "bundle_version": 1,
+  "generated_at": "2026-08-27T10:40:08.662Z",
+  "contracts": {
+    "schema_version": "meddeid.schema.v1",
+    "offset_unit": "unicode_codepoints",
+    "span_identity": "sha256(document_id,begin,end,label)",
+    "subannotation_profile": "meddeid.subannotation-profile-router.v1"
+  },
+  "subannotation_profile": {
+    "contractVersion": "meddeid.subannotation-profile-router.v1",
+    "profileId": "metadata.lang-router",
+    "routing": {
+      "field": "metadata.lang",
+      "strategy": "unique-language-tag-match",
+      "missing": "error",
+      "ambiguous": "error"
+    },
+    "languageTags": [
+      "en-GB",
+      "en-US"
+    ],
+    "categoryGroups": {
+      "general": [
+        "formatting",
+        "medical_info",
+        "additional_info"
+      ],
+      "Name": [
+        "given",
+        "family",
+        "initials",
+        "title"
+      ],
+      "Profession": [
+        "hobby",
+        "profession",
+        "employment_state"
+      ],
+      "Organization": [
+        "company",
+        "institution",
+        "hospital_location"
+      ],
+      "Address_Location": [
+        "country",
+        "province",
+        "region",
+        "municipality",
+        "postal_code",
+        "street",
+        "house_number",
+        "bus_number",
+        "postal_office"
+      ],
+      "Contactdetails": [
+        "internal_phone",
+        "public_phone",
+        "fax_number",
+        "given",
+        "family",
+        "initials",
+        "institution",
+        "additional_info"
+      ],
+      "ID": [
+        "public_id",
+        "internal_id"
+      ],
+      "Date": [
+        "day",
+        "week",
+        "month",
+        "year",
+        "weekday",
+        "time",
+        "season"
+      ],
+      "Age_Birthdate": [
+        "day",
+        "week",
+        "month",
+        "year",
+        "weekday",
+        "time",
+        "age_type",
+        "age_year",
+        "age_month",
+        "age_week",
+        "age_day"
+      ]
+    },
+    "profiles": [
+      {
+        "contractVersion": "meddeid.subannotation-profile.v1",
+        "profileId": "en-GB",
+        "rulesetId": "core-pii-en-gb",
+        "languageTags": [
+          "en-GB"
+        ],
+        "formattingCategory": "formatting",
+        "formattingPolicy": {
+          "symbols": [
+            "'",
+            "\"",
+            "’",
+            "“",
+            "”",
+            "/",
+            "-",
+            "–",
+            "_",
+            "+",
+            ".",
+            ",",
+            ":",
+            ";",
+            "|",
+            "(",
+            ")",
+            "[",
+            "]",
+            "{",
+            "}"
+          ],
+          "protectedDecimalCategories": [
+            "age_year",
+            "age_month",
+            "age_week",
+            "age_day"
+          ],
+          "decimalSeparators": [
+            "."
+          ]
+        },
+        "seedCategories": {
+          "Date": "__meddeid_seed__:Date",
+          "Age_Birthdate": "__meddeid_seed__:Age_Birthdate",
+          "Name": "__meddeid_seed__:Name",
+          "Profession": "__meddeid_seed__:Profession",
+          "Address_Location": "__meddeid_seed__:Address_Location",
+          "Organization": "__meddeid_seed__:Organization",
+          "Contactdetails": "__meddeid_seed__:Contactdetails",
+          "ID": "__meddeid_seed__:ID"
+        },
+        "autodetectCategories": [
+          "__meddeid_seed__:Name",
+          "__meddeid_seed__:Profession",
+          "__meddeid_seed__:Date",
+          "__meddeid_seed__:Organization",
+          "__meddeid_seed__:Address_Location",
+          "__meddeid_seed__:ID",
+          "__meddeid_seed__:Contactdetails"
+        ],
+        "categoryGroups": {
+          "general": [
+            "formatting",
+            "medical_info",
+            "additional_info"
+          ],
+          "Name": [
+            "given",
+            "family",
+            "initials",
+            "title"
+          ],
+          "Profession": [
+            "hobby",
+            "profession",
+            "employment_state"
+          ],
+          "Organization": [
+            "company",
+            "institution",
+            "hospital_location"
+          ],
+          "Address_Location": [
+            "country",
+            "province",
+            "region",
+            "municipality",
+            "postal_code",
+            "street",
+            "house_number",
+            "bus_number",
+            "postal_office"
+          ],
+          "Contactdetails": [
+            "internal_phone",
+            "public_phone",
+            "fax_number",
+            "given",
+            "family",
+            "initials",
+            "institution",
+            "additional_info"
+          ],
+          "ID": [
+            "public_id",
+            "internal_id"
+          ],
+          "Date": [
+            "day",
+            "week",
+            "month",
+            "year",
+            "weekday",
+            "time",
+            "season"
+          ],
+          "Age_Birthdate": [
+            "day",
+            "week",
+            "month",
+            "year",
+            "weekday",
+            "time",
+            "age_type",
+            "age_year",
+            "age_month",
+            "age_week",
+            "age_day"
+          ]
+        },
+        "ruleIds": [
+          "split_en_gb_date_variants",
+          "classify_profession_content",
+          "split_name_variants_from_profile",
+          "split_address_organization_variants_from_profile",
+          "split_contact_variants",
+          "classify_identifier_content"
+        ],
+        "resourceManifest": {
+          "manifest_version": "meddeid.language-resources.v2",
+          "package": "meddeid-language-en",
+          "package_version": "0.2.0",
+          "profile_id": "en-GB",
+          "lookups_sha256": "adc32237486ac62b8661ef3b81547d6c0645fbde0ba0c742b8c6a846f6ed60a0",
+          "counts": {
+            "administrative_areas": 4,
+            "credentials": 9,
+            "departments": 6,
+            "family_names": 1000,
+            "first_names": 39712,
+            "healthcare_institutions": 38459,
+            "hospitals": 7622,
+            "localities": 35730,
+            "name_suffixes": 4,
+            "other_organisations": 4,
+            "postal_code_localities": 2755,
+            "postal_localities": 35728,
+            "prefixes": 9,
+            "professions": 23982,
+            "streets": 140638,
+            "surname_particles": 5
+          }
+        },
+        "implementation": {
+          "package": "@meddeid/language-en",
+          "export": "./subannotation/en-GB",
+          "sha256": "7b5ca177907826db8c7db509412fbb57b7fb2b708b62258567e36b59b958ba40"
+        },
+        "sha256": "87b1d7845135f60d127ba57aa8a69bee45bd0d886d584ef86e182314f6ac89cc"
+      },
+      {
+        "contractVersion": "meddeid.subannotation-profile.v1",
+        "profileId": "en-US",
+        "rulesetId": "core-pii-en-us",
+        "languageTags": [
+          "en-US"
+        ],
+        "formattingCategory": "formatting",
+        "formattingPolicy": {
+          "symbols": [
+            "'",
+            "\"",
+            "’",
+            "“",
+            "”",
+            "/",
+            "-",
+            "–",
+            "_",
+            "+",
+            ".",
+            ",",
+            ":",
+            ";",
+            "|",
+            "(",
+            ")",
+            "[",
+            "]",
+            "{",
+            "}"
+          ],
+          "protectedDecimalCategories": [
+            "age_year",
+            "age_month",
+            "age_week",
+            "age_day"
+          ],
+          "decimalSeparators": [
+            "."
+          ]
+        },
+        "seedCategories": {
+          "Date": "__meddeid_seed__:Date",
+          "Age_Birthdate": "__meddeid_seed__:Age_Birthdate",
+          "Name": "__meddeid_seed__:Name",
+          "Profession": "__meddeid_seed__:Profession",
+          "Address_Location": "__meddeid_seed__:Address_Location",
+          "Organization": "__meddeid_seed__:Organization",
+          "Contactdetails": "__meddeid_seed__:Contactdetails",
+          "ID": "__meddeid_seed__:ID"
+        },
+        "autodetectCategories": [
+          "__meddeid_seed__:Name",
+          "__meddeid_seed__:Profession",
+          "__meddeid_seed__:Date",
+          "__meddeid_seed__:Organization",
+          "__meddeid_seed__:Address_Location",
+          "__meddeid_seed__:ID",
+          "__meddeid_seed__:Contactdetails"
+        ],
+        "categoryGroups": {
+          "general": [
+            "formatting",
+            "medical_info",
+            "additional_info"
+          ],
+          "Name": [
+            "given",
+            "family",
+            "initials",
+            "title"
+          ],
+          "Profession": [
+            "hobby",
+            "profession",
+            "employment_state"
+          ],
+          "Organization": [
+            "company",
+            "institution",
+            "hospital_location"
+          ],
+          "Address_Location": [
+            "country",
+            "province",
+            "region",
+            "municipality",
+            "postal_code",
+            "street",
+            "house_number",
+            "bus_number",
+            "postal_office"
+          ],
+          "Contactdetails": [
+            "internal_phone",
+            "public_phone",
+            "fax_number",
+            "given",
+            "family",
+            "initials",
+            "institution",
+            "additional_info"
+          ],
+          "ID": [
+            "public_id",
+            "internal_id"
+          ],
+          "Date": [
+            "day",
+            "week",
+            "month",
+            "year",
+            "weekday",
+            "time",
+            "season"
+          ],
+          "Age_Birthdate": [
+            "day",
+            "week",
+            "month",
+            "year",
+            "weekday",
+            "time",
+            "age_type",
+            "age_year",
+            "age_month",
+            "age_week",
+            "age_day"
+          ]
+        },
+        "ruleIds": [
+          "split_en_us_date_variants",
+          "classify_profession_content",
+          "split_name_variants_from_profile",
+          "split_address_organization_variants_from_profile",
+          "split_contact_variants",
+          "classify_identifier_content"
+        ],
+        "resourceManifest": {
+          "manifest_version": "meddeid.language-resources.v2",
+          "package": "meddeid-language-en",
+          "package_version": "0.2.0",
+          "profile_id": "en-US",
+          "lookups_sha256": "d8d5a0330c18349c45d9f9fcbebcbac3dd34fd59482a3a8fb4b18b5bf3f53f04",
+          "counts": {
+            "administrative_areas": 56,
+            "credentials": 9,
+            "departments": 6,
+            "family_names": 162253,
+            "first_names": 29303,
+            "healthcare_institutions": 5291,
+            "hospitals": 5293,
+            "localities": 21341,
+            "name_suffixes": 5,
+            "other_organisations": 4,
+            "postal_code_localities": 33648,
+            "postal_localities": 25136,
+            "prefixes": 8,
+            "professions": 6526,
+            "streets": 56473,
+            "surname_particles": 5
+          }
+        },
+        "implementation": {
+          "package": "@meddeid/language-en",
+          "export": "./subannotation/en-US",
+          "sha256": "7b5ca177907826db8c7db509412fbb57b7fb2b708b62258567e36b59b958ba40"
+        },
+        "sha256": "7f1c9f8cf289ff260b09415ba1e9eb14f917515cf210798c0d0f50b24f426cfc"
+      }
+    ],
+    "sha256": "96a4488cc742fc18a1dd2cb0a52859f4636fa2be6c2ae255acdb50db2a834319"
+  },
+  "subannotation_profile_assignments": [
+    {
+      "profile_id": "en-GB",
+      "sha256": "87b1d7845135f60d127ba57aa8a69bee45bd0d886d584ef86e182314f6ac89cc",
+      "documents": 150
+    },
+    {
+      "profile_id": "en-US",
+      "sha256": "7f1c9f8cf289ff260b09415ba1e9eb14f917515cf210798c0d0f50b24f426cfc",
+      "documents": 150
+    }
+  ],
+  "files": {
+    "benchmark": "benchmark.jsonl"
+  },
+  "hashes": {
+    "annotation_source_state_sha256": "97159eb7cb65aecca93d311ccd95e4dacc39f41242bcac1534d0c5a2559d8fb0",
+    "source_annotations_sha256": "ac036c069a073886327c5847b9316cf116fe7d94dec21e242ccebff0beee1b25",
+    "confirmed_subannotations_sha256": "edef44a6a81c09ffbf27da3481f29b9cb179ac10e7223c0a46fc220aa5e7e60f",
+    "benchmark_sha256": "021332c7cf2900d22e38a77975920444a6fff475187925b973eee2ca8c2e51e5"
+  },
+  "annotation_source": {
+    "annotations_sha256": "ac036c069a073886327c5847b9316cf116fe7d94dec21e242ccebff0beee1b25",
+    "state": "../annotation-source-state.json"
+  },
+  "counts": {
+    "documents": 300,
+    "primary_gold_spans": 1717,
+    "core_pii_subannotations": 7358
+  },
+  "evaluation": {
+    "package": "meddeid-eval",
+    "command": "meddeid-eval score --gold benchmark.jsonl --predictions predictions.jsonl"
+  }
+}
