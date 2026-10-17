@@ -74,9 +74,7 @@
     if (!box || !btns.length) return;
     function csrf() {
         const input = document.querySelector('input[name=csrfmiddlewaretoken]');
-        if (input) return input.value;
-        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-        return m ? m[1] : '';
+        return input ? input.value : '{{ csrf_token }}';
     }
     function postJSON(url, body) {
         return fetch(url, {

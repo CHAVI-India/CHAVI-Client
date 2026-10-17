@@ -123,9 +123,7 @@
 
     function csrf() {
         const input = document.querySelector('input[name=csrfmiddlewaretoken]');
-        if (input) return input.value;
-        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-        return m ? m[1] : '';
+        return input ? input.value : '{{ csrf_token }}';
     }
     function pkUrl(url, pk) { return url.replace('/0/', '/' + pk + '/'); }
     function postJSON(url, body) {

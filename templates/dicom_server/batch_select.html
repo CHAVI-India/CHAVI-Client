@@ -170,7 +170,8 @@ let pollTimer = null;
 let modSel2 = false;
 
 function csrf() {
-    return document.querySelector('input[name=csrfmiddlewaretoken]').value;
+    const el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '{{ csrf_token }}';
 }
 function pkUrl(url, pk) { return url.replace('/0/', '/' + pk + '/'); }
 function postJSON(url, body) {
