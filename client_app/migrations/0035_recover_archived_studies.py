@@ -435,8 +435,13 @@ def _recover_one_study(apps, location, patient_dir, study_dir):
         ArchivedStudy.objects.create(
             study=study,
             location=location,
-            status=ArchivedStudy.Status.ARCHIVED,
-            reason=ArchivedStudy.Reason.MANUAL,
+            # Use the raw string values: apps.get_model() yields Django's
+            # historical model, which rebuilds the class from field
+            # definitions and drops the inner TextChoices classes (Status,
+            # Reason). Referencing ArchivedStudy.Status / .Reason here
+            # raises AttributeError.
+            status='ARCHIVED',
+            reason='MANUAL',
             local_path_before=str(local_path),
             archive_rel_path=f'{patient_dir.name}/{study_dir.name}',
             size_bytes=size_bytes,
