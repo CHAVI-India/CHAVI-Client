@@ -60,6 +60,7 @@ def process_dicom(modeladmin, request, queryset):
         study_dates = {}  # Dict of sets for dates
         series_descriptions = {}  # Dict of sets for series descriptions
         modalities = {}  # Dict of sets for modalities
+        study_dirs = {}  # Dict of study uid -> study directory (one per study, not just the last)
 
         try:
             # First we will extract all the files from the zip file
@@ -124,6 +125,7 @@ def process_dicom(modeladmin, request, queryset):
 
                     # Add Study Instance UID, Modality and Study Description to sets prepared previously.
                     study_uids.add(study_instance_uid)
+                    study_dirs[study_instance_uid] = study_dir
                     processing_stats['successful_files'] += 1
 
                 except Exception as e:
@@ -144,7 +146,7 @@ def process_dicom(modeladmin, request, queryset):
                             'study_date': study_dates.get(uid),
                             'series_descriptions': series_desc_string,
                             'study_modalities': modalities_string,
-                            'folder_path': str(study_dir.absolute()),
+                            'folder_path': str(study_dirs[uid].absolute()) if uid in study_dirs else '',
                         }
                     )
                     processing_stats['successful_studies'] += 1

@@ -57,6 +57,7 @@ def process_unprocessed_dicom(modeladmin, request, queryset):
             study_dates = {}  # Dict for dates
             series_descriptions = {}  # Dict for series descriptions
             modalities = {}  # Dict for modalities
+            study_dirs = {}  # Dict of study uid -> study directory (one per study, not just the last)
             
             # Get all DICOM files from the folder
             folder_path = Path(obj.folder_path)
@@ -118,6 +119,7 @@ def process_unprocessed_dicom(modeladmin, request, queryset):
                     
                     # Add Study Instance UID to set
                     study_uids.add(study_instance_uid)
+                    study_dirs[study_instance_uid] = study_dir
                     processing_stats['successful_files'] += 1
                     
                 except Exception as e:
@@ -139,7 +141,7 @@ def process_unprocessed_dicom(modeladmin, request, queryset):
                             'study_date': study_dates.get(uid),
                             'series_descriptions': series_desc_string,
                             'study_modalities': modalities_string,
-                            'folder_path': str(study_dir.absolute())
+                            'folder_path': str(study_dirs[uid].absolute()) if uid in study_dirs else ''
                         }
                     )
                     processing_stats['successful_studies'] += 1
