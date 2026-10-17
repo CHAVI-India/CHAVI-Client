@@ -43,6 +43,7 @@
                         {% url 'extractor:extraction_results_list' as nav_ex_results %}
                         {% url 'extractor:file_upload_list' as nav_ex_files %}
                         {% url 'extractor:client_configuration_list' as nav_ex_clients %}
+                        {% url 'extractor:pipeline_list' as nav_ex_pipelines %}
                         {% url 'extractor:response_model_list' as nav_ex_models %}
                         {% url 'extractor:lookup_embeddings' as nav_ex_embed %}
                         {% url 'extractor:wizard_start' as nav_ex_wizard %}
@@ -114,13 +115,16 @@
                             {% component "nav_dropdown_item" section="Files" %}{% endcomponent %}
                             {% component "nav_dropdown_item" href=nav_ex_files icon="fa-file-upload" label="Upload Files" %}{% endcomponent %}
                             {% endif %}
-                            {% if perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration %}
+                            {% if perms.extractor.view_clientconfiguration or perms.extractor.view_responsemodel or perms.extractor.view_embeddingconfiguration or perms.extractor.view_textdeidentificationpipelineconfig %}
                             {% if perms.extractor.view_processedtext or perms.extractor.view_extractionjob or perms.extractor.view_fileupload %}
                             {% component "nav_dropdown_item" divider=True %}{% endcomponent %}
                             {% endif %}
                             {% component "nav_dropdown_item" section="Configure" %}{% endcomponent %}
                             {% if perms.extractor.view_clientconfiguration %}
                             {% component "nav_dropdown_item" href=nav_ex_clients icon="fa-server" label="LLM Clients" %}{% endcomponent %}
+                            {% endif %}
+                            {% if perms.extractor.view_textdeidentificationpipelineconfig %}
+                            {% component "nav_dropdown_item" href=nav_ex_pipelines icon="fa-filter" label="Deid Pipelines" %}{% endcomponent %}
                             {% endif %}
                             {% if perms.extractor.view_responsemodel %}
                             {% component "nav_dropdown_item" href=nav_ex_models icon="fa-project-diagram" label="Response Models" %}{% endcomponent %}

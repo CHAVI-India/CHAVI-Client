@@ -762,6 +762,27 @@ def client_configuration_test_connection(request, config_id):
         base_url = normalize_base_url(configuration.model_base_url)
         is_local = any(h in base_url for h in ('localhost', '127.0.0.1', '::1'))
 
+        if configuration.model_type == 'system1':
+            # System-1 decision models expose /v1/systemone, not chat. Ping the
+            # judge endpoint with a trivial question instead of a chat call.
+            from extractor.services import system1_judge
+            start_time = datetime.now()
+            prob = system1_judge.judge_span(
+                configuration, 'system one connectivity check', 0, 4,
+                threshold=0.0, window=40)
+            response_time = (datetime.now() - start_time).total_seconds()
+            return JsonResponse({
+                'success': True,
+                'message': 'System-1 decision endpoint reachable.',
+                'details': {
+                    'status_code': 200,
+                    'response_time': f'{response_time:.2f}s',
+                    'model': configuration.llm_model_name,
+                    'provider': configuration.model_provider,
+                    'is_phi_probability': round(float(prob), 4),
+                },
+            })
+
         client = OpenAI(
             base_url=base_url,
             api_key=configuration.model_api_key or 'not-needed',
@@ -852,6 +873,29 @@ def client_configuration_discover_capabilities(request, config_id):
         }, status=400)
 
     try:
+        if configuration.model_type == 'system1':
+            # System-1 decision models have no chat capabilities; confirm the
+            # judge endpoint is reachable and record a decision-model profile.
+            from extractor.services import system1_judge
+            prob = system1_judge.judge_span(
+                configuration, 'system one capability probe', 0, 4,
+                threshold=0.0, window=40)
+            capabilities = {
+                'reasoning': False, 'reasoning_levels': [], 'reasoning_default': None,
+                'vision': False, 'tools': False, 'context_length': None,
+                'model_details': {'family': 'decision-model',
+                                  'note': 'System-1 judge (no chat capabilities)'},
+                'provider_hint': configuration.model_provider,
+                'is_phi_probability': round(float(prob), 4),
+            }
+            configuration.model_capabilities = capabilities
+            configuration.save(update_fields=['model_capabilities', 'updated_at'])
+            return JsonResponse({
+                'success': True,
+                'message': 'System-1 decision model confirmed reachable.',
+                'capabilities': capabilities,
+            })
+
         from extractor.services.model_capabilities import discover_capabilities
 
         capabilities = discover_capabilities(

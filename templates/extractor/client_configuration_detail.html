@@ -301,6 +301,26 @@ function closeTestModal() {
     document.getElementById('test-modal').classList.add('hidden');
 }
 
+// Parse a fetch response as JSON, but if the body is not JSON (e.g. a 403
+// CSRF/relogin HTML page or a 500 error page) return a clean failure object
+// instead of throwing a cryptic "JSON.parse: unexpected character" error.
+async function safeJson(response) {
+    const status = response.status;
+    let body = '';
+    try { body = await response.text(); } catch (e) { body = ''; }
+    try {
+        return JSON.parse(body);
+    } catch (e) {
+        return {
+            success: false,
+            message: 'The server returned a non-JSON response (HTTP ' + status + '). ' +
+                'This usually means the request was blocked (expired session / ' +
+                'CSRF) or the server errored. Reload the page and try again.',
+            details: { status_code: status, error: body.slice(0, 300) },
+        };
+    }
+}
+
 async function testConnection() {
     const modal = document.getElementById('test-modal');
     const content = document.getElementById('test-content');
@@ -326,7 +346,7 @@ async function testConnection() {
             },
         });
 
-        const data = await response.json();
+        const data = await safeJson(response);
 
         const el = (tag, cls, text) => {
             const e = document.createElement(tag);
@@ -432,7 +452,7 @@ async function discoverCapabilities() {
                 'Content-Type': 'application/json',
             },
         });
-        const data = await response.json();
+        const data = await safeJson(response);
 
         if (data.success) {
             const caps = data.capabilities;
@@ -518,7 +538,7 @@ async function setReasoning() {
         },
         body: JSON.stringify({ reasoning_effort: value }),
     });
-    const data = await response.json();
+    const data = await safeJson(response);
 
     if (data.success) {
         // Update the status indicator

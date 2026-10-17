@@ -3807,6 +3807,54 @@ class ClientConfigurationDeidViewTests(TestCase):
             'model_type')
 
 
+class ClientConfigurationSystem1CapabilityTests(TestCase):
+    """Connection test + capabilities for a System-1 decision model must hit
+    the /v1/systemone judge endpoint, not the OpenAI chat path."""
+
+    def setUp(self):
+        from extractor.models import ClientConfiguration
+        self.user = User.objects.create_user('s1cap')
+        self.user.user_permissions.set(Permission.objects.filter(
+            codename__in=['view_clientconfiguration',
+                          'change_clientconfiguration']))
+        self.cfg = ClientConfiguration.objects.create(
+            llm_model_name='nimble', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434/v1',
+            model_type='system1')
+
+    def test_system1_connection_uses_systemone(self):
+        import extractor.services.system1_judge as sj
+        self.client.force_login(self.user)
+        with mock.patch.object(sj, 'judge_span', return_value=0.42) as m:
+            r = self.client.post(
+                reverse('extractor:client_configuration_test_connection',
+                        args=[self.cfg.id]), {},
+                content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data['success'])
+        self.assertIn('System-1', data['message'])
+        self.assertEqual(data['details']['is_phi_probability'], 0.42)
+        m.assert_called_once()
+
+    def test_system1_discovery_returns_decision_profile(self):
+        import extractor.services.system1_judge as sj
+        self.client.force_login(self.user)
+        with mock.patch.object(sj, 'judge_span', return_value=0.1):
+            r = self.client.post(
+                reverse('extractor:client_configuration_discover_capabilities',
+                        args=[self.cfg.id]), {},
+                content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['capabilities']['model_details']['family'],
+                         'decision-model')
+        self.cfg.refresh_from_db()
+        self.assertEqual(self.cfg.model_capabilities['model_details']['family'],
+                         'decision-model')
+
+
 from extractor.services import llm_ner
 
 
