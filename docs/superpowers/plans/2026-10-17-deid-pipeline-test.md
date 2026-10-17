@@ -797,3 +797,88 @@ git commit -m "test(deid): stage 5 final result + documented recommendation"
 - **Remaining (known, minor) gaps:** the 1 leak is the surname variant `Dey` (a name-initial/variant case no detector reliably catches); the 1 unshifted is the bare year `2023` (a bare year shifted by +15 days stays `2023` — a scoring artifact, not a real unshifted full date).
 - **Precision mechanism (P1 vs P2):** the nimble System-1 judge is **per-doc identical** to the production filter on this candidate set, so it is not *needed* for accuracy — but it is a strong, regex-free fallback if the clinical-regex bag is ever retired.
 - **Trade-off / cost of adopting:** `R2+gemma` requires the local `gemma4:e2b` Ollama model and a `ClientConfiguration` row (CPU-only, within the constraint). It adds per-document NER latency (~40 s/note) — **latency is out of scope for this decision**. Recommend making `R2+gemma+P1+T0` the **default de-identification pipeline** (fall back to `R2+P1+T0` when a local LLM is unavailable), keeping `R3+P1+T0` as the no-LLM baseline.
+
+---
+
+## Independent Validation — MedDeID English Synthetic Benchmark
+
+The 14-note harness above was scored on a hand-curated token catalog (PII + clinical
+terms + dates) from our own realistic short Indian notes — the same text family the
+precision filter (P1) was tuned against. To check the conclusion holds on text we have
+**not** tuned on, we ran the same pipelines on a random subset of an independent,
+human-validated, held-out English corpus.
+
+**Dataset:** MedDeID English synthetic benchmark v3
+(`docs/meddeid-english-synthetic-data-v3/`) — 300-doc human-validated benchmark,
+en-GB/en-US, **no real patient data** (CC-BY-4.0). Gold = 1,717 primary PII spans across
+8 categories (Name, ID, Organization, Date, Age_Birthdate, Address_Location,
+Contactdetails, Profession).
+
+**Sample:** 20 random notes (`seed=42`, reproducible) — 9 en-GB / 11 en-US —
+**117 gold PII spans**. Script: `scripts/meddeid_test.py` (reuses the exact
+`gen_candidates` + `apply_precision` stages from `pipeline_test.py`, no caching).
+Results: `scripts/results_meddeid.json` (R1/R2/R3) and `scripts/results_meddeid_gemma.json`
+(R2+gemma P1/P2).
+
+**Metrics** (span-level, greedy ≥50% min-overlap match):
+- `recall` = gold PII spans we redacted / total gold → `1 − recall` = **leaks** (same sense as the 14-note "leaks").
+- `precision` = our redactions that hit a gold PII span / total redactions → `1 − precision` = **over-redaction** (clinical terms / non-PII we redacted — the MedDeID analogue of the 14-note "lost", but broader, since MedDeID gold is PII-only, not a clinical-term catalog).
+- `F1` = harmonic mean.
+- `unshifted` is not measured separately here: a shifted date still redacts its span, so it counts as a recall hit.
+
+### Results (20 notes, 117 gold PII spans)
+
+| Pipeline | recall | precision | F1 | leaks | over-red | time |
+| --- | --- | --- | --- | --- | --- | --- |
+| R1 (spaCy+rules) | 0.624 | 0.562 | 0.591 | 44 | 57 | 20s |
+| **R2 (Stanford+rules)** | 0.906 | **0.679** | **0.777** | 11 | 50 | 40s |
+| R3 shipped (spaCy+Stanford+rules) | 0.923 | 0.509 | 0.657 | 9 | 104 | 51s |
+| **R2+gemma (recommended)** | **0.932** | 0.623 | 0.747 | **8** | 66 | 367s |
+| R2+gemma + nimble (P2) | 0.923 | 0.635 | 0.753 | 9 | 62 | 1795s |
+
+### Per-category recall (R2+gemma, P1)
+
+| category | caught/total | recall |
+| --- | --- | --- |
+| Name | 42/43 | 0.977 |
+| ID (MRN) | 22/22 | 1.000 |
+| Address_Location | 11/11 | 1.000 |
+| Date | 10/10 | 1.000 |
+| Organization | 9/9 | 1.000 |
+| Contactdetails | 9/9 | 1.000 |
+| Age_Birthdate | 6/10 | 0.600 |
+| Profession | 0/3 | 0.000 |
+
+The 8 leaks decompose as **1 missed name + 4 ages + 3 professions** — i.e. the only
+non-design PII leak is a single name.
+
+### Findings
+
+1. **The conclusion holds.** `R2+gemma+P1` is again best on recall (fewest leaks, 8);
+   `R2` (Stanford-only) is the strongest traditional pipeline; the **shipped `R3` default is
+   the worst on precision** (0.509, F1 0.657) — a second, independent confirmation that the
+   spaCy NER should be retired from the default.
+2. **A new insight the 14-note set did not surface: on clean standard English text the real
+   weakness is over-redaction, not leaks.** Every pipeline redacts 50–104 non-gold spans
+   (precision 0.51–0.68). Recall is near-saturated (ID/Date/Org/Contact/Location all
+   ~1.000); **precision is the lever**.
+3. **`R2` alone is the best *F1* here (0.777)** — on this corpus gemma's recall gain
+   (11→8 leaks) costs more in over-redaction (50→66) than it saves, so the privacy-first
+   (`R2+gemma`) vs utility-first (`R2`) trade-off is sharper than on the Indian notes.
+4. **Structural gaps, not model gaps:** Profession (0/3) has no recognizer at all;
+   Age_Birthdate (6/10) is 0.60 *by design* — the pipeline keeps age per product
+   requirement (the 4 kept are "56 years"-style; the 6 caught are full-date birthdates we
+   shift).
+5. **P2 (nimble) is not worth it** — marginally better precision (0.623→0.635) at 30× the
+   time, confirming P1 as the precision layer (consistent with the 14-note "per-doc
+   identical").
+
+### Effect on the recommendation
+
+No change to the default. Both `R2+gemma+P1+T0` (privacy-first, fewest leaks) and
+`R2+P1+T0` (utility-first, best F1/precision, no LLM dependency) beat the shipped `R3`
+default on this independent corpus. The single highest-value next step is **precision**:
+reducing the 50–66 over-redactions on dense clinical text.
+
+> **Limitation:** this is a 20-note random subset (`seed=42`) of the 300-doc benchmark, for a
+> quick independent read. A full 300-doc run is the definitive number (not yet done).
