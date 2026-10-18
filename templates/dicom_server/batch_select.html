@@ -261,7 +261,20 @@ function studyIndex(study) {
 
 function instanceTree(study) {
   const idx = studyIndex(study);
-  const series = study.series || [];
+  // Series always render chronological ascending (the treatment story reads
+  // top-to-bottom within a study) — independent of the study-list direction
+  // toggle. Missing dates sort last, ties by series number. Children keep
+  // their tree position under each parent.
+  const series = (study.series || []).slice().sort(function (a, b) {
+    const da = (a.series_date || '').slice(0, 8);
+    const db = (b.series_date || '').slice(0, 8);
+    if (da !== db) {
+      if (!da) return 1;
+      if (!db) return -1;
+      return da < db ? -1 : 1;
+    }
+    return (Number(a.series_number) || 0) - (Number(b.series_number) || 0);
+  });
   const rt = [];
   series.forEach(function (se) {
     if (!RT_DETAIL_MODS.includes((se.modality || '').toUpperCase())) return;
