@@ -4,7 +4,20 @@ import tempfile
 from pydicom.dataset import Dataset, FileMetaDataset
 from pydicom.uid import (
     generate_uid, ExplicitVRLittleEndian, CTImageStorage,
+    RTDoseStorage, RTImageStorage, RTPlanStorage, RTStructureSetStorage,
 )
+
+# SOP class per RT modality — make_rt_dataset defaults to these when
+# sop_class is not passed, so the built dataset is always C-STORE/savable
+# (pydicom needs file_meta.TransferSyntaxUID to pick the encoding).
+# RTREG is unmapped (no standard constant in pydicom/pynetdicom): pass
+# sop_class explicitly for RT Registration Storage datasets.
+_DEFAULT_RT_SOP_CLASS = {
+    'RTSTRUCT': RTStructureSetStorage,
+    'RTPLAN': RTPlanStorage,
+    'RTDOSE': RTDoseStorage,
+    'RTIMAGE': RTImageStorage,
+}
 
 
 def make_test_dataset(
@@ -76,10 +89,15 @@ def make_rt_dataset(
     attributes and reference sequences the bulk query enriches via
     IMAGE-level C-FIND. sop_class sets the SOPClassUID and file meta
     (needed when the dataset is C-MOVED/C-STORED as a sub-op — pynetdicom
-    resolves the presentation context from file_meta.TransferSyntaxUID).
+    resolves the presentation context from file_meta.TransferSyntaxUID);
+    when omitted it defaults to the standard SOP class for the modality
+    (except RTREG — see _DEFAULT_RT_SOP_CLASS), so the dataset is
+    savable via save_as(enforce_file_format=True) and C-STOREable.
     """
     ds = Dataset()
     ds.SOPInstanceUID = sop_uid or generate_uid()
+    if sop_class is None:
+        sop_class = _DEFAULT_RT_SOP_CLASS.get((modality or '').upper())
     if sop_class is not None:
         ds.SOPClassUID = sop_class
         file_meta = FileMetaDataset()
