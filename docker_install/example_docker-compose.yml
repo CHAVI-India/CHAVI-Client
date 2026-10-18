@@ -123,6 +123,19 @@ services:
       # chaviclient_archive definitions in the top-level volumes: section):
       # - chaviclient_archive:/archive/dicom
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "-Q", "deid", "--concurrency=1"]
+    # Pin remote DICOM node hostnames to IPs here if container DNS fails:
+    #extra_hosts:
+    #  - "www.dicomserver.co.uk=198.244.176.149"
+    # GPU (optional): uncomment on hosts with an NVIDIA GPU and the
+    # nvidia-container-toolkit installed. Lookup-table embedding computation
+    # then auto-detects and runs on CUDA; without this block it stays on CPU.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]    
 
   chaviclient-celery-beat:
     image: chaviapp/chaviclient:main
