@@ -28,6 +28,7 @@ from dicom_server.models import (
     InboundDICOMInstance, PatientIDAlias, RetrievalBatch,
     RetrievalBatchPatient, RetrievalJob, RetrievalJobSeries, RetrievalJobStudy,
 )
+from dicom_server.services import instance_selection
 from dicom_server.services import patient_ids, qr_client
 from lookup.models import (
     LookupDiagnosticModality, LookupFMACode, LookupICDCode,
@@ -643,26 +644,34 @@ class BatchRetrieveView(DicomPermissionRequiredMixin, View):
                     return JsonResponse({'error': (
                         f'{pid}: unknown study UID {suid!r} — re-query first'
                     )}, status=400)
-                series_req = entry.get('series_instance_uids')
-                if series_req is not None:
-                    if not isinstance(series_req, list) or not series_req:
+                series_req = entry.get(
+                    'series_uids', entry.get('series_instance_uids'))
+                sops_req = entry.get('sop_instance_uids')
+                for label, value in (('series_uids', series_req),
+                                     ('sop_instance_uids', sops_req)):
+                    if value is not None and (
+                            not isinstance(value, list) or not value):
                         return JsonResponse({'error': (
-                            f'{pid}: series_instance_uids must be a non-empty '
-                            'list or null'
+                            f'{pid}: {label} must be a non-empty list or null'
                         )}, status=400)
-                    known_series = {
-                        s.get('series_instance_uid')
-                        for s in (study.get('series') or [])
-                    }
-                    unknown = set(series_req) - known_series
-                    if unknown:
-                        return JsonResponse({'error': (
-                            f'{pid}: unknown series UID(s) {sorted(unknown)} '
-                            f'for study {suid}'
-                        )}, status=400)
+                if series_req is None and sops_req is None:
+                    normalized.append({
+                        'study_instance_uid': suid,
+                        'series_uids': None,  # whole study
+                        'sop_uids': [],
+                        'remote_patient_id': study.get('remote_patient_id'),
+                    })
+                    continue
+                try:
+                    norm = instance_selection.normalize_selection(
+                        study, series_req, sops_req)
+                except instance_selection.SelectionError as e:
+                    return JsonResponse(
+                        {'error': f'{pid}: {e} for study {suid}'}, status=400)
                 normalized.append({
                     'study_instance_uid': suid,
-                    'series_instance_uids': series_req,
+                    'series_uids': norm['series_uids'],
+                    'sop_uids': norm['sop_uids'],
                     'remote_patient_id': study.get('remote_patient_id'),
                 })
             if not normalized:
@@ -686,9 +695,9 @@ class BatchRetrieveView(DicomPermissionRequiredMixin, View):
                     accession_number=study_meta.get('accession_number'),
                 ))
             RetrievalJobStudy.objects.bulk_create(study_objs)
-            # Series
+            # Series + instance-level SOP set
             for entry in normalized:
-                series_uids = entry.get('series_instance_uids')
+                series_uids = entry['series_uids']
                 if series_uids:
                     job_study = job.studies.get(
                         study_instance_uid=entry['study_instance_uid'],
@@ -697,6 +706,9 @@ class BatchRetrieveView(DicomPermissionRequiredMixin, View):
                         RetrievalJobSeries(study=job_study, series_instance_uid=su)
                         for su in series_uids
                     ])
+                    if entry['sop_uids']:
+                        job_study.selected_sop_instance_uids = entry['sop_uids']
+                        job_study.save(update_fields=['selected_sop_instance_uids'])
             item.selected = True
             item.job = job
             item.save(update_fields=['selected', 'job'])

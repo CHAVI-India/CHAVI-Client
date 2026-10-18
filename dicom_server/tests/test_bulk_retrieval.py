@@ -543,6 +543,133 @@ class BulkViewTests(BulkRetrievalTestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertFalse(RetrievalJob.objects.exists())
 
+    @classmethod
+    def _rt_study_tree(cls):
+        """ARIA-like tree: CT + struct-set series + plan series (2 plans) +
+        dose series (1 dose). Mirrors the fixture in test_instance_selection."""
+        return [{
+            'study_instance_uid': '1.2', 'remote_patient_id': 'X',
+            'study_date': '20250407', 'study_description': 'RT Planning CT',
+            'accession_number': 'EY581041', 'modalities': 'CT, RTSTRUCT, RTPLAN, RTDOSE',
+            'series': [
+                {'series_instance_uid': 'ct', 'series_description': 'CECT',
+                 'modality': 'CT', 'series_number': 1, 'instances': 196},
+                {'series_instance_uid': 'ss', 'series_description':
+                 'ARIA RadOnc Structure Sets', 'modality': 'RTSTRUCT',
+                 'series_number': 13, 'instances': 1,
+                 'rt_instances': [
+                     {'sop_instance_uid': 'ss1', 'instance_number': '1',
+                      'structure_set_label': 'CT_FINAL',
+                      'referenced_series_uids': ['ct']}]},
+                {'series_instance_uid': 'pl', 'series_description': 'final',
+                 'modality': 'RTPLAN', 'series_number': 14, 'instances': 2,
+                 'rt_instances': [
+                     {'sop_instance_uid': 'p1', 'instance_number': '1',
+                      'rt_plan_label': 'final', 'approval_status': 'APPROVED',
+                      'referenced_structure_set_uids': ['ss1']},
+                     {'sop_instance_uid': 'p2', 'instance_number': '2',
+                      'rt_plan_label': 'final_v2',
+                      'approval_status': 'UNAPPROVED',
+                      'referenced_structure_set_uids': ['ss1']}]},
+                {'series_instance_uid': 'ds', 'series_description':
+                 'Eclipse Doses', 'modality': 'RTDOSE', 'series_number': 15,
+                 'instances': 1,
+                 'rt_instances': [
+                     {'sop_instance_uid': 'd1', 'instance_number': '1',
+                      'referenced_plan_uids': ['p1']}]},
+            ],
+        }]
+
+    @mock.patch('dicom_server.views.chord')
+    def test_batch_retrieve_instance_selection_closes_ancestors(self, mock_chord):
+        mock_chord.return_value.return_value.id = 'chord-i1'
+        patient = self._patient('MR/25/004771')
+        batch = RetrievalBatch.objects.create(
+            node=self.node, status='AWAITING_SELECTION')
+        RetrievalBatchPatient.objects.create(
+            batch=batch, patient=patient, studies=self._rt_study_tree())
+        self.client.force_login(self.user)
+        resp = self._post_json(
+            reverse('dicom_server:batch_retrieve', args=[batch.pk]),
+            {'selections': {patient.patient_id: [{
+                'study_instance_uid': '1.2',
+                'sop_instance_uids': ['p1'],
+            }]}},
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        job = RetrievalJob.objects.get()
+        study = job.studies.get()
+        # Selected plan + its struct-set ancestor; dose series NOT retrieved.
+        self.assertEqual(study.selected_sop_instance_uids, ['p1', 'ss1'])
+        self.assertEqual(
+            sorted(study.series.values_list('series_instance_uid', flat=True)),
+            ['ct', 'pl', 'ss'],
+        )
+        mock_chord.assert_called_once()
+
+    @mock.patch('dicom_server.views.chord')
+    def test_batch_retrieve_series_and_instance_mixed(self, mock_chord):
+        mock_chord.return_value.return_value.id = 'chord-i2'
+        patient = self._patient('MR/25/004771')
+        batch = RetrievalBatch.objects.create(
+            node=self.node, status='AWAITING_SELECTION')
+        RetrievalBatchPatient.objects.create(
+            batch=batch, patient=patient, studies=self._rt_study_tree())
+        self.client.force_login(self.user)
+        resp = self._post_json(
+            reverse('dicom_server:batch_retrieve', args=[batch.pk]),
+            {'selections': {patient.patient_id: [{
+                'study_instance_uid': '1.2',
+                'series_uids': ['ct'],
+                'sop_instance_uids': ['d1'],
+            }]}},
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        study = RetrievalJob.objects.get().studies.get()
+        self.assertEqual(study.selected_sop_instance_uids, ['d1', 'p1', 'ss1'])
+        self.assertEqual(
+            sorted(study.series.values_list('series_instance_uid', flat=True)),
+            ['ct', 'ds', 'pl', 'ss'],
+        )
+
+    def test_batch_retrieve_unknown_sop_rejected(self):
+        patient = self._patient('MR/25/004771')
+        batch = RetrievalBatch.objects.create(
+            node=self.node, status='AWAITING_SELECTION')
+        RetrievalBatchPatient.objects.create(
+            batch=batch, patient=patient, studies=self._rt_study_tree())
+        self.client.force_login(self.user)
+        resp = self._post_json(
+            reverse('dicom_server:batch_retrieve', args=[batch.pk]),
+            {'selections': {patient.patient_id: [{
+                'study_instance_uid': '1.2',
+                'sop_instance_uids': ['zzz'],
+            }]}},
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(RetrievalJob.objects.exists())
+
+    @mock.patch('dicom_server.views.chord')
+    def test_batch_retrieve_whole_study_unchanged(self, mock_chord):
+        mock_chord.return_value.return_value.id = 'chord-i3'
+        patient = self._patient('MR/25/004771')
+        batch = RetrievalBatch.objects.create(
+            node=self.node, status='AWAITING_SELECTION')
+        RetrievalBatchPatient.objects.create(
+            batch=batch, patient=patient, studies=self._rt_study_tree())
+        self.client.force_login(self.user)
+        resp = self._post_json(
+            reverse('dicom_server:batch_retrieve', args=[batch.pk]),
+            {'selections': {patient.patient_id: [{
+                'study_instance_uid': '1.2',
+                'series_uids': None, 'sop_instance_uids': None,
+            }]}},
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        study = RetrievalJob.objects.get().studies.get()
+        self.assertEqual(study.selected_sop_instance_uids, [])
+        self.assertEqual(study.series.count(), 0)  # whole study
+
     def test_batch_retrieve_requires_awaiting_selection(self):
         patient = self._patient('MR/25/004771')
         batch = RetrievalBatch.objects.create(node=self.node)
