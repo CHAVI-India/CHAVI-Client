@@ -55,6 +55,16 @@ class RetrievalJobStudyTests(TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.job.patient, self.patient)
 
+    def test_selected_sop_instance_uids_defaults_to_empty_list(self):
+        job = RetrievalJob.objects.create(node=self.node, patient=self.patient)
+        study = RetrievalJobStudy.objects.create(
+            job=job, study_instance_uid='1.2.3')
+        self.assertEqual(study.selected_sop_instance_uids, [])
+        study.selected_sop_instance_uids = ['p1', 'ss1']
+        study.save(update_fields=['selected_sop_instance_uids'])
+        study.refresh_from_db()
+        self.assertEqual(study.selected_sop_instance_uids, ['p1', 'ss1'])
+
 
 class JobWorkItemsTests(TestCase):
     def setUp(self):

@@ -234,6 +234,12 @@ class RetrievalJobStudy(models.Model):
     study_description = models.CharField(max_length=255, null=True, blank=True)
     modalities = models.CharField(max_length=255, null=True, blank=True)
     accession_number = models.CharField(max_length=255, null=True, blank=True)
+    # Instance-level RT selection for this study: closed list of selected
+    # SOPInstanceUIDs (plans/struct sets/doses + pulled-in ancestors).
+    # Empty list = whole-study selection or a legacy/scheduled
+    # series-level selection (ingest then accepts every RT instance of
+    # the selected series).
+    selected_sop_instance_uids = models.JSONField(default=list, blank=True)
     # Retrieval outcome (populated by _run_job_retrieval)
     status = models.CharField(max_length=20, null=True, blank=True)
     completed = models.IntegerField(default=0)
