@@ -426,11 +426,12 @@ class BulkViewTests(BulkRetrievalTestCase):
         self.assertContains(resp, 'sf-check-all')
         self.assertContains(
             resp, reverse('dicom_server:batch_status', args=[0]))
-        # RT detail rendering + labeled series sub-table are wired in the JS
+        # RT detail rendering + instance-level tree are wired in the JS
         self.assertContains(resp, 'rt_instances')
-        self.assertContains(resp, 'approvalBadge')
+        self.assertContains(resp, 'instanceTree')
+        self.assertContains(resp, 'node-check')
+        self.assertContains(resp, 'sop_instance_uids')
         self.assertContains(resp, 'sf-approval')
-        self.assertContains(resp, 'parent_series_uids')
 
     def test_batch_detail_links_back_to_select(self):
         batch = RetrievalBatch.objects.create(

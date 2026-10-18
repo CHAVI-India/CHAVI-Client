@@ -162,7 +162,7 @@ const URLS = {
 };
 let batchStatus = '{{ batch.status }}';
 let patientsData = [];
-const sel = new Map();       // 'pid|suid' -> 'all' | Set(seuid)
+const sel = new Map();       // 'pid|suid' -> 'all' | Set(node id: 's|…' | 'i|…')
 const defaulted = new Set(); // suids auto-selected on first sight
 const expanded = new Set();  // suids with series sub-table open
 let dateSortDir = 'desc';
@@ -216,62 +216,21 @@ function filters() {
 function studyMods(s) {
     return (s.modalities || '').split(/[,\/\\ ]+/).filter(Boolean);
 }
-function seriesVisible(se, s, f) {
-    if (f.mods.length && !f.mods.includes(se.modality)) return false;
-    if (f.q) {
-        const studyMatch = ((s.study_description || '') + ' ' + (s.accession_number || ''))
-            .toLowerCase().includes(f.q);
-        if (!studyMatch && !(se.series_description || '').toLowerCase().includes(f.q))
-            return false;
-    }
-    if (f.approval && !approvalVisible(s, se, f.approval)) return false;
-    return true;
-}
-function planApprovalState(se) {
-    /* 'approved' | 'unapproved' — indeterminate (no instance data, peer didn't
-     * return the attribute) counts as not approved so the filter never
-     * vouches for a plan it cannot verify. */
-    return (se.rt_instances || []).some(
-        i => (i.approval_status || '').toUpperCase() === 'APPROVED')
-        ? 'approved' : 'unapproved';
-}
-function seriesPassesApproval(s, se, approval) {
-    const mod = (se.modality || '').toUpperCase();
-    if (mod === 'RTPLAN') {
-        return planApprovalState(se) === 'approved'
-            ? approval === 'approved' : approval === 'unapproved';
-    }
-    if (mod === 'RTDOSE' && (se.parent_series_uids || []).length) {
-        /* A dose inherits its parent plan's verdict. */
-        const parents = (s.series || []).filter(
-            x => (se.parent_series_uids || []).includes(x.series_instance_uid));
-        return parents.some(p => seriesPassesApproval(s, p, approval));
-    }
-    /* Images, structure sets and unlinked doses always pass — they are the
-     * upstream context that must stay visible regardless of approval. */
-    return true;
-}
-function approvalVisible(s, se, approval) {
-    /* A series stays visible if it passes the approval filter itself OR an
-     * approved downstream series needs it (structure set of an approved
-     * plan, image of that structure set). */
-    if (seriesPassesApproval(s, se, approval)) return true;
-    return descendantsOf(s, se.series_instance_uid).some(function (uid) {
-        const child = (s.series || []).find(x => x.series_instance_uid === uid);
-        return child && seriesPassesApproval(s, child, approval);
-    });
-}
 function studyVisible(s, f) {
     if (f.hideLocal && s.already_local) return false;
     const d = dcmDate(s.study_date);
     if (f.from && (d < f.from || !d)) return false;
     if (f.to && (d > f.to || !d)) return false;
     if (f.q) {
-        const studyMatch = ((s.study_description || '') + ' ' + (s.accession_number || ''))
-            .toLowerCase().includes(f.q);
-        const anySeries = (s.series || []).some(
-            se => (se.series_description || '').toLowerCase().includes(f.q));
-        if (!studyMatch && !anySeries) return false;
+      const studyMatch = ((s.study_description || '') + ' ' + (s.accession_number || ''))
+        .toLowerCase().includes(f.q);
+      const anySeries = (s.series || []).some(
+          se => (se.series_description || '').toLowerCase().includes(f.q) ||
+            (se.rt_instances || []).some(i =>
+              ((i.structure_set_label || '') + ' ' + (i.structure_set_name || '') +
+               ' ' + (i.rt_plan_label || '') + ' ' + (i.rt_plan_name || ''))
+              .toLowerCase().includes(f.q)));
+      if (!studyMatch && !anySeries) return false;
     }
     if (f.mods.length) {
         const studyHit = studyMods(s).some(m => f.mods.includes(m));
@@ -280,45 +239,246 @@ function studyVisible(s, f) {
     }
     return true;
 }
-function seriesFilterActive(f) {
-    return f.mods.length > 0 || f.q.length > 0 || f.approval.length > 0;
+/* ---------- instance-level tree (RT objects are selectable per instance) ----------
+ * Node ids: 's|<series_uid>' | 'i|<sop_uid>'. Nesting follows DICOM
+ * references: struct set -> its image series, plan -> its struct set,
+ * dose -> its (single) plan. RT instances whose references do not resolve
+ * within the study render under their own series row (fallback container).
+ * RTREG/RTIMAGE stay series-level rows.
+ */
+const RT_DETAIL_MODS = ['RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+
+function studyIndex(study) {
+  const bySeUid = {}, bySop = {};
+  (study.series || []).forEach(function (se) {
+    bySeUid[se.series_instance_uid] = se;
+    (se.rt_instances || []).forEach(function (inst) {
+      if (inst.sop_instance_uid) bySop[inst.sop_instance_uid] = {se: se, inst: inst};
+    });
+  });
+  return {bySeUid: bySeUid, bySop: bySop};
+}
+
+function instanceTree(study) {
+  const idx = studyIndex(study);
+  const series = study.series || [];
+  const rt = [];
+  series.forEach(function (se) {
+    if (!RT_DETAIL_MODS.includes((se.modality || '').toUpperCase())) return;
+    (se.rt_instances || []).forEach(function (inst) {
+      if (inst.sop_instance_uid) rt.push({se: se, inst: inst});
+    });
+  });
+  const plansByStruct = {}, dosesByPlan = {};
+  rt.forEach(function (x) {
+    const m = (x.se.modality || '').toUpperCase();
+    if (m === 'RTPLAN') (x.inst.referenced_structure_set_uids || []).forEach(function (u) {
+      (plansByStruct[u] = plansByStruct[u] || []).push(x);
+    });
+    if (m === 'RTDOSE') (x.inst.referenced_plan_uids || []).forEach(function (u) {
+      (dosesByPlan[u] = dosesByPlan[u] || []).push(x);
+    });
+  });
+  function instName(x) {
+    const m = (x.se.modality || '').toUpperCase();
+    if (m === 'RTSTRUCT') return x.inst.structure_set_label || x.inst.structure_set_name || '(unnamed)';
+    if (m === 'RTPLAN') return x.inst.rt_plan_label || x.inst.rt_plan_name || '(unnamed)';
+    const p = (x.inst.referenced_plan_uids || []).map(function (u) { return idx.bySop[u]; }).filter(Boolean)[0];
+    if (p) {
+      const pn = p.inst.rt_plan_label || p.inst.rt_plan_name;
+      if (pn) return 'dose — ' + pn;
+    }
+    return 'dose' + (x.inst.instance_number ? ' ' + x.inst.instance_number : '');
+  }
+  const out = [];
+  const seen = new Set();
+  function pushInst(x, depth, parentKey) {
+    const id = 'i|' + x.inst.sop_instance_uid;
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push({kind: 'instance', se: x.se, inst: x.inst, name: instName(x),
+              depth: depth, parentKey: parentKey, id: id});
+    (plansByStruct[x.inst.sop_instance_uid] || []).forEach(
+      function (p) { pushInst(p, depth + 1, id); });
+    (dosesByPlan[x.inst.sop_instance_uid] || []).forEach(
+      function (d) { pushInst(d, depth + 1, id); });
+  }
+  series.forEach(function (se) {
+    const m = (se.modality || '').toUpperCase();
+    if (!RT_DETAIL_MODS.includes(m)) {
+      out.push({kind: 'series', se: se, depth: 0, id: 's|' + se.series_instance_uid, parentKey: null});
+      if (m !== 'RTREG' && m !== 'RTIMAGE') {
+        rt.forEach(function (x) {
+          if ((x.se.modality || '').toUpperCase() === 'RTSTRUCT' &&
+              (x.inst.referenced_series_uids || []).includes(se.series_instance_uid)) {
+            pushInst(x, 1, 's|' + se.series_instance_uid);
+          }
+        });
+      }
+      return;
+    }
+    const mine = rt.filter(function (x) {
+      return x.se.series_instance_uid === se.series_instance_uid;
+    });
+    const orphan = mine.filter(function (x) {
+      const mm = (x.se.modality || '').toUpperCase();
+      if (mm === 'RTSTRUCT') return !(x.inst.referenced_series_uids || []).some(function (u) { return idx.bySeUid[u]; });
+      if (mm === 'RTPLAN') return !(x.inst.referenced_structure_set_uids || []).some(function (u) { return idx.bySop[u]; });
+      return !(x.inst.referenced_plan_uids || []).some(function (u) { return idx.bySop[u]; });
+    });
+    if (orphan.length) {
+      out.push({kind: 'series', se: se, depth: 0, id: 's|' + se.series_instance_uid, parentKey: null});
+      orphan.forEach(function (x) { pushInst(x, 1, 's|' + se.series_instance_uid); });
+    }
+  });
+  return out;
+}
+function allNodeIds(study) {
+  return instanceTree(study).map(function (n) { return n.id; });
+}
+
+/* ---------- visibility & approval (instance level) ---------- */
+function instApproval(se, inst, idx) {
+  /* 'approved' | 'unapproved' for one RT instance. Doses inherit their
+     plan's verdict; a dose whose plan is unknown counts as unapproved so
+     the filter never vouches for what it cannot verify. Struct sets have
+     no approval — they always pass. */
+  const m = (se.modality || '').toUpperCase();
+  if (m === 'RTPLAN') return (inst.approval_status || '').toUpperCase() === 'APPROVED'
+    ? 'approved' : 'unapproved';
+  if (m === 'RTDOSE') {
+    const p = (inst.referenced_plan_uids || []).map(function (u) { return idx.bySop[u]; }).filter(Boolean)[0];
+    return p ? instApproval(p.se, p.inst, idx) : 'unapproved';
+  }
+  return 'approved';
+}
+function nodeVisible(study, node, f) {
+  const idx = studyIndex(study);
+  const mod = (node.se.modality || '').toUpperCase();
+  if (f.mods.length && !f.mods.includes(mod)) return false;
+  if (f.q) {
+    const hay = node.kind === 'series'
+      ? (node.se.series_description || '')
+      : (node.name + ' ' + (node.se.series_description || ''));
+    if (!hay.toLowerCase().includes(f.q)) return false;
+  }
+  if (f.approval && node.kind === 'instance' &&
+      instApproval(node.se, node.inst, idx) !== f.approval) return false;
+  return true;
+}
+
+/* ---------- ancestor / descendant closure over node ids ---------- */
+function nodeAncestors(study, id) {
+  if (id[0] === 's') return [];
+  const idx = studyIndex(study);
+  const hit = idx.bySop[id.slice(2)];
+  if (!hit) return [];
+  const m = (hit.se.modality || '').toUpperCase();
+  const out = [];
+  const addSop = function (u) {
+    if (u && idx.bySop[u] && out.indexOf('i|' + u) === -1) {
+      out.push('i|' + u);
+      out.push.apply(out, nodeAncestors(study, 'i|' + u));
+    }
+  };
+  if (m === 'RTDOSE') (hit.inst.referenced_plan_uids || []).forEach(addSop);
+  else if (m === 'RTPLAN') (hit.inst.referenced_structure_set_uids || []).forEach(addSop);
+  else if (m === 'RTSTRUCT') (hit.inst.referenced_series_uids || []).forEach(function (u) {
+    if (idx.bySeUid[u] && out.indexOf('s|' + u) === -1) out.push('s|' + u);
+  });
+  return out;
+}
+function nodeDescendants(study, id) {
+  const idx = studyIndex(study);
+  const out = [];
+  const addSop = function (u) {
+    const nid = 'i|' + u;
+    if (out.indexOf(nid) === -1) {
+      out.push(nid);
+      out.push.apply(out, nodeDescendants(study, nid));
+    }
+  };
+  if (id[0] === 's') {
+    const uid = id.slice(2);
+    Object.keys(idx.bySop).forEach(function (u) {
+      if ((idx.bySop[u].inst.referenced_series_uids || []).includes(uid)) addSop(u);
+    });
+  } else {
+    const sop = id.slice(2);
+    Object.keys(idx.bySop).forEach(function (u) {
+      const x = idx.bySop[u];
+      const m = (x.se.modality || '').toUpperCase();
+      const refs = m === 'RTDOSE' ? (x.inst.referenced_plan_uids || [])
+        : m === 'RTPLAN' ? (x.inst.referenced_structure_set_uids || [])
+        : [];
+      if (refs.includes(sop)) addSop(u);
+    });
+  }
+  return out;
+}
+function findStudy(key) {
+  const parts = key.split('|');
+  let found = null;
+  patientsData.forEach(function (p) {
+    (p.studies || []).forEach(function (s) {
+      if (p.patient_id === parts[0] && s.study_instance_uid === parts[1]) found = s;
+    });
+  });
+  return found;
+}
+function structDetail(s, inst) {
+  const idx = studyIndex(s);
+  const on = (inst.referenced_series_uids || []).map(function (u) { return idx.bySeUid[u]; }).filter(Boolean);
+  if (!on.length) return '<span class="text-gray-400">references missing</span>';
+  return 'on ' + on.map(function (se) {
+    return esc(se.series_description || ('series ' + se.series_number));
+  }).join(', ');
+}
+function doseDetail(s, inst) {
+  const idx = studyIndex(s);
+  const p = (inst.referenced_plan_uids || []).map(function (u) { return idx.bySop[u]; }).filter(Boolean)[0];
+  if (!p) return '<span class="text-gray-400">references missing</span>';
+  const pn = p.inst.rt_plan_label || p.inst.rt_plan_name || 'plan ' + (p.inst.instance_number || '');
+  return 'for ' + esc(pn);
 }
 
 /* ---------- selection ---------- */
 function selectStudy(pid, s, on) {
-    const key = keyOf(pid, s.study_instance_uid);
-    if (!on) { sel.delete(key); return; }
-    const f = filters();
-    if (seriesFilterActive(f) && (s.series || []).length) {
-        const seuids = new Set(
-            (s.series || []).filter(se => seriesVisible(se, s, f))
-                .map(se => se.series_instance_uid));
-        /* A child series is useless without its parents (a plan needs its
-         * structure set, a dose its plan) — pull in ancestors even when the
-         * series filters hide them. */
-        [...seuids].forEach(uid => ancestorsOf(s, uid).forEach(a => seuids.add(a)));
-        sel.set(key, seuids);
-    } else {
-        sel.set(key, 'all');
+  const key = keyOf(pid, s.study_instance_uid);
+  if (!on) { sel.delete(key); return; }
+  const f = filters();
+  if (!(f.mods.length || f.q.length || f.approval.length)) {
+    sel.set(key, 'all');
+    return;
+  }
+  const ids = new Set();
+  instanceTree(s).forEach(function (n) {
+    if (nodeVisible(s, n, f)) {
+      ids.add(n.id);
+      nodeAncestors(s, n.id).forEach(function (a) { ids.add(a); });
     }
+  });
+  if (ids.size) sel.set(key, ids);
 }
 function selCount() {
-    let studies = 0, partial = 0, series = 0;
-    const pids = new Set();
-    sel.forEach(function (v, k) {
-        pids.add(k.split('|')[0]);
-        studies++;
-        if (v === 'all') return;
-        partial++;
-        series += v.size;
-    });
-    return {patients: pids.size, studies, partial, series};
+  let studies = 0, partial = 0, objects = 0;
+  const pids = new Set();
+  sel.forEach(function (v, k) {
+    pids.add(k.split('|')[0]);
+    studies++;
+    const study = findStudy(k);
+    const n = v === 'all' ? (study ? allNodeIds(study).length : 0) : v.size;
+    if (v !== 'all') partial++;
+    objects += n;
+  });
+  return {patients: pids.size, studies: studies, partial: partial, objects: objects};
 }
 function updateSelCount() {
-    const c = selCount();
-    $('#sel-count').text(
-        c.patients + ' patients · ' + c.studies + ' studies' +
-        (c.partial ? ' (' + c.partial + ' partial series)' : '') + ' selected');
+  const c = selCount();
+  $('#sel-count').text(
+    c.patients + ' patients · ' + c.studies + ' studies' +
+    (c.partial ? ' (' + c.partial + ' partial)' : '') + ' · ' +
+    c.objects + ' objects selected');
 }
 
 /* ---------- rendering ---------- */
@@ -348,13 +508,6 @@ function renderPatients() {
     $('#qp-label').text('Querying remote node — ' + done + '/' + patientsData.length + ' patients done');
 }
 
-function approvalBadge(status) {
-    const s = (status || '').toUpperCase();
-    if (!s) return '<span class="text-gray-400">—</span>';
-    const style = s === 'APPROVED' ? 'success' : s === 'REJECTED' ? 'danger' : 'warning';
-    return badge(style, s);
-}
-
 function rtInstanceLabel(i) {
     const parts = [];
     const label = i.rt_plan_label || i.structure_set_label;
@@ -362,85 +515,6 @@ function rtInstanceLabel(i) {
     if (label) parts.push('<span class="font-medium">' + esc(label) + '</span>');
     if (name && name !== label) parts.push('<span class="text-gray-500">' + esc(name) + '</span>');
     return parts.join(' ') || '<span class="text-gray-400">(unnamed)</span>';
-}
-
-function rtInstanceRows(se) {
-    /* Nested instance rows under an RT series — one line per structure set /
-     * plan instance, reflecting the study→series→instance hierarchy. */
-    const insts = se.rt_instances || [];
-    const isPlan = (se.modality || '').toUpperCase() === 'RTPLAN';
-    if (!insts.length || (!isPlan && insts.length < 2)) return '';
-    return insts.map(function (i) {
-        return '<tr class="text-xs text-gray-600">' +
-            '<td></td>' +
-            '<td class="px-2 py-1" colspan="5"><span class="text-gray-300 mr-1">└</span>' +
-                rtInstanceLabel(i) + '</td>' +
-            '<td class="px-2 py-1">' + (isPlan ? approvalBadge(i.approval_status) : '') + '</td>' +
-            '</tr>';
-    }).join('');
-}
-
-function seriesHierarchy(s) {
-    /* DFS order over the series list following parent_series_uids —
-     * image → structure set → plan → dose — with nesting depth per row.
-     * Series without resolved parents render at depth 0. */
-    const byUid = {};
-    (s.series || []).forEach(function (se) { byUid[se.series_instance_uid] = se; });
-    const children = {};
-    const roots = [];
-    (s.series || []).forEach(function (se) {
-        const parents = (se.parent_series_uids || []).filter(u => byUid[u]);
-        if (parents.length) {
-            (children[parents[0]] = children[parents[0]] || []).push(se);
-        } else {
-            roots.push(se);
-        }
-    });
-    const out = [];
-    const seen = new Set();
-    (function walk(list, depth) {
-        list.forEach(function (se) {
-            if (seen.has(se.series_instance_uid)) return;
-            seen.add(se.series_instance_uid);
-            out.push({se: se, depth: depth});
-            walk(children[se.series_instance_uid] || [], depth + 1);
-        });
-    })(roots, 0);
-    return out;
-}
-
-function ancestorsOf(s, seuid) {
-    const byUid = {};
-    (s.series || []).forEach(function (se) { byUid[se.series_instance_uid] = se; });
-    const out = [];
-    const seen = new Set([seuid]);
-    const queue = [seuid];
-    while (queue.length) {
-        const cur = queue.shift();
-        ((byUid[cur] || {}).parent_series_uids || []).forEach(function (p) {
-            if (byUid[p] && !seen.has(p)) { seen.add(p); out.push(p); queue.push(p); }
-        });
-    }
-    return out;
-}
-
-function descendantsOf(s, seuid) {
-    const children = {};
-    (s.series || []).forEach(function (se) {
-        (se.parent_series_uids || []).forEach(function (p) {
-            (children[p] = children[p] || []).push(se.series_instance_uid);
-        });
-    });
-    const out = [];
-    const seen = new Set([seuid]);
-    const queue = [seuid];
-    while (queue.length) {
-        const cur = queue.shift();
-        (children[cur] || []).forEach(function (c) {
-            if (!seen.has(c)) { seen.add(c); out.push(c); queue.push(c); }
-        });
-    }
-    return out;
 }
 
 function rtDetailsCell(se) {
@@ -465,39 +539,53 @@ function rtDetailsCell(se) {
     return '<span class="text-gray-400">—</span>' + unlinked;
 }
 
-function seriesSubRows(pid, s, f) {
-    const key = keyOf(pid, s.study_instance_uid);
-    const v = sel.get(key);
-    const rows = seriesHierarchy(s).filter(h => seriesVisible(h.se, s, f)).map(function (h) {
-        const se = h.se;
-        const checked = v === 'all' || (v instanceof Set && v.has(se.series_instance_uid));
-        const indent = h.depth
-            ? ' style="padding-left:' + (8 + h.depth * 18) + 'px"'
-            : '';
-        const marker = h.depth ? '<span class="text-gray-300 mr-1">└</span>' : '';
-        return '<tr class="text-xs">' +
-            '<td class="px-2 py-1"><input type="checkbox" class="se-check h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary" data-key="' + esc(key) + '" data-seuid="' + esc(se.series_instance_uid) + '"' + (checked ? ' checked' : '') + '></td>' +
-            '<td class="px-2 py-1"' + indent + '>' + marker + esc(se.series_description || '(no description)') + '</td>' +
-            '<td class="px-2 py-1">' + esc(se.modality || '—') + '</td>' +
-            '<td class="px-2 py-1">' + esc(se.series_number || '—') + '</td>' +
-            '<td class="px-2 py-1">' + esc(dcmDate(se.series_date) || '—') + '</td>' +
-            '<td class="px-2 py-1 text-right">' + (se.instances == null ? '?' : se.instances) + '</td>' +
-            '<td class="px-2 py-1">' + rtDetailsCell(se) + '</td></tr>' +
-            rtInstanceRows(se);
-    }).join('');
-    const head = '<thead><tr class="text-xs text-gray-400 uppercase">' +
-        '<th class="px-2 py-1 w-6"></th>' +
-        '<th class="px-2 py-1 text-left font-medium">Description</th>' +
-        '<th class="px-2 py-1 text-left font-medium">Modality</th>' +
-        '<th class="px-2 py-1 text-left font-medium">Series #</th>' +
-        '<th class="px-2 py-1 text-left font-medium">Date</th>' +
-        '<th class="px-2 py-1 text-right font-medium">Instances</th>' +
-        '<th class="px-2 py-1 text-left font-medium">Details</th>' +
-        '</tr></thead>';
-    return '<tr class="bg-gray-50"><td></td><td colspan="8" class="px-4 py-2">' +
-        '<table class="w-full">' + head + '<tbody>' + rows +
-        (rows ? '' : '<tr><td colspan="7" class="px-2 py-1 text-gray-400 text-xs">No series match the filters.</td></tr>') +
-        '</tbody></table></td></tr>';
+function nodeSubRows(pid, s, f) {
+  const key = keyOf(pid, s.study_instance_uid);
+  const v = sel.get(key);
+  const rows = instanceTree(s).filter(function (n) { return nodeVisible(s, n, f); }).map(function (n) {
+    const checked = v === 'all' || (v instanceof Set && v.has(n.id));
+    const indent = n.depth ? ' style="padding-left:' + (8 + n.depth * 18) + 'px"' : '';
+    const marker = n.depth ? '<span class="text-gray-300 mr-1">└</span>' : '';
+    const mod = (n.se.modality || '').toUpperCase();
+    let details = '<span class="text-gray-400">—</span>';
+    if (n.kind === 'instance') {
+      if (mod === 'RTPLAN') {
+        const ok = (n.inst.approval_status || '').toUpperCase() === 'APPROVED';
+        details = '<span class="' + (ok ? 'text-green-700 font-medium' : 'text-gray-500') + '">' +
+          (ok ? 'approved' : 'unapproved') + '</span>';
+      } else if (mod === 'RTDOSE') {
+        details = doseDetail(s, n.inst);
+      } else if (mod === 'RTSTRUCT') {
+        details = structDetail(s, n.inst);
+      }
+    } else if (RT_DETAIL_MODS.includes(mod)) {
+      /* Fallback container row (unresolved references): keep the existing
+         aggregate details. */
+      details = rtDetailsCell(n.se);
+    }
+    const name = n.kind === 'series' ? (n.se.series_description || '(no description)') : n.name;
+    return '<tr class="text-xs">' +
+      '<td class="px-2 py-1"><input type="checkbox" class="node-check h-4 w-4 text-chavi-primary border-gray-300 rounded focus:ring-chavi-primary" data-key="' + esc(key) + '" data-id="' + esc(n.id) + '"' + (checked ? ' checked' : '') + '></td>' +
+      '<td class="px-2 py-1"' + indent + '>' + marker + esc(name) + '</td>' +
+      '<td class="px-2 py-1">' + esc(mod || '—') + '</td>' +
+      '<td class="px-2 py-1">' + esc(n.se.series_number == null ? '—' : n.se.series_number) + '</td>' +
+      '<td class="px-2 py-1">' + esc(dcmDate(n.se.series_date) || '—') + '</td>' +
+      '<td class="px-2 py-1 text-right">' + (n.kind === 'series' ? (n.se.instances == null ? '?' : n.se.instances) : '1') + '</td>' +
+      '<td class="px-2 py-1">' + details + '</td></tr>';
+  }).join('');
+  const head = '<thead><tr class="text-xs text-gray-400 uppercase">' +
+    '<th class="px-2 py-1 w-6"></th>' +
+    '<th class="px-2 py-1 text-left font-medium">Description</th>' +
+    '<th class="px-2 py-1 text-left font-medium">Modality</th>' +
+    '<th class="px-2 py-1 text-left font-medium">Series #</th>' +
+    '<th class="px-2 py-1 text-left font-medium">Date</th>' +
+    '<th class="px-2 py-1 text-right font-medium">Instances</th>' +
+    '<th class="px-2 py-1 text-left font-medium">Details</th>' +
+    '</tr></thead>';
+  return '<tr class="bg-gray-50"><td></td><td colspan="8" class="px-4 py-2">' +
+    '<table class="w-full">' + head + '<tbody>' + rows +
+    (rows ? '' : '<tr><td colspan="7" class="px-2 py-1 text-gray-400 text-xs">No objects match the filters.</td></tr>') +
+    '</tbody></table></td></tr>';
 }
 
 function studyRtSummary(s) {
@@ -566,7 +654,7 @@ function renderStudies() {
                 '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 text-right">' + (nser || (s.series_error ? '—' : 0)) + '</td>' +
                 '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 text-right">' + (s.instances == null ? '?' : s.instances) + '</td></tr>'
             );
-            if (exp && nser) rows.push(seriesSubRows(pid, s, f));
+            if (exp && nser) rows.push(nodeSubRows(pid, s, f));
         });
     });
     $('#study-body').html(rows.join('') ||
@@ -669,45 +757,26 @@ $('#sf-check-all').on('change', function () {
     renderStudies();
 });
 $(document).on('change', '.st-check', function () {
-    const key = $(this).data('key');
-    const [pid, suid] = key.split('|');
-    let study = null;
-    patientsData.forEach(function (p) {
-        (p.studies || []).forEach(function (s) {
-            if (p.patient_id === pid && s.study_instance_uid === suid) study = s;
-        });
-    });
-    if (study) selectStudy(pid, study, this.checked);
-    renderStudies();
+  const study = findStudy(this.dataset.key);
+  const pid = this.dataset.key.split('|')[0];
+  if (study) selectStudy(pid, study, this.checked);
+  renderStudies();
 });
-$(document).on('change', '.se-check', function () {
-    const key = $(this).data('key');
-    const seuid = $(this).data('seuid');
-    const [pid, suid] = key.split('|');
-    let study = null;
-    patientsData.forEach(function (p) {
-        (p.studies || []).forEach(function (s) {
-            if (p.patient_id === pid && s.study_instance_uid === suid) study = s;
-        });
-    });
-    let v = sel.get(key);
-    if (v === 'all' || v === undefined) {
-        /* 'all' → materialise as every seuid minus this one */
-        const all = new Set();
-        (study ? study.series || [] : []).forEach(se => all.add(se.series_instance_uid));
-        v = all;
-    }
-    if (this.checked) {
-        v.add(seuid);
-        if (study) ancestorsOf(study, seuid).forEach(a => v.add(a));
-    } else {
-        v.delete(seuid);
-        /* A deselected parent must take its dependents with it — no dose
-         * without its plan, no plan without its structure set. */
-        if (study) descendantsOf(study, seuid).forEach(d => v.delete(d));
-    }
-    if (v.size) sel.set(key, v); else sel.delete(key);
-    renderStudies();
+$(document).on('change', '.node-check', function () {
+  const key = $(this).data('key');
+  const id = $(this).data('id');
+  const study = findStudy(key);
+  let v = sel.get(key);
+  if (v === 'all' || v === undefined) v = new Set(study ? allNodeIds(study) : []);
+  if (this.checked) {
+    v.add(id);
+    if (study) nodeAncestors(study, id).forEach(function (a) { v.add(a); });
+  } else {
+    v.delete(id);
+    if (study) nodeDescendants(study, id).forEach(function (d) { v.delete(d); });
+  }
+  if (v.size) sel.set(key, v); else sel.delete(key);
+  renderStudies();
 });
 $(document).on('click', '.exp-btn', function () {
     const key = $(this).data('key');
@@ -735,14 +804,23 @@ $('#sel-filtered').on('click', function () {
 });
 $('#sel-none').on('click', function () { sel.clear(); renderStudies(); });
 $('#btn-retrieve').on('click', function () {
-    const selections = {};
-    sel.forEach(function (v, key) {
-        const [pid, suid] = key.split('|');
-        (selections[pid] = selections[pid] || []).push({
-            study_instance_uid: suid,
-            series_instance_uids: v === 'all' ? null : [...v],
-        });
-    });
+  const selections = {};
+  sel.forEach(function (v, key) {
+    const [pid, suid] = key.split('|');
+    const entry = {study_instance_uid: suid};
+    if (v === 'all') {
+      entry.series_uids = null;
+      entry.sop_instance_uids = null;
+    } else {
+      const su = [], sp = [];
+      v.forEach(function (id) {
+        if (id[0] === 's') su.push(id.slice(2)); else sp.push(id.slice(2));
+      });
+      entry.series_uids = su.length ? su : null;
+      entry.sop_instance_uids = sp.length ? sp : null;
+    }
+    (selections[pid] = selections[pid] || []).push(entry);
+  });
     if (!Object.keys(selections).length) {
         $('#submit-status').text('Nothing selected.');
         return;
