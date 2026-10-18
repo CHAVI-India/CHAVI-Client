@@ -30,7 +30,7 @@ Agreed rules:
    - RTREG/RTIMAGE series keep series-level rows (no instance drill-down).
 2. **Selection = instance level for RT** (checkbox per instance row, key = SOPInstanceUID), **series level for image/other series** (key = SeriesInstanceUID). Checking a node auto-pulls its ancestors (plan → struct set → image series; dose → plan → struct set → image series). Unchecking cascades to descendants (unchecking a struct set removes its plans and their doses).
 3. **Retrieval = series level only.** No SOP-level C-MOVE/C-GET. Series to retrieve = user-selected series ∪ containing series of every selected RT instance ∪ containing series of pulled-in ancestor instances ∪ referenced image series — computed **server-side** from the study tree (the browser's claim is never trusted for closure).
-4. **Ingest filter.** When a RUNNING job's study row has series rows (partial selection), arriving instances are dropped unless selected: RT-detail modalities per SOPInstanceUID, but only when the job stored a **non-empty** SOP set (an empty SOP set is the legacy/scheduled series-level selection → accept, exactly as before); other modalities per selected series. Jobs with no series rows (whole-study selection) accept everything.
+4. **Ingest filter.** When a RUNNING job's study row has series rows (partial selection), arriving instances are dropped unless selected: instance-selectable RT modalities (RTSTRUCT/RTPLAN/RTDOSE) per SOPInstanceUID, but only when the job stored a **non-empty** SOP set (an empty SOP set is the legacy/scheduled series-level selection → accept, exactly as before); RTREG/RTIMAGE and all other modalities per selected series (the UI selects RTREG/RTIMAGE only at series level, so a checked series must store its instances). Jobs with no series rows (whole-study selection) accept everything.
 5. **Unchanged:** the C-FIND query phase, the C-MOVE/C-GET implementation, `tasks.py` retrieval worker, the scheduled bulk flow (`bulk_selection.py`, `task_bulk_schedule_finalize_query`), and the single-patient flow (`RetrieveStudiesView`/`task_retrieve_studies`).
 6. **Known limitation (documented, not fixed):** job `instances_received` counts wire-level sub-operations, so deliberately dropped instances still count toward it. Drops are visible in the `InboundDICOMInstance` audit log with reject_reason `Instance not selected in retrieval job` / `Series not selected in retrieval job`.
 
@@ -49,7 +49,7 @@ Agreed rules:
 
 | File | Action | Responsibility |
 |---|---|---|
-| `dicom_server/constants.py` | Create | Import-safe shared constants: `RT_DETAIL_MODALITIES` (frozenset). No Django model imports — `ingest` and `qr_client` may both import it because `scp/handlers` ↔ `ingest` ↔ `qr_client` form an import cycle otherwise. |
+| `dicom_server/constants.py` | Create | Import-safe shared constants: `RT_DETAIL_MODALITIES` and `RT_INSTANCE_SELECTABLE_MODALITIES` (frozensets). No Django model imports — `ingest` and `qr_client` may both import it because `scp/handlers` ↔ `ingest` ↔ `qr_client` form an import cycle otherwise. |
 | `dicom_server/services/instance_selection.py` | Create | Pure functions over the study-tree dict (no DB): SOP→series lookup, ancestor closure, selection validation/normalization. |
 | `dicom_server/services/qr_client.py` | Modify | Replace its module-private `_RT_DETAIL_MODALITIES` set with `constants.RT_DETAIL_MODALITIES`. |
 | `dicom_server/models.py` | Modify | Add `RetrievalJobStudy.selected_sop_instance_uids` JSONField. |

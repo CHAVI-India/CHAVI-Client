@@ -296,3 +296,30 @@ class IngestSelectionFilterTests(TestCase):
             patient_id='P1', study_uid=self.STUDY_UID, series_uid='ct')
         ingest_dataset(ds)
         self.assertEqual(self._audit(ds.SOPInstanceUID).status, 'STORED')
+
+    def test_rt_image_instance_stored_when_its_series_selected(self):
+        # RTREG/RTIMAGE are series-level in the selection UI: with a
+        # non-empty SOP set from an instance-level selection, an instance
+        # of a checked RTIMAGE series must still be stored, not
+        # per-SOP-filtered (the UI can never place their SOPs in the set).
+        self._job_study(series_uids=['img'], sop_uids=['p1', 'ss1'])
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='img', sop_uid='img1', modality='RTIMAGE')
+        ingest_dataset(ds)
+        self.assertEqual(self._audit('img1').status, 'STORED')
+
+    def test_rtreg_instance_dropped_when_its_series_not_selected(self):
+        # Same job shape: an RTREG instance whose series was NOT checked is
+        # dropped at series level (wire status still SUCCESS). No file_meta
+        # needed here — the drop happens before any file write.
+        self._job_study(series_uids=['ct'], sop_uids=['p1', 'ss1'])
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='reg', sop_uid='reg1', modality='RTREG')
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0x0000)
+        entry = self._audit('reg1')
+        self.assertEqual(entry.status, 'REJECTED')
+        self.assertEqual(entry.reject_reason,
+                         'Series not selected in retrieval job')

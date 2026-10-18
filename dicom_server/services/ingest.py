@@ -88,17 +88,19 @@ def _selection_reject_reason(job_study, series_uid, sop_uid, modality):
     has a partial (series-scoped) selection, or None to accept.
 
     - No series rows on the job study -> whole-study selection -> accept.
-    - RT detail modality -> strict per-SOP filter, but only when the job
-      stored a non-empty SOP set (interactive instance-level selection).
-      An empty SOP set is a legacy/scheduled series-level selection ->
-      accept (behaviour identical to before this filter existed).
-    - Other modalities -> accept only if the series was selected.
+    - Instance-selectable RT modality (RTSTRUCT/RTPLAN/RTDOSE) -> strict
+      per-SOP filter, but only when the job stored a non-empty SOP set
+      (interactive instance-level selection). An empty SOP set is a
+      legacy/scheduled series-level selection -> accept (behaviour
+      identical to before this filter existed).
+    - RTREG/RTIMAGE (RT detail but selectable at series level in the UI)
+      and all other modalities -> accept only if the series was selected.
     """
     selected_series = list(
         job_study.series.values_list('series_instance_uid', flat=True))
     if not selected_series:
         return None
-    if (modality or '').upper() in constants.RT_DETAIL_MODALITIES:
+    if (modality or '').upper() in constants.RT_INSTANCE_SELECTABLE_MODALITIES:
         wanted = set(job_study.selected_sop_instance_uids or [])
         if wanted and sop_uid not in wanted:
             return 'Instance not selected in retrieval job'
