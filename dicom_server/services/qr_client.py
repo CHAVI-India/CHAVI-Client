@@ -8,6 +8,7 @@ as the SCP's C-STORE handler).
 import logging
 import socket
 
+from pydicom import dcmread
 from pydicom.dataset import Dataset
 from pynetdicom import AE, evt, build_role, StoragePresentationContexts
 from pynetdicom.sop_class import (
@@ -20,7 +21,11 @@ from pynetdicom.sop_class import (
     PatientRootQueryRetrieveInformationModelGet,
 )
 
-from dicom_server.models import DICOMServerConfiguration, RemoteDICOMNode
+from dicom_server.models import (
+    DICOMServerConfiguration,
+    InboundDICOMInstance,
+    RemoteDICOMNode,
+)
 from dicom_server.scp.handlers import handle_store
 
 logger = logging.getLogger(__name__)
@@ -610,6 +615,97 @@ def _link_series_references(assoc, model, node, studies: list[dict]) -> None:
                 se['unresolved_refs'] = True
 
 
+# Reference fields an RT instance carries in rt_instances — used to detect
+# peers that strip sequence content from C-FIND responses (e.g. Orthanc) and
+# to parse stored files as a fallback.
+_RT_REF_FIELDS = (
+    'referenced_plan_uids',
+    'referenced_structure_set_uids',
+    'referenced_series_uids',
+    'referenced_image_uids',
+    'referenced_image_series_uids',
+)
+
+
+def _inst_has_refs(inst) -> bool:
+    return any(inst.get(f) for f in _RT_REF_FIELDS)
+
+
+def _ref_fields_from_ds(ds) -> dict:
+    """Reference sequences of a stored RT instance, keyed like the C-FIND
+    enrichment (see _find_instances_on_assoc)."""
+    return {
+        'referenced_plan_uids': _ref_sop_uids(ds, 'ReferencedRTPlanSequence'),
+        'referenced_structure_set_uids': _ref_sop_uids(
+            ds, 'ReferencedStructureSetSequence'),
+        'referenced_series_uids': _ref_series_uids(ds),
+        'referenced_image_uids': _ref_sop_uids(ds, 'ReferencedImageSequence'),
+        'referenced_image_series_uids': _rtreg_image_series_uids(ds),
+    }
+
+
+def _local_instance_path(sop_uid: str) -> str | None:
+    """file_path of the most recent stored instance with this SOP UID, or
+    None if it has never been ingested locally."""
+    row = InboundDICOMInstance.objects.filter(
+        sop_instance_uid=sop_uid, status=InboundDICOMInstance.Status.STORED,
+    ).order_by('-received_at').first()
+    if row and row.file_path:
+        return row.file_path
+    return None
+
+
+def _backfill_rt_references(node: RemoteDICOMNode, studies: list[dict]) -> None:
+    """Recover RT reference sequences the peer's C-FIND did not return.
+
+    Some peers (notably Orthanc) strip all sequence content from C-FIND
+    responses, so RTSTRUCT/RTPLAN/RTDOSE instances come back without their
+    referenced structure-set / plan / series UIDs and the series cannot be
+    nested (dose → plan → struct → image). For each such series this
+    C-MOVES *only that series* — a few small metadata instances, never the
+    images — to our own Storage SCP (which ingests them locally), then parses
+    the stored files to recover the reference sequences. Instances already
+    local from an earlier retrieval are read without a C-MOVE. Failures
+    degrade silently — the series simply stays flat.
+    """
+    for study in studies:
+        for se in study.get('series') or []:
+            if (se.get('modality') or '').upper() not in ('RTSTRUCT', 'RTPLAN', 'RTDOSE'):
+                continue
+            insts = se.get('rt_instances') or []
+            missing = [i for i in insts
+                       if i.get('sop_instance_uid') and not _inst_has_refs(i)]
+            if not missing:
+                continue
+            # Only C-MOVE the instances not already in the local archive.
+            if any(not _local_instance_path(i['sop_instance_uid'])
+                   for i in missing):
+                try:
+                    move_series(
+                        node, study['study_instance_uid'],
+                        se['series_instance_uid'],
+                        study.get('remote_patient_id'),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        'RT reference backfill: C-MOVE of series %s on %s '
+                        'failed: %s', se.get('series_instance_uid'), node, e,
+                    )
+            for i in missing:
+                path = _local_instance_path(i['sop_instance_uid'])
+                if not path:
+                    continue
+                try:
+                    ds = dcmread(path, stop_before_pixels=True)
+                except Exception as e:
+                    logger.warning(
+                        'RT reference backfill: could not read %s: %s',
+                        path, e,
+                    )
+                    continue
+                i.update(_ref_fields_from_ds(ds))
+
+
 def _backfill_study_fields(study: dict) -> None:
     """Fill optional study-level keys the peer omitted using the series list:
     modalities as the union of series modalities, accession number from any
@@ -667,9 +763,13 @@ def find_studies_with_series(node: RemoteDICOMNode,
     A final IMAGE-level pass enriches RTSTRUCT/RTPLAN series with
     'rt_instances' and backfills optional keys the peer omitted (series
     instance counts, series dates, accession number, modalities).
-    errors collects per-ID failures. Raises ConnectionError when the
-    association cannot be established or every patient ID's study query
-    failed."""
+    When the peer's C-FIND responses omit the RT reference sequences (e.g.
+    Orthanc strips all sequence content), the references are recovered from
+    the local instance files — C-MOVing just the affected RT series to our
+    own Storage SCP if not already local — so parent_series_uids can still
+    be resolved. errors collects per-ID failures. Raises ConnectionError
+    when the association cannot be established or every patient ID's study
+    query failed."""
     ae = _scu_ae()
     ae.add_requested_context(StudyRootQueryRetrieveInformationModelFind)
     ae.add_requested_context(PatientRootQueryRetrieveInformationModelFind)
@@ -711,6 +811,16 @@ def find_studies_with_series(node: RemoteDICOMNode,
         # Instance-level pass last: peers that abort IMAGE queries (common on
         # storage-only nodes) must not cost later studies their series tree.
         _enrich_series_instances(assoc, model, node, studies)
+        # Peers that strip reference sequences from C-FIND responses (e.g.
+        # Orthanc) leave RT series unlinked — recover them from the instance
+        # files (already local, or via a targeted per-series C-MOVE).
+        try:
+            _backfill_rt_references(node, studies)
+        except Exception:
+            logger.exception(
+                'RT reference backfill failed on %s; continuing without it',
+                node,
+            )
         _link_series_references(assoc, model, node, studies)
         for study in studies:
             _backfill_study_fields(study)

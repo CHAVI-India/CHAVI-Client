@@ -8,7 +8,13 @@ from pathlib import Path
 from unittest import mock
 
 from django.test import TransactionTestCase, override_settings
-from pydicom.dataset import Dataset
+from pydicom.dataset import Dataset, FileMetaDataset
+from pydicom.uid import (
+    ExplicitVRLittleEndian,
+    RTDoseStorage,
+    RTPlanStorage,
+    RTStructureSetStorage,
+)
 from pynetdicom import AE, evt, StoragePresentationContexts
 from pynetdicom.sop_class import (
     Verification,
@@ -36,15 +42,20 @@ class _StubPACS:
     patient_root=True negotiates Patient Root Q/R only (the SCU must fall
     back from Study Root). echo_only=True supports only Verification, so any
     Q/R association is rejected at the presentation-context level.
+    strip_find_sequences=True omits the reference sequences from IMAGE-level
+    C-FIND responses (mimics peers such as Orthanc that strip sequence
+    content from Find responses) while still delivering them on C-MOVE/C-GET.
     """
 
     def __init__(self, datasets, move_dest=None, patient_root=False,
                  echo_only=False, abort_on_find=False,
-                 abort_on_image_find=False, sparse_find=False):
+                 abort_on_image_find=False, sparse_find=False,
+                 strip_find_sequences=False):
         self.datasets = datasets
         self.move_dest = move_dest
         self.abort_on_image_find = abort_on_image_find
         self.sparse_find = sparse_find
+        self.strip_find_sequences = strip_find_sequences
         self.find_queries = []  # (level, study_uid, series_uid) per C-FIND
         self.ae = AE(ae_title='STUBPACS')
         self.ae.supported_contexts = StoragePresentationContexts
@@ -144,13 +155,16 @@ class _StubPACS:
                 rsp.StudyInstanceUID = ds.StudyInstanceUID
                 rsp.SeriesInstanceUID = ds.SeriesInstanceUID
                 rsp.SOPInstanceUID = getattr(ds, 'SOPInstanceUID', '')
-                for kw in ('InstanceNumber', 'Modality', 'SeriesDate',
-                           'AccessionNumber', 'StructureSetLabel',
-                           'StructureSetName', 'RTPlanLabel', 'RTPlanName',
-                           'ApprovalStatus', 'ReferencedRTPlanSequence',
-                           'ReferencedStructureSetSequence',
-                           'ReferencedFrameOfReferenceSequence',
-                           'ReferencedImageSequence'):
+                kws = ('InstanceNumber', 'Modality', 'SeriesDate',
+                       'AccessionNumber', 'StructureSetLabel',
+                       'StructureSetName', 'RTPlanLabel', 'RTPlanName',
+                       'ApprovalStatus')
+                if not self.strip_find_sequences:
+                    kws += ('ReferencedRTPlanSequence',
+                            'ReferencedStructureSetSequence',
+                            'ReferencedFrameOfReferenceSequence',
+                            'ReferencedImageSequence')
+                for kw in kws:
                     val = getattr(ds, kw, None)
                     if val is not None:
                         setattr(rsp, kw, val)
@@ -684,6 +698,128 @@ class QRClientTests(TransactionTestCase):
         self.assertEqual(errors, [])
         by_uid = {s['series_instance_uid']: s for s in studies[0]['series']}
         self.assertNotIn('parent_series_uids', by_uid[ct.SeriesInstanceUID])
+        self.assertEqual(
+            by_uid[rtstruct.SeriesInstanceUID]['parent_series_uids'],
+            [ct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[plan.SeriesInstanceUID]['parent_series_uids'],
+            [rtstruct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[dose.SeriesInstanceUID]['parent_series_uids'],
+            [plan.SeriesInstanceUID],
+        )
+
+    def test_find_studies_with_series_backfills_stripped_rt_refs_via_cmove(self):
+        """A peer that strips reference sequences from C-FIND responses
+        (Orthanc): the backfill C-MOVES only the affected RT series to our
+        own SCP and parses the ingested files, so dose → plan → struct →
+        image still nests from the referenced series instance UIDs."""
+        study_uid = '1.3.1.1'
+        ct = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ct.SeriesDate = '20240101'
+        rtstruct = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTSTRUCT', structure_set_label='SS1',
+            referenced_series_uids=[ct.SeriesInstanceUID],
+            sop_class=RTStructureSetStorage,
+        )
+        plan = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTPLAN', rt_plan_label='P1',
+            approval_status='APPROVED',
+            referenced_structure_set_uids=[rtstruct.SOPInstanceUID],
+            sop_class=RTPlanStorage,
+        )
+        dose = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTDOSE',
+            referenced_plan_uids=[plan.SOPInstanceUID],
+            sop_class=RTDoseStorage,
+        )
+        pacs = _StubPACS([ct, rtstruct, plan, dose], move_dest=self.scp_port,
+                         strip_find_sequences=True)
+        try:
+            studies, errors = qr_client.find_studies_with_series(
+                self._node(port=pacs.port), ['MR/25/004771'],
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        by_uid = {s['series_instance_uid']: s for s in studies[0]['series']}
+        self.assertEqual(
+            by_uid[rtstruct.SeriesInstanceUID]['parent_series_uids'],
+            [ct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[plan.SeriesInstanceUID]['parent_series_uids'],
+            [rtstruct.SeriesInstanceUID],
+        )
+        self.assertEqual(
+            by_uid[dose.SeriesInstanceUID]['parent_series_uids'],
+            [plan.SeriesInstanceUID],
+        )
+        # the backfill ingested the RT instances locally
+        for sop in (rtstruct.SOPInstanceUID, plan.SOPInstanceUID,
+                    dose.SOPInstanceUID):
+            self.assertTrue(
+                DICOMInstance.objects.filter(
+                    sop_instance_uid=sop).exists(), sop)
+
+    def test_find_studies_with_series_backfill_uses_local_files(self):
+        """RT instances already in the local archive (an earlier retrieval)
+        are parsed directly — no C-MOVE is issued."""
+        from dicom_server.services.ingest import ingest_dataset
+
+        study_uid = '1.3.1.2'
+        ct = make_test_dataset(patient_id='MR/25/004771', study_uid=study_uid)
+        ct.SeriesDate = '20240101'
+        rtstruct = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTSTRUCT', structure_set_label='SS1',
+            referenced_series_uids=[ct.SeriesInstanceUID],
+            sop_class=RTStructureSetStorage,
+        )
+        plan = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTPLAN', rt_plan_label='P1',
+            approval_status='APPROVED',
+            referenced_structure_set_uids=[rtstruct.SOPInstanceUID],
+            sop_class=RTPlanStorage,
+        )
+        dose = make_rt_dataset(
+            patient_id='MR/25/004771', study_uid=study_uid,
+            modality='RTDOSE',
+            referenced_plan_uids=[plan.SOPInstanceUID],
+            sop_class=RTDoseStorage,
+        )
+        # Pre-ingest the RT instances the way a prior retrieval would.
+        for ds, sop_class in ((rtstruct, RTStructureSetStorage),
+                              (plan, RTPlanStorage),
+                              (dose, RTDoseStorage)):
+            fmf = FileMetaDataset()
+            fmf.MediaStorageSOPClassUID = sop_class
+            fmf.MediaStorageSOPInstanceUID = ds.SOPInstanceUID
+            fmf.TransferSyntaxUID = ExplicitVRLittleEndian
+            ds.file_meta = fmf
+            ingest_dataset(ds)
+
+        pacs = _StubPACS([ct, rtstruct, plan, dose],
+                         strip_find_sequences=True)  # no move_dest: no C-MOVE
+        try:
+            with mock.patch.object(
+                    qr_client, 'move_series',
+                    side_effect=AssertionError('backfill must not C-MOVE')):
+                studies, errors = qr_client.find_studies_with_series(
+                    self._node(port=pacs.port), ['MR/25/004771'],
+                )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(errors, [])
+        by_uid = {s['series_instance_uid']: s for s in studies[0]['series']}
         self.assertEqual(
             by_uid[rtstruct.SeriesInstanceUID]['parent_series_uids'],
             [ct.SeriesInstanceUID],

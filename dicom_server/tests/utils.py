@@ -70,12 +70,16 @@ def make_rt_dataset(
     referenced_structure_set_uids=None,
     referenced_plan_uids=None,
     referenced_image_uids=None,
+    sop_class=None,
 ):
     """Build a minimal RTPLAN/RTSTRUCT/RTDOSE-like dataset carrying the RT
     attributes and reference sequences the bulk query enriches via
-    IMAGE-level C-FIND."""
+    IMAGE-level C-FIND. sop_class sets the SOPClassUID (needed when the
+    dataset is C-MOVED/C-STORED as a sub-op)."""
     ds = Dataset()
     ds.SOPInstanceUID = sop_uid or generate_uid()
+    if sop_class is not None:
+        ds.SOPClassUID = sop_class
     ds.StudyInstanceUID = study_uid or generate_uid()
     ds.SeriesInstanceUID = series_uid or generate_uid()
     ds.Modality = modality
