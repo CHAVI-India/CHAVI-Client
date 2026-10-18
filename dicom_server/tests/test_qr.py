@@ -202,7 +202,10 @@ class _StubPACS:
                 rsp.StudyDate = getattr(ds, 'StudyDate', '')
                 rsp.StudyDescription = getattr(ds, 'StudyDescription', '')
                 if not self.sparse_find:
-                    rsp.ModalitiesInStudy = getattr(ds, 'Modality', '')
+                    mods = getattr(ds, 'ModalitiesInStudy', None)
+                    rsp.ModalitiesInStudy = (
+                        mods if mods is not None
+                        else getattr(ds, 'Modality', ''))
                     rsp.AccessionNumber = getattr(ds, 'AccessionNumber', '')
                 yield 0xFF00, rsp
 
@@ -283,6 +286,42 @@ class QRClientTests(TransactionTestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['study_instance_uid'], ds.StudyInstanceUID)
+
+    def test_modalities_str_normalizes_multi_value(self):
+        # ModalitiesInStudy is CS VM 1-n; pydicom returns a list, and
+        # str() of that is a Python repr that leaked into the UI filter.
+        self.assertEqual(
+            qr_client._modalities_str(['CT', 'RTSTRUCT', 'RTPLAN']),
+            'CT\\RTSTRUCT\\RTPLAN',
+        )
+        self.assertEqual(qr_client._modalities_str('CT'), 'CT')
+        self.assertEqual(qr_client._modalities_str(''), '')
+        self.assertEqual(qr_client._modalities_str(None), '')
+        self.assertEqual(
+            qr_client._modalities_str(['CT', ' ', 'MR']), 'CT\\MR')
+        # pydicom 3.x returns MultiValue (collections.abc.Sequence, NOT a
+        # list) for multi-valued CS attributes — the exact regression that
+        # leaked "['CT', 'RTPLAN']" into the modality filter.
+        from pydicom.multival import MultiValue
+        self.assertEqual(
+            qr_client._modalities_str(MultiValue(str, ['CT', 'RTPLAN'])),
+            'CT\\RTPLAN')
+
+    def test_find_studies_multi_valued_modalities_in_study(self):
+        """A peer returning a multi-valued ModalitiesInStudy must come back
+        backslash-joined, not as a Python list repr."""
+        ds = make_test_dataset(patient_id='MR/25/004771')
+        ds.ModalitiesInStudy = ['CT', 'RTSTRUCT', 'RTPLAN']
+        pacs = _StubPACS([ds], patient_root=True)
+        try:
+            results = qr_client.find_studies(
+                self._node(port=pacs.port), 'MR/25/004771'
+            )
+        finally:
+            pacs.shutdown()
+
+        self.assertEqual(
+            results[0]['modalities'], 'CT\\RTSTRUCT\\RTPLAN')
 
     def test_move_study_patient_root_fallback(self):
         ds = make_test_dataset(patient_id='MR/25/004771')

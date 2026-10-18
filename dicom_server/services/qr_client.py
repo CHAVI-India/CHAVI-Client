@@ -7,6 +7,7 @@ as the SCP's C-STORE handler).
 """
 import logging
 import socket
+from collections.abc import Sequence
 
 from pydicom import dcmread
 from pydicom.dataset import Dataset
@@ -179,6 +180,20 @@ def _negotiated_qr_model(assoc, study_root_uid, patient_root_uid,
     )
 
 
+def _modalities_str(value) -> str:
+    """Normalize a C-FIND ModalitiesInStudy value to its DICOM string form.
+
+    ModalitiesInStudy is CS VM 1-n: pydicom hands back multiple values as a
+    MultiValue (a collections.abc.Sequence — not a list, in pydicom 3.x),
+    and str() of that is a Python repr ("['CT', 'RTPLAN']") — join with
+    the standard backslash separator instead."""
+    if value is None:
+        return ''
+    if isinstance(value, Sequence) and not isinstance(value, str):
+        return '\\'.join(str(v).strip() for v in value if str(v).strip())
+    return str(value)
+
+
 def _find_studies_on_assoc(assoc, model, node, patient_id: str) -> list[dict]:
     """STUDY-level C-FIND on an open association.
 
@@ -215,7 +230,8 @@ def _find_studies_on_assoc(assoc, model, node, patient_id: str) -> list[dict]:
                 'study_time': str(getattr(identifier, 'StudyTime', '') or ''),
                 'study_description': str(getattr(identifier, 'StudyDescription', '') or ''),
                 'accession_number': str(getattr(identifier, 'AccessionNumber', '') or ''),
-                'modalities': str(getattr(identifier, 'ModalitiesInStudy', '') or ''),
+                'modalities': _modalities_str(
+                    getattr(identifier, 'ModalitiesInStudy', '')),
                 'series_count': getattr(identifier, 'NumberOfStudyRelatedSeries', None),
                 'instances': getattr(identifier, 'NumberOfStudyRelatedInstances', None),
             })
