@@ -74,12 +74,20 @@ def make_rt_dataset(
 ):
     """Build a minimal RTPLAN/RTSTRUCT/RTDOSE-like dataset carrying the RT
     attributes and reference sequences the bulk query enriches via
-    IMAGE-level C-FIND. sop_class sets the SOPClassUID (needed when the
-    dataset is C-MOVED/C-STORED as a sub-op)."""
+    IMAGE-level C-FIND. sop_class sets the SOPClassUID and file meta
+    (needed when the dataset is C-MOVED/C-STORED as a sub-op — pynetdicom
+    resolves the presentation context from file_meta.TransferSyntaxUID).
+    """
     ds = Dataset()
     ds.SOPInstanceUID = sop_uid or generate_uid()
     if sop_class is not None:
         ds.SOPClassUID = sop_class
+        file_meta = FileMetaDataset()
+        file_meta.MediaStorageSOPClassUID = sop_class
+        file_meta.MediaStorageSOPInstanceUID = ds.SOPInstanceUID
+        file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+        file_meta.ImplementationClassUID = generate_uid()
+        ds.file_meta = file_meta
     ds.StudyInstanceUID = study_uid or generate_uid()
     ds.SeriesInstanceUID = series_uid or generate_uid()
     ds.Modality = modality
