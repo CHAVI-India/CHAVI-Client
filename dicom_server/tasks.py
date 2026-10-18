@@ -1,5 +1,6 @@
 """Celery tasks for DICOM query/retrieve operations."""
 import logging
+import time
 from datetime import datetime
 
 from celery import chord, group, shared_task
@@ -149,10 +150,32 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
     instances = 0
     item_results = []  # still returned in result dict for API compat
 
+    # Graceful timeout: bail out before the soft limit (3.5h) so the job is
+    # marked PARTIAL instead of being orphaned in RUNNING by a SIGKILL.
+    _retrieval_deadline = time.monotonic() + 3.5 * 3600 - 120  # 2 min margin
+
     for i, target in enumerate(flat):
         study_uid = target['study_instance_uid']
         series_uid = target['series_instance_uid']
         remote_pid = target['remote_patient_id'] or patient.patient_id
+        if time.monotonic() > _retrieval_deadline:
+            timeout_reason = (
+                f'Timeout: reached 2 min before soft limit with '
+                f'{total - i} item(s) remaining'
+            )
+            logger.warning('Retrieval timeout for job %s: %s', job.pk, timeout_reason)
+            for remaining in flat[i:]:
+                _mark_item_failed(
+                    job, remaining['study_instance_uid'],
+                    remaining['series_instance_uid'], timeout_reason,
+                )
+                item_results.append({
+                    'study_instance_uid': remaining['study_instance_uid'],
+                    'series_instance_uid': remaining['series_instance_uid'],
+                    'completed': 0, 'failed': 1, 'warning': 0,
+                    'error': timeout_reason,
+                })
+            break
         _update_task_run(
             task_run, None, 10 + int(80 * i / max(total, 1)), 100,
             description=f'Retrieving {i + 1}/{total}',
@@ -378,7 +401,7 @@ def task_finalize_batch_query(self, results, batch_id):
     return result
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, time_limit=4 * 3600, soft_time_limit=3.5 * 3600)
 def task_retrieve_patient_selection(self, job_id):
     """Retrieve one patient's selected studies/series as part of a bulk chord.
 

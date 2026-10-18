@@ -132,6 +132,16 @@ class BulkScheduleForm(forms.ModelForm):
         widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
         help_text='When to run the one-off retrieval (required for one-off mode).',
     )
+    study_date_from = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        help_text='Only retrieve studies on or after this date.',
+    )
+    study_date_to = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        help_text='Only retrieve studies on or before this date.',
+    )
 
     class Meta:
         model = BulkRetrievalSchedule

@@ -354,9 +354,17 @@ class BulkPatientListView(DicomPermissionRequiredMixin, View):
     every listed field is both displayable and filterable."""
     permission_required = 'dicom_server.add_retrievaljob'
     per_page = 20
+    per_page_choices = (20, 50, 100, 200)
 
     def get(self, request):
         qs = Patient.objects.all()
+
+        # Optional page-size override (capped to per_page_choices max)
+        try:
+            per_page = int(request.GET.get('per_page', self.per_page))
+        except (TypeError, ValueError):
+            per_page = self.per_page
+        per_page = max(1, min(per_page, max(self.per_page_choices)))
 
         q = (request.GET.get('q') or '').strip()
         if q:
@@ -414,7 +422,7 @@ class BulkPatientListView(DicomPermissionRequiredMixin, View):
             ),
         )
 
-        paginator = Paginator(qs, self.per_page)
+        paginator = Paginator(qs, per_page)
         try:
             page = paginator.page(request.GET.get('page', 1))
         except (PageNotAnInteger, EmptyPage):

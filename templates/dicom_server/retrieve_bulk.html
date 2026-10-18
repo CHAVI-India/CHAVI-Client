@@ -101,7 +101,13 @@
             </div>
             <div class="mt-2 flex items-center justify-between text-sm flex-wrap gap-2">
                 <span id="pt-pageinfo" class="text-gray-500"></span>
-                <div class="space-x-3">
+                <div class="flex items-center space-x-2">
+                    <select id="pt-per-page" class="text-xs border border-gray-300 rounded px-1.5 py-0.5">
+                        <option value="20">20 / page</option>
+                        <option value="50">50 / page</option>
+                        <option value="100">100 / page</option>
+                        <option value="200">200 / page</option>
+                    </select>
                     <button type="button" id="pt-select-all-matching" class="text-chavi-primary hover:underline">Select all matching</button>
                     <button type="button" id="pt-clear-sel" class="text-chavi-peach-600 hover:underline">Clear selection</button>
                     <span id="pt-selected" class="font-medium">0 selected</span>
@@ -162,6 +168,7 @@ function esc(s) {
 /* ---- patient table ---- */
 const selectedPids = new Set();
 let ptPage = 1, ptPages = 1;
+let ptPerPage = 20;
 
 function ptFilters() {
     return {
@@ -179,6 +186,7 @@ function ptFilters() {
         updated_from: $('#flt-updated-from').val() || '',
         updated_to: $('#flt-updated-to').val() || '',
         consented: $('#flt-consented').is(':checked') ? '1' : '0',
+        per_page: ptPerPage,
     };
 }
 
@@ -307,6 +315,10 @@ $('#pt-select-all-matching').on('click', function () {
 });
 $('#pt-prev').on('click', function () { loadPatients(ptPage - 1); });
 $('#pt-next').on('click', function () { loadPatients(ptPage + 1); });
+$('#pt-per-page').on('change', function () {
+    ptPerPage = parseInt($(this).val(), 10) || 20;
+    loadPatients(1);
+});
 $('#flt-q').on('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); loadPatients(1); }
 });
