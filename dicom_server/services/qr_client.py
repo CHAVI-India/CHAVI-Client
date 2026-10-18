@@ -26,6 +26,7 @@ from dicom_server.models import (
     InboundDICOMInstance,
     RemoteDICOMNode,
 )
+from dicom_server import constants
 from dicom_server.scp.handlers import handle_store
 
 logger = logging.getLogger(__name__)
@@ -456,11 +457,6 @@ def _find_instances_on_assoc(assoc, model, node, study_instance_uid: str,
     return results, ''
 
 
-# Modalities whose instances carry attributes worth showing on the selection
-# page — they always get an IMAGE-level query during batch queries.
-_RT_DETAIL_MODALITIES = {'RTSTRUCT', 'RTPLAN', 'RTDOSE', 'RTREG', 'RTIMAGE'}
-
-
 def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
     """Run the per-series IMAGE-level C-FIND on an open association and fold
     the results back into the study→series tree.
@@ -477,7 +473,7 @@ def _enrich_series_instances(assoc, model, node, studies: list[dict]) -> None:
     instance_queries_ok = True
     for study in studies:
         for se in study.get('series') or []:
-            needs_rt = (se.get('modality') or '').upper() in _RT_DETAIL_MODALITIES
+            needs_rt = (se.get('modality') or '').upper() in constants.RT_DETAIL_MODALITIES
             needs_backfill = se.get('instances') is None or not se.get('series_date')
             # An empty SeriesInstanceUID would be a wildcard match key.
             if not (needs_rt or needs_backfill) or not instance_queries_ok \
