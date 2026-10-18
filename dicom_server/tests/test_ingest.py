@@ -10,9 +10,11 @@ from client_app.models import (
 )
 from dicom_server.models import (
     InboundDICOMInstance, PatientIDAlias, RemoteDICOMNode,
+    RetrievalJob, RetrievalJobSeries, RetrievalJobStudy,
 )
 from dicom_server.services.ingest import ingest_dataset, find_patient, sanitize
 from dicom_server.tests.utils import make_test_dataset
+from dicom_server.tests.utils import make_rt_dataset
 
 
 class SanitizeTests(TestCase):
@@ -198,3 +200,99 @@ class IngestDatasetTests(TestCase):
         self.assertEqual(study.study_modalities, 'CT, MR')
         self.assertIn('Series CT', study.series_descriptions)
         self.assertIn('Series MR', study.series_descriptions)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class IngestSelectionFilterTests(TestCase):
+    """Spec rule 4: partial-selection jobs drop unselected instances."""
+
+    STUDY_UID = '1.2.3'
+
+    def setUp(self):
+        SiteConfiguration.objects.create(chavi_center_id='T', center_name='T')
+        self.patient = Patient.objects.create(patient_id='P1', gender='Male')
+        Patient.objects.filter(pk=self.patient.pk).update(chavi_consent=True)
+        self.patient.chavi_consent = True
+        node = RemoteDICOMNode.objects.create(
+            name='n', ae_title='TEST', host='127.0.0.1')
+        self.job = RetrievalJob.objects.create(
+            node=node, patient=self.patient,
+            status=RetrievalJob.Status.RUNNING,
+        )
+
+    def _job_study(self, series_uids=(), sop_uids=()):
+        study = RetrievalJobStudy.objects.create(
+            job=self.job, study_instance_uid=self.STUDY_UID)
+        RetrievalJobSeries.objects.bulk_create([
+            RetrievalJobSeries(study=study, series_instance_uid=s)
+            for s in series_uids
+        ])
+        if sop_uids:
+            study.selected_sop_instance_uids = list(sop_uids)
+            study.save(update_fields=['selected_sop_instance_uids'])
+        return study
+
+    def _audit(self, sop_uid):
+        return InboundDICOMInstance.objects.get(sop_instance_uid=sop_uid)
+
+    def test_whole_study_job_accepts_everything(self):
+        self._job_study()  # no series rows
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='pl', sop_uid='p2', modality='RTPLAN',
+            rt_plan_label='final_v2', approval_status='UNAPPROVED')
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0x0000)
+        self.assertEqual(self._audit('p2').status, 'STORED')
+
+    def test_rt_instance_in_sop_set_stored(self):
+        self._job_study(series_uids=['pl'], sop_uids=['p1', 'ss1'])
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='pl', sop_uid='p1', modality='RTPLAN',
+            rt_plan_label='final', approval_status='APPROVED')
+        ingest_dataset(ds)
+        self.assertEqual(self._audit('p1').status, 'STORED')
+
+    def test_rt_instance_not_in_sop_set_dropped(self):
+        self._job_study(series_uids=['pl'], sop_uids=['p1', 'ss1'])
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='pl', sop_uid='p2', modality='RTPLAN',
+            rt_plan_label='final_v2', approval_status='UNAPPROVED')
+        result = ingest_dataset(ds)
+        # Wire status stays SUCCESS (spec: must not count as failed sub-op).
+        self.assertEqual(result.status, 0x0000)
+        entry = self._audit('p2')
+        self.assertEqual(entry.status, 'REJECTED')
+        self.assertEqual(entry.reject_reason,
+                         'Instance not selected in retrieval job')
+        self.assertFalse(entry.file_path)
+
+    def test_legacy_series_level_selection_accepts_rt_instances(self):
+        # Empty SOP set = legacy/scheduled flow: series-level selection
+        # behaves exactly as before the filter existed.
+        self._job_study(series_uids=['pl'])  # no SOP set
+        ds = make_rt_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID,
+            series_uid='pl', sop_uid='p2', modality='RTPLAN')
+        ingest_dataset(ds)
+        self.assertEqual(self._audit('p2').status, 'STORED')
+
+    def test_unselected_image_series_dropped(self):
+        self._job_study(series_uids=['ct'], sop_uids=[])
+        ds = make_test_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID, series_uid='ct2')
+        result = ingest_dataset(ds)
+        self.assertEqual(result.status, 0x0000)
+        entry = self._audit(ds.SOPInstanceUID)
+        self.assertEqual(entry.status, 'REJECTED')
+        self.assertEqual(entry.reject_reason,
+                         'Series not selected in retrieval job')
+
+    def test_selected_image_series_stored(self):
+        self._job_study(series_uids=['ct'], sop_uids=[])
+        ds = make_test_dataset(
+            patient_id='P1', study_uid=self.STUDY_UID, series_uid='ct')
+        ingest_dataset(ds)
+        self.assertEqual(self._audit(ds.SOPInstanceUID).status, 'STORED')

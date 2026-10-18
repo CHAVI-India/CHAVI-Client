@@ -12,6 +12,7 @@ from client_app.models import (
     Patient, DICOMStudy, DICOMSeries, DICOMInstance, _make_canonical_id,
 )
 from dicom_server.models import InboundDICOMInstance, PatientIDAlias, RetrievalJob, RetrievalJobStudy
+from dicom_server import constants
 from dicom_server.services.classifier import classify_study
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,31 @@ class IngestResult:
     patient: Patient | None = None
 
 
+def _selection_reject_reason(job_study, series_uid, sop_uid, modality):
+    """Reason to drop an instance arriving under a RUNNING job whose study
+    has a partial (series-scoped) selection, or None to accept.
+
+    - No series rows on the job study -> whole-study selection -> accept.
+    - RT detail modality -> strict per-SOP filter, but only when the job
+      stored a non-empty SOP set (interactive instance-level selection).
+      An empty SOP set is a legacy/scheduled series-level selection ->
+      accept (behaviour identical to before this filter existed).
+    - Other modalities -> accept only if the series was selected.
+    """
+    selected_series = list(
+        job_study.series.values_list('series_instance_uid', flat=True))
+    if not selected_series:
+        return None
+    if (modality or '').upper() in constants.RT_DETAIL_MODALITIES:
+        wanted = set(job_study.selected_sop_instance_uids or [])
+        if wanted and sop_uid not in wanted:
+            return 'Instance not selected in retrieval job'
+        return None
+    if series_uid not in selected_series:
+        return 'Series not selected in retrieval job'
+    return None
+
+
 def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') -> IngestResult:
     """Validate, gate on known patient, write to processed_dicom/, upsert
     DICOMStudy, and audit-log the instance. Never raises.
@@ -115,6 +141,7 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
         return reject(STATUS_MISSING_ATTRIBUTE, 'Missing PatientID')
     study_uid = str(getattr(ds, 'StudyInstanceUID', '') or '').strip()
     sop_uid = str(getattr(ds, 'SOPInstanceUID', '') or '').strip()
+    series_uid = str(getattr(ds, 'SeriesInstanceUID', '') or '').strip()
     if not study_uid or not sop_uid:
         return reject(STATUS_MISSING_ATTRIBUTE, 'Missing StudyInstanceUID or SOPInstanceUID')
 
@@ -135,6 +162,28 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
         return reject(STATUS_UNKNOWN_PATIENT, f'Unknown PatientID {raw_patient_id}')
     if not patient.chavi_consent:
         return reject(STATUS_NO_CONSENT, f'Patient {raw_patient_id} has not consented')
+
+    # Selection filter (spec rule 4): a RUNNING job that selected only part
+    # of the study drops instances the user did not ask for. The wire status
+    # stays SUCCESS — the transfer succeeded; we simply chose not to persist.
+    # (A failure status would count as a failed C-MOVE sub-op and mark the
+    # retrieval job PARTIAL/FAILED.) Dropped instances still count in
+    # job.instances_received; they are visible in the audit log below.
+    if job_study is not None:
+        reason = _selection_reject_reason(
+            job_study, series_uid, sop_uid,
+            modality=str(getattr(ds, 'Modality', '') or ''),
+        )
+        if reason:
+            logger.info('Dropping unselected instance %s: %s', sop_uid, reason)
+            InboundDICOMInstance.objects.create(
+                status=InboundDICOMInstance.Status.REJECTED,
+                reject_reason=reason[:255],
+                matched_patient=patient, **log_fields,
+            )
+            return IngestResult(
+                status=STATUS_SUCCESS, reason='dropped: ' + reason,
+                patient=patient)
 
     dest = None
     try:
