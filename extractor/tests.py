@@ -2234,7 +2234,12 @@ class DeidReplacementTests(SimpleTestCase):
         self.assertIn('22/03/2024', out)
         self.assertNotIn('Ramesh', out)
 
-    def test_resolve_overlaps_keeps_highest_score(self):
+    def test_resolve_overlaps_containing_span_wins_regardless_of_score(self):
+        # A span that fully contains a lower-scored overlap wins regardless of
+        # score (the MRN case: the full 'MR/24/012817' span must beat the NER's
+        # two-letter 'MR' org tag, else the record digits leak). Here LOCATION
+        # (0-10, 0.4) contains PERSON (0-6, 0.9), so it wins; the contained
+        # PERSON is covered by LOCATION and drops.
         from presidio_analyzer import RecognizerResult
         from extractor.services.text_deidentification import (
             TextDeidentificationService)
@@ -2245,7 +2250,34 @@ class DeidReplacementTests(SimpleTestCase):
         ]
         kept = TextDeidentificationService._resolve_overlaps(results)
         self.assertEqual(len(kept), 2)
-        self.assertEqual(kept[0].entity_type, 'PERSON')
+        self.assertEqual([r.entity_type for r in kept],
+                         ['LOCATION', 'DATE_TIME'])
+
+    def test_resolve_overlaps_keeps_highest_score_when_no_containment(self):
+        # Overlapping spans that do NOT contain one another: the higher-scored
+        # span wins. PERSON (0-6, 0.9) partially overlaps LOCATION (4-12, 0.4)
+        # without either containing the other, so PERSON is kept.
+        from presidio_analyzer import RecognizerResult
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        results = [
+            RecognizerResult(entity_type='PERSON', start=0, end=6, score=0.9),
+            RecognizerResult(entity_type='LOCATION', start=4, end=12, score=0.4),
+        ]
+        kept = TextDeidentificationService._resolve_overlaps(results)
+        self.assertEqual([r.entity_type for r in kept], ['PERSON'])
+
+    def test_resolve_overlaps_longest_wins_on_score_tie(self):
+        # Equal scores and no containment: the longer span wins the tie.
+        from presidio_analyzer import RecognizerResult
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService)
+        results = [
+            RecognizerResult(entity_type='PERSON', start=0, end=6, score=0.5),
+            RecognizerResult(entity_type='LOCATION', start=2, end=10, score=0.5),
+        ]
+        kept = TextDeidentificationService._resolve_overlaps(results)
+        self.assertEqual([r.entity_type for r in kept], ['LOCATION'])
 
     def test_unshift_date_round_trip(self):
         from extractor.services.instructor_extractor import (

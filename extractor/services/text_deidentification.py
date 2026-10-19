@@ -31,6 +31,7 @@ from extractor.services.deid_recognizers import (
     build_text_recognizers,
 )
 from extractor.services import deid_rules
+from extractor.services.embeddings import _resolve_device
 from extractor.services.llm_ner import LlmNerRecognizer
 from extractor.services.url_policy import is_cloud_provider, is_local_endpoint
 
@@ -176,7 +177,7 @@ class TextDeidentificationService:
                     label_mapping=settings.DEID_HF_LABEL_MAP,
                     threshold=settings.DEID_HF_NER_THRESHOLD,
                     aggregation_strategy="simple",
-                    device="cpu",
+                    device=_resolve_device(),
                     supported_language="en",
                 )
             except Exception as e:
@@ -491,7 +492,7 @@ class TextDeidentificationService:
                     model_name=pipeline.hf_model_id,
                     label_mapping=pipeline.hf_label_map,
                     threshold=pipeline.hf_threshold,
-                    aggregation_strategy='simple', device='cpu',
+                    aggregation_strategy='simple', device=_resolve_device(),
                     supported_language='en')
                 analyzer.registry.add_recognizer(recognizer)
             except Exception as e:

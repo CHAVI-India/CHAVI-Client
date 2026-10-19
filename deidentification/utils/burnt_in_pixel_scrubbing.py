@@ -80,6 +80,7 @@ def _build_analyzer_engine():
         from presidio_analyzer.predefined_recognizers.ner import (
             HuggingFaceNerRecognizer,
         )
+        from extractor.services.embeddings import _resolve_device
 
         try:
             # EntityRecognizer.__init__ calls load() — the HF model is
@@ -93,7 +94,7 @@ def _build_analyzer_engine():
                 label_mapping=getattr(settings, 'DEID_HF_LABEL_MAP', None),
                 threshold=getattr(settings, 'DEID_HF_NER_THRESHOLD', 0.20),
                 aggregation_strategy="simple",
-                device="cpu",
+                device=_resolve_device(),
                 supported_language="en",
             )
         except Exception as e:
