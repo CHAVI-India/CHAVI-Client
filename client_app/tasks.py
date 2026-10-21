@@ -22,6 +22,7 @@ from celery_progress.backend import ProgressRecorder
 from django.conf import settings
 from django.utils import timezone
 from pydicom import dcmread
+from client_app.services.dicom_codec import compress_to_j2k_lossless
 
 from .models import (
     Patient, DICOMStudy, DICOMStudyProject, Project,
@@ -349,12 +350,16 @@ def task_process_bulk_dicom(self, upload_ids, user_id):
                             patient_dir = processed_dir / sanitized_patient_id
                             study_dir = patient_dir / _sanitize(study_instance_uid)
                             study_dir.mkdir(parents=True, exist_ok=True)
+                            # Store as JPEG2000 lossless to reduce space usage.
+                            compress_to_j2k_lossless(ds)
                             ds.save_as(study_dir / f"{_sanitize(sop_instance_uid)}.dcm", enforce_file_format=True)
                             processed_count += 1
                             study_dirs[study_instance_uid] = study_dir
                         except Patient.DoesNotExist:
                             unprocessed_patient_dir = unprocessed_dir / sanitized_patient_id / _sanitize(study_instance_uid)
                             unprocessed_patient_dir.mkdir(parents=True, exist_ok=True)
+                            # Store as JPEG2000 lossless to reduce space usage.
+                            compress_to_j2k_lossless(ds)
                             ds.save_as(unprocessed_patient_dir / f"{_sanitize(sop_instance_uid)}.dcm")
                             unprocessed_count += 1
                             unmatched_patients.add(patient_id)
@@ -643,6 +648,8 @@ def task_process_dicom_per_patient(self, patient_dicom_file_ids, user_id):
 
                         study_dir = Path(save_path) / folder_path
                         study_dir.mkdir(exist_ok=True, parents=True)
+                        # Store as JPEG2000 lossless to reduce space usage.
+                        compress_to_j2k_lossless(ds)
                         ds.save_as(study_dir / f"{file_path}.dcm", enforce_file_format=True)
 
                         study_uids.add(study_instance_uid)
@@ -981,12 +988,22 @@ def task_process_confirmed_matches(self, session_id, user_id):
                                     ds.PatientID = patient.patient_id
                                     if hasattr(ds, 'PatientName'):
                                         ds.PatientName = patient.patient_id
+                                    # Store as JPEG2000 lossless to reduce space usage.
+                                    compress_to_j2k_lossless(ds)
                                     ds.save_as(str(dest_file), enforce_file_format=True)
                                 except Exception as e:
                                     logger.error(f"Error modifying DICOM metadata for {dicom_file.name}: {str(e)}")
                                     shutil.copy2(str(dicom_file), str(dest_file))
                             else:
-                                shutil.copy2(str(dicom_file), str(dest_file))
+                                # Auto-matched studies - no metadata change, but
+                                # still store as JPEG2000 lossless.
+                                try:
+                                    ds = dcmread(str(dicom_file))
+                                    compress_to_j2k_lossless(ds)
+                                    ds.save_as(str(dest_file), enforce_file_format=True)
+                                except Exception as e:
+                                    logger.error(f"Error compressing DICOM file {dicom_file.name}: {str(e)}")
+                                    shutil.copy2(str(dicom_file), str(dest_file))
 
                     DICOMStudy.objects.update_or_create(
                         patient=patient,
@@ -1014,7 +1031,13 @@ def task_process_confirmed_matches(self, session_id, user_id):
                     if temp_folder.exists():
                         for dicom_file in temp_folder.glob('*.dcm'):
                             dest_file = unprocessed_patient_dir / dicom_file.name
-                            shutil.copy2(str(dicom_file), str(dest_file))
+                            try:
+                                ds = dcmread(str(dicom_file))
+                                compress_to_j2k_lossless(ds)
+                                ds.save_as(str(dest_file), enforce_file_format=True)
+                            except Exception as e:
+                                logger.error(f"Error compressing DICOM file {dicom_file.name}: {str(e)}")
+                                shutil.copy2(str(dicom_file), str(dest_file))
 
                     UnprocessedDICOMStudies.objects.update_or_create(
                         study_instance_uid=study_match.study_instance_uid,
@@ -1531,6 +1554,8 @@ def task_process_unprocessed_dicom(self, unprocessed_study_uids, user_id):
 
                         study_dir = Path(save_path) / folder_path_sanitized
                         study_dir.mkdir(exist_ok=True, parents=True)
+                        # Store as JPEG2000 lossless to reduce space usage.
+                        compress_to_j2k_lossless(ds)
                         ds.save_as(study_dir / f"{file_path_sanitized}.dcm")
 
                         study_uids.add(study_instance_uid)

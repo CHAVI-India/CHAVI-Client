@@ -53,16 +53,18 @@ def make_test_dataset(
     ds.ReferringPhysicianName = 'Test^Physician'
     ds.SeriesNumber = 1
     ds.InstanceNumber = 1
-    # Image plane / pixel attributes (Type 1 for CT Image Storage)
+    # Image plane / pixel attributes (Type 1 for CT Image Storage).
+    # 32x32 is the smallest size OpenJPEG reliably encodes (the ingest
+    # pathway re-compresses to JPEG2000 lossless; 4x4 fails opj_start_compress).
     ds.SamplesPerPixel = 1
     ds.PhotometricInterpretation = 'MONOCHROME2'
-    ds.Rows = 4
-    ds.Columns = 4
+    ds.Rows = 32
+    ds.Columns = 32
     ds.BitsAllocated = 16
     ds.BitsStored = 16
     ds.HighBit = 15
     ds.PixelRepresentation = 0
-    ds.PixelData = b'\x00' * 4 * 4 * 2
+    ds.PixelData = b'\x00' * 32 * 32 * 2
     return ds
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 from pydicom import dcmread
+from .dicom_codec import compress_to_j2k_lossless
 from datetime import datetime
 from django.utils import timezone
 import shutil
@@ -291,7 +292,8 @@ def process_confirmed_matches(session):
                                     # Optionally update Patient Name if it exists
                                     if hasattr(ds, 'PatientName'):
                                         ds.PatientName = patient.patient_id
-                                    
+                                    # Store as JPEG2000 lossless to reduce space usage.
+                                    compress_to_j2k_lossless(ds)
                                     # Save the modified DICOM file
                                     ds.save_as(str(dest_file), enforce_file_format=True)
                                     logger.info(f"Modified DICOM metadata for manually matched file: {dicom_file.name}")
@@ -300,8 +302,16 @@ def process_confirmed_matches(session):
                                     # Fall back to simple copy if modification fails
                                     shutil.copy2(str(dicom_file), str(dest_file))
                             else:
-                                # Auto-matched studies - just copy without modification
-                                shutil.copy2(str(dicom_file), str(dest_file))
+                                # Auto-matched studies - no metadata change, but
+                                # still store as JPEG2000 lossless (compress via
+                                # save_as instead of a plain copy2).
+                                try:
+                                    ds = dcmread(str(dicom_file))
+                                    compress_to_j2k_lossless(ds)
+                                    ds.save_as(str(dest_file), enforce_file_format=True)
+                                except Exception as e:
+                                    logger.error(f"Error compressing DICOM file {dicom_file.name}: {str(e)}")
+                                    shutil.copy2(str(dicom_file), str(dest_file))
                     
                     # Create or update DICOMStudy record
                     study, _ = DICOMStudy.objects.update_or_create(
@@ -335,7 +345,13 @@ def process_confirmed_matches(session):
                     if temp_folder.exists():
                         for dicom_file in temp_folder.glob('*.dcm'):
                             dest_file = unprocessed_patient_dir / dicom_file.name
-                            shutil.copy2(str(dicom_file), str(dest_file))
+                            try:
+                                ds = dcmread(str(dicom_file))
+                                compress_to_j2k_lossless(ds)
+                                ds.save_as(str(dest_file), enforce_file_format=True)
+                            except Exception as e:
+                                logger.error(f"Error compressing DICOM file {dicom_file.name}: {str(e)}")
+                                shutil.copy2(str(dicom_file), str(dest_file))
                     
                     # Create UnprocessedDICOMStudies record
                     UnprocessedDICOMStudies.objects.update_or_create(

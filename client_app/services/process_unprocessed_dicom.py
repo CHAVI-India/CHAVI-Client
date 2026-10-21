@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import shutil
 from pydicom import dcmread
+from client_app.services.dicom_codec import compress_to_j2k_lossless
 from datetime import datetime
 from client_app.models import DICOMStudy, UnprocessedDICOMStudies, Patient
 from django.http import HttpResponseRedirect
@@ -114,6 +115,9 @@ def process_unprocessed_dicom(modeladmin, request, queryset):
                     study_dir = Path(save_path) / folder_path
                     study_dir.mkdir(exist_ok=True, parents=True)
                     
+                    # Store as JPEG2000 lossless to reduce space usage.
+                    compress_to_j2k_lossless(ds)
+
                     # Save the modified DICOM file
                     ds.save_as(study_dir / f"{file_path}.dcm")
                     

@@ -172,6 +172,8 @@ pydantic==2.14.1
 pydantic_core==2.50.1
 pydicom==3.0.2
 Pygments==2.21.0
+pylibjpeg==2.1.0
+pylibjpeg-openjpeg==2.6.0
 pynetdicom==3.0.4
 pyparsing==3.3.3
 pypdfium2==5.14.0

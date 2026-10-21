@@ -7,6 +7,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import transaction
 from pydicom.dataset import Dataset
+from client_app.services.dicom_codec import compress_to_j2k_lossless
 
 from client_app.models import (
     Patient, DICOMStudy, DICOMSeries, DICOMInstance, _make_canonical_id,
@@ -199,7 +200,13 @@ def ingest_dataset(ds: Dataset, *, calling_ae='', called_ae='', remote_addr='') 
             / sanitize(patient.patient_id) / sanitize(study_uid)
         )
         study_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Store as JPEG2000 lossless to reduce space usage (no-op for
+        # instances J2K cannot encode, e.g. RT objects; keeps the SOP UID).
+        compress_to_j2k_lossless(ds)
+
         dest = study_dir / f"{sanitize(sop_uid)}.dcm"
+
         ds.save_as(dest, enforce_file_format=True)
 
         with transaction.atomic():

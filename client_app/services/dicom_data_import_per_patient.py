@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 from pydicom import dcmread
+from .dicom_codec import compress_to_j2k_lossless
 from datetime import datetime
 import shutil
 from ..models import DICOMStudy, Patient
@@ -120,6 +121,11 @@ def process_dicom(modeladmin, request, queryset):
                     # Create the directory structure
                     study_dir = Path(save_path) / folder_path
                     study_dir.mkdir(exist_ok=True, parents=True)
+
+                    # Store as JPEG2000 lossless to reduce space usage (no-op
+                    # for instances J2K cannot encode; keeps the SOP Instance UID).
+                    compress_to_j2k_lossless(ds)
+
                     # Save the DICOM file
                     ds.save_as(study_dir / f"{file_path}.dcm", enforce_file_format=True)
 

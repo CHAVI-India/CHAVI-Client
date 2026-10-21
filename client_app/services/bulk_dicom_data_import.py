@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 from pydicom import dcmread
+from .dicom_codec import compress_to_j2k_lossless
 from datetime import datetime
 from django.utils import timezone
 import shutil
@@ -118,7 +119,11 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         patient_dir = processed_dir / sanitized_patient_id
                         study_dir = patient_dir / sanitize(study_instance_uid)
                         study_dir.mkdir(parents=True, exist_ok=True)
-                        
+
+                        # Store as JPEG2000 lossless to reduce space usage (no-op
+                        # for instances J2K cannot encode; keeps the SOP Instance UID).
+                        compress_to_j2k_lossless(ds)
+
                         ds.save_as(study_dir / f"{sanitize(sop_instance_uid)}.dcm", enforce_file_format=True)
                         processed_count += 1
                         logger.debug(f"Saved processed DICOM file to: {study_dir}")
@@ -127,6 +132,8 @@ def process_bulk_dicom(modeladmin, request, queryset):
                         logger.warning(f"No matching patient found for ID: {patient_id}")
                         unprocessed_patient_dir = unprocessed_dir / sanitized_patient_id / sanitize(study_instance_uid)
                         unprocessed_patient_dir.mkdir(parents=True, exist_ok=True)
+                        # Store as JPEG2000 lossless to reduce space usage.
+                        compress_to_j2k_lossless(ds)
                         ds.save_as(unprocessed_patient_dir / f"{sanitize(sop_instance_uid)}.dcm")
                         unprocessed_count += 1
                         unmatched_patients.add(patient_id)

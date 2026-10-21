@@ -31,6 +31,7 @@ from pathlib import Path
 from django.apps import apps
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from client_app.services.dicom_codec import compress_to_j2k_lossless
 
 from client_app.models import (
     DICOMInstance,
@@ -75,6 +76,9 @@ def make_dcm(path, *, patient_id, study_uid, series_uid, sop_uid,
     ds.StudyDescription = study_description
     ds.SeriesDescription = series_description
     ds.FrameOfReferenceUID = frame_uid
+    # Mirror the ingest convention (no-op for this fixture: it carries no
+    # pixel data, so the file stays uncompressed with its original SOP UID).
+    compress_to_j2k_lossless(ds)
     ds.save_as(str(path), enforce_file_format=True)
     return Path(path)
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 
 import pydicom
+from pydicom.uid import UID
 from celery.exceptions import SoftTimeLimitExceeded
 from django.conf import settings
 from django.utils import timezone
@@ -234,6 +235,27 @@ def _deidentify_single_file(
     days_shifted = deid_patient.date_shift_value
 
     bboxes = None
+
+    # Deid output is shared externally, so it is always written
+    # uncompressed (Explicit VR Little Endian). Ingested files are stored
+    # JPEG 2000 lossless, so decompress up front: the pixel-scrubbing
+    # pipeline then works on raw pixels (otherwise presidio's redactor
+    # re-compresses redacted frames as RLE), and instances that skip the
+    # scrub (MR, RT modalities, no-text images) are normalised too.
+    ts_el = dcm.file_meta.get("TransferSyntaxUID")
+    if ts_el is not None:
+        ts = ts_el.value if hasattr(ts_el, "value") else ts_el
+        try:
+            if ts and UID(str(ts)).is_compressed:
+                dcm.decompress(generate_instance_uid=False)
+        except Exception as e:
+            # Rare or undecodable syntax: keep the original encoding rather
+            # than failing the whole series — if the scrub pipeline needs
+            # the pixels it will surface the error for this file.
+            logger.warning(
+                f"Decompression of {getattr(dcm, 'SOPInstanceUID', '?')} "
+                f"(syntax {ts}) failed: {e} — keeping original encoding",
+            )
 
     try:
         dcm, bboxes = scrub_burnt_in_pixels(dcm, modality=modality)
