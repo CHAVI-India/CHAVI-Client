@@ -164,8 +164,12 @@ def test_location(location: ArchiveLocation) -> dict:
 
 def study_age_days(study) -> int | None:
     """Days since the study was performed (study_date) or, when the study
-    has no date, since it was created (created_at)."""
-    reference = study.study_date or study.created_at.date()
+    has no date, since it was created (created_at).
+
+    Both dates are taken in the project's local time zone — created_at comes
+    back from the database in UTC, so .date() on it raw would disagree with
+    timezone.localdate() around the IST/UTC day boundary (off-by-one)."""
+    reference = study.study_date or timezone.localtime(study.created_at).date()
     return (timezone.localdate() - reference).days
 
 

@@ -261,7 +261,7 @@ function loadPatients(page) {
             updateCheckAll();
         })
         .catch(err => {
-            $('#pt-body').html('<tr><td colspan="7" class="px-4 py-6 text-center text-sm text-red-600">Could not load patients (' + esc(err.message) + ').</td></tr>');
+            $('#pt-body').html('<tr><td colspan="7" class="px-4 py-6 text-center text-sm text-chavi-peach-600">Could not load patients (' + esc(err.message) + ').</td></tr>');
         });
 }
 

@@ -152,12 +152,14 @@ one entry for every listed field, including nulls. Each entry has:
 - quotes: up to 3 supporting VERBATIM spans copied character-for-character from
   the processed <document>, each at most 400 characters. Do not paraphrase,
   merge phrases, add ellipses, markdown, labels, or surrounding characters.
-  Explicitly reported non-null values require at least one quotation.
+  Explicitly reported, inferred, or calculated non-null values require at
+  least one quotation.
 - rationale: at most 400 characters, a concise evidence-based explanation, not a
   reasoning transcript. Inferred, clinical_inference, calculated, and unknown
-  entries require a short reason. When inference is supported by connected
-  textual evidence rather than one verbatim span, explain that reasoning and
-  leave quotes empty. Do not invent quotations.
+  entries require a short reason. Clinical_inference entries describe values
+  that were not explicitly reported, so explain that reasoning and leave
+  quotes empty; unknown entries may leave quotes empty too. Do not invent
+  quotations.
 Use explicit for reported values; inferred for clear implications of zero/false;
 clinical_inference for clinically likely zero/false (state that it was not explicitly
 reported); calculated for exact numeric arithmetic (include the inputs and operation);

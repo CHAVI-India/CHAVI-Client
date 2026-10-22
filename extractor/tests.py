@@ -2879,7 +2879,7 @@ class ChunkModelTests(TestCase):
         inst = wrapper(records=[{
             'site_0': 'Left', 'count': 0, 'parent_index': 0,
             'field_assessments': [{'field': 'count', 'basis': 'inferred',
-                                   'quotes': [], 'rationale': 'absent'}],
+                                   'quotes': ['absent'], 'rationale': 'absent'}],
         }])
         self.assertEqual(inst.records[0].site_0, 'Left')
         self.assertEqual(wrapper(records=[]).records, [])
@@ -2899,7 +2899,7 @@ class ChunkModelTests(TestCase):
         ok = record.model_validate(
             {'site_0': 'Left', 'count': 0,
              'field_assessments': [{'field': 'count',
-                                    'basis': 'inferred', 'quotes': [],
+                                    'basis': 'inferred', 'quotes': ['absent'],
                                     'rationale': 'absent'}]},
             context=ctx)
         self.assertEqual(ok.site_0, 'Left')

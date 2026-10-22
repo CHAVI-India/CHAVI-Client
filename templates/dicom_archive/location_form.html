@@ -50,7 +50,7 @@
         const storageType = typeEl ? typeEl.value : '';
         const path = pathEl ? pathEl.value.trim() : '';
         if (!storageType || !path) {
-            show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">Enter a path first.</div>');
+            show('<div class="rounded-md border border-gray-200 p-4 text-sm text-chavi-peach-700">Enter a path first.</div>');
             return;
         }
         btn.disabled = true;
@@ -73,15 +73,15 @@
                         html += '<p class="mb-1">' + (c.ok ? '\u2705' : '\u274c') + ' <span class="font-medium">' + esc(c.name) + '</span> &mdash; ' + esc(c.detail) + '</p>';
                     });
                     if (body.test_file) html += '<p class="mt-2 text-xs text-gray-600">Verification file (visible on the share, safe to delete): <code class="font-mono">' + esc(body.test_file) + '</code></p>';
-                    if (!body.ok) html += '<p class="mt-2 text-xs" style="color:#b91c1c;">' + esc(body.error || 'Test failed.') + '</p>';
+                    if (!body.ok) html += '<p class="mt-2 text-xs text-chavi-peach-700">' + esc(body.error || 'Test failed.') + '</p>';
                     html += '</div>';
                     show(html);
                 } else {
-                    show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">' + esc((r.body && r.body.error) || ('Request failed (HTTP ' + r.status + ').')) + '</div>');
+                    show('<div class="rounded-md border border-gray-200 p-4 text-sm text-chavi-peach-700">' + esc((r.body && r.body.error) || ('Request failed (HTTP ' + r.status + ').')) + '</div>');
                 }
             })
             .catch(function () {
-                show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">Request failed.</div>');
+                show('<div class="rounded-md border border-gray-200 p-4 text-sm text-chavi-peach-700">Request failed.</div>');
             })
             .then(function () { btn.disabled = false; });
     });

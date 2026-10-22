@@ -89,7 +89,7 @@
                         {% else %}-{% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">{% if item.job %}{{ item.job.instances_received }}{% else %}-{% endif %}</td>
-                    <td class="px-6 py-4 text-sm text-red-600 max-w-xs truncate" title="{% if item.error %}{{ item.error }}{% elif item.job %}{{ item.job.error_log }}{% endif %}">{% if item.error %}{{ item.error|truncatechars:60 }}{% elif item.job %}{{ item.job.error_log|truncatechars:60 }}{% endif %}</td>
+                    <td class="px-6 py-4 text-sm text-chavi-peach-600 max-w-xs truncate" title="{% if item.error %}{{ item.error }}{% elif item.job %}{{ item.job.error_log }}{% endif %}">{% if item.error %}{{ item.error|truncatechars:60 }}{% elif item.job %}{{ item.job.error_log|truncatechars:60 }}{% endif %}</td>
                 </tr>
                 {% endfor %}
             {% endfill %}

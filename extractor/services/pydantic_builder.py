@@ -45,8 +45,11 @@ def validate_field_assessments(values, assessments, field_types, source_text=Non
             raise ValueError(f'{entry.field}: unknown requires a null value.')
         if entry.basis != 'explicit' and not entry.rationale.strip():
             raise ValueError(f'{entry.field}: explain the inference briefly.')
-        if (value is not None and entry.basis == 'explicit' and not entry.quotes) or \
-                (value is None and entry.basis != 'unknown' and not (entry.quotes or entry.rationale.strip())):
+        # Values whose basis is explicit/inferred/calculated rest on document
+        # text, so they need at least one verbatim quote. Clinical inference
+        # (not explicitly reported) and unknown (null) may explain instead
+        # (see ASSESSMENT_RULES).
+        if entry.basis in ('explicit', 'inferred', 'calculated') and not entry.quotes:
             raise ValueError(f'{entry.field}: provide supporting evidence or a concise reason.')
         if entry.basis in ('inferred', 'clinical_inference'):
             valid = value is False if kind == 'bool' else value == 0 and not isinstance(value, bool)

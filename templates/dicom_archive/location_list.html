@@ -107,7 +107,7 @@
             html += '<p class="mt-2 text-xs text-gray-600">Verification file (visible on the share, safe to delete): <code class="font-mono">' + esc(body.test_file) + '</code></p>';
         }
         if (!body.ok) {
-            html += '<p class="mt-2 text-xs" style="color:#b91c1c;">' + esc(body.error || 'Test failed.') + '</p>';
+            html += '<p class="mt-2 text-xs text-chavi-peach-700">' + esc(body.error || 'Test failed.') + '</p>';
         }
         html += '</div>';
         show(html);
@@ -119,10 +119,10 @@
             postJSON(TEST_URL, {location_id: parseInt(btn.dataset.testid, 10)})
                 .then(function (r) {
                     if (r.ok && r.body) render(r.body, btn.dataset.testname);
-                    else show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">' + esc((r.body && r.body.error) || ('Request failed (HTTP ' + r.status + ').')) + '</div>');
+                    else show('<div class="rounded-md border border-gray-200 p-4 text-sm text-chavi-peach-700">' + esc((r.body && r.body.error) || ('Request failed (HTTP ' + r.status + ').')) + '</div>');
                 })
                 .catch(function () {
-                    show('<div class="rounded-md border border-gray-200 p-4 text-sm" style="color:#b91c1c;">Request failed.</div>');
+                    show('<div class="rounded-md border border-gray-200 p-4 text-sm text-chavi-peach-700">Request failed.</div>');
                 })
                 .then(function () { btn.disabled = false; });
         });

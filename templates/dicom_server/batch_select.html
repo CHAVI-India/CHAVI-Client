@@ -558,7 +558,7 @@ function nodeSubRows(pid, s, f) {
   const rows = instanceTree(s).filter(function (n) { return nodeVisible(s, n, f); }).map(function (n) {
     const checked = v === 'all' || (v instanceof Set && v.has(n.id));
     const indent = n.depth
-      ? ' style="padding-left:' + (8 + n.depth * 18) + 'px;border-left:1px solid #e5e7eb"'
+      ? ' style="padding-left:' + (8 + n.depth * 18) + 'px;border-left:1px solid #d9e5e8"'
       : '';
     const marker = n.depth ? '<span class="text-chavi-primary font-semibold mr-1">└</span>' : '';
     const mod = (n.se.modality || '').toUpperCase();
@@ -566,7 +566,7 @@ function nodeSubRows(pid, s, f) {
     if (n.kind === 'instance') {
       if (mod === 'RTPLAN') {
         const ok = (n.inst.approval_status || '').toUpperCase() === 'APPROVED';
-        details = '<span class="' + (ok ? 'text-green-700 font-medium' : 'text-gray-500') + '">' +
+        details = '<span class="' + (ok ? 'text-chavi-primary-700 font-medium' : 'text-gray-500') + '">' +
           (ok ? 'approved' : 'unapproved') + '</span>';
       } else if (mod === 'RTDOSE') {
         details = doseDetail(s, n.inst);
