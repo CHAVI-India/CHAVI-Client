@@ -3,77 +3,6 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 
-HF_RECOGNIZER = (
-    "presidio_analyzer.predefined_recognizers.ner."
-    "huggingface_ner_recognizer.HuggingFaceNerRecognizer"
-)
-
-
-class AnalyzerEngineBuildTests(SimpleTestCase):
-    """Engine construction for the pixel-scrub analyzer."""
-
-    def _recognizer_names(self, analyzer):
-        return [r.name for r in analyzer.registry.recognizers]
-
-    @override_settings(DEID_PIXEL_NER_BACKEND="none")
-    def test_none_backend_has_no_hf_recognizer(self):
-        from deidentification.utils.burnt_in_pixel_scrubbing import (
-            _build_analyzer_engine,
-        )
-
-        analyzer = _build_analyzer_engine()
-        names = self._recognizer_names(analyzer)
-        self.assertNotIn("HuggingFaceNerRecognizer", names)
-        self.assertIn("LenientAadhaarRecognizer", names)
-        self.assertIn("IndianMobileRecognizer", names)
-
-    @override_settings(DEID_PIXEL_NER_BACKEND="hf")
-    def test_hf_backend_registers_recognizer(self):
-        from deidentification.utils.burnt_in_pixel_scrubbing import (
-            _build_analyzer_engine,
-        )
-
-        with patch(f"{HF_RECOGNIZER}.load"):
-            analyzer = _build_analyzer_engine()
-        self.assertIn("HuggingFaceNerRecognizer", self._recognizer_names(analyzer))
-
-    @override_settings(DEID_PIXEL_NER_BACKEND="hf")
-    def test_hf_load_failure_degrades_to_spacy(self):
-        from deidentification.utils.burnt_in_pixel_scrubbing import (
-            _build_analyzer_engine,
-        )
-
-        with patch(f"{HF_RECOGNIZER}.load", side_effect=RuntimeError("boom")):
-            analyzer = _build_analyzer_engine()
-        self.assertNotIn(
-            "HuggingFaceNerRecognizer", self._recognizer_names(analyzer)
-        )
-
-    @override_settings(DEID_PIXEL_NER_BACKEND="hf", DEID_LENIENT_INDIAN_IDS=False)
-    def test_lenient_ids_can_be_disabled(self):
-        from deidentification.utils.burnt_in_pixel_scrubbing import (
-            _build_analyzer_engine,
-        )
-
-        with patch(f"{HF_RECOGNIZER}.load"):
-            analyzer = _build_analyzer_engine()
-        names = self._recognizer_names(analyzer)
-        self.assertNotIn("LenientAadhaarRecognizer", names)
-
-
-class LabelMapTests(SimpleTestCase):
-    def test_label_map_covers_model_labels(self):
-        from django.conf import settings
-
-        # Label set of DEID_HF_NER_MODEL — every predicted label must be
-        # mapped or HuggingFaceNerRecognizer drops it silently.
-        model_labels = {
-            "VENDOR", "DATE", "HCW", "HOSPITAL", "ID", "PATIENT", "PHONE",
-        }
-        self.assertTrue(
-            model_labels.issubset(set(settings.DEID_HF_LABEL_MAP.keys()))
-        )
-
 
 class IndianIdRecognizerTests(SimpleTestCase):
     def _recognizer(self, name):
@@ -142,24 +71,27 @@ class BurnedInAnnotationGateTests(SimpleTestCase):
         dcm = SimpleNamespace(BurnedInAnnotation='YES', PixelData=b'\x00')
         engine = MagicMock()
         with patch.object(m, '_get_engine', return_value=engine):
-            with patch.object(m, '_image_has_burnt_in_text', return_value=True):
+            with patch.object(
+                m, '_ocr_burnt_in_text_bboxes',
+                return_value=[{"left": 0, "top": 0, "width": 1, "height": 1}],
+            ):
                 m.scrub_burnt_in_pixels(dcm, modality='CT')
-        engine.redact_and_return_bbox.assert_called_once()
+        engine._add_redact_box.assert_called_once()
 
 
-class OcrPrecheckGateTests(SimpleTestCase):
-    """OCR text-presence pre-check for pixel scrubbing."""
+class OcrWholeTextScrubTests(SimpleTestCase):
+    """Pixel scrubbing redacts every word OCR finds (no NER)."""
 
     def _fake_dcm(self):
         from types import SimpleNamespace
         return SimpleNamespace(PixelData=b'\x00')
 
     def _fake_engine(self, words):
-        """Mock engine wired the way _image_has_burnt_in_text() uses it."""
+        """Mock engine wired the way _ocr_burnt_in_text_bboxes() uses it."""
         import numpy as np
-        from unittest.mock import MagicMock
 
         import deidentification.utils.burnt_in_pixel_scrubbing as m
+        from presidio_image_redactor import BboxProcessor
 
         engine = MagicMock()
         engine._check_if_greyscale.return_value = True
@@ -170,14 +102,15 @@ class OcrPrecheckGateTests(SimpleTestCase):
         analyzer.image_preprocessor.preprocess_image.return_value = (padded, {})
         inner_ocr = MagicMock()
         inner_ocr.perform_ocr.return_value = {
-            "text": words, "left": [0] * len(words), "top": [0] * len(words),
-            "width": [1] * len(words), "height": [1] * len(words),
+            "text": words, "left": [25] * len(words), "top": [25] * len(words),
+            "width": [10] * len(words), "height": [5] * len(words),
             "conf": [0.9] * len(words),
         }
-        analyzer.ocr = m._PrimedOCR(inner_ocr)
+        analyzer.ocr = inner_ocr
+        engine.bbox_processor = BboxProcessor()
         return engine
 
-    def test_no_text_skips_full_pipeline(self):
+    def test_no_text_returns_instance_unchanged(self):
         import deidentification.utils.burnt_in_pixel_scrubbing as m
         from unittest.mock import patch
 
@@ -188,108 +121,55 @@ class OcrPrecheckGateTests(SimpleTestCase):
 
         self.assertIs(out, dcm)
         self.assertIsNone(bboxes)
-        engine.redact_and_return_bbox.assert_not_called()
-        engine.redact.assert_not_called()
+        engine._add_redact_box.assert_not_called()
 
-    def test_text_found_runs_full_pipeline(self):
+    def test_all_words_are_redacted(self):
         import deidentification.utils.burnt_in_pixel_scrubbing as m
         from unittest.mock import patch
 
         dcm = self._fake_dcm()
-        engine = self._fake_engine(words=['RAMESH KUMAR'])
+        engine = self._fake_engine(words=['RAMESH KUMAR', 'DOB 01/02/1980', 'CT HEAD'])
         with patch.object(m, '_get_engine', return_value=engine):
-            m.scrub_burnt_in_pixels(dcm, modality='CT')
+            out, bboxes = m.scrub_burnt_in_pixels(dcm, modality='CT')
 
-        engine.redact_and_return_bbox.assert_called_once()
-        # OCR ran exactly once: the pre-check, whose result is primed and
-        # reused by the pipeline (mocked here) instead of re-running EasyOCR.
-        engine.image_analyzer_engine.ocr._ocr.perform_ocr.assert_called_once()
+        self.assertIsNot(out, dcm)
+        # OCR ran exactly once and every detected word got a box.
+        engine.image_analyzer_engine.ocr.perform_ocr.assert_called_once()
+        self.assertEqual(len(bboxes), 3)
+        # Padding removed: OCR saw the image padded by DEFAULT_PADDING_WIDTH.
+        self.assertEqual(bboxes[0]["left"], 0)
+        # Bboxes carry coordinates only — no OCR'd text (PHI) leaks out.
+        for b in bboxes:
+            self.assertEqual(set(b.keys()), {"left", "top", "width", "height"})
+        engine._add_redact_box.assert_called_once()
+        args = engine._add_redact_box.call_args.args
+        self.assertIs(args[0], dcm)
+        self.assertEqual(args[1], bboxes)
 
-    def test_primed_ocr_consumed_exactly_once_per_thread(self):
-        from unittest.mock import MagicMock
-
+    def test_engine_builds_without_analyzer(self):
+        """_get_engine must not build a Presidio AnalyzerEngine (no NER)."""
         import deidentification.utils.burnt_in_pixel_scrubbing as m
+        from unittest.mock import MagicMock, patch
 
-        inner = MagicMock()
-        inner.perform_ocr.return_value = 'FRESH'
-        wrapped = m._PrimedOCR(inner)
-
-        wrapped.prime('PRE-COMPUTED')
-        self.assertEqual(wrapped.perform_ocr(None), 'PRE-COMPUTED')
-        # Prime already consumed — fall through to the real engine.
-        self.assertEqual(wrapped.perform_ocr(None), 'FRESH')
-        inner.perform_ocr.assert_called_once_with(None)
-
-
-class CaseNormalizingOcrTests(SimpleTestCase):
-    def _fake_ocr_result(self):
-        return {
-            "text": ["NAME", "RAMESH", "KUMAR", "", "  ", "45Y"],
-            "left": [0, 0, 0, 0, 0, 0],
-            "top": [0, 0, 0, 0, 0, 0],
-            "width": [10, 10, 10, 10, 10, 10],
-            "height": [10, 10, 10, 10, 10, 10],
-            "conf": [90, 90, 90, -1, -1, 90],
-        }
-
-    @override_settings(DEID_PIXEL_OCR_ENGINE="tesseract", DEID_PIXEL_NORMALIZE_CASE=True)
-    def test_words_title_cased_and_length_preserved(self):
-        from deidentification.utils.burnt_in_pixel_scrubbing import _get_ocr
-
+        fake_analyzer = MagicMock()
         with patch(
-            "presidio_image_redactor.tesseract_ocr.pytesseract.image_to_data",
-            return_value=self._fake_ocr_result(),
-        ):
-            ocr = _get_ocr()
-            result = ocr.perform_ocr(None)
+            "presidio_image_redactor.DicomImageRedactorEngine",
+        ) as mock_redactor, patch(
+            "presidio_image_redactor.ImageAnalyzerEngine",
+        ) as mock_image_analyzer, patch.object(m, '_get_ocr') as mock_ocr:
+            mock_ocr.return_value = fake_analyzer
+            m._engine = None
+            try:
+                m._get_engine()
+            finally:
+                m._engine = None
 
-        self.assertEqual(
-            result["text"], ["Name", "Ramesh", "Kumar", "", "  ", "45Y"]
+        call_kwargs = mock_image_analyzer.call_args.kwargs
+        self.assertIs(type(call_kwargs["analyzer_engine"]), m._UnusedAnalyzer)
+        self.assertIs(call_kwargs["ocr"], fake_analyzer)
+        mock_redactor.assert_called_once_with(
+            image_analyzer_engine=mock_image_analyzer.return_value
         )
-
-    @override_settings(DEID_PIXEL_OCR_ENGINE="tesseract", DEID_PIXEL_NORMALIZE_CASE=False)
-    def test_plain_tesseract_when_disabled(self):
-        from presidio_image_redactor import TesseractOCR
-
-        from deidentification.utils.burnt_in_pixel_scrubbing import _get_ocr
-
-        ocr = _get_ocr()
-        self.assertIs(type(ocr), TesseractOCR)
-
-    def test_easyocr_lines_title_cased_and_length_preserved(self):
-        from unittest.mock import MagicMock
-
-        from PIL import Image
-
-        from deidentification.utils.ocr_engines import EasyOCROCR, titlecase_word
-
-        # Length-preserving title case: a word whose title-cased form changes
-        # length (e.g. 'ß' -> 'Ss') is left untouched to keep character
-        # offsets (and bbox mapping) exact.
-        self.assertEqual(titlecase_word("RAMESH KUMAR"), "Ramesh Kumar")
-        self.assertEqual(titlecase_word("straße"), "Straße")
-        self.assertEqual(titlecase_word("ßstraße"), "ßstraße")
-        self.assertEqual(titlecase_word(""), "")
-
-        ocr = EasyOCROCR.__new__(EasyOCROCR)
-        ocr._reader = MagicMock()
-        ocr._reader.readtext.return_value = [
-            ([[0, 0], [10, 0], [10, 5], [0, 5]], "RAMESH KUMAR", 0.98),
-            ([[1, 1], [5, 1], [5, 3], [1, 3]], "", 0.5),  # blank lines dropped
-        ]
-        ocr._normalize_case = True
-
-        fake_image = Image.new("L", (20, 10))
-        result = ocr.perform_ocr(fake_image)
-        self.assertEqual(result["text"], ["Ramesh Kumar"])
-        self.assertEqual(result["left"], [0])
-        self.assertEqual(result["top"], [0])
-        self.assertEqual(result["width"], [10])
-        self.assertEqual(result["height"], [5])
-
-        ocr._normalize_case = False
-        result = ocr.perform_ocr(fake_image)
-        self.assertEqual(result["text"], ["RAMESH KUMAR"])
 
 
 class DeidentificationChainTests(TestCase):

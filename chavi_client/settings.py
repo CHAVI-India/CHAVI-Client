@@ -801,7 +801,7 @@ FIELD_ENCRYPTION_KEY = os.environ.get('DJANGO_FIELD_ENCRYPTION_KEY', 'FUXVBYgTzP
 
 
 # Deidentification Settings
-DEID_SKIP_PIXEL_SCRUB_MODALITIES = {'MR', 'RTPLAN', 'RTDOSE', 'RTSTRUCT', 'REG'}
+DEID_SKIP_PIXEL_SCRUB_MODALITIES = {'MR', 'RTIMAGE', 'RTPLAN', 'RTDOSE', 'RTSTRUCT', 'REG'}
 DEID_LOG_PIXEL_REDACTION_BBOXES = True
 DEID_SUB_BATCH_SIZE = 50
 
@@ -810,12 +810,9 @@ DEID_SUB_BATCH_SIZE = 50
 # deidentification/eval/burnt_in_benchmark.py + data/results/ocr/REPORT.md.
 # NOTE: pytesseract stays a hard import dependency of presidio-image-redactor,
 # so keep it installed even when easyocr is the engine.
+# Pixel scrubbing redacts ALL text the OCR detects — no NER/PII detection.
 DEID_PIXEL_OCR_ENGINE = "easyocr"
 
-# Burnt-in pixel scrubbing — extra NER recognizer layered on spaCy.
-# "hf"   = HuggingFaceNerRecognizer (same model as extractor text-deid engine)
-# "none" = spaCy + pattern recognizers only (legacy behavior)
-DEID_PIXEL_NER_BACKEND = "hf"
 # StanfordAIMI deidentifier: RoBERTa fine-tuned on radiology reports +
 # clinical notes + i2b2 (Chambon et al., JAMIA 2022). Better recall on
 # clinical documents and Indian hospital headers than generic PII models;
@@ -833,12 +830,8 @@ DEID_HF_LABEL_MAP = {
     "DATE": "DATE_TIME",
     "PHONE": "PHONE_NUMBER",
 }
-# Title-case OCR words before NER — ALL-CAPS burnt-in annotations degrade
-# cased NER models; words are normalized length-preservingly so bbox mapping
-# is unaffected.
-DEID_PIXEL_NORMALIZE_CASE = True
 # Register lenient India-specific recognizers (Aadhaar without checksum,
-# Indian mobile) in the pixel-scrub analyzer.
+# Indian mobile) in the analyzer.
 DEID_LENIENT_INDIAN_IDS = True
 
 # Extractor text deidentification (extractor.services.text_deidentification)

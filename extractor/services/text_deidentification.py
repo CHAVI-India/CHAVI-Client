@@ -7,11 +7,11 @@ per-document offset stored (encrypted) on the row. save_extraction_results
 subtracts that offset from extracted date fields so real dates are written
 back.
 
-The analyzer mirrors deidentification.utils.burnt_in_pixel_scrubbing's
-engine build (spaCy en_core_web_lg + optional HuggingFaceNerRecognizer +
-shared Indian recognizer bundle) plus text-specific recognizers from
-deid_recognizers.py. Everything is extractor-local: no deidentification-app
-models are touched.
+The analyzer is built extractor-locally (spaCy + optional
+HuggingFaceNerRecognizer + shared Indian recognizer bundle from
+deidentification.utils.indian_id_recognizers) plus text-specific
+recognizers from deid_recognizers.py. No deidentification-app models are
+touched.
 """
 
 import csv
