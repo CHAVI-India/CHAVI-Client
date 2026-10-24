@@ -44,6 +44,17 @@ from .services.task_checkpoint import (
 logger = logging.getLogger(__name__)
 
 
+def stable_manifest_key(task_run, prefix):
+    """Return a manifest path that stays valid across resumes.
+
+    Celery task ids change on every redispatch (resume / auto-continue), so
+    keying a manifest on ``self.request.id`` loses the checkpoint. The
+    TaskRun row is updated in place across resumes (its pk is stable), so the
+    manifest is keyed on the pk instead.
+    """
+    return manifest_path_for_task(f"{prefix}-{task_run.pk}")
+
+
 # ---------------------------------------------------------------------------
 # TaskRun helper functions
 # ---------------------------------------------------------------------------
@@ -1658,12 +1669,24 @@ def task_cleanup_stale_exports(self):
     """Remove export temp files older than 24 hours and orphan manifest files."""
     temp_dir = Path(settings.MEDIA_ROOT) / 'temp_export'
     manifest_dir = Path(settings.MEDIA_ROOT) / 'task_manifests'
+    legacy_tmp_dir = Path(settings.MEDIA_ROOT) / 'legacy_import_tmp'
     cutoff = _time.time() - 86400  # 24 hours
 
     cleaned_files = 0
 
     if temp_dir.exists():
         for f in temp_dir.iterdir():
+            try:
+                if f.is_file() and f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    cleaned_files += 1
+            except OSError:
+                continue
+
+    # Legacy import uploads are kept after a failed/timed-out run so the task
+    # can be resumed; reap them once they are older than 24 hours.
+    if legacy_tmp_dir.exists():
+        for f in legacy_tmp_dir.iterdir():
             try:
                 if f.is_file() and f.stat().st_mtime < cutoff:
                     f.unlink()

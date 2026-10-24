@@ -85,6 +85,40 @@
             {% endcomponent %}
         </div>
 
+        <!-- Resume Bar (shown when the task has failed or stalled) -->
+        <div id="resumeBar" style="display: {% if task_failed_or_stalled %}block{% else %}none{% endif %};" class="mb-6" role="region" aria-label="Resume task">
+            {% component "card" accent="primary" %}
+                {% fill "body" %}
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-chavi-primary-900 mb-1">
+                            {% if task_run and task_run.status == 'STALLED' %}Task stalled{% else %}Task failed{% endif %}
+                        </h3>
+                        <p class="text-sm text-chavi-primary-800">
+                            {% if can_resume %}
+                                {% if resume_note %}{{ resume_note }}.{% else %}You can restart this task from where it left off.{% endif %}
+                            {% else %}
+                                This task type cannot be resumed automatically. View the details for more information.
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 shrink-0">
+                        {% if task_run and can_resume and perms.client_app.change_taskrun %}
+                        <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}" class="inline">
+                            {% csrf_token %}
+                            {% component "button" style="success" type="submit" icon="fas fa-play" %}Resume task{% endcomponent %}
+                        </form>
+                        {% endif %}
+                        {% if task_run %}
+                        {% url 'client_app:taskrun_detail' task_run.pk as detail_url %}
+                        {% component "button" style="secondary" href=detail_url icon="fas fa-eye" %}View details{% endcomponent %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfill %}
+            {% endcomponent %}
+        </div>
+
         <!-- Info Box -->
         {% component "info_box" style="info" extra_class="mt-6" %}
             {% fill "title" %}Please Note{% endfill %}
@@ -119,6 +153,9 @@
                 if (state === 'FAILURE') {
                     clearInterval(pollInterval);
                     showError(data.result || 'An error occurred during task execution');
+                    // Surface the resume action (if the task can be resumed).
+                    var resumeBar = document.getElementById('resumeBar');
+                    if (resumeBar) { resumeBar.style.display = 'block'; }
                     return;
                 }
 

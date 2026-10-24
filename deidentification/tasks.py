@@ -17,11 +17,13 @@ from client_app.tasks import (
     _complete_task_run,
     _fail_task_run,
     _auto_continue_task,
+    stable_manifest_key,
 )
 from client_app.services.task_checkpoint import (
     manifest_path_for_task,
     write_manifest_entry,
     read_manifest,
+    read_manifest_entries,
     cleanup_manifest,
 )
 from deidentification.models import DeidentificationJob
@@ -454,45 +456,84 @@ def finalize_deidentification_batch_task(self, run_id):
 
 @shared_task(bind=True, soft_time_limit=600)
 def import_legacy_mapping_task(self, db_path, key_path, user_id=None):
+    """Import legacy deidentification mappings.
+
+    Resumable:
+      * Per-row checkpoints are written to a manifest keyed on the stable
+        TaskRun pk, so a redispatch (UI resume or auto-continue) continues
+        from the last imported row instead of restarting.
+      * The uploaded DB/key files are deleted ONLY on success; on failure or
+        timeout they are kept so a resume can re-read them (stale files are
+        reaped by task_cleanup_stale_exports).
+      * Hitting the soft time limit auto-continues the same task; the
+        continuation picks up at the last checkpointed row.
+    """
     progress_recorder = ProgressRecorder(self)
     task_run = None
 
     try:
-        manifest_path = manifest_path_for_task(self.request.id, 'DEIDENTIFICATION')
-
         task_run = _create_task_run(
             task_name='import_legacy_mapping',
             task_type=TaskRun.TaskType.DEIDENTIFICATION,
             user_id=user_id,
             celery_task_id=self.request.id,
-            manifest_path=manifest_path,
             task_args=self.request.args,
             task_kwargs=self.request.kwargs,
         )
 
+        # Manifest keyed on the TaskRun pk (stable across resumes), not the
+        # Celery task id (which changes on every redispatch).
+        manifest_path = stable_manifest_key(task_run, 'legacy-import')
+        task_run.manifest_path = str(manifest_path)
+        task_run.save(update_fields=['manifest_path', 'updated_at'])
+
+        completed_entries = read_manifest_entries(manifest_path)
+
+        def _manifest_write(item_id, status='done', payload=None):
+            write_manifest_entry(manifest_path, item_id, status=status, payload=payload)
+
         _update_task_run(task_run, progress_recorder, 0, 1, 'Starting legacy import...')
 
         from deidentification.services.legacy_import import import_legacy_mappings
-        result = import_legacy_mappings(db_path, key_path, progress_callback=lambda current, total, desc: _update_task_run(
-            task_run, progress_recorder, current, total, desc, throttle_key=self.request.id,
-        ))
+        result = import_legacy_mappings(
+            db_path, key_path,
+            progress_callback=lambda current, total, desc: _update_task_run(
+                task_run, progress_recorder, current, total, desc, throttle_key=self.request.id,
+            ),
+            completed_entries=completed_entries,
+            manifest_write_callback=_manifest_write,
+        )
 
+        cleanup_manifest(manifest_path)
         _complete_task_run(task_run, result)
+        # Inputs are only needed again if the run fails — delete on success.
+        _remove_legacy_import_inputs(db_path, key_path)
         return {'result': result}
 
+    except SoftTimeLimitExceeded:
+        logger.warning("Legacy import hit soft time limit — auto-continuing")
+        if _auto_continue_task(
+            task_run, import_legacy_mapping_task,
+            self.request.args, self.request.kwargs,
+            reason="approaching soft time limit",
+        ):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         logger.error(f"Legacy import task failed: {e}", exc_info=True)
         if task_run:
             _fail_task_run(task_run, str(e))
         raise
-    finally:
-        # Clean up temporary uploaded files
-        for path in [db_path, key_path]:
-            try:
-                if path and os.path.exists(path):
-                    os.unlink(path)
-            except Exception as cleanup_err:
-                logger.warning(f"Failed to clean up temp file {path}: {cleanup_err}")
+
+
+def _remove_legacy_import_inputs(db_path, key_path):
+    """Delete the uploaded legacy DB/key temp files (success path only)."""
+    for path in [db_path, key_path]:
+        try:
+            if path and os.path.exists(path):
+                os.unlink(path)
+        except Exception as cleanup_err:
+            logger.warning(f"Failed to clean up temp file {path}: {cleanup_err}")
 
 
 @shared_task(bind=True, soft_time_limit=3600)
@@ -526,7 +567,7 @@ def build_dicom_download_zip_task(self, patient_ids, user_id=None, job_id=None):
         zip_dir = os.path.join(_settings.MEDIA_ROOT, 'deidentification', 'downloads')
         os.makedirs(zip_dir, exist_ok=True)
 
-        zip_path = os.path.join(zip_dir, f"deidentified_dicom_{self.request.id}.zip")
+        zip_path = os.path.join(zip_dir, f"deidentified_dicom_{task_run.pk}.zip")
         file_count = 0
 
         # If job_id is provided, only include files from that job's study
@@ -572,9 +613,13 @@ def build_dicom_download_zip_task(self, patient_ids, user_id=None, job_id=None):
         return result
 
     except SoftTimeLimitExceeded:
-        logger.warning("Soft time limit exceeded for DICOM ZIP build — task may be incomplete")
-        if task_run:
-            _fail_task_run(task_run, "ZIP build timed out — too many files")
+        logger.warning("DICOM ZIP build hit soft time limit — auto-continuing (full rebuild)")
+        if _auto_continue_task(
+            task_run, build_dicom_download_zip_task,
+            self.request.args, self.request.kwargs,
+            reason="approaching soft time limit",
+        ):
+            return {'auto_continued': True}
         raise
 
     except Exception as e:
@@ -618,7 +663,7 @@ def build_clinical_download_zip_task(self, patient_ids, user_id=None):
         zip_dir = os.path.join(_settings.MEDIA_ROOT, 'deidentification', 'downloads')
         os.makedirs(zip_dir, exist_ok=True)
 
-        zip_path = os.path.join(zip_dir, f"deidentified_clinical_{self.request.id}.zip")
+        zip_path = os.path.join(zip_dir, f"deidentified_clinical_{task_run.pk}.zip")
         included_count = 0
 
         with _zipfile.ZipFile(zip_path, 'w', _zipfile.ZIP_DEFLATED) as zf:
@@ -655,9 +700,13 @@ def build_clinical_download_zip_task(self, patient_ids, user_id=None):
         return result
 
     except SoftTimeLimitExceeded:
-        logger.warning("Soft time limit exceeded for clinical ZIP build — task may be incomplete")
-        if task_run:
-            _fail_task_run(task_run, "ZIP build timed out")
+        logger.warning("Clinical ZIP build hit soft time limit — auto-continuing (full rebuild)")
+        if _auto_continue_task(
+            task_run, build_clinical_download_zip_task,
+            self.request.args, self.request.kwargs,
+            reason="approaching soft time limit",
+        ):
+            return {'auto_continued': True}
         raise
 
     except Exception as e:
@@ -830,6 +879,15 @@ def create_missing_records_task(self, records, user_id=None):
         _complete_task_run(task_run, result)
         return result
 
+    except SoftTimeLimitExceeded:
+        logger.warning("Create missing records hit soft time limit — auto-continuing")
+        if _auto_continue_task(
+            task_run, create_missing_records_task,
+            self.request.args, self.request.kwargs,
+            reason="approaching soft time limit",
+        ):
+            return {'auto_continued': True}
+        raise
     except Exception as e:
         logger.error(f"Create missing records task failed: {e}", exc_info=True)
         if task_run:

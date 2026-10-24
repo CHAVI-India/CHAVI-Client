@@ -29,6 +29,19 @@ from .tasks import (
 from deidentification.tasks import (
     deidentify_dicom_studies_bulk_task,
     deidentify_dicom_study_task,
+    import_legacy_mapping_task,
+    build_dicom_download_zip_task,
+    build_clinical_download_zip_task,
+    create_missing_records_task,
+    finalize_deidentification_batch_task,
+)
+from dicom_archive.tasks import (
+    archive_studies_task,
+    dearchive_studies_task,
+)
+from dicom_server.tasks import (
+    task_retrieve_studies,
+    task_retrieve_patient_selection,
 )
 from django.db import transaction
 from django.db.models import Q
@@ -1138,6 +1151,17 @@ class TaskProgressView(RbacPermissionRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context['task_id'] = self.kwargs.get('task_id')
         context['title'] = "Task Progress"
+        # Expose the linked TaskRun so the page can offer a direct resume
+        # when the task has failed or stalled.
+        task_run = TaskRun.objects.filter(
+            task_id=self.kwargs.get('task_id')
+        ).first()
+        context['task_run'] = task_run
+        context['can_resume'] = bool(task_run and task_run_can_resume(task_run))
+        context['task_failed_or_stalled'] = bool(
+            task_run and task_run.status in (TaskRun.Status.FAILURE, TaskRun.Status.STALLED)
+        )
+        context['resume_note'] = RESUME_NOTES.get(task_run.task_name, '') if task_run else ''
         return context
 
 
@@ -1241,6 +1265,8 @@ class TaskRunListView(RbacPermissionRequiredMixin, ListView):
         ctx['current_type'] = self.request.GET.get('type', '')
         ctx['current_date_from'] = self.request.GET.get('date_from', '')
         ctx['current_date_to'] = self.request.GET.get('date_to', '')
+        ctx['resumable_task_names'] = set(TASK_REGISTRY)
+        ctx['resume_notes'] = RESUME_NOTES
         return ctx
 
 
@@ -1269,6 +1295,8 @@ class TaskRunDetailView(RbacPermissionRequiredMixin, DetailView):
         except Exception:
             ctx['celery_state'] = 'UNKNOWN'
             ctx['celery_info'] = None
+        ctx['can_resume'] = task_run_can_resume(obj)
+        ctx['resume_note'] = RESUME_NOTES.get(obj.task_name, '')
         return ctx
 
 
@@ -1286,7 +1314,48 @@ TASK_REGISTRY = {
     'task_associate_dicom_to_project': task_associate_dicom_to_project,
     'deidentify_dicom_studies_bulk': deidentify_dicom_studies_bulk_task,
     'deidentify_dicom_study': deidentify_dicom_study_task,
+    'import_legacy_mapping': import_legacy_mapping_task,
+    'build_dicom_download_zip': build_dicom_download_zip_task,
+    'build_clinical_download_zip': build_clinical_download_zip_task,
+    'create_missing_records': create_missing_records_task,
+    'finalize_deidentification_batch': finalize_deidentification_batch_task,
+    'archive_studies': archive_studies_task,
+    'dearchive_studies': dearchive_studies_task,
+    'dicom_server.task_retrieve_studies': task_retrieve_studies,
+    'dicom_server.task_retrieve_patient_selection': task_retrieve_patient_selection,
 }
+
+# One-line UI hint per resumable task: what a resume actually does, so users
+# know whether it continues from a checkpoint or restarts the work.
+RESUME_NOTES = {
+    'task_extract_and_analyze_upload': 'Resumes from the last analyzed study',
+    'task_process_confirmed_matches': 'Resumes from the last processed match',
+    'task_export_patient_data': 'Resumes from the last exported patient',
+    'task_export_dicom_data_parallel': 'Resumes from the last exported study',
+    'task_export_dicom_data': 'Resumes from the last exported study',
+    'task_process_dicom_per_patient': 'Resumes from the last processed file',
+    'task_process_bulk_dicom': 'Resumes from the last processed upload',
+    'task_process_unprocessed_dicom': 'Resumes from the last processed study',
+    'task_associate_dicom_to_project': 'Reruns from the start (idempotent)',
+    'deidentify_dicom_studies_bulk': 'Resumes from the first unprocessed study',
+    'deidentify_dicom_study': 'Resumes from the last checkpointed file batch',
+    'import_legacy_mapping': 'Resumes from the last imported row',
+    'build_dicom_download_zip': 'Rebuilds the ZIP from the start',
+    'build_clinical_download_zip': 'Rebuilds the ZIP from the start',
+    'create_missing_records': 'Reruns from the start (existing records are skipped)',
+    'finalize_deidentification_batch': 'Re-aggregates the recorded per-study results',
+    'archive_studies': 'Resumes from the last archived study',
+    'dearchive_studies': 'Resumes from the last restored study',
+    'dicom_server.task_retrieve_studies': 'Re-runs only the studies/series not yet retrieved',
+    'dicom_server.task_retrieve_patient_selection': 'Re-runs only the studies/series not yet retrieved',
+}
+
+
+def task_run_can_resume(task_run):
+    """True when a TaskRun can be redispatched from the UI: it has stored
+    dispatch args and its task type is in the resume registry."""
+    return bool(task_run.task_args is not None
+                and task_run.task_name in TASK_REGISTRY)
 
 
 def _redispatch_task_run(task_run):
@@ -1318,7 +1387,10 @@ class TaskRunResumeView(RbacPermissionRequiredMixin, View):
 
         new_result = _redispatch_task_run(task_run)
         if not new_result:
-            messages.error(request, f"Task '{task_run.task_name}' does not support automatic resume (no stored arguments found).")
+            if task_run.task_name not in TASK_REGISTRY:
+                messages.error(request, f"Task '{task_run.task_name}' does not support resume (this task type cannot be redispatched).")
+            else:
+                messages.error(request, f"Task '{task_run.task_name}' does not support automatic resume (no stored arguments found).")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)
 
         task_run.resume_count += 1
@@ -1354,7 +1426,10 @@ class TaskRunRetryView(RbacPermissionRequiredMixin, View):
 
         new_result = _redispatch_task_run(task_run)
         if not new_result:
-            messages.error(request, f"Task '{task_run.task_name}' does not support automatic retry (no stored arguments found).")
+            if task_run.task_name not in TASK_REGISTRY:
+                messages.error(request, f"Task '{task_run.task_name}' does not support retry (this task type cannot be redispatched).")
+            else:
+                messages.error(request, f"Task '{task_run.task_name}' does not support automatic retry (no stored arguments found).")
             return redirect('client_app:taskrun_detail', pk=task_run.pk)
 
         TaskRun.objects.create(

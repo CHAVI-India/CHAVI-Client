@@ -109,26 +109,36 @@
     {% endif %}
 
     <!-- Actions -->
-    <div class="flex gap-3">
+    <div class="flex flex-wrap items-center gap-3">
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' %}
-            {% if task_run.task_args and perms.client_app.change_taskrun %}
-            <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}">
+            {% if can_resume and perms.client_app.change_taskrun %}
+            <form method="post" action="{% url 'client_app:taskrun_resume' task_run.pk %}" class="inline">
                 {% csrf_token %}
                 {% component "button" style="success" type="submit" icon="fas fa-play" %}Resume{% endcomponent %}
             </form>
             {% endif %}
         {% endif %}
         {% if task_run.status == 'FAILURE' or task_run.status == 'STALLED' or task_run.status == 'SUCCESS' %}
-            {% if task_run.task_args and perms.client_app.change_taskrun %}
-            <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}">
+            {% if can_resume and perms.client_app.change_taskrun %}
+            <form method="post" action="{% url 'client_app:taskrun_retry' task_run.pk %}" class="inline">
                 {% csrf_token %}
                 {% component "button" style="primary" type="submit" icon="fas fa-redo" %}Retry{% endcomponent %}
             </form>
             {% endif %}
         {% endif %}
-        {% if not task_run.task_args and task_run.status == 'FAILURE' or not task_run.task_args and task_run.status == 'STALLED' or not task_run.task_args and task_run.status == 'SUCCESS' %}
-        <p class="text-sm text-gray-400 italic self-center">
-            <i class="fas fa-info-circle mr-1"></i>Resume/Retry unavailable: this task predates automatic resume support (no stored arguments).
+        {% if task_run.status == 'FAILURE' and not can_resume or task_run.status == 'STALLED' and not can_resume or task_run.status == 'SUCCESS' and not can_resume %}
+        <p class="text-sm text-gray-400 italic">
+            <i class="fas fa-info-circle mr-1"></i>
+            {% if not task_run.task_args %}
+            Resume/Retry unavailable: this task predates automatic resume support (no stored arguments).
+            {% else %}
+            Resume/Retry unavailable: this task type cannot be redispatched.
+            {% endif %}
+        </p>
+        {% endif %}
+        {% if can_resume and resume_note %}
+        <p class="text-sm text-gray-500">
+            <i class="fas fa-info-circle mr-1"></i>{{ resume_note }}
         </p>
         {% endif %}
         {% if task_run.task_id %}

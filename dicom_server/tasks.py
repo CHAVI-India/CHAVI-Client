@@ -6,7 +6,7 @@ from datetime import datetime
 from celery import chord, group, shared_task
 from django.utils import timezone
 
-from client_app.models import Patient, DICOMStudy, TaskRun
+from client_app.models import Patient, DICOMStudy, TaskRun, Notification
 from client_app.tasks import (
     _create_task_run, _update_task_run, _complete_task_run, _fail_task_run,
 )
@@ -150,6 +150,20 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
     instances = 0
     item_results = []  # still returned in result dict for API compat
 
+    # Outcomes of items already completed in a previous run (UI resume or
+    # auto-continue). Keyed (study_uid, series_uid|None) to match the work
+    # items; skipping them makes a rerun continue instead of re-pulling.
+    done_items = {}
+    if job is not None:
+        for study_row in job.studies.prefetch_related('series').all():
+            if study_row.status == 'done' and not study_row.series.exists():
+                done_items[(study_row.study_instance_uid, None)] = study_row
+            for series_row in study_row.series.all():
+                if series_row.status == 'done':
+                    done_items[
+                        (study_row.study_instance_uid, series_row.series_instance_uid)
+                    ] = series_row
+
     # Graceful timeout: bail out before the soft limit (3.5h) so the job is
     # marked PARTIAL instead of being orphaned in RUNNING by a SIGKILL.
     _retrieval_deadline = time.monotonic() + 3.5 * 3600 - 120  # 2 min margin
@@ -158,6 +172,24 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
         study_uid = target['study_instance_uid']
         series_uid = target['series_instance_uid']
         remote_pid = target['remote_patient_id'] or patient.patient_id
+
+        # Resume: fold in the stored outcome and skip the network call.
+        done_row = done_items.get((study_uid, series_uid))
+        if done_row is not None:
+            item_results.append({
+                'study_instance_uid': study_uid,
+                'series_instance_uid': series_uid,
+                'completed': done_row.completed or 0,
+                'failed': done_row.failed or 0,
+                'warning': done_row.warning or 0,
+            })
+            instances += done_row.completed or 0
+            _update_task_run(
+                task_run, None, 10 + int(80 * (i + 1) / max(total, 1)), 100,
+                description=f'Retrieving {i + 1}/{total} (already done, skipping)',
+            )
+            continue
+
         if time.monotonic() > _retrieval_deadline:
             timeout_reason = (
                 f'Timeout: reached 2 min before soft limit with '
@@ -165,6 +197,9 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
             )
             logger.warning('Retrieval timeout for job %s: %s', job.pk, timeout_reason)
             for remaining in flat[i:]:
+                if (remaining['study_instance_uid'],
+                        remaining['series_instance_uid']) in done_items:
+                    continue
                 _mark_item_failed(
                     job, remaining['study_instance_uid'],
                     remaining['series_instance_uid'], timeout_reason,
@@ -236,13 +271,19 @@ def _run_job_retrieval(job, node, patient, task_run=None, patient_id_aliases=Non
     return result
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, time_limit=4 * 3600, soft_time_limit=3.5 * 3600)
 def task_retrieve_studies(self, node_id, patient_id, user_id=None, job_id=None, patient_id_aliases=None):
     """C-FIND then retrieve (C-MOVE/C-GET) all studies for a patient from a
     remote node. Tracks progress on the linked RetrievalJob + TaskRun.
 
     If patient_id_aliases is given, the canonical patient_id plus those aliases
-    are queried so that different remote patient ID formats are discovered."""
+    are queried so that different remote patient ID formats are discovered.
+
+    Carries its own 4h/3.5h limits (matching task_retrieve_patient_selection)
+    so the graceful in-task deadline in _run_job_retrieval can fire instead of
+    the global 1h hard limit SIGKILLing the task mid-retrieval. Reruns are
+    incremental: items already marked done on the job are skipped.
+    """
     task_run = _create_task_run(
         task_name='dicom_server.task_retrieve_studies',
         task_type='DICOM_IMPORT',
@@ -915,3 +956,145 @@ def task_bulk_schedule_finalize_retrieval(self, results, batch_id, schedule_id):
     _record_schedule_run(schedule, final)
     _complete_task_run(task_run, summary)
     return {'batch': batch_id, 'schedule': schedule_id, 'status': final, **summary}
+
+
+# ---------------------------------------------------------------------------
+# Stuck batch recovery
+#
+# If a chord's *result* message is lost (broker restart, queue purge, timeout)
+# or a header task is hard-killed, the chord body never fires and the
+# RetrievalBatch stays in QUERYING / RETRIEVING forever. This beat task
+# detects such batches and either re-fires the (idempotent) finalizer or marks
+# the batch FAILED with a clear reason + notification.
+# ---------------------------------------------------------------------------
+
+# A query phase with no progress for longer than this means a query task died
+# without recording an outcome (a single-patient C-FIND should never take this
+# long).
+_QUERY_STALE_MINUTES = 60
+# A retrieval job running longer than this means the retrieve task was
+# hard-killed (its own hard limit is 4h; add margin).
+_RETRIEVAL_STALE_HOURS = 5
+
+
+def _schedule_for_batch(batch):
+    """Return the BulkRetrievalSchedule whose last_batch is this batch, or None."""
+    return batch.schedule_runs.first()
+
+
+def _fire_query_finalizer(batch):
+    schedule = _schedule_for_batch(batch)
+    if schedule is not None:
+        task_bulk_schedule_finalize_query.delay(None, batch.pk, schedule.pk)
+    else:
+        task_finalize_batch_query.delay(None, batch.pk)
+
+
+def _fire_retrieval_finalizer(batch):
+    schedule = _schedule_for_batch(batch)
+    if schedule is not None:
+        task_bulk_schedule_finalize_retrieval.delay(None, batch.pk, schedule.pk)
+    else:
+        task_finalize_retrieval_batch.delay(None, batch.pk)
+
+
+def _fail_stuck_batch(batch, reason):
+    summary = dict(batch.summary or {})
+    summary['recovery_error'] = reason
+    batch.summary = summary
+    batch.status = RetrievalBatch.Status.FAILED
+    batch.completed_at = timezone.now()
+    batch.save(update_fields=['status', 'summary', 'completed_at'])
+    if batch.created_by_id:
+        Notification.objects.create(
+            user=batch.created_by,
+            notification_type=Notification.NotificationType.TASK_FAILED,
+            title=f"Retrieval batch stuck: {batch.pk}",
+            message=f"Retrieval batch {batch.pk} was marked failed: {reason}",
+        )
+    logger.warning('Marked stuck retrieval batch %s FAILED: %s', batch.pk, reason)
+
+
+@shared_task(bind=True)
+def task_recover_stuck_batches(self):
+    """Beat task: recover RetrievalBatches stuck because a chord result was
+    lost (broker restart/timeout) or a header task was hard-killed.
+
+    Per stuck batch:
+      * all work rows terminal and no partial finalization  -> re-fire the
+        idempotent finalizer (the lost chord body);
+      * otherwise stale (no progress beyond the threshold)  -> mark FAILED
+        with a clear reason and notify the owner.
+    """
+    from datetime import timedelta
+    now = timezone.now()
+    actions = []
+
+    query_terminal = {
+        RetrievalBatchPatient.QueryStatus.DONE,
+        RetrievalBatchPatient.QueryStatus.ERROR,
+    }
+    job_terminal = {
+        RetrievalJob.Status.SUCCESS,
+        RetrievalJob.Status.PARTIAL,
+        RetrievalJob.Status.FAILED,
+    }
+
+    # --- QUERYING batches ---
+    for batch in RetrievalBatch.objects.filter(
+        status=RetrievalBatch.Status.QUERYING,
+    ).select_related('node'):
+        rows = list(batch.patients.values_list('query_status', flat=True))
+        if not rows:
+            _fail_stuck_batch(batch, 'no patient rows were ever created')
+            actions.append(('failed', batch.pk))
+            continue
+        if all(s in query_terminal for s in rows):
+            # Chord body lost. Re-fire only when finalization has not already
+            # started (no jobs) — otherwise a mid-finalize kill is safer left
+            # as a visible failure than risk duplicate jobs.
+            if batch.jobs.count() == 0:
+                _fire_query_finalizer(batch)
+                actions.append(('query-finalizer', batch.pk))
+            else:
+                _fail_stuck_batch(
+                    batch,
+                    'query finalization was interrupted after creating jobs; '
+                    're-run the batch',
+                )
+                actions.append(('failed', batch.pk))
+            continue
+        if (now - batch.created_at) > timedelta(minutes=_QUERY_STALE_MINUTES):
+            _fail_stuck_batch(
+                batch,
+                f'query phase made no progress for over {_QUERY_STALE_MINUTES} minutes',
+            )
+            actions.append(('failed', batch.pk))
+
+    # --- RETRIEVING batches ---
+    for batch in RetrievalBatch.objects.filter(
+        status=RetrievalBatch.Status.RETRIEVING,
+    ).select_related('node'):
+        jobs = list(batch.jobs.all())
+        if not jobs:
+            _fail_stuck_batch(batch, 'no retrieval jobs were ever created')
+            actions.append(('failed', batch.pk))
+            continue
+        if all(j.status in job_terminal for j in jobs):
+            _fire_retrieval_finalizer(batch)
+            actions.append(('retrieval-finalizer', batch.pk))
+            continue
+        oldest_running = min(
+            (j.created_at for j in jobs if j.status not in job_terminal),
+            default=None,
+        )
+        if oldest_running and (now - oldest_running) > timedelta(hours=_RETRIEVAL_STALE_HOURS):
+            _fail_stuck_batch(
+                batch,
+                f'a retrieval job has been running for over {_RETRIEVAL_STALE_HOURS} hours',
+            )
+            actions.append(('failed', batch.pk))
+
+    if actions:
+        logger.info('Stuck batch recovery actions: %s', actions)
+    return {'actions': actions}

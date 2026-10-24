@@ -131,20 +131,29 @@ def archive_study(study, location, user=None, reason='MANUAL') -> ArchivedStudy:
 def archive_studies(studies, location, user=None, reason='MANUAL') -> dict:
     """Archive many studies with per-study failure isolation.
 
-    Returns {'archived': [study_uid, ...], 'failed': {study_uid: error}}.
-    One bad study never fails the rest of the batch.
+    Returns {'archived': [study_uid, ...], 'failed': {study_uid: error},
+    'skipped': [study_uid, ...]}. A study already archived at the target
+    location is skipped (not failed) so a resumed run finishes only the
+    remaining studies. One bad study never fails the rest of the batch.
     """
     archived = []
     failed = {}
+    skipped = []
     for study in studies:
         uid = study.study_instance_uid
+        existing = ArchivedStudy.objects.filter(
+            study=study, status=ArchivedStudy.Status.ARCHIVED,
+        ).first()
+        if existing is not None and existing.location_id == location.id:
+            skipped.append(uid)
+            continue
         try:
             archive_study(study, location, user=user, reason=reason)
             archived.append(uid)
         except ArchiveError as exc:
             failed[uid] = str(exc)
             logger.error('Archive failed for %s: %s', uid, exc)
-    return {'archived': archived, 'failed': failed}
+    return {'archived': archived, 'failed': failed, 'skipped': skipped}
 
 
 def cleanup_study_files(study) -> dict:

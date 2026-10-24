@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load import_filters %}
 
 {% block title %}Task Runs{% endblock %}
 
@@ -106,13 +107,17 @@
                     {% component "button" style="link" size="sm" href=download_url icon="fas fa-download" %}Download{% endcomponent %}
                 {% endif %}
                 {% if task.status == 'FAILURE' or task.status == 'STALLED' %}
-                    {% if task.task_args and perms.client_app.change_taskrun %}
+                    {% if task.task_args and task.task_name in resumable_task_names and perms.client_app.change_taskrun %}
                     <form method="post" action="{% url 'client_app:taskrun_resume' task.pk %}" class="inline">
                         {% csrf_token %}
-                        {% component "button" style="link" size="sm" type="submit" icon="fas fa-play" %}Resume{% endcomponent %}
+                        {% component "button" style="link" size="sm" type="submit" icon="fas fa-play" title=resume_notes|get_item:task.task_name %}Resume{% endcomponent %}
                     </form>
-                    {% else %}
+                    {% elif not task.task_args %}
                     <span class="text-gray-300 text-sm" title="Resume unavailable: this task predates automatic resume support (no stored arguments)">
+                        <i class="fas fa-play"></i> N/A
+                    </span>
+                    {% else %}
+                    <span class="text-gray-300 text-sm" title="Resume unavailable: this task type cannot be redispatched">
                         <i class="fas fa-play"></i> N/A
                     </span>
                     {% endif %}

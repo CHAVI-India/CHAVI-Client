@@ -8,11 +8,13 @@ import logging
 from pathlib import Path
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 from celery_progress.backend import ProgressRecorder
 from django.contrib.auth import get_user_model
 
 from client_app.models import DICOMStudy, TaskRun
 from client_app.tasks import (
+    _auto_continue_task,
     _complete_task_run,
     _create_task_run,
     _fail_task_run,
@@ -67,6 +69,15 @@ def archive_studies_task(self, study_uids, location_id, user_id=None, reason='MA
         )
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        logger.warning('Archive batch hit soft time limit — auto-continuing')
+        if _auto_continue_task(
+            task_run, archive_studies_task,
+            self.request.args, self.request.kwargs,
+            reason='approaching soft time limit',
+        ):
+            return {'auto_continued': True}
+        raise
     except Exception as exc:
         logger.exception('Archive batch failed')
         _fail_task_run(task_run, exc)
@@ -98,6 +109,15 @@ def dearchive_studies_task(self, study_uids, user_id=None) -> dict:
         )
         _complete_task_run(task_run, result)
         return result
+    except SoftTimeLimitExceeded:
+        logger.warning('De-archive batch hit soft time limit — auto-continuing')
+        if _auto_continue_task(
+            task_run, dearchive_studies_task,
+            self.request.args, self.request.kwargs,
+            reason='approaching soft time limit',
+        ):
+            return {'auto_continued': True}
+        raise
     except Exception as exc:
         logger.exception('De-archive batch failed')
         _fail_task_run(task_run, exc)

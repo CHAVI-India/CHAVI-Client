@@ -964,4 +964,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'client_app.tasks.task_cleanup_stale_exports',
         'schedule': crontab(minute=0, hour=3),  # 3 AM daily
     },
+    'recover-stuck-retrieval-batches': {
+        'task': 'dicom_server.tasks.task_recover_stuck_batches',
+        'schedule': crontab(minute='*/5'),
+    },
 }
