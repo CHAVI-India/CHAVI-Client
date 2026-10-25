@@ -237,6 +237,10 @@ input[type="file"]::file-selector-button:hover {
 .deid-tag-IN_DRIVING_LICENSE, .deid-tag-IN_UPI, .deid-tag-IN_PINCODE,
 .deid-tag-IN_RELIGION, .deid-tag-MEDICAL_RECORD_NUMBER { background: #f9ddd3; color: #913a26; }
 .deid-tag-PHONE_NUMBER, .deid-tag-EMAIL_ADDRESS { background: #dcf4f0; color: #13554c; }
+.deid-tag-LOCATION { background: #e3ecf7; color: #274b6d; }
+.deid-tag-ORGANIZATION { background: #ece4f5; color: #4b3a6b; }
+.deid-tag-URL, .deid-tag-IP_ADDRESS { background: #e8e8f0; color: #3d3d5c; }
+.deid-tag-CREDIT_CARD, .deid-tag-PASSPORT_NUMBER { background: #f3e0e0; color: #6d2727; }
 .deid-tag-MANUAL { background: #fce8d3; color: #a05623; }
 .deid-tag-hit { outline: 2px solid #e9c46a; }
 mark.search-hit { background: #e9c46a; padding: 0; }

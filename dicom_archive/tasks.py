@@ -52,6 +52,19 @@ def archive_studies_task(self, study_uids, location_id, user_id=None, reason='MA
     )
     try:
         location = ArchiveLocation.objects.get(pk=location_id)
+    except ArchiveLocation.DoesNotExist:
+        logger.error(
+            'Archive location %s no longer exists; aborting batch',
+            location_id,
+        )
+        _fail_task_run(
+            task_run,
+            f'Archive location {location_id} no longer exists — '
+            'the batch was aborted before any study was moved.',
+        )
+        raise
+
+    try:
         studies = list(
             DICOMStudy.objects.filter(study_instance_uid__in=study_uids)
         )

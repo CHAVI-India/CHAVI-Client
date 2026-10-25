@@ -39,6 +39,28 @@ logger = logging.getLogger(__name__)
 
 TAG_RE = re.compile(r'<[A-Z_]+(_\d+)?>')
 
+# Every entity type the deid pipeline can emit, for the review-page
+# redact-type dropdown. Union of: Presidio default recognizers, the HF NER
+# label map (DEID_HF_LABEL_MAP), the Indian ID recognizers, and the custom
+# text recognizers (deid_recognizers.build_text_recognizers). MANUAL is a
+# catch-all for redactions that don't fit a specific type. Keep in sync with
+# the recognizers above; the review view also appends any type already
+# present in a document so legacy/manual tags stay selectable.
+PHI_ENTITY_TYPES = [
+    'PERSON', 'ORGANIZATION', 'LOCATION', 'DATE_TIME', 'PHONE_NUMBER',
+    'EMAIL_ADDRESS', 'MEDICAL_RECORD_NUMBER', 'PATIENT_ID',
+    'IN_AADHAAR', 'IN_PAN', 'IN_ABHA', 'IN_UPI', 'IN_PINCODE',
+    'IN_DRIVING_LICENSE', 'IN_RELIGION',
+    'URL', 'IP_ADDRESS', 'CREDIT_CARD', 'PASSPORT_NUMBER',
+    'MANUAL',
+]
+# Friendly dropdown labels; types not listed here use their own name.
+PHI_ENTITY_LABELS = {
+    'DATE_TIME': 'DATE',
+    'MEDICAL_RECORD_NUMBER': 'MRN',
+    'MANUAL': 'Manual (other)',
+}
+
 
 class LlmDeidConfigurationError(ValueError):
     """LLM deid engine requested but no usable local configuration exists."""

@@ -119,7 +119,8 @@ class ArchiveStudiesTaskTests(TaskTestBase):
         run = TaskRun.objects.get(task_id='arch-fail-1')
         self.assertEqual(run.status, TaskRun.Status.FAILURE)
         self.assertIsNotNone(run.completed_at)
-        self.assertTrue(run.error_log)
+        self.assertIn('no longer exists', run.error_log)
+        self.assertIn('999999', run.error_log)
 
 
 class DearchiveStudiesTaskTests(TaskTestBase):

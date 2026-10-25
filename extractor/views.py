@@ -1423,7 +1423,7 @@ def processed_text_deid_review(request, processed_id):
     search, textarea edit + select-to-redact, save, and mark-reviewed.
     """
     from extractor.services.text_deidentification import (
-        TextDeidentificationService,
+        TextDeidentificationService, PHI_ENTITY_TYPES, PHI_ENTITY_LABELS,
     )
 
     processed_text = get_object_or_404(ProcessedText, id=processed_id)
@@ -1485,12 +1485,48 @@ def processed_text_deid_review(request, processed_id):
         e for e in (processed_text.deid_map or [])
         if e.get('tag') and e['tag'] in content]
 
+    # Unified redaction list: every tag present in the current text, with its
+    # original (from the deid map) when known. Tags added manually in the
+    # editor have no recorded original and are flagged so the reviewer knows
+    # Restore is unavailable for them.
+    deid_map_by_tag = {}
+    for e in deid_map:
+        deid_map_by_tag.setdefault(e['tag'], e)
+    redactions = []
+    for tag, count in tag_counts.items():
+        e = deid_map_by_tag.get(tag)
+        original = e.get('original') if e else None
+        redactions.append({
+            'tag': tag,
+            'count': count,
+            'original': original,
+            'manual': e is None,
+            # Filter haystack: tag name (brackets stripped) + original text.
+            'search': (tag.strip('<>') + ' ' + (original or '')).strip(),
+        })
+    # Known-original tags first (the actionable ones), then manual tags.
+    redactions.sort(key=lambda r: (r['manual'], r['tag']))
+
+    # Redact-type dropdown: every PHI type the pipeline can emit, plus any
+    # type already present in this document (detections, map, or live tags)
+    # so manual/legacy tags stay selectable.
+    doc_types = set(processed_text.deid_entities or {})
+    doc_types |= {e.get('type') for e in (processed_text.deid_map or [])
+                  if e.get('type')}
+    doc_types |= {re.sub(r'_\d+$', '', t.strip('<>')) for t in tag_counts}
+    redact_types = PHI_ENTITY_TYPES + sorted(doc_types - set(PHI_ENTITY_TYPES))
+    redact_options = [
+        {'value': t, 'label': PHI_ENTITY_LABELS.get(t, t)} for t in redact_types
+    ]
+
     context = {
         'processed_text': processed_text,
         'content': content,
         'original_content': original_content,
         'tag_counts': tag_counts,
         'deid_map': deid_map,
+        'redactions': redactions,
+        'redact_options': redact_options,
         'next': next_url,
     }
     return render(request, 'extractor/processed_text_deid_review.html', context)
