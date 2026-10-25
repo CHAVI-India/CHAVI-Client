@@ -48,12 +48,12 @@ cymem==2.0.13
 defusedxml==0.7.1
 diff-match-patch==20241021
 distro==1.9.0
-Django==6.1.2
+Django==6.0.9
 django-admin-index==4.0.0
 django-allauth==65.19.7
 django-allauth-ui==1.8.1
 django-appconf==1.2.0
-django-celery-beat==1.5.0
+django-celery-beat==2.9.0
 django-cleanup==9.0.0
 django-colorfield==0.14.0
 django-crispy-forms==2.7

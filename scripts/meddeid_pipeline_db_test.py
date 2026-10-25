@@ -187,69 +187,60 @@ def pipeline_info(pipeline):
     }
 
 
-def run_pipeline(pipeline, notes, shift, save_text, verbose):
-    # production wiring: analyzer per pipeline config, LLM as ad-hoc
-    # recognizer when a system-2 model is configured
-    analyzer = S._build_analyzer_for(pipeline)
-    ad_hoc = []
-    if pipeline.system2_model_id:
-        ad_hoc = [LlmNerRecognizer(pipeline.system2_model)]
+def _append_doc(path, rec):
+    """Append one per-document record to the JSONL progress file."""
+    with open(path, 'a') as f:
+        f.write(json.dumps(rec) + '\n')
 
+
+def _load_done(docs_path):
+    """Set of document ids already recorded in the JSONL (for resume)."""
+    done = set()
+    if os.path.exists(docs_path):
+        with open(docs_path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        done.add(json.loads(line)['id'])
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+    return done
+
+
+def _aggregate(pipeline, docs_path, dt, save_text):
+    """Build the pipeline result dict from the per-document JSONL.
+
+    Reading back from the JSONL (rather than in-memory accumulators) keeps
+    the aggregate consistent with what was actually saved, and makes the
+    pipeline resumable: a re-run only fills in the missing documents.
+    """
+    per_note, errors, deid_texts = [], [], {}
     tp_tot = pred_tot = gold_tot = 0
     cat_hit, cat_tot = {}, {}
-    per_note, errors, deid_texts = [], [], {}
-    t0 = time.monotonic()
-    for i, note in enumerate(notes, 1):
-        text = note['text']
-        gold = [(s['begin'], s['end'], s['category'])
-                for s in note['spans'] if s.get('confirmed', True)]
-        t_doc = time.monotonic()
-        results, last_err = None, None
-        for attempt in range(1, MAX_DOC_ATTEMPTS + 1):
-            try:
-                results = run_doc_production(
-                    text, pipeline, analyzer, ad_hoc)
-                last_err = None
-                break
-            except Exception as e:  # noqa: BLE001 - record and continue
-                last_err = e
-                if verbose:
-                    print(f'    [{note["document_id"]} attempt {attempt}] '
-                          f'{type(e).__name__}: {e}')
-                if attempt < MAX_DOC_ATTEMPTS:
-                    time.sleep(RETRY_WAIT_S)
-        if last_err is not None:
-            errors.append({'document_id': note['document_id'],
-                           'error': f'{type(last_err).__name__}: {last_err}'})
-            if not verbose:
-                print(f'  !! {note["document_id"]}: {last_err}')
-            continue
-
-        pred = [(r.start, r.end) for r in results]
-        deid_text = S._apply_replacements(text, results, shift, {}, [])
-        tp, prec, rec, f1, percat, npred, ngold = score_note(pred, gold)
-        tp_tot += tp
-        pred_tot += npred
-        gold_tot += ngold
-        for cat, (h, t) in percat.items():
-            cat_hit[cat] = cat_hit.get(cat, 0) + h
-            cat_tot[cat] = cat_tot.get(cat, 0) + t
-        per_note.append({
-            'id': note['document_id'],
-            'lang': note['metadata'].get('lang'),
-            'gold': ngold, 'pred': npred, 'tp': tp,
-            'precision': round(prec, 3), 'recall': round(rec, 3),
-            'f1': round(f1, 3), 'time_s': round(time.monotonic() - t_doc, 1),
-        })
-        if save_text:
-            deid_texts[note['document_id']] = deid_text
-        if verbose:
-            print(f'  {i:3d}/{len(notes)} {note["document_id"]:26s} '
-                  f'gold={ngold:2d} pred={npred:2d} tp={tp:2d} '
-                  f'P={prec:.2f} R={rec:.2f} F1={f1:.2f} '
-                  f'{time.monotonic() - t_doc:5.1f}s')
-
-    dt = time.monotonic() - t0
+    if os.path.exists(docs_path):
+        with open(docs_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                d = json.loads(line)
+                if 'error' in d:
+                    errors.append({'document_id': d['id'],
+                                   'error': d['error']})
+                    continue
+                per_note.append({k: d[k] for k in
+                                 ('id', 'lang', 'gold', 'pred', 'tp',
+                                  'precision', 'recall', 'f1', 'time_s')
+                                 if k in d})
+                tp_tot += d.get('tp', 0)
+                pred_tot += d.get('pred', 0)
+                gold_tot += d.get('gold', 0)
+                for cat, (h, t) in d.get('percat', {}).items():
+                    cat_hit[cat] = cat_hit.get(cat, 0) + h
+                    cat_tot[cat] = cat_tot.get(cat, 0) + t
+                if 'deid' in d:
+                    deid_texts[d['id']] = d['deid']
     recall = tp_tot / gold_tot if gold_tot else 1.0
     precision = tp_tot / pred_tot if pred_tot else 1.0
     f1 = (2 * precision * recall / (precision + recall)
@@ -270,6 +261,81 @@ def run_pipeline(pipeline, notes, shift, save_text, verbose):
         'per_note': per_note,
         **({'deidentified': deid_texts} if save_text else {}),
     }
+
+
+def run_pipeline(pipeline, notes, shift, save_text, verbose, docs_path,
+                 resume=False):
+    """Run the production pipeline over `notes`.
+
+    Each document's result is appended to `docs_path` (JSONL) the moment it
+    completes, so progress is visible per file and a crash loses only the
+    in-flight document. With resume=True, documents already in `docs_path`
+    are skipped.
+    """
+    # production wiring: analyzer per pipeline config, LLM as ad-hoc
+    # recognizer when a system-2 model is configured
+    analyzer = S._build_analyzer_for(pipeline)
+    ad_hoc = []
+    if pipeline.system2_model_id:
+        ad_hoc = [LlmNerRecognizer(pipeline.system2_model)]
+
+    done = _load_done(docs_path) if resume else set()
+    if done:
+        print(f'  resume: {len(done)}/{len(notes)} docs already done, '
+              f'skipping')
+
+    t0 = time.monotonic()
+    n_total = len(notes)
+    for i, note in enumerate(notes, 1):
+        if note['document_id'] in done:
+            continue
+        text = note['text']
+        gold = [(s['begin'], s['end'], s['category'])
+                for s in note['spans'] if s.get('confirmed', True)]
+        t_doc = time.monotonic()
+        results, last_err = None, None
+        for attempt in range(1, MAX_DOC_ATTEMPTS + 1):
+            try:
+                results = run_doc_production(
+                    text, pipeline, analyzer, ad_hoc)
+                last_err = None
+                break
+            except Exception as e:  # noqa: BLE001 - record and continue
+                last_err = e
+                if verbose:
+                    print(f'    [{note["document_id"]} attempt {attempt}] '
+                          f'{type(e).__name__}: {e}')
+                if attempt < MAX_DOC_ATTEMPTS:
+                    time.sleep(RETRY_WAIT_S)
+        if last_err is not None:
+            _append_doc(docs_path, {'id': note['document_id'],
+                                    'error': f'{type(last_err).__name__}: '
+                                             f'{last_err}'})
+            print(f'  [{i}/{n_total}] {note["document_id"]}: '
+                  f'ERROR {last_err}')
+            continue
+
+        pred = [(r.start, r.end) for r in results]
+        deid_text = S._apply_replacements(text, results, shift, {}, [])
+        tp, prec, rec, f1, percat, npred, ngold = score_note(pred, gold)
+        doc_rec = {
+            'id': note['document_id'],
+            'lang': note['metadata'].get('lang'),
+            'gold': ngold, 'pred': npred, 'tp': tp,
+            'precision': round(prec, 3), 'recall': round(rec, 3),
+            'f1': round(f1, 3), 'percat': percat,
+            'time_s': round(time.monotonic() - t_doc, 1),
+        }
+        if save_text:
+            doc_rec['deid'] = deid_text
+        _append_doc(docs_path, doc_rec)
+        print(f'  [{i}/{n_total}] {note["document_id"]:26s} '
+              f'gold={ngold:2d} pred={npred:2d} tp={tp:2d} '
+              f'P={prec:.2f} R={rec:.2f} F1={f1:.2f} '
+              f'{time.monotonic() - t_doc:5.1f}s')
+
+    dt = time.monotonic() - t0
+    return _aggregate(pipeline, docs_path, dt, save_text)
 
 
 # ----------------------------------------------------------------------
@@ -299,6 +365,9 @@ def main():
                     help='do not store the deidentified text per note')
     ap.add_argument('--list', action='store_true',
                     help='list pipelines in the DB and exit')
+    ap.add_argument('--resume', action='store_true',
+                    help='skip documents already recorded in each '
+                         'pipeline\'s per-doc JSONL (crash recovery)')
     ap.add_argument('--verbose', action='store_true')
     args = ap.parse_args()
 
@@ -332,9 +401,12 @@ def main():
     results = []
     for p in pipelines:
         print(f'>>> {p.name}  [{p.slug}] ...')
+        docs_path = f'{base}-{p.slug}.docs.jsonl'
         res = run_pipeline(p, notes, args.shift,
                            save_text=not args.no_deid_text,
-                           verbose=args.verbose)
+                           verbose=args.verbose,
+                           docs_path=docs_path,
+                           resume=args.resume)
         results.append(res)
         # incremental safety net: persist this pipeline's result as soon as
         # it completes, so a crash in a later (e.g. LLM) pipeline does not
