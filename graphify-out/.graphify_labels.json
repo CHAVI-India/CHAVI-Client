@@ -1,10 +1,8 @@
 {
   "0": "Extraction Mgmt Commands",
   "2": "Extractor Forms & Deid Config",
-  "3": "DICOM Study/Series/Instance Models",
   "5": "Bulk Retrieval Scheduling",
   "7": "DRF Serializers",
-  "8": "Bulk DICOM Views",
   "10": "DICOM Server Forms & Views",
   "12": "DICOM QR Client (Query/Retrieve)",
   "13": "Clinical Data Forms",
@@ -24,10 +22,7 @@
   "31": "Admin Export Resources & Settings",
   "33": "LLM Extraction UI Pages",
   "34": "Bulk DICOM Selection Logic",
-  "35": "DICOM Server Forms",
   "36": "DICOM Ingest Service",
-  "37": "DICOM Archive Views",
   "38": "Navbar Visibility Tests",
-  "41": "DICOM Archive Location Model",
   "42": "DICOM Instance Selection"
 }
