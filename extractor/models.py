@@ -6,7 +6,6 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.core.validators import FileExtensionValidator,URLValidator,MinValueValidator,MaxValueValidator
 from django.core.exceptions import ValidationError
-from django.core.files.base import ContentFile
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
 from django.contrib.auth.models import User
@@ -418,7 +417,9 @@ class FileUpload(models.Model):
                 self.original_filename = os.path.basename(self.file.name)
             # Snapshot the size from the uploaded content object so we never
             # have to hit the filesystem just to render the list page.
-            if isinstance(self.file, ContentFile) or getattr(self.file, 'size', None) is not None:
+            # getattr keeps this safe for rows loaded from the DB where the
+            # field is a plain FieldFile (no 'size' attribute).
+            if not self.file_size and getattr(self.file, 'size', None) is not None:
                 self.file_size = self.file.size
         super().save(*args, **kwargs)
 
