@@ -3,7 +3,6 @@
   "5": "Bulk Retrieval Scheduling",
   "7": "DRF Serializers",
   "14": "Extraction Review & Record Ops",
-  "15": "Celery Tasks & TaskRun",
   "16": "Clinical List Views",
   "18": "Clinical Form Views (CRUD)",
   "19": "Data Import Forms",
