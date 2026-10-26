@@ -733,16 +733,30 @@ class TextDeidentificationService:
 
     @staticmethod
     def _drop_covered_by_date_shifts(results, ranges):
-        """Drop NER spans fully inside pass-1 shifted date ranges. The date
-        there is already shifted, so a DATE_TIME re-hit would double-shift
-        it, and a mislabelled PERSON/ORG hit would swallow the shifted
-        date with no trace — the exact failure this pass exists to remove.
-        Partially overlapping spans are kept (the other content in them
-        may still be PHI)."""
+        """Drop NER spans that pass 1 has already handled:
+
+        - any span (any type) fully inside a shifted date range — a
+          mislabelled PERSON/ORG tag must not swallow a shifted date;
+        - any DATE_TIME span that overlaps a shifted range. The date
+          there is already shifted, and recognizer surfaces routinely
+          stretch over surrounding text (e.g. 'Dec 1979\nDate' — the
+          shifted date's tail plus the next line's label word); shifting
+          or redacting that raw surface would destroy the already-shifted
+          date and neighbouring words. DATE_TIME hits that miss the
+          shifted ranges entirely still get shifted in _apply_replacements.
+        """
         if not ranges:
             return results
+
+        def covered(r):
+            return any(s <= r.start and r.end <= e for s, e in ranges)
+
+        def overlaps(r):
+            return any(s < r.end and e > r.start for s, e in ranges)
+
         return [r for r in results
-                if not any(s <= r.start and r.end <= e for s, e in ranges)]
+                if not covered(r)
+                and not (r.entity_type == 'DATE_TIME' and overlaps(r))]
 
     @classmethod
     def _deidentify_text(cls, content, shift, patient, ner_recognizer=None):

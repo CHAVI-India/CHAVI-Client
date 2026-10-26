@@ -2311,19 +2311,32 @@ class DeidReplacementTests(SimpleTestCase):
 
     def test_ner_hits_inside_shifted_ranges_dropped(self):
         """A mislabelled span over an already-shifted date is dropped,
-        not allowed to swallow the date as <PERSON_n>."""
+        not allowed to swallow the date as <PERSON_n>. DATE_TIME hits
+        that merely overlap a shifted range are dropped too —
+        recognizer surfaces routinely stretch over the shifted date
+        plus surrounding words (e.g. '25/03/2024\nDate')."""
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S, _shift_dates_pre_pass)
 
         class R:
-            def __init__(self, start, end):
-                self.start, self.end = start, end
+            def __init__(self, start, end, entity_type='DATE_TIME'):
+                self.start, self.end, self.entity_type = (
+                    start, end, entity_type)
 
         new_text, ranges = _shift_dates_pre_pass(
             'Admitted 15/03/2024 in ward', 10, [])
         i = new_text.index('25/03/2024')
+        # fully inside (any type) -> dropped
         self.assertEqual(
-            S._drop_covered_by_date_shifts([R(i, i + 10)], ranges), [])
+            S._drop_covered_by_date_shifts([R(i, i + 10, 'PERSON')], ranges),
+            [])
+        # DATE_TIME partially overlapping the shifted range -> dropped
+        self.assertEqual(
+            S._drop_covered_by_date_shifts([R(i - 3, i + 13)], ranges), [])
+        # non-DATE_TIME partially overlapping -> kept (may hold other PHI)
+        self.assertEqual(len(
+            S._drop_covered_by_date_shifts([R(0, 12, 'PERSON')], ranges)), 1)
+        # unshifted DATE_TIME clear of the range -> kept (still shifts)
         self.assertEqual(len(
             S._drop_covered_by_date_shifts([R(0, 8)], ranges)), 1)
 

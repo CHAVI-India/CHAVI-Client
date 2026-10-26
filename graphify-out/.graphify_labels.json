@@ -2,7 +2,6 @@
   "2": "Extractor Forms & Deid Config",
   "5": "Bulk Retrieval Scheduling",
   "7": "DRF Serializers",
-  "10": "DICOM Server Forms & Views",
   "14": "Extraction Review & Record Ops",
   "15": "Celery Tasks & TaskRun",
   "16": "Clinical List Views",
