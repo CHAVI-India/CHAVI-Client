@@ -2194,6 +2194,61 @@ class DeidReplacementTests(SimpleTestCase):
         out = _shifted_date_text('12 Mar 2024', 30)
         self.assertIn('Apr', out)
 
+    def test_shifted_date_preserves_all_surface_formats(self):
+        """Every shape the recognizers emit must shift in place. The earlier
+        version degraded anything outside 7 hardcoded patterns to <DATE>
+        (e.g. '2024/03/15', '15 March 24', '15th Mar 2024',
+        '15/08/2024 14:30')."""
+        from extractor.services.text_deidentification import _shifted_date_text
+        cases = [
+            ('2024/03/15', 10, '2024/03/25'),
+            ('2024.03.15', 10, '2024.03.25'),
+            ('15-03-2024', 10, '25-03-2024'),
+            ('15.03.2024', 10, '25.03.2024'),
+            ('15/03/24', 10, '25/03/24'),
+            ('15-03-24', 10, '25-03-24'),
+            ('15.03.24', 10, '25.03.24'),
+            ('15 March 2024', 10, '25 March 2024'),
+            ('15 Mar 2024', 10, '25 Mar 2024'),
+            ('15 MARCH 2024', 20, '04 APRIL 2024'),
+            ('15th March 2024', 10, '25th March 2024'),
+            ('21st March 2024', 10, '31st March 2024'),
+            ('15 March 24', 10, '25 March 24'),
+            ('March 15, 2024', 10, 'March 25, 2024'),
+            ('March 15 2024', 10, 'March 25 2024'),  # no comma added
+            ('Mar 15 24', 10, 'Mar 25 24'),
+            ('March 2024', 32, 'April 2024'),
+            ('15/08/2024 14:30', 10, '25/08/2024 14:30'),
+            ('28/12/2024', 10, '07/01/2025'),
+            ('28/12/24', 10, '07/01/25'),
+            ('99/03/25', 10, '99/04/04'),
+        ]
+        for surface, shift, want in cases:
+            with self.subTest(surface=surface):
+                self.assertEqual(_shifted_date_text(surface, shift), want)
+
+    def test_shifted_date_round_trips_through_unshift(self):
+        """Shifted surfaces must re-parse under the dayfirst convention in
+        _unshift_date, or extracted dates would come back corrupted."""
+        from extractor.services.text_deidentification import _shifted_date_text
+        from extractor.services.instructor_extractor import (
+            InstructorExtractionService)
+        cases = [
+            ('15 March 24', 10, '2024-03-15'),
+            ('2024/03/15', 10, '2024-03-15'),
+            ('15/03/24', -5, '2024-03-15'),
+            ('March 15 2024', 10, '2024-03-15'),
+            ('21st March 2024', 10, '2024-03-21'),
+            ('15/08/2024 14:30', 7, '2024-08-15 14:30:00'),
+        ]
+        for surface, shift, want in cases:
+            with self.subTest(surface=surface):
+                shifted = _shifted_date_text(surface, shift)
+                self.assertFalse(shifted.startswith('<DATE>'))
+                self.assertEqual(
+                    InstructorExtractionService._unshift_date(shifted, shift),
+                    want)
+
     def test_unparseable_date_becomes_tag(self):
         from extractor.services.text_deidentification import _shifted_date_text
         self.assertEqual(_shifted_date_text('next Tuesday', 10), '<DATE>')

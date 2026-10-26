@@ -21,7 +21,7 @@ import random
 import re
 from pathlib import Path
 
-from dateutil.parser import parse as parse_date
+from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
 from presidio_analyzer import AnalyzerEngine, LemmaContextAwareEnhancer
@@ -65,39 +65,199 @@ PHI_ENTITY_LABELS = {
 class LlmDeidConfigurationError(ValueError):
     """LLM deid engine requested but no usable local configuration exists."""
 
-# surface format -> strftime code for re-emitting shifted dates
-_DATE_FORMATS = [
-    (re.compile(r'^\d{1,2}/\d{1,2}/\d{4}$'), '%d/%m/%Y'),
-    (re.compile(r'^\d{1,2}-\d{1,2}-\d{4}$'), '%d-%m-%Y'),
-    (re.compile(r'^\d{1,2}\.\d{1,2}\.\d{4}$'), '%d.%m.%Y'),
-    (re.compile(r'^\d{1,2}/\d{1,2}/\d{2}$'), '%d/%m/%y'),
-    (re.compile(r'^\d{4}-\d{2}-\d{2}$'), '%Y-%m-%d'),
-    (re.compile(r'^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$'), '%d %B %Y'),
-    (re.compile(r'^[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}$'), '%B %d, %Y'),
-]
+# Month-name tokens -> month number. Full and common abbreviated spellings,
+# case-insensitive — strptime's %b would miss variants like 'Sept' or
+# 'MARCH', so month names are resolved to numbers before parsing.
+_MONTH_NAMES = {
+    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+    'jul': 7, 'aug': 8, 'sep': 9, 'sept': 9, 'oct': 10, 'nov': 11,
+    'dec': 12,
+}
+
+# Trailing time-of-day (e.g. ' 14:30', ' 02:30:10', ' 2:30 pm'). Preserved
+# verbatim; only the date part is shifted.
+_TIME_SUFFIX_RE = re.compile(
+    r'\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp]\.?[Mm]\.?)?$')
+# Three numeric tokens with a consistent separator: '2024-03-15',
+# '15/03/2024', '15.03.24', '25-01-05', ...
+_NUMERIC_DATE_RE = re.compile(r'^(\d{1,4})([/.-])(\d{1,2})\2(\d{1,4})$')
+# <day> <Month> <year> — '15 March 2024', '15th Mar 24'.
+_DAY_MONTH_YEAR_RE = re.compile(
+    r'^(\d{1,2})(st|nd|rd|th)?\s+([A-Za-z]{3,9})\s+(\d{4}|\d{2})$')
+# <Month> <day>,? <year> — 'March 15, 2024', 'Mar 15 24'.
+_MONTH_DAY_YEAR_RE = re.compile(
+    r'^([A-Za-z]{3,9})(,)?\s+(\d{1,2})(,)?\s+(\d{4}|\d{2})$')
+# <Month> <year> — 'March 2024', 'Mar 24'.
+_MONTH_YEAR_RE = re.compile(r'^([A-Za-z]{3,9})\s+(\d{4}|\d{2})$')
+
+
+def _month_number(token: str):
+    """Month number for a name token ('Mar', 'MARCH', 'sept', ...); None when
+    the token is not a recognised month name."""
+    t = token.lower()
+    if t in _MONTH_NAMES:
+        return _MONTH_NAMES[t]
+    if len(t) >= 3:
+        for name, num in _MONTH_NAMES.items():
+            if t.startswith(name):
+                return num
+    return None
+
+
+_MONTH_FULL = [
+    '', 'January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December']
+_MONTH_ABBR = [
+    '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+    'Oct', 'Nov', 'Dec']
+
+
+def _month_token_for(month_num: int, original: str) -> str:
+    """Month name for `month_num`, keeping the original token's style
+    (abbreviated vs full, case). The original token is kept verbatim when
+    the month is unchanged so the surface format is preserved exactly."""
+    if _month_number(original) == month_num:
+        return original
+    names = _MONTH_ABBR if len(original) == 3 else _MONTH_FULL
+    tok = names[month_num]
+    if original.islower():
+        return tok.lower()
+    if original.isupper():
+        return tok.upper()
+    return tok
+
+
+def _two_digit_year(year: int) -> int:
+    """Same convention as strptime('%y'): 0-68 -> 2000s, 69-99 -> 1900s."""
+    return 2000 + year if year <= 68 else 1900 + year
+
+
+def _ordinal_suffix(day: int) -> str:
+    if 11 <= day % 100 <= 13:
+        return 'th'
+    return {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+
+
+def _parse_date_surface(s):
+    """Parse a bare date surface into (datetime, emit), where emit re-formats
+    any datetime in the same surface format. (None, None) when unparseable.
+
+    Explicit per-shape parsing instead of dayfirst/yearfirst heuristics —
+    parse and re-emit use one shape, so the round trip is exact. Day-first
+    is the convention for ambiguous all-numeric dates (DD/MM).
+    """
+    m = _NUMERIC_DATE_RE.match(s)
+    if m:
+        a, sep, _b, c = m.groups()
+        fallback = None
+        if len(a) >= 4:
+            fmt = f'%Y{sep}%m{sep}%d'
+        elif len(c) >= 4:
+            fmt = f'%d{sep}%m{sep}%Y'
+        else:
+            # Both years are short: day-first, year-first as fallback.
+            fmt = f'%d{sep}%m{sep}%y'
+            fallback = f'%y{sep}%m{sep}%d'
+        try:
+            parsed = datetime.strptime(s, fmt)
+        except ValueError:
+            if fallback is None:
+                return None, None
+            try:
+                parsed = datetime.strptime(s, fallback)
+            except ValueError:
+                return None, None
+            fmt = fallback
+        return parsed, lambda dt, fmt=fmt: dt.strftime(fmt)
+
+    m = _DAY_MONTH_YEAR_RE.match(s)
+    if m:
+        day, ord_suffix, month_tok, year = m.groups()
+        month = _month_number(month_tok)
+        if month is None:
+            return None, None
+        try:
+            parsed = datetime(
+                _two_digit_year(int(year)) if len(year) == 2 else int(year),
+                month, int(day))
+        except ValueError:
+            return None, None
+        two_digit = len(year) == 2
+
+        def emit_day_month_year(dt, month_tok=month_tok, two_digit=two_digit,
+                                had_ordinal=ord_suffix is not None):
+            d = f'{dt.day:02d}' + (
+                _ordinal_suffix(dt.day) if had_ordinal else '')
+            y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
+            return (f'{d} {_month_token_for(dt.month, month_tok)} {y}')
+
+        return parsed, emit_day_month_year
+
+    m = _MONTH_DAY_YEAR_RE.match(s)
+    if m:
+        month_tok, comma1, day, comma2, year = m.groups()
+        month = _month_number(month_tok)
+        if month is None:
+            return None, None
+        try:
+            parsed = datetime(
+                _two_digit_year(int(year)) if len(year) == 2 else int(year),
+                month, int(day))
+        except ValueError:
+            return None, None
+        two_digit = len(year) == 2
+
+        def emit_month_day_year(dt, month_tok=month_tok, two_digit=two_digit,
+                                c1=comma1, c2=comma2):
+            y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
+            return (f'{_month_token_for(dt.month, month_tok)}{c1 or ""} '
+                    f'{dt.day:02d}{c2 or ""} {y}')
+
+        return parsed, emit_month_day_year
+
+    m = _MONTH_YEAR_RE.match(s)
+    if m:
+        month_tok, year = m.groups()
+        month = _month_number(month_tok)
+        if month is None:
+            return None, None
+        try:
+            parsed = datetime(
+                _two_digit_year(int(year)) if len(year) == 2 else int(year),
+                month, 1)
+        except ValueError:
+            return None, None
+        two_digit = len(year) == 2
+
+        def emit_month_year(dt, month_tok=month_tok, two_digit=two_digit):
+            y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
+            return f'{_month_token_for(dt.month, month_tok)} {y}'
+
+        return parsed, emit_month_year
+
+    return None, None
 
 
 def _shifted_date_text(surface: str, shift_days: int) -> str:
-    """Shift a date surface by shift_days, preserving its format."""
+    """Shift a date surface by shift_days, preserving its surface format.
+
+    Supports the shapes the recognizers emit: numeric dates in any
+    day/month/year order with /, - or . separators and 2- or 4-digit years,
+    month names in either order (optional comma/ordinal), month-only dates,
+    and an optional trailing time-of-day which is preserved verbatim.
+    Unparseable surfaces become <DATE>.
+    """
     stripped = surface.strip()
-    try:
-        if re.match(r'^\d{4}-\d{1,2}-\d{1,2}', stripped):
-            # ISO is year-first; dayfirst=True would misparse it.
-            parsed = parse_date(stripped, yearfirst=True)
-        else:
-            parsed = parse_date(stripped, dayfirst=True)
-    except (ValueError, OverflowError):
+    time_match = _TIME_SUFFIX_RE.search(stripped)
+    time_part = ''
+    date_part = stripped
+    if time_match:
+        (date_part, time_part) = (
+            stripped[:time_match.start()], stripped[time_match.start():])
+    parsed, emit = _parse_date_surface(date_part)
+    if parsed is None:
         return '<DATE>'
-    shifted = parsed + timezone.timedelta(days=shift_days)
-    stripped = surface.strip()
-    for regex, fmt in _DATE_FORMATS:
-        if regex.match(stripped):
-            if fmt == '%d %B %Y' and re.match(r'^\d{1,2}\s+[A-Za-z]{3}\s', stripped):
-                fmt = '%d %b %Y'
-            if fmt == '%B %d, %Y' and re.match(r'^[A-Za-z]{3}\s', stripped):
-                fmt = '%b %d, %Y'
-            return shifted.strftime(fmt)
-    return '<DATE>'
+    return emit(parsed + timezone.timedelta(days=shift_days)) + time_part
 
 
 def _normalize_tag_key(text: str) -> str:
