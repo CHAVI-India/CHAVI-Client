@@ -1,17 +1,17 @@
 # Graph Report - CHAVI-Client  (2026-10-26)
 
 ## Corpus Check
-- 638 files · ~920,518 words
+- 639 files · ~920,570 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 270 file(s) not represented in the graph (top: .doctree 152, .css 51, (none) 23)
 
 ## Summary
-- 12738 nodes · 29390 edges · 614 communities (270 shown, 344 thin omitted)
+- 12739 nodes · 29390 edges · 615 communities (270 shown, 345 thin omitted)
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 3885 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f8fd7055`
+- Built from commit: `958e32f8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -504,7 +504,7 @@
 - **DICOM Archive Access Control** — feature_dicom_archive, dicom_archive_permissions_modelperms, dicom_archive_permissions_dicomadminrole, dicom_archive_permissions_archiveoperator [INFERRED 0.80]
 - **LLM Extraction Pipeline** — feature_llm_extraction, extractor_progress_schemadiscoveryservice, extractor_progress_pydanticbuilder, extractor_progress_stage2_extraction [INFERRED 0.80]
 
-## Communities (614 total, 344 thin omitted)
+## Communities (615 total, 345 thin omitted)
 
 ### Community 1 - "extractor/tests.py"
 Cohesion: 0.02
@@ -1588,8 +1588,8 @@ Nodes (3): Identity(), resolve(), Thrower()
 
 ## Knowledge Gaps
 - **39 isolated node(s):** `RFC-2046`, `Card (page)`, `403 (page)`, `FK Relationship Tracking`, `Schema Discovery Service` (+34 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 4335 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **344 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 4336 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **345 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

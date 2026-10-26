@@ -2219,6 +2219,10 @@ class DeidReplacementTests(SimpleTestCase):
             ('Mar 15 24', 10, 'Mar 25 24'),
             ('March 2024', 32, 'April 2024'),
             ('15/08/2024 14:30', 10, '25/08/2024 14:30'),
+            # time after a separating comma must not break the date shape
+            ('16th September 2026, 14:59', 10, '26th September 2026, 14:59'),
+            ('16/09/2026, 14:59', 10, '26/09/2026, 14:59'),
+            ('September 16, 2026, 14:59', 10, 'September 26, 2026, 14:59'),
             ('28/12/2024', 10, '07/01/2025'),
             ('28/12/24', 10, '07/01/25'),
             ('99/03/25', 10, '99/04/04'),
@@ -2240,6 +2244,7 @@ class DeidReplacementTests(SimpleTestCase):
             ('March 15 2024', 10, '2024-03-15'),
             ('21st March 2024', 10, '2024-03-21'),
             ('15/08/2024 14:30', 7, '2024-08-15 14:30:00'),
+            ('16th September 2026, 14:59', 10, '2026-09-16 14:59:00'),
         ]
         for surface, shift, want in cases:
             with self.subTest(surface=surface):

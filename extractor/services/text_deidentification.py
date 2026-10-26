@@ -74,10 +74,11 @@ _MONTH_NAMES = {
     'dec': 12,
 }
 
-# Trailing time-of-day (e.g. ' 14:30', ' 02:30:10', ' 2:30 pm'). Preserved
-# verbatim; only the date part is shifted.
+# Trailing time-of-day (e.g. ' 14:30', ' 02:30:10', ' 2:30 pm',
+# ', 14:59'). Preserved verbatim — including any separating comma — while
+# only the date part is shifted.
 _TIME_SUFFIX_RE = re.compile(
-    r'\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp]\.?[Mm]\.?)?$')
+    r'[,;]?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp]\.?[Mm]\.?)?$')
 # Three numeric tokens with a consistent separator: '2024-03-15',
 # '15/03/2024', '15.03.24', '25-01-05', ...
 _NUMERIC_DATE_RE = re.compile(r'^(\d{1,4})([/.-])(\d{1,2})\2(\d{1,4})$')
