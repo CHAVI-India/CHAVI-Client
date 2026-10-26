@@ -2218,6 +2218,11 @@ class DeidReplacementTests(SimpleTestCase):
             ('March 15 2024', 10, 'March 25 2024'),  # no comma added
             ('Mar 15 24', 10, 'Mar 25 24'),
             ('March 2024', 32, 'April 2024'),
+            # day width preserved: no zero-padding added
+            ('1 Mar 2024', 2, '3 Mar 2024'),
+            ('5/3/2024', 10, '15/3/2024'),
+            # long form with 'of'
+            ('16th of September 2026', 5, '21st of September 2026'),
             ('15/08/2024 14:30', 10, '25/08/2024 14:30'),
             # time after a separating comma must not break the date shape
             ('16th September 2026, 14:59', 10, '26th September 2026, 14:59'),
@@ -2253,6 +2258,74 @@ class DeidReplacementTests(SimpleTestCase):
                 self.assertEqual(
                     InstructorExtractionService._unshift_date(shifted, shift),
                     want)
+
+    def test_pre_pass_shifts_dates_before_ner(self):
+        """The reported failure: 'Date of registration' style documents.
+        Absolute dates shift in place; label words stay; nothing is
+        stripped without a trace."""
+        from extractor.services.text_deidentification import (
+            _shift_dates_pre_pass)
+        text = ('Date of birth\n30 Nov 1979\nDate of registration\n'
+                '1 Mar 2024\nDate of consent\n28 Feb 2024')
+        out, ranges = _shift_dates_pre_pass(text, 2, [])
+        self.assertNotIn('30 Nov 1979', out)
+        self.assertIn('02 Dec 1979', out)
+        self.assertNotRegex(out, r'(?<!\d)1 Mar 2024')
+        self.assertIn('3 Mar 2024', out)          # day width preserved
+        self.assertNotIn('28 Feb 2024', out)
+        self.assertIn('01 Mar 2024', out)
+        self.assertIn('Date of birth', out)
+        self.assertIn('Date of registration', out)
+        self.assertIn('Date of consent', out)
+        self.assertEqual(len(ranges), 3)
+
+    def test_pre_pass_leaves_durations_and_relative(self):
+        from extractor.services.text_deidentification import (
+            _shift_dates_pre_pass)
+        out, ranges = _shift_dates_pre_pass(
+            'Seen 15/03/2024 with fever for 3 days, follow up next '
+            'Tuesday. Symptoms started 2 weeks ago.', 10, [])
+        self.assertIn('25/03/2024', out)
+        self.assertIn('3 days', out)
+        self.assertIn('next Tuesday', out)
+        self.assertIn('2 weeks ago', out)
+        self.assertEqual(len(ranges), 1)
+
+    def test_shifted_date_long_tail_iso(self):
+        """Surfaces the shapes don't cover but dateparser validates as full
+        absolute dates re-emit as ISO (e.g. a comma the shapes reject)."""
+        from extractor.services.text_deidentification import _shifted_date_text
+        out = _shifted_date_text('16th September, 2026', 5)
+        self.assertFalse(out.startswith('<DATE>'))
+        self.assertEqual(out, '2026-09-21')
+
+    def test_date_label_words_dropped(self):
+        """A bare 'Date' labelled DATE_TIME by NER is dropped, not redacted
+        as <DATE>."""
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S, _FakeResult)
+        text = 'Date of registration\n1 Mar 2024'
+        results = [_FakeResult('DATE_TIME', 'Date')]
+        kept = S._filter_results(text, results)
+        self.assertEqual(kept, [])
+
+    def test_ner_hits_inside_shifted_ranges_dropped(self):
+        """A mislabelled span over an already-shifted date is dropped,
+        not allowed to swallow the date as <PERSON_n>."""
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S, _shift_dates_pre_pass)
+
+        class R:
+            def __init__(self, start, end):
+                self.start, self.end = start, end
+
+        new_text, ranges = _shift_dates_pre_pass(
+            'Admitted 15/03/2024 in ward', 10, [])
+        i = new_text.index('25/03/2024')
+        self.assertEqual(
+            S._drop_covered_by_date_shifts([R(i, i + 10)], ranges), [])
+        self.assertEqual(len(
+            S._drop_covered_by_date_shifts([R(0, 8)], ranges)), 1)
 
     def test_unparseable_date_becomes_tag(self):
         from extractor.services.text_deidentification import _shifted_date_text

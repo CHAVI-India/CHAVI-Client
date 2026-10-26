@@ -23,10 +23,18 @@ class EasyOCROCR:
     redacted in its entirety.
     """
 
-    def __init__(self, lang: str = "en", gpu: bool = False):
+    def __init__(self, lang: str = "en", gpu: bool = False, model_store: str = None):
         import easyocr
 
-        self._reader = easyocr.Reader([lang], gpu=gpu, verbose=False)
+        # model_store keeps the weight download on-prem: point it at a
+        # pre-seeded local dir (DEID_EASYOCR_MODEL_STORE) instead of letting
+        # EasyOCR hit the internet at runtime. If the dir is unset/empty, use
+        # EasyOCR's own default. Note: with a model_store EasyOCR looks for
+        # "<store>/det/detect_cRAFT.pth" and "<store>/rec/en.pth".
+        kwargs = {"gpu": gpu, "verbose": False}
+        if model_store:
+            kwargs["model_storage_directory"] = model_store
+        self._reader = easyocr.Reader([lang], **kwargs)
 
     # ---- interface bits the presidio analyzer engine expects ----
     @staticmethod

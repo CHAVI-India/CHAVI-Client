@@ -46,6 +46,7 @@ cupy-cuda13x==14.2.0
 cycler==0.12.1
 cymem==2.0.13
 defusedxml==0.7.1
+dateparser==1.4.3
 diff-match-patch==20241021
 distro==1.9.0
 Django==6.0.9

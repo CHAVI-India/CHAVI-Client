@@ -7,6 +7,12 @@ per-document offset stored (encrypted) on the row. save_extraction_results
 subtracts that offset from extracted date fields so real dates are written
 back.
 
+Date shifting is two-pass: a deterministic pre-pass shifts every absolute
+date span in place BEFORE the NER analyzer runs (shape regexes + dateparser
+long-tail), so shifting never depends on the model finding or correctly
+labelling a date; the NER stage then applies a small policy to whatever
+DATE_TIME survives (see _shift_dates_pre_pass and _apply_replacements).
+
 The analyzer is built extractor-locally (spaCy + optional
 HuggingFaceNerRecognizer + shared Indian recognizer bundle from
 deidentification.utils.indian_id_recognizers) plus text-specific
@@ -22,6 +28,8 @@ import re
 from pathlib import Path
 
 from datetime import datetime
+from dateparser import parse as _dateparser_parse
+from dateparser.search import search_dates as _search_dates_lib
 from django.conf import settings
 from django.utils import timezone
 from presidio_analyzer import AnalyzerEngine, LemmaContextAwareEnhancer
@@ -65,6 +73,31 @@ PHI_ENTITY_LABELS = {
 class LlmDeidConfigurationError(ValueError):
     """LLM deid engine requested but no usable local configuration exists."""
 
+# --- Date shifting ---------------------------------------------------------
+# Dates get a two-pass treatment:
+#
+# Pass 1 (_shift_dates_pre_pass) runs BEFORE NER: every absolute date span
+# is located by shape and shifted in place, format-preserving. Shifting
+# therefore does not depend on the NER model finding or correctly labelling
+# the date — missed dates are no longer leaked unshifted, and a mislabelled
+# span (e.g. a PERSON tag over a date) can no longer swallow a date without
+# a trace.
+#
+# Pass 2 (the NER stage) then applies a small policy to whatever DATE_TIME
+# survives: spans inside pass-1 ranges are dropped (already shifted — no
+# double shift), durations/ages are kept (content, not identifiers), label
+# words like a bare 'Date' are dropped, and genuine relative phrases
+# ('next Tuesday') become <DATE>.
+#
+# The shape regexes are the format authority: parse and re-emit use the
+# same shape, so the round trip is exact and _unshift_date can restore the
+# original. dateparser handles the long-tail surfaces the shapes don't
+# cover ('16th of September 2026'), validated under a strict absolute-date
+# gate so its documented behaviours — today-based defaults for partial
+# dates ('Mar 24' -> the 24th of the current year), relative/duration
+# parsing, surrounding words in search_dates surfaces — can never leak
+# into a shift.
+
 # Month-name tokens -> month number. Full and common abbreviated spellings,
 # case-insensitive — strptime's %b would miss variants like 'Sept' or
 # 'MARCH', so month names are resolved to numbers before parsing.
@@ -82,14 +115,47 @@ _TIME_SUFFIX_RE = re.compile(
 # Three numeric tokens with a consistent separator: '2024-03-15',
 # '15/03/2024', '15.03.24', '25-01-05', ...
 _NUMERIC_DATE_RE = re.compile(r'^(\d{1,4})([/.-])(\d{1,2})\2(\d{1,4})$')
-# <day> <Month> <year> — '15 March 2024', '15th Mar 24'.
+# <day> <Month> <year> — '15 March 2024', '15th Mar 24', '16th of Sept 26'.
 _DAY_MONTH_YEAR_RE = re.compile(
-    r'^(\d{1,2})(st|nd|rd|th)?\s+([A-Za-z]{3,9})\s+(\d{4}|\d{2})$')
+    r'^(\d{1,2})(st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]{3,9})\s+(\d{4}|\d{2})$')
 # <Month> <day>,? <year> — 'March 15, 2024', 'Mar 15 24'.
 _MONTH_DAY_YEAR_RE = re.compile(
     r'^([A-Za-z]{3,9})(,)?\s+(\d{1,2})(,)?\s+(\d{4}|\d{2})$')
 # <Month> <year> — 'March 2024', 'Mar 24'.
 _MONTH_YEAR_RE = re.compile(r'^([A-Za-z]{3,9})\s+(\d{4}|\d{2})$')
+
+# Unanchored twins of the shape regexes, for locating spans inside a
+# document with finditer. The anchored shapes are the whole-surface parse
+# authority; these word-boundary variants only candidate spans, which
+# _parse_date_surface still validates strictly.
+_NUMERIC_FIND_RE = re.compile(
+    r'\b(\d{1,4})([/.-])(\d{1,2})\2(\d{1,4})\b')
+_DAY_MONTH_YEAR_FIND_RE = re.compile(
+    r'\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]{3,9})\s+'
+    r'(\d{4}|\d{2})\b')
+_MONTH_DAY_YEAR_FIND_RE = re.compile(
+    r'\b([A-Za-z]{3,9})(,)?\s+(\d{1,2})(,)?\s+(\d{4}|\d{2})\b')
+_MONTH_YEAR_FIND_RE = re.compile(r'\b([A-Za-z]{3,9})\s+(\d{4}|\d{2})\b')
+
+# dateparser settings. DATE_ORDER drives the format-trial order in
+# dateparser 1.x: day-first surfaces parse under DMY, year-first under YMD
+# (each order rejects the other). PREFER_DAY_OF_MONTH='first' makes partial
+# dates deterministic (the default 'current' anchors to today).
+_DATEPARSER_DMY = {'DATE_ORDER': 'DMY', 'PREFER_DAY_OF_MONTH': 'first',
+                   'RETURN_AS_TIMEZONE_AWARE': False}
+_DATEPARSER_YMD = {'DATE_ORDER': 'YMD', 'PREFER_DAY_OF_MONTH': 'first',
+                   'RETURN_AS_TIMEZONE_AWARE': False}
+# search_dates is the slow path — skip it on very large documents; the
+# shape regexes still cover the common formats there.
+_LONG_TAIL_SIZE_LIMIT = 100_000
+
+# Label words NER models tag as DATE_TIME ('Date of registration' -> the
+# word 'Date'). Not dates, not identifiers: drop, don't redact.
+_DATE_LABEL_WORDS = {
+    'date', 'time', 'day', 'month', 'year', 'dob',
+    'date of birth', 'date of registration', 'date of consent',
+    'date of admission',
+}
 
 
 def _month_number(token: str):
@@ -140,36 +206,50 @@ def _ordinal_suffix(day: int) -> str:
 
 
 def _parse_date_surface(s):
-    """Parse a bare date surface into (datetime, emit), where emit re-formats
-    any datetime in the same surface format. (None, None) when unparseable.
+    """Parse a bare date surface into (datetime, emit), where emit
+    re-formats any datetime in the same surface format. (None, None) when
+    unparseable.
 
-    Explicit per-shape parsing instead of dayfirst/yearfirst heuristics —
-    parse and re-emit use one shape, so the round trip is exact. Day-first
-    is the convention for ambiguous all-numeric dates (DD/MM).
+    Explicit per-shape parsing — parse and re-emit use one shape, so the
+    round trip is exact. Day-first is the convention for ambiguous
+    all-numeric dates (DD/MM); token widths are preserved ('1 Mar 2024'
+    shifts to '3 Mar 2024', not '03 Mar 2024').
     """
     m = _NUMERIC_DATE_RE.match(s)
     if m:
-        a, sep, _b, c = m.groups()
-        fallback = None
+        a, sep, b, c = m.groups()
         if len(a) >= 4:
-            fmt = f'%Y{sep}%m{sep}%d'
+            candidates = [((a, b, c), True)]    # year first: YYYY-mm-dd
         elif len(c) >= 4:
-            fmt = f'%d{sep}%m{sep}%Y'
+            candidates = [((c, b, a), False)]   # day first: dd-mm-YYYY
         else:
-            # Both years are short: day-first, year-first as fallback.
-            fmt = f'%d{sep}%m{sep}%y'
-            fallback = f'%y{sep}%m{sep}%d'
-        try:
-            parsed = datetime.strptime(s, fmt)
-        except ValueError:
-            if fallback is None:
-                return None, None
+            # Both year tokens short: day first, then year first
+            # ('99/03/25' is 1999-03-25, not day 99 of 2025).
+            candidates = [((c, b, a), False), ((a, b, c), True)]
+        parsed = None
+        for (year_tok, month_tok, day_tok), year_first in candidates:
             try:
-                parsed = datetime.strptime(s, fallback)
+                parsed = datetime(
+                    _two_digit_year(int(year_tok)) if len(year_tok) == 2
+                    else int(year_tok),
+                    int(month_tok), int(day_tok))
             except ValueError:
-                return None, None
-            fmt = fallback
-        return parsed, lambda dt, fmt=fmt: dt.strftime(fmt)
+                continue
+            break
+        if parsed is None:
+            return None, None
+        two_digit = len(year_tok) == 2
+
+        def emit_numeric(dt, sep=sep, year_first=year_first,
+                         two_digit=two_digit, dw=len(day_tok),
+                         mw=len(month_tok)):
+            y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
+            mm = f'{dt.month:0{mw}d}'
+            dd = f'{dt.day:0{dw}d}'
+            return (f'{y}{sep}{mm}{sep}{dd}' if year_first
+                    else f'{dd}{sep}{mm}{sep}{y}')
+
+        return parsed, emit_numeric
 
     m = _DAY_MONTH_YEAR_RE.match(s)
     if m:
@@ -184,13 +264,16 @@ def _parse_date_surface(s):
         except ValueError:
             return None, None
         two_digit = len(year) == 2
+        had_of = bool(re.search(r'\bof\b', s, re.I))
 
         def emit_day_month_year(dt, month_tok=month_tok, two_digit=two_digit,
-                                had_ordinal=ord_suffix is not None):
-            d = f'{dt.day:02d}' + (
+                                had_ordinal=ord_suffix is not None,
+                                had_of=had_of, dw=len(day)):
+            d = f'{dt.day:0{dw}d}' + (
                 _ordinal_suffix(dt.day) if had_ordinal else '')
             y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
-            return (f'{d} {_month_token_for(dt.month, month_tok)} {y}')
+            return (f'{d}{" of" if had_of else ""} '
+                    f'{_month_token_for(dt.month, month_tok)} {y}')
 
         return parsed, emit_day_month_year
 
@@ -209,10 +292,10 @@ def _parse_date_surface(s):
         two_digit = len(year) == 2
 
         def emit_month_day_year(dt, month_tok=month_tok, two_digit=two_digit,
-                                c1=comma1, c2=comma2):
+                                c1=comma1, c2=comma2, dw=len(day)):
             y = f'{dt.year % 100:02d}' if two_digit else f'{dt.year:04d}'
             return (f'{_month_token_for(dt.month, month_tok)}{c1 or ""} '
-                    f'{dt.day:02d}{c2 or ""} {y}')
+                    f'{dt.day:0{dw}d}{c2 or ""} {y}')
 
         return parsed, emit_month_day_year
 
@@ -239,14 +322,39 @@ def _parse_date_surface(s):
     return None, None
 
 
+def _long_tail_absolute_date(surface):
+    """Parse a date surface the shape regexes don't cover, via dateparser.
+
+    Returns a datetime, or None. The gate is deliberate: dateparser
+    resolves partial dates against *today* ('Mar 24' -> the 24th of the
+    current year) and parses relative/duration expressions ('next
+    Tuesday', '3 days') against the current date — none of which may
+    drive a shift. Only full absolute dates — a real month name, a real
+    year, and no other words — are accepted.
+    """
+    bare = re.sub(r'\d+\s*(?:st|nd|rd|th)', ' ', surface)
+    words = [w.lower().strip("'") for w in re.findall(r"[A-Za-z']+", bare)]
+    if not any(_month_number(w) for w in words):
+        return None
+    if any(w != 'of' and _month_number(w) is None for w in words):
+        return None
+    if not re.search(r'\d{4}', surface) and not re.search(r'\b\d{2}\b', bare):
+        return None
+    for parser_settings in (_DATEPARSER_DMY, _DATEPARSER_YMD):
+        parsed = _dateparser_parse(surface, languages=['en'],
+                                   settings=parser_settings)
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _shifted_date_text(surface: str, shift_days: int) -> str:
     """Shift a date surface by shift_days, preserving its surface format.
 
-    Supports the shapes the recognizers emit: numeric dates in any
-    day/month/year order with /, - or . separators and 2- or 4-digit years,
-    month names in either order (optional comma/ordinal), month-only dates,
-    and an optional trailing time-of-day which is preserved verbatim.
-    Unparseable surfaces become <DATE>.
+    The shape regexes are the format authority (exact round trip with
+    _unshift_date); a trailing time-of-day is preserved verbatim. Surfaces
+    the shapes don't cover but dateparser validates as full absolute dates
+    re-emit as ISO. Anything else becomes <DATE>.
     """
     stripped = surface.strip()
     time_match = _TIME_SUFFIX_RE.search(stripped)
@@ -257,8 +365,79 @@ def _shifted_date_text(surface: str, shift_days: int) -> str:
             stripped[:time_match.start()], stripped[time_match.start():])
     parsed, emit = _parse_date_surface(date_part)
     if parsed is None:
-        return '<DATE>'
+        parsed = _long_tail_absolute_date(date_part)
+        if parsed is None:
+            return '<DATE>'
+        emit = lambda dt: dt.strftime('%Y-%m-%d')
     return emit(parsed + timezone.timedelta(days=shift_days)) + time_part
+
+
+def _shift_dates_pre_pass(text, shift, replacements):
+    """Pass 1 (before NER): shift every absolute date span in `text` in
+    place. Returns (new_text, ranges) where ranges are (start, end) pairs
+    in new_text coordinates — the NER stage drops spans fully contained in
+    them (the date is already handled: no double shift, and a mislabelled
+    PERSON/ORG tag cannot swallow a shifted date). (original, shifted)
+    pairs are appended to `replacements` for the review map.
+    """
+    spans = {}
+    for regex in (_NUMERIC_FIND_RE, _DAY_MONTH_YEAR_FIND_RE,
+                  _MONTH_DAY_YEAR_FIND_RE, _MONTH_YEAR_FIND_RE):
+        for m in regex.finditer(text):
+            parsed, emit = _parse_date_surface(m.group(0))
+            if parsed is None:
+                continue
+            start, end = m.span()
+            if start in spans and spans[start][0] - start >= end - start:
+                continue
+            spans[start] = (end, m.group(0), parsed, emit)
+
+    # Secondary recall via dateparser for surfaces the shapes don't cover
+    # (e.g. '16th September, 2026'); re-emit as ISO. The strict gate in
+    # _long_tail_absolute_date keeps durations/relative expressions out.
+    if len(text) <= _LONG_TAIL_SIZE_LIMIT:
+        try:
+            hits = _search_dates_lib(text, languages=['en'], strategy='ngram')
+        except Exception:
+            hits = None
+        for raw_surface, _parsed in hits or []:
+            tm = _TIME_SUFFIX_RE.search(raw_surface)
+            if tm:
+                raw_surface = raw_surface[:tm.start()].rstrip(',;')
+            if not raw_surface.strip():
+                continue
+            pos = text.find(raw_surface)
+            while pos != -1:
+                end = pos + len(raw_surface)
+                if not any(pos < e and end > s
+                           for s, (e, *_rest) in spans.items()):
+                    parsed = _long_tail_absolute_date(raw_surface)
+                    if parsed is not None:
+                        spans[pos] = (
+                            end, raw_surface, parsed,
+                            lambda dt: dt.strftime('%Y-%m-%d'))
+                pos = text.find(raw_surface, end)
+
+    # Leftmost, longest wins; splice right-to-left so earlier offsets
+    # stay valid.
+    ordered = sorted(
+        spans.items(), key=lambda kv: (kv[0], -(kv[1][0] - kv[0])))
+    kept = []
+    for start, span in ordered:
+        if not kept or start >= kept[-1][1][0]:
+            kept.append((start, span))
+
+    new_text = text
+    ranges = []
+    for start, (end, surface, parsed, emit) in reversed(kept):
+        new_surface = emit(parsed + timezone.timedelta(days=shift))
+        if replacements is not None:
+            replacements.append({
+                'tag': new_surface, 'type': 'DATE_TIME',
+                'original': surface})
+        new_text = new_text[:start] + new_surface + new_text[end:]
+        ranges.append((start, start + len(new_surface)))
+    return new_text, ranges
 
 
 def _normalize_tag_key(text: str) -> str:
@@ -552,6 +731,19 @@ class TextDeidentificationService:
         processed_text.save(update_fields=['deid_map'])
         return count
 
+    @staticmethod
+    def _drop_covered_by_date_shifts(results, ranges):
+        """Drop NER spans fully inside pass-1 shifted date ranges. The date
+        there is already shifted, so a DATE_TIME re-hit would double-shift
+        it, and a mislabelled PERSON/ORG hit would swallow the shifted
+        date with no trace — the exact failure this pass exists to remove.
+        Partially overlapping spans are kept (the other content in them
+        may still be PHI)."""
+        if not ranges:
+            return results
+        return [r for r in results
+                if not any(s <= r.start and r.end <= e for s, e in ranges)]
+
     @classmethod
     def _deidentify_text(cls, content, shift, patient, ner_recognizer=None):
         if ner_recognizer is not None:
@@ -561,6 +753,8 @@ class TextDeidentificationService:
         ad_hoc = build_patient_recognizers(patient)
         if ner_recognizer is not None:
             ad_hoc = [ner_recognizer] + ad_hoc
+        repl = []
+        content, date_ranges = _shift_dates_pre_pass(content, shift, repl)
         results = analyzer.analyze(
             text=content,
             language='en',
@@ -568,11 +762,15 @@ class TextDeidentificationService:
                 settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35),
             ad_hoc_recognizers=ad_hoc,
         )
-        results = cls._resolve_overlaps(cls._filter_results(content, results))
-        repl = []
+        results = cls._drop_covered_by_date_shifts(
+            cls._filter_results(content, results), date_ranges)
+        results = cls._resolve_overlaps(results)
         new_content = cls._apply_replacements(
             content, results, shift, {}, repl)
-        return new_content, cls._entity_counts(results), repl
+        counts = cls._entity_counts(results)
+        if date_ranges:
+            counts['DATE_TIME'] = counts.get('DATE_TIME', 0) + len(date_ranges)
+        return new_content, counts, repl
 
     @classmethod
     def _deidentify_csv(cls, content, shift, patient, ner_recognizer=None):
@@ -630,18 +828,25 @@ class TextDeidentificationService:
                     row[i] = tag
                     all_results.append(_FakeResult(col_type, cell))
                 else:
+                    cell_repl = []
+                    cell, cell_ranges = _shift_dates_pre_pass(
+                        cell, shift, cell_repl)
+                    repl.extend(cell_repl)
                     results = analyzer.analyze(
                         text=cell, language='en',
                         score_threshold=getattr(
                             settings, 'EXTRACTOR_DEID_SCORE_THRESHOLD', 0.35),
                         ad_hoc_recognizers=ad_hoc,
                     )
-                    results = cls._resolve_overlaps(
-                        cls._filter_results(cell, results))
+                    results = cls._drop_covered_by_date_shifts(
+                        cls._filter_results(cell, results), cell_ranges)
+                    results = cls._resolve_overlaps(results)
                     row[i] = cls._apply_replacements(
                         cell, results, shift, tag_map, repl)
                     all_results.extend(
                         _FakeResult(r.entity_type, cell) for r in results)
+                    all_results.extend(
+                        _FakeResult('DATE_TIME', cell) for _ in cell_repl)
             writer.writerow(row)
 
         return out.getvalue(), cls._entity_counts(all_results), flagged, repl
@@ -723,15 +928,20 @@ class TextDeidentificationService:
         ad_hoc = build_patient_recognizers(patient)
         if pipeline.system2_model_id:
             ad_hoc = [LlmNerRecognizer(pipeline.system2_model)] + ad_hoc
+        repl = []
+        content, date_ranges = _shift_dates_pre_pass(content, shift, repl)
         results = analyzer.analyze(
             text=content, language='en',
             score_threshold=pipeline.min_confidence,
             ad_hoc_recognizers=ad_hoc)
-        results = cls._apply_precision(content, results, pipeline)
+        results = cls._drop_covered_by_date_shifts(
+            cls._apply_precision(content, results, pipeline), date_ranges)
         results = cls._resolve_overlaps(results)
-        repl = []
         new_content = cls._apply_replacements(content, results, shift, {}, repl)
-        return new_content, cls._entity_counts(results), repl
+        counts = cls._entity_counts(results)
+        if date_ranges:
+            counts['DATE_TIME'] = counts.get('DATE_TIME', 0) + len(date_ranges)
+        return new_content, counts, repl
 
     @classmethod
     def _deidentify_csv_for(cls, content, shift, patient, pipeline):
@@ -777,16 +987,24 @@ class TextDeidentificationService:
                     row[i] = tag
                     all_results.append(_FakeResult(col_type, cell))
                 else:
+                    cell_repl = []
+                    cell, cell_ranges = _shift_dates_pre_pass(
+                        cell, shift, cell_repl)
+                    repl.extend(cell_repl)
                     results = analyzer.analyze(
                         text=cell, language='en',
                         score_threshold=pipeline.min_confidence,
                         ad_hoc_recognizers=ad_hoc)
-                    results = cls._apply_precision(cell, results, pipeline)
+                    results = cls._drop_covered_by_date_shifts(
+                        cls._apply_precision(cell, results, pipeline),
+                        cell_ranges)
                     results = cls._resolve_overlaps(results)
                     row[i] = cls._apply_replacements(
                         cell, results, shift, tag_map, repl)
                     all_results.extend(
                         _FakeResult(r.entity_type, cell) for r in results)
+                    all_results.extend(
+                        _FakeResult('DATE_TIME', cell) for _ in cell_repl)
             writer.writerow(row)
         return out.getvalue(), cls._entity_counts(all_results), flagged, repl
 
@@ -836,6 +1054,9 @@ class TextDeidentificationService:
             surface = text[r.start:r.end].strip()
             if (r.entity_type == 'DATE_TIME'
                     and any(p.match(surface) for p in patterns)):
+                continue
+            if (r.entity_type == 'DATE_TIME'
+                    and surface.lower() in _DATE_LABEL_WORDS):
                 continue
             if (r.entity_type == 'DATE_TIME'
                     and re.match(r'^\d{1,2}/\d{1,2}$', surface)

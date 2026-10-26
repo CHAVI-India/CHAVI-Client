@@ -18,11 +18,25 @@ _EASYOCR_READER = None
 
 
 def _get_easyocr_reader():
-    """Lazily-initialized, shared EasyOCR reader (loaded once per process)."""
+    """Lazily-initialized, shared EasyOCR reader (loaded once per process).
+
+    Loads weights from settings.DEID_EASYOCR_MODEL_STORE (on-prem store, baked
+    into the Docker image — see the seed step in Dockerfile) so PDF OCR never
+    attempts a runtime download. Returns None (instead of raising) when the
+    reader cannot be built, so the caller can fall back to Tesseract.
+    """
     global _EASYOCR_READER
     if _EASYOCR_READER is None:
         import easyocr
-        _EASYOCR_READER = easyocr.Reader(['en'], gpu=False, verbose=False)
+        model_store = getattr(settings, 'DEID_EASYOCR_MODEL_STORE')
+        kwargs = {"gpu": False, "verbose": False}
+        if model_store:
+            kwargs["model_storage_directory"] = model_store
+        try:
+            _EASYOCR_READER = easyocr.Reader(["en"], **kwargs)
+        except Exception as e:
+            log.warning(f"EasyOCR reader failed to build ({e}); falling back to Tesseract OCR")
+            return None
     return _EASYOCR_READER
 
 
@@ -180,8 +194,10 @@ class FileProcessorService:
         OCR a scanned/image-only PDF into a new versioned ProcessedText row.
 
         OCR engine is selected by settings.EXTRACTOR_OCR_ENGINE:
-            "easyocr"   (default) — on-prem EasyOCR
-            "tesseract" — Tesseract via pytesseract (fallback)
+            "easyocr"   (default) — on-prem EasyOCR; falls back to Tesseract
+                    if the EasyOCR reader can't be built (e.g. model store
+                    missing on an offline box)
+            "tesseract" — Tesseract via pytesseract
 
         Always requires poppler-utils (pdftoppm) for PDF -> page images and the
         pdf2image package. Raises RuntimeError with a clear message when a
@@ -193,11 +209,13 @@ class FileProcessorService:
             raise ValueError("OCR is only supported for PDF uploads")
 
         engine = getattr(settings, 'EXTRACTOR_OCR_ENGINE', 'easyocr')
-        # poppler is always required for PDF -> page images
+        # poppler is always required for PDF -> page images; Tesseract is the
+        # automatic fallback when the EasyOCR reader can't be built, so check
+        # it up front in both engine modes.
         if not shutil.which('pdftoppm'):
             raise RuntimeError("OCR requires pdftoppm (install: apt install poppler-utils)")
-        if engine == 'tesseract' and not shutil.which('tesseract'):
-            raise RuntimeError("OCR requires tesseract (install: apt install tesseract-ocr)")
+        if not shutil.which('tesseract'):
+            raise RuntimeError("OCR requires tesseract (install: apt install tesseract-ocr); it is the automatic fallback when EasyOCR is unavailable")
 
         try:
             from pdf2image import convert_from_path
@@ -248,13 +266,17 @@ class FileProcessorService:
         page_texts = []
         pages = convert_from_path(str(pdf_path), dpi=dpi, last_page=max_pages)
         if engine == 'easyocr':
-            import numpy as np
             reader = _get_easyocr_reader()
-            for page_image in pages:
-                res = reader.readtext(np.array(page_image))
-                lines = [t.strip() for _box, t, _conf in res if t and t.strip()]
-                page_texts.append("\n".join(lines))
-        else:  # tesseract fallback
+            if reader is not None:
+                import numpy as np
+                for page_image in pages:
+                    res = reader.readtext(np.array(page_image))
+                    lines = [t.strip() for _box, t, _conf in res if t and t.strip()]
+                    page_texts.append("\n".join(lines))
+            else:  # EasyOCR unavailable — fall back to Tesseract
+                for page_image in pages:
+                    page_texts.append(pytesseract.image_to_string(page_image, lang=lang))
+        else:  # tesseract (explicit engine)
             for page_image in pages:
                 page_texts.append(pytesseract.image_to_string(page_image, lang=lang))
 

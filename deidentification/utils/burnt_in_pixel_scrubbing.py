@@ -48,10 +48,16 @@ def _get_ocr():
     if engine == 'easyocr':
         try:
             from deidentification.utils.ocr_engines import EasyOCROCR
+            # Weights are served from the on-prem model store configured in
+            # settings (DEID_EASYOCR_MODEL_STORE, default /opt/easyocr-model,
+            # baked into the Docker image). Any EasyOCR failure — e.g. store
+            # missing on an offline box — falls back to Tesseract, so deid
+            # jobs keep running instead of failing the series.
+            return EasyOCROCR(
+                model_store=getattr(settings, 'DEID_EASYOCR_MODEL_STORE')
+            )
         except Exception as e:
             logger.warning(f"EasyOCR unavailable ({e}); falling back to Tesseract OCR")
-        else:
-            return EasyOCROCR()
 
     # Tesseract (explicit engine, or EasyOCR fallback)
     from presidio_image_redactor import TesseractOCR

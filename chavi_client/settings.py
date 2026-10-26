@@ -812,6 +812,15 @@ DEID_SUB_BATCH_SIZE = 50
 # so keep it installed even when easyocr is the engine.
 # Pixel scrubbing redacts ALL text the OCR detects — no NER/PII detection.
 DEID_PIXEL_OCR_ENGINE = "easyocr"
+# Pre-seeded EasyOCR model dir (keeps the weight download off the box at
+# runtime). Defaults to the on-prem location the Docker image bakes models
+# into (/opt/easyocr-model — see Dockerfile); override via env to seed
+# elsewhere, e.g. local (non-container) dev: point it at a dir containing
+# craft_mlt_25k.pth + english_g2.pth (flat layout): python
+# scripts/seed_easyocr_models.py <dir>.
+DEID_EASYOCR_MODEL_STORE = os.environ.get(
+    'DEID_EASYOCR_MODEL_STORE', '/opt/easyocr-model'
+)
 
 # StanfordAIMI deidentifier: RoBERTa fine-tuned on radiology reports +
 # clinical notes + i2b2 (Chambon et al., JAMIA 2022). Better recall on
