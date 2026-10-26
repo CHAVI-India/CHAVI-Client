@@ -6,31 +6,39 @@ This guide explains how to configure the application after installation. The con
 Initial Site Configuration
 -----------------------------
 
-1. Access the Django Admin Interface:
-   
+#. Access the Django Admin Interface.
+
    #. Go to ``http://<your-server>/admin/``. Usually the <your-server> is the localhost (``127.0.0.1``) or the LAN IP address if you wish the server to be able to serve pages on the server.
-   #. Log in with the superuser account created during installation
+   #. Log in with the superuser account created during installation.
 
-2. Configure Site Information:
-   
-   #. Navigate to "Site Configuration" under client_app
-   #. Click "Add Site Configuration"
+#. Configure Site Information.
+
+   #. Navigate to "Site Configuration" under client_app.
+   #. Click "Add Site Configuration".
    #. Fill in:
-     - CHAVI Center ID (provided by CHAVI team)
-     - Center Name (your hospital/institution name)
-   #. Click "Save"
 
-   Note: Only one site configuration should exist. This is enforced by the system.
+      - CHAVI Center ID (provided by CHAVI team)
+      - Center Name (your hospital/institution name)
 
-3. Project Configuration:
+   #. Click "Save".
 
-   #. Navigate to "Projects" under client_app
-   #. Click "Add Projects"
+   .. note::
+
+      Only one site configuration should exist. This is enforced by the system.
+
+#. Project Configuration.
+
+   #. Navigate to "Projects" under client_app.
+   #. Click "Add Projects".
    #. Fill in:
-     - Project ID (provided by CHAVI team)
-   #. Click "Save"
 
-   Note: Several Projects can be added.
+      - Project ID (provided by CHAVI team)
+
+   #. Click "Save".
+
+   .. note::
+
+      Several Projects can be added.
 
 
 User Groups and Permissions
@@ -43,6 +51,12 @@ with ready-made roles — *Clinical Data Viewer*, *Clinical Data Entry*,
 automatically by the database migration. The *DICOM Administrator* role
 also covers the DICOM archive (configuration, locations, manual
 archive/de-archive).
+
+.. note::
+   The text de-identification pipelines (LLM Extraction → Deid Pipelines) are
+   not covered by any shipped role — grant the
+   ``extractor.*_textdeidentificationpipelineconfig`` permissions directly to
+   an individual user. See :doc:`roles_and_permissions`.
 
 .. note::
    The full description of each role, how to assign roles to users, and the

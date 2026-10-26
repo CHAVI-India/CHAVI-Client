@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.core.validators import FileExtensionValidator,URLValidator,MinValueValidator,MaxValueValidator
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField, EncryptedIntegerField
 from django.contrib.auth.models import User
@@ -393,6 +394,7 @@ class FileUpload(models.Model):
     file = models.FileField(upload_to=file_upload_path, validators=[FileExtensionValidator(['pdf', 'csv', 'xlsx'])])
     original_filename = models.CharField(max_length=512, blank=True, help_text="Filename as uploaded; stored for display only.")
     file_type = models.CharField(max_length=100, choices=FileTypeChoices.choices, blank=True)
+    file_size = models.BigIntegerField(null=True, blank=True, help_text="Size of the uploaded file in bytes (snapshot at upload time).")
     patient_id = models.ForeignKey('client_app.Patient', on_delete=models.CASCADE, null=True, blank=True, help_text="Please select the patient for whose data is being extracted.")
     processing_status = models.CharField(max_length=100, choices=ProcessingStatusChoices.choices, default=ProcessingStatusChoices.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -414,6 +416,10 @@ class FileUpload(models.Model):
             self.file_type = file_type
             if not self.original_filename:
                 self.original_filename = os.path.basename(self.file.name)
+            # Snapshot the size from the uploaded content object so we never
+            # have to hit the filesystem just to render the list page.
+            if isinstance(self.file, ContentFile) or getattr(self.file, 'size', None) is not None:
+                self.file_size = self.file.size
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

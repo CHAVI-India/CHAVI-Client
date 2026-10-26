@@ -1,25 +1,35 @@
 Installation Guide
-=================
+==================
 
 This guide will help you install and set up the Django project on your system for local network (LAN) access.
 
 Prerequisites
-------------
+-------------
 
 Before installation, ensure you have the following:
 
-* Python 3.8 or higher
+* Python 3.10 or higher (a 64-bit build — several scientific dependencies,
+  including the DICOM and NER libraries, ship prebuilt wheels for recent
+  Python versions only)
 * pip (Python package installer)
 * Git (for version control)
+* A PostgreSQL database
+* A RabbitMQ server — Celery's message broker. Background jobs
+  (de-identification, DICOM retrieval, downloads, scheduled tasks) do not run
+  without it. Install and start RabbitMQ first (for example
+  ``sudo apt install rabbitmq-server``), which provides it on port ``5672``.
+  In ``.env`` set ``CELERY_BROKER_URL`` to point at it, e.g.
+  ``amqp://guest:guest@localhost:5672//``.
+
+.. note::
+   The packages in ``requirements.txt`` are heavy (DICOM, OCR and NER model
+   stacks). Expect a large install, and allow time for the de-identification
+   NER model to download on first use.
 
 Environment Setup
----------------
+-----------------
 
-1. Copy the sample environment file::
-
-    cp sampleenv .env
-
-2. Update the .env file with your settings:
+1. Create the .env file with your settings:
 
    * ``SECRET_KEY`` - Django secret key for security (change this for production!)
    * ``DEBUG`` - Set to True for development, False for production
@@ -30,19 +40,22 @@ Environment Setup
    * ``DJANGO_DB_PASSWORD`` - Database password
    * ``DJANGO_DB_HOST`` - Database host address
    * ``DJANGO_DB_PORT`` - Database port number
+   * ``CELERY_BROKER_URL`` - the RabbitMQ address (see Prerequisites)
 
    Example .env file::
 
-    SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&8%l4^-lp!$(s#ysd9w8)fe!
+    SECRET_KEY=a-long-random-string
     DEBUG=True
     DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost'
-    
+
     DJANGO_DB_ENGINE=django.db.backends.postgresql
     DJANGO_DB_NAME=chaviclient
     DJANGO_DB_USER=postgres
     DJANGO_DB_PASSWORD=your_secure_password
     DJANGO_DB_HOST=localhost
     DJANGO_DB_PORT=5432
+
+    CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
 
    Note: Make sure to change the SECRET_KEY and set a secure database password before deployment.
 
@@ -73,7 +86,7 @@ Environment Setup
         GRANT ALL PRIVILEGES ON DATABASE chaviclient TO your_user;
 
 Linux Installation
-----------------
+------------------
 
 1. Update your system packages::
 
@@ -115,7 +128,7 @@ Linux Installation
     python manage.py runserver 0.0.0.0:8000
 
 Windows Installation
-------------------
+--------------------
 
 1. Download and install Python:
    
@@ -160,27 +173,36 @@ Windows Installation
 
     python manage.py runserver 0.0.0.0:8000
 
-Running the Celery Workers
--------------------------
+Running the Celery Workers and Beat
+-----------------------------------
 
 Background jobs — de-identification, DICOM retrieval, ZIP and clinical data
 downloads, and scheduled maintenance tasks — are processed by Celery
 workers, not by the web server. Start them before using those features;
 jobs started without a worker simply wait in the queue.
 
-Two workers are needed, and each must have a **distinct node name** (the
-``-n`` option). If two workers share the same name, the second one crashes
-at startup with ``RESOURCE_LOCKED`` on the ``...celery.pidbox`` queue — that
-queue is exclusive to the worker name, so the first worker still holds it::
-
-    celery -A chavi_client worker -l info -n general@%h -Q default -c 2
-    celery -A chavi_client worker -l info -n deid@%h -Q deid -c 1
+Three processes are needed. In each case the ``-n`` (node name) must be
+different across processes.
 
 * ``general@%h`` — general tasks (retrieval, ZIP/clinical downloads,
-  scheduled jobs), two slots, ``default`` queue.
+  archive sweeps), two slots, ``default`` queue.
 * ``deid@%h`` — de-identification only, **one slot**, dedicated ``deid``
   queue, so de-identification batches run strictly one after another with a
   single copy of the text-detection models in memory.
+* beat — the scheduler that starts the periodic jobs (the nightly scheduled
+  DICOM retrieval, the archive sweep, stuck-task recovery). Without beat
+  nothing scheduled ever runs.
+
+Start each in its own terminal::
+
+    celery -A chavi_client worker -l info -n general@%h -Q default -c 2
+    celery -A chavi_client worker -l info -n deid@%h -Q deid -c 1
+    celery -A chavi_client beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+If two workers share the same node name, the second one crashes at startup
+with ``RESOURCE_LOCKED`` on the ``...celery.pidbox`` queue — that queue is
+exclusive to the worker name, so the first worker still holds it. That is
+why every process above gets a distinct ``-n``.
 
 A de-identification job started while another is running waits in the
 queue; its task run shows no progress until the running batch finishes.
@@ -193,7 +215,7 @@ stacks, which is exactly what the single-slot worker exists to prevent.
 ``-n`` is needed there — see the :doc:`docker_installation` page.)
 
 Accessing the Application
------------------------
+-------------------------
 
 After starting the server, the application will be available at:
 

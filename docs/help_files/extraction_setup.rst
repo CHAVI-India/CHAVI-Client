@@ -43,3 +43,30 @@ Lookup Embeddings
 Some fields have fixed lists of allowed answers (dropdowns). This setting teaches the system to match what a document says to the closest allowed answer — useful when wording differs, like "high blood pressure" versus "hypertension".
 
 Pick or create a configuration, make it active, then click the button to build the matching index. Building takes a while the first time and runs in the background — a progress bar shows it working. If the build fails, the old index keeps working.
+
+Text de-identification pipelines
+--------------------------------
+
+The deidentification pass applied to documents before extraction (see
+:doc:`automatic_data_extraction`) is driven by named **pipelines** — each
+pipeline fixes which machine detects personal details, and which optional
+extra passes run on top. The building blocks are always on: the built-in
+rule-based detectors and the date-shifting algorithm (dates are shifted by a
+random amount so relative timing survives but the real date is gone).
+Per pipeline you configure:
+
+* **NER engine** — the main detector. The bundled spaCy model needs no
+  setup; or a HuggingFace NER model that runs locally (patient text never
+  leaves the machine). The model downloads itself on first use.
+* **Optional second pass** — a locally-cleared large language model that
+  catches details the main detector misses.
+* **Optional third check** — a fast decision model that reviews each flagged
+  item and decides redact-or-keep, reducing over-redaction.
+* **Confidence threshold and date-shift range** — how sure the detector must
+  be before redacting, and how far dates may be shifted.
+
+Pipelines are managed under **LLM Extraction → Deid Pipelines**; the
+extraction operator picks one per file when running deid by hand. Note that
+managing pipelines is not part of the shipped *LLM Configuration* role — it
+needs the ``extractor`` permissions on ``textdeidentificationpipelineconfig``
+granted directly to a user (see :doc:`roles_and_permissions`).

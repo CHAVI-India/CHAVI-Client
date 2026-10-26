@@ -43,6 +43,23 @@ The contents of the files are as follows:
 
 After these files have been created you can start editing the .env file. Ensure that the password fields are properly set. If a proxy is used for network access, please ensure that the proxy settings are configured correctly in the .env file.
 
+Ports the stack exposes on the host machine
+-------------------------------------------
+
+The example compose file publishes the following ports on the Docker host:
+
+===========  ========  ========================================================
+Host port    Service   What it is
+===========  ========  ========================================================
+``5433``     database  PostgreSQL (inside the container it is 5432 — use ``5433`` when connecting from the host)
+``5672``     RabbitMQ  Celery message broker
+``15672``    RabbitMQ  RabbitMQ management UI (http://localhost:15672; credentials from ``RABBITMQ_DEFAULT_USER`` / ``RABBITMQ_DEFAULT_PASS`` in ``.env``)
+``8001``     proxy     The web application (nginx → Django)
+``11112``    DICOM     Inbound DICOM SCP — must equal the port configured at ``/dicom-server/config/``
+===========  ========  ========================================================
+
+The nginx proxy forwards with ``client_max_body_size 10G`` by default — raise it in ``nginx.conf`` if you expect larger DICOM ZIP uploads. The web app itself listens on ``8000`` only inside the proxy network; use ``8001`` from outside.
+
 After the .env file has been edited, you can start the Docker containers by running the following command:
 
 .. code-block:: bash
@@ -67,6 +84,15 @@ Once this is done you can pull the new image by running the following command:
 
    docker-compose pull
 ..
+
+.. warning::
+   Pull the image for **every** service in one step — ``chaviclient-django``,
+   ``chaviclient-celery-worker``, ``chaviclient-celery-deid-worker``,
+   ``chaviclient-celery-beat`` and ``chaviclient-dicom`` all run the same
+   ``chaviapp/chaviclient:main`` image. If the deid worker keeps an older
+   image, the new app code publishes deidentification tasks to the ``deid``
+   queue that only the new code knows about, and those jobs will never be
+   consumed.
 
 After the image has been pulled, you can start the containers by running the following command:
 

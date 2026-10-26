@@ -24,7 +24,7 @@ The CHAVI client is a Django application that is designed to allow users to mana
             - :doc:`Cancer Outcomes <cancer_outcomes>`
 
         - :doc:`Laboratory results <laboratory_results>`
-        - :doc:`Patient Repoted Outcomes <patient_reported_outcomes>`
+        - :doc:`Patient Reported Outcomes <patient_reported_outcomes>`
         - :doc:`Comorbidities <comorbidities>`
         - :doc:`Symptoms <symptoms>`
         - :doc:`Patient Assessment <patient_assessment>`        

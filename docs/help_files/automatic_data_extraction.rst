@@ -21,15 +21,28 @@ On the file's page, click **Process File**. This turns the document into plain t
 Removing personal details
 --------------------------
 
-Before a document is read, the system can hide patient-identifying details (names, phone numbers, addresses and so on) so they are never sent to the reading service.
+Before a document is read, the system hides patient-identifying details
+(names, phone numbers, addresses and so on) so they are never sent to the
+reading service.
 
-#. On the file's page, click **Run deid** next to the processed text.
+With the default settings, deidentification starts on its own right after
+you **Process File** — each processed text version shows a status badge:
+**Needs deidentification**, **DEID · pending review**, or **DEID ✓** once
+reviewed.
+
+When the deidentified text is ready:
+
 #. Open **Review deid** to check the result. Personal details appear as tags like ``PERSON_1``.
 #. If something was missed, select the text and click **Redact selection**. If too much was hidden, use **restore** next to a tag to put it back.
 #. Click **Mark as reviewed** when you are happy.
 
+If auto-run is switched off (or an earlier run failed), you can start it by
+hand: on the file's page, choose a de-identification pipeline from the
+dropdown and click **Run deid**.
+
 .. note::
-   Depending on how your server is set up, this review may be required before extraction can run.
+   Marking the deidentified text as reviewed is required before extraction
+   can run.
 
 Running the extraction
 -----------------------

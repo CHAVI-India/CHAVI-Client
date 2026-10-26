@@ -41,7 +41,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # Custom CHAVI theme — palette and chrome per docs/ui-styleguide.md
 html_theme = 'chavi'
 html_theme_path = ['_themes']
-html_static_path = ['_static']
+# Static assets ship with the theme at _themes/chavi/static; no project-local
+# _static directory is required.
 
 # Sidebar: search first, then the full page tree, then prev/next links.
 html_sidebars = {

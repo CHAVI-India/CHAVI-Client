@@ -50,6 +50,7 @@ Seven groups are created automatically by the database migration
      - Full management of LLM client configurations, response models, database
        table/field mappings, instructor prompts and lookup embedding
        configurations. Read-only view of uploads, extraction jobs and results.
+       Does **not** include the text de-identification pipelines (see below).
    * - **Deidentification Operator**
      - Views the deidentification patient list, triggers deidentification
        jobs, downloads deidentified DICOM and clinical exports, imports legacy
@@ -70,6 +71,15 @@ by migration ``client_app.0031_dicom_administrator_archive_permissions``
 feature — for example operators who may archive but not reconfigure — can
 still be given individual permissions directly (see
 :doc:`dicom_archive`).
+
+.. note::
+   The **text de-identification pipelines** page (LLM Extraction → Deid
+   Pipelines, which configures which NER engine, optional local LLM pass and
+   rules each deidentification run uses) is not covered by any shipped role.
+   It needs ``extractor`` add/view/change/delete on
+   ``textdeidentificationpipelineconfig``; grant those permissions directly to
+   an individual user under *Users → (user) → user permissions* until a role
+   covers them.
 
 A user may belong to several groups at once — the permissions add up.
 Superusers (``is_superuser``) bypass all checks, and the **Admin** link only
@@ -135,9 +145,14 @@ Common permission checks
    * - Query/retrieve from a remote node
      - ``dicom_server.add_retrievaljob``
    * - LLM extraction (files, jobs, review)
-     - ``extractor.*_fileupload``, ``*_extractionjob``, ``*_extractionresult``
+     - ``extractor.*_fileupload``, ``*_processedtext``, ``*_extractionjob``,
+       ``*_extractionresult``
    * - LLM configuration (clients, models, prompts, embeddings)
-     - ``extractor.*_clientconfiguration``, ``*_responsemodel``, ``*_instructormessage``, ``*_embeddingconfiguration``
+     - ``extractor.*_clientconfiguration``, ``*_responsemodel``,
+       ``*_instructormessage``, ``*_embeddingconfiguration``
+   * - Text de-identification pipelines (LLM Extraction → Deid Pipelines)
+     - ``extractor.view/add/change/delete_textdeidentificationpipelineconfig``
+       (not in any shipped role — grant directly, see note above)
    * - Deidentification list, jobs and exports
      - ``deidentification.view_deidpatient``, ``add/view_deidentificationjob``
    * - Task Runs page

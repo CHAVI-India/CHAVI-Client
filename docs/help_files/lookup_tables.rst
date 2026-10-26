@@ -3,6 +3,13 @@ Lookup Tables in CHAVI client
 
 The CHAVI client uses a number of lookup tables to store information that is used across multiple models. These lookup tables are used to ensure consistency and to reduce the amount of data that needs to be stored in the database. The lookup tables are also used to provide a standard set of options for users to select from when entering data.
 
+.. note::
+   The client also serves its own read-only lookup API at
+   ``/api/lookup/<table-name>/`` on the server itself — the same tables this
+   page documents. The ``https://backend.chavi.ai/api/v1/lookup/...``
+   endpoints quoted below are the central CHAVI backend copies of these
+   tables.
+
 
 The following are the sources for the major lookup tables:
 

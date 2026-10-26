@@ -133,7 +133,7 @@ After that create a python virtual environment using a package of your choice. W
 After the virtual environment has been created you will be able to activate the virtual environment. From inside the virtual environment install the project requirements. 
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 This will pull and install all the required packages. Note you may need to have an IT administrator to help you with the package installs. Additionally you may find that in Windows system Folder Access Policies prevent the script from running. In these cases please contact your IT Administrator for appropriate privileges. 
@@ -141,7 +141,7 @@ This will pull and install all the required packages. Note you may need to have 
 After the installation is completed then you should perform the following steps:  
 
 ### Database Setup
-Create the database. Note the application is developed using a SQLite database but can accept other database engines too. Note that we will be pulling in all the lookup table data also in the same command. 
+Create the database. Note the application works with PostgreSQL (recommended) but can accept other database engines too. Note that we will be pulling in all the lookup table data also in the same command. 
 
 ```
 python manage.py migrate
@@ -151,19 +151,21 @@ python manage.py migrate
 
 Create a .env file in the root directory and add the following variables.
 
-``` 
-DJANGO_SECRET_KEY=django-insecure-%zvbz3$uzi$kvpd$2@5+6-=@7&8%l4^-lp!$(s#ysd9w8)fe! # Add secret key of the project. Ensure this is changed before deployment.
+```
+DJANGO_SECRET_KEY=a-long-random-string # Add secret key of the project. Ensure this is changed before deployment.
 DEBUG=True # Set to True for development, False for production
 DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost' # Add other hosts if needed seperated by commas
 
 DJANGO_DB_ENGINE=django.db.backends.postgresql # Add engine of the database
 DJANGO_DB_NAME=chaviclient # Add name of the database
-DJANGO_DB_USER=postgres # Add username of the database  
-DJANGO_DB_PASSWORD=26rishi1978 # Add password of the database
+DJANGO_DB_USER=postgres # Add username of the database
+DJANGO_DB_PASSWORD=your_secure_password # Add password of the database
 DJANGO_DB_HOST=localhost # Add host of the database
 DJANGO_DB_PORT=5432 # Add port of the database
+
+CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// # RabbitMQ broker for background jobs
 ```
-See the sampleenv file for reference.
+The full list of variables, including the lookup API and proxy settings, is in the Sphinx documentation — see the Installation page under ``docs/help_files/``. The complete set of variables used by the Docker install is in ``docker_install/example_.env``.
 
 ### Create a Superuser
 Create a superuser. This superuser can be a local administrator.
@@ -181,6 +183,12 @@ Start the server to start the application. The server will allow users from the 
 python manage.py runserver
 ```
 
+Background jobs (de-identification, DICOM retrieval, downloads, scheduled
+maintenance tasks) are handled by separate Celery processes — a general
+worker, a single-slot deid worker, and the beat scheduler. Start all three
+before using those features; the exact commands are on the Installation page
+under ``docs/help_files/`` ("Running the Celery Workers and Beat").
+
 After the server starts at the designated port on the localhost please access the server using the appropriate localhost port. Enter your superuser username and password to access the admin site. The path to the admin site is http://localhost:8000/admin
 
 ## Post Installation
@@ -188,11 +196,17 @@ After the server starts at the designated port on the localhost please access th
 ### Create Site
 The first step after logging in is to create a new site configuration. To do so go the form titled "Site Configuration" and click on the "Add Site Configuration" button. This will allow you to enter the site details. Please remember to put the site ID as the one which has been provided to you by the CHAVI team.
 
-### Create User Group
-The next step is to create a user group. To do so go the form titled "User Group" and click on the "Add User Group" button. This will allow you to enter the user group details. Please remember to put the user group ID as the one which has been provided to you by the CHAVI team. Also ensure that they are marked as staff so that they can access the admin interface.
+### Assign Roles
+Roles (Clinical Data Viewer, Clinical Data Entry, Data Import Operator, LLM
+Extraction Operator, LLM Configuration, Deidentification Operator, DICOM
+Administrator) are created automatically by the database migration — you do
+not create user groups by hand. Assign the roles a user needs in Django admin
+under **Users → (user) → Groups**; a user may hold several roles at once.
+See the *Roles and Permissions* page under ``docs/help_files/`` for what each
+role covers.
 
 ### Create User
-The next step is to create a user. To do so go the form titled "User" and click on the "Add User" button. This will allow you to enter the user details. Please remember to put the user ID as the one which has been provided to you by the CHAVI team.
+The next step is to create a user. To do so go the form titled "User" and click on the "Add User" button. This will allow you to enter the user details.
 
 ## Usage Guidelines
 
@@ -374,6 +388,7 @@ and extracts structured records via an OpenAI-compatible LLM using Instructor.
 |---|---|---|
 | `EXTRACTOR_MAX_UPLOAD_MB` | 50 | Uploads larger than this are rejected before storage |
 | `DJANGO_FIELD_ENCRYPTION_KEY` | required | Fernet key encrypting API keys and extracted data |
+| `LOOKUP_API_URL` / `LOOKUP_API_KEY` | — | Lookup service for label↔code resolution |
 
 LLM/embedding endpoint policy is fixed in code: `https://` is allowed
 anywhere; `http://` is allowed only for localhost/LAN endpoints.
@@ -394,15 +409,18 @@ apt install tesseract-ocr poppler-utils
 
 OCR runs under Celery and produces a new versioned `ProcessedText` row
 (`ocr_applied=True`) that can be extracted like any other version.
-| `LOOKUP_API_URL` / `LOOKUP_API_KEY` | — | Lookup service for label↔code resolution |
 
 ### Background workers
 
 Extraction jobs and embedding index builds run under **Celery** (RabbitMQ
-broker already configured). A worker must be running:
+broker, see the Environment Setup section). Two workers are needed — a
+general worker and the single-slot deid worker — plus the beat scheduler;
+the exact commands are on the Installation page under ``docs/help_files/``:
 
 ```
-celery -A chavi_client worker -l info
+celery -A chavi_client worker -l info -n general@%h -Q default -c 2
+celery -A chavi_client worker -l info -n deid@%h -Q deid -c 1
+celery -A chavi_client beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
 
 ### Lookup embeddings

@@ -1,9 +1,30 @@
 DICOM Study Data
 ====================
 
-The DICOM Study Data module manages medical imaging studies associated with patient care.
+The DICOM study pages show each patient's imaging studies and their details,
+and are where scans get their study type and their link to a project.
 
-Data Collection Fields
+Where the studies come from
+---------------------------
+
+Studies are not entered by hand — they arrive one of three ways:
+
+* A ZIP file you upload — see :doc:`handling_dicom_data`.
+* A fetch from your hospital's imaging system — see :doc:`dicom_retrieval`.
+* Scans the imaging system pushes to the DICOM server on its own — see :doc:`dicom_server_setup`.
+
+Study type
+----------
+
+Each study has a **study type** recording why it was done (pre-treatment
+diagnostic, planning, on-treatment verification, post-treatment response,
+and so on). Most studies get their type automatically from the scan details;
+you can always correct it from the dropdown on the study. A type set by hand
+is never overwritten by the automatic rules. The full list of study types and
+what they mean is on the :doc:`handling_dicom_data` page ("Adding Study
+Type information").
+
+Data shown for a study
 ----------------------
 
 Study Information
@@ -19,19 +40,6 @@ Series Information
 
 Project Association
 ^^^^^^^^^^^^^^^^^^^^^
-* **Project Assignment**: CHAVI projects associated with these images
-
-Special Considerations
--------------------------
-
-1. Data Management:
-
-   #. Maintain unique identifiers  
-   #. Link to relevant clinical events  
-   #. Ensure proper study organization  
-
-2. Documentation:
-
-   #. Record complete study details  
-   #. Note any technical issues  
-   #. Track study relationships 
+* **Project Assignment**: CHAVI projects associated with these images. A study
+  may belong to more than one project. Batch association of many studies
+  with a project is done from the admin area — see :doc:`handling_dicom_data`. 

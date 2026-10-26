@@ -1,5 +1,5 @@
 Two Factor Authentication
-=======================
+=========================
 
 This guide explains how to enable two factor authentication for the user accounts.
 

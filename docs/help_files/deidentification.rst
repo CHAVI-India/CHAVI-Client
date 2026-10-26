@@ -41,6 +41,11 @@ De-identification cleans the scan files in two ways:
 * The details stored inside each file — patient name, dates that could identify them, and similar — are replaced with safe values. Each patient keeps the same replacement ID every time, so their data still joins up.
 * Text burnt into the images themselves is covered up.
 
+The same kind of cleanup is also applied to the clinical text the system
+extracts from documents before anything is read — see
+:doc:`extraction_setup` (text de-identification pipelines) and
+:doc:`automatic_data_extraction`.
+
 The original files are never changed — the cleaned copies are stored separately, so you can always go back.
 
 .. tip::

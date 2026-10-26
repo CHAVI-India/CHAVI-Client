@@ -1,7 +1,13 @@
 Lookup Data
 ============
 
-This section describes the key fields that reference data from the lookup tables. 
+This section describes the key fields that reference data from the lookup tables.
+
+.. note::
+   The client serves its own read-only lookup API at
+   ``/api/lookup/<table-name>/`` (see ``lookup/API_README.md``); the
+   ``https://backend.chavi.ai/api/v1/lookup/...`` endpoints quoted below are
+   the central CHAVI backend copies of the same tables. 
 
 
 LookupLaterality

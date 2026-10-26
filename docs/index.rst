@@ -73,6 +73,7 @@ Please note that the organization of the data may be different from the usual wa
    help_files/automatic_data_extraction
    help_files/lookup_data
    help_files/lookup_tables
+   help_files/dicom_archive
 
 .. toctree::
    :maxdepth: 2
