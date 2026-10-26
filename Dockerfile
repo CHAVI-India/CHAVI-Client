@@ -29,16 +29,57 @@ ENV EASYOCR_MODEL_STORE=/opt/easyocr-model
 RUN mkdir -p "$EASYOCR_MODEL_STORE" && \
     python - <<'PY'
 import os
-from easyocr.utils import download_and_unzip
-from easyocr import config
+import time
+import urllib.request
+from zipfile import ZipFile
+
+# EasyOCR ships its weights as GitHub release zips (github.com/JaidedAI/...).
+# CI hosts have variable egress — retry each download a few times with
+# backoff, verify the archive before unzipping, and fail with a message that
+# names the exact URL (so the next failure is diagnosable from the log).
+import hashlib
+
+URLS = [
+    ("craft_mlt_25k.pth",
+     "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/craft_mlt_25k.zip",
+     "2f8227d2def4037cdb3b34389dcf9ec1"),
+    ("english_g2.pth",
+     "https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/english_g2.zip",
+     "5864788e1821be9e454ec108d61b887d"),
+]
 
 store = os.environ["EASYOCR_MODEL_STORE"]
-det = config.detection_models["craft"]
-if not os.path.isfile(os.path.join(store, det["filename"])):
-    download_and_unzip(det["url"], det["filename"], store, verbose=False)
-rec = config.recognition_models["gen2"]["english_g2"]
-if not os.path.isfile(os.path.join(store, rec["filename"])):
-    download_and_unzip(rec["url"], rec["filename"], store, verbose=False)
+for filename, url, md5 in URLS:
+    dest = os.path.join(store, filename)
+    if os.path.isfile(dest):
+        continue
+    last_err = None
+    for attempt in range(1, 5):
+        try:
+            tmp = os.path.join(store, f".tmp-{filename}")
+            urllib.request.urlretrieve(url, tmp)
+            with ZipFile(tmp) as z:
+                # fail fast on a truncated/corrupt download before unzipping
+                bad = z.testzip()
+                assert bad is None, f"corrupt zip member {bad}"
+                z.extract(filename, store)
+            os.remove(tmp)
+            break
+        except Exception as e:
+            last_err = e
+            print(f"download attempt {attempt}/4 failed for {filename}: {e}")
+            time.sleep(5 * attempt)
+    else:
+        raise SystemExit(
+            f"easyocr model download failed after 4 attempts: {filename} from {url} "
+            f"(last error: {last_err}). Re-run the build or set up a proxy. "
+            f"The runtime falls back to Tesseract OCR if this store is missing, "
+            f"but EasyOCR is the preferred engine."
+        )
+    with open(dest, "rb") as f:
+        got = hashlib.md5(f.read()).hexdigest()
+    assert got == md5, f"md5 mismatch {dest}: {got} != {md5}"
+    print(f"seeded {filename} ({os.path.getsize(dest)} bytes)")
 print("easyocr models seeded into", store)
 PY
  
