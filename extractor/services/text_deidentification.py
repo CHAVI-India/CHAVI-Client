@@ -868,12 +868,12 @@ class TextDeidentificationService:
     _analyzer_cache = {}
 
     @classmethod
-    def _build_analyzer_for(cls, pipeline):
+    def _build_analyzer_for(cls, pipeline, use_cache=True):
         import os
         key = (pipeline.ner_engine,
                pipeline.hf_model_id if pipeline.ner_engine == 'hf' else None,
                pipeline.hf_threshold)
-        if key in cls._analyzer_cache:
+        if use_cache and key in cls._analyzer_cache:
             return cls._analyzer_cache[key]
         nlp_engine = None
         if pipeline.ner_engine == 'hf':
@@ -906,7 +906,8 @@ class TextDeidentificationService:
                 analyzer.registry.add_recognizer(recognizer)
         for recognizer in build_text_recognizers():
             analyzer.registry.add_recognizer(recognizer)
-        cls._analyzer_cache[key] = analyzer
+        if use_cache:
+            cls._analyzer_cache[key] = analyzer
         return analyzer
 
     @classmethod

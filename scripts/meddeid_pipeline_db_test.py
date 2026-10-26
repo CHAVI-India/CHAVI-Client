@@ -44,11 +44,13 @@ Usage:
   venv/bin/python scripts/meddeid_pipeline_db_test.py --no-deid-text
 """
 import argparse
+import concurrent.futures
 import json
 import os
 import platform
 import random
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -188,9 +190,37 @@ def pipeline_info(pipeline):
 
 
 def _append_doc(path, rec):
-    """Append one per-document record to the JSONL progress file."""
-    with open(path, 'a') as f:
-        f.write(json.dumps(rec) + '\n')
+    """Append one per-document record to the JSONL progress file.
+
+    Serialized by _write_lock so concurrent workers never interleave lines.
+    """
+    with _write_lock:
+        with open(path, 'a') as f:
+            f.write(json.dumps(rec) + '\n')
+
+
+# Per-thread worker state: each worker thread builds its OWN analyzer (fresh
+# HF model, bypassing the shared cache) and its OWN LLM recognizer, so
+# concurrent workers never share model/recognizer state.
+_tls = threading.local()
+_write_lock = threading.Lock()
+
+
+def _worker_ctx(pipeline):
+    """Return this thread's (analyzer, ad_hoc) pair, building it on first use.
+
+    Keyed by pipeline slug so a reused thread switching pipelines rebuilds.
+    """
+    ctx = getattr(_tls, 'ctx', None)
+    if ctx is None or ctx.get('slug') != pipeline.slug:
+        analyzer = S._build_analyzer_for(pipeline, use_cache=False)
+        ad_hoc = []
+        if pipeline.system2_model_id:
+            ad_hoc = [LlmNerRecognizer(pipeline.system2_model)]
+        ctx = {'slug': pipeline.slug, 'analyzer': analyzer,
+               'ad_hoc': ad_hoc}
+        _tls.ctx = ctx
+    return ctx
 
 
 def _load_done(docs_path):
@@ -264,31 +294,28 @@ def _aggregate(pipeline, docs_path, dt, save_text):
 
 
 def run_pipeline(pipeline, notes, shift, save_text, verbose, docs_path,
-                 resume=False):
+                 resume=False, workers=1):
     """Run the production pipeline over `notes`.
 
     Each document's result is appended to `docs_path` (JSONL) the moment it
     completes, so progress is visible per file and a crash loses only the
     in-flight document. With resume=True, documents already in `docs_path`
     are skipped.
-    """
-    # production wiring: analyzer per pipeline config, LLM as ad-hoc
-    # recognizer when a system-2 model is configured
-    analyzer = S._build_analyzer_for(pipeline)
-    ad_hoc = []
-    if pipeline.system2_model_id:
-        ad_hoc = [LlmNerRecognizer(pipeline.system2_model)]
 
+    With workers>1, documents are processed by a thread pool; each worker
+    thread builds its OWN analyzer (fresh HF model) + its OWN LLM recognizer
+    (see _worker_ctx), so the LLM-bound calls run concurrently.
+    """
     done = _load_done(docs_path) if resume else set()
     if done:
         print(f'  resume: {len(done)}/{len(notes)} docs already done, '
               f'skipping')
-
-    t0 = time.monotonic()
+    tasks = [(i, note) for i, note in enumerate(notes, 1)
+             if note['document_id'] not in done]
     n_total = len(notes)
-    for i, note in enumerate(notes, 1):
-        if note['document_id'] in done:
-            continue
+
+    def process(idx, note):
+        ctx = _worker_ctx(pipeline)
         text = note['text']
         gold = [(s['begin'], s['end'], s['category'])
                 for s in note['spans'] if s.get('confirmed', True)]
@@ -297,23 +324,25 @@ def run_pipeline(pipeline, notes, shift, save_text, verbose, docs_path,
         for attempt in range(1, MAX_DOC_ATTEMPTS + 1):
             try:
                 results = run_doc_production(
-                    text, pipeline, analyzer, ad_hoc)
+                    text, pipeline, ctx['analyzer'], ctx['ad_hoc'])
                 last_err = None
                 break
             except Exception as e:  # noqa: BLE001 - record and continue
                 last_err = e
                 if verbose:
-                    print(f'    [{note["document_id"]} attempt {attempt}] '
-                          f'{type(e).__name__}: {e}')
+                    with _write_lock:
+                        print(f'    [{note["document_id"]} attempt {attempt}] '
+                              f'{type(e).__name__}: {e}')
                 if attempt < MAX_DOC_ATTEMPTS:
                     time.sleep(RETRY_WAIT_S)
         if last_err is not None:
             _append_doc(docs_path, {'id': note['document_id'],
                                     'error': f'{type(last_err).__name__}: '
                                              f'{last_err}'})
-            print(f'  [{i}/{n_total}] {note["document_id"]}: '
-                  f'ERROR {last_err}')
-            continue
+            with _write_lock:
+                print(f'  [{idx}/{n_total}] {note["document_id"]}: '
+                      f'ERROR {last_err}')
+            return
 
         pred = [(r.start, r.end) for r in results]
         deid_text = S._apply_replacements(text, results, shift, {}, [])
@@ -329,11 +358,22 @@ def run_pipeline(pipeline, notes, shift, save_text, verbose, docs_path,
         if save_text:
             doc_rec['deid'] = deid_text
         _append_doc(docs_path, doc_rec)
-        print(f'  [{i}/{n_total}] {note["document_id"]:26s} '
-              f'gold={ngold:2d} pred={npred:2d} tp={tp:2d} '
-              f'P={prec:.2f} R={rec:.2f} F1={f1:.2f} '
-              f'{time.monotonic() - t_doc:5.1f}s')
+        with _write_lock:
+            print(f'  [{idx}/{n_total}] {note["document_id"]:26s} '
+                  f'gold={ngold:2d} pred={npred:2d} tp={tp:2d} '
+                  f'P={prec:.2f} R={rec:.2f} F1={f1:.2f} '
+                  f'{time.monotonic() - t_doc:5.1f}s')
 
+    t0 = time.monotonic()
+    if workers <= 1:
+        for idx, note in tasks:
+            process(idx, note)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=workers) as ex:
+            futs = [ex.submit(process, idx, note) for idx, note in tasks]
+            for fut in concurrent.futures.as_completed(futs):
+                fut.result()  # surface any unexpected exception
     dt = time.monotonic() - t0
     return _aggregate(pipeline, docs_path, dt, save_text)
 
@@ -368,6 +408,10 @@ def main():
     ap.add_argument('--resume', action='store_true',
                     help='skip documents already recorded in each '
                          'pipeline\'s per-doc JSONL (crash recovery)')
+    ap.add_argument('--workers', type=int, default=3,
+                    help='concurrent worker threads per pipeline; each '
+                         'builds its own analyzer + LLM recognizer so the '
+                         'LLM-bound calls run in parallel (default 3)')
     ap.add_argument('--verbose', action='store_true')
     args = ap.parse_args()
 
@@ -406,7 +450,8 @@ def main():
                            save_text=not args.no_deid_text,
                            verbose=args.verbose,
                            docs_path=docs_path,
-                           resume=args.resume)
+                           resume=args.resume,
+                           workers=args.workers)
         results.append(res)
         # incremental safety net: persist this pipeline's result as soon as
         # it completes, so a crash in a later (e.g. LLM) pipeline does not
