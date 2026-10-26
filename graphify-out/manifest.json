@@ -1464,10 +1464,10 @@
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "extractor/models.py": {
-    "mtime": 1792245850.8077831,
-    "seen": 1792942165.4205413,
-    "ast_hash": "0e91691d36803e23561c414e31e5c059",
-    "semantic_hash": "0e91691d36803e23561c414e31e5c059"
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9967504,
+    "ast_hash": "e4647d58b38623593da96c15312ffbe8",
+    "semantic_hash": ""
   },
   "extractor/scripts/deid_meddeid_ab.py": {
     "mtime": 1792910249.4604058,
@@ -1512,10 +1512,10 @@
     "semantic_hash": "f5e14ed567d5b438b67e779c9f6489dc"
   },
   "extractor/services/file_processor.py": {
-    "mtime": 1791713210.612338,
-    "seen": 1792942165.4205477,
-    "ast_hash": "76146c17983cf0412beafe53f4cabbb2",
-    "semantic_hash": "76146c17983cf0412beafe53f4cabbb2"
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9969254,
+    "ast_hash": "0a46276ad75c9739f4f259486490d984",
+    "semantic_hash": ""
   },
   "extractor/services/instructor_extractor.py": {
     "mtime": 1792613492.9511876,
@@ -1590,10 +1590,10 @@
     "semantic_hash": "95e089bdc1a9e6c10ce668e322fba66e"
   },
   "extractor/services/text_deidentification.py": {
-    "mtime": 1792900370.9070957,
-    "seen": 1792942165.4205585,
-    "ast_hash": "c77fdc547c03594809795fb583e0e91f",
-    "semantic_hash": "c77fdc547c03594809795fb583e0e91f"
+    "mtime": 1793021574.8933907,
+    "seen": 1793022602.9972353,
+    "ast_hash": "fb02eca5bcc9d278fea0778cbcc65c20",
+    "semantic_hash": ""
   },
   "extractor/services/url_policy.py": {
     "mtime": 1792030024.1775312,
@@ -1620,10 +1620,10 @@
     "semantic_hash": "80925c69b827c609cb44106810093da2"
   },
   "extractor/tests.py": {
-    "mtime": 1792614280.5303044,
-    "seen": 1792942165.4205625,
-    "ast_hash": "6b076ef1c969542205205d31f1e031c2",
-    "semantic_hash": "6b076ef1c969542205205d31f1e031c2"
+    "mtime": 1793021574.8133907,
+    "seen": 1793022602.9973512,
+    "ast_hash": "5cd95122929f3c08513182516f944e13",
+    "semantic_hash": ""
   },
   "extractor/urls.py": {
     "mtime": 1792234757.030449,
@@ -2292,10 +2292,10 @@
     "semantic_hash": "ef2457525128781dce79ee27fecb9173"
   },
   "templates/extractor/file_upload_list.html": {
-    "mtime": 1790693935.5805726,
-    "seen": 1792942165.420656,
-    "ast_hash": "56b5313f212c26175951c250c1ab6850",
-    "semantic_hash": "56b5313f212c26175951c250c1ab6850"
+    "mtime": 1793021574.8613908,
+    "seen": 1793022603.0175698,
+    "ast_hash": "a6ca71be23a0be9b48457ec631b1b4ad",
+    "semantic_hash": ""
   },
   "templates/extractor/instructor_message_form.html": {
     "mtime": 1790693935.5805726,
@@ -2478,9 +2478,9 @@
     "semantic_hash": ""
   },
   "chavi_client/settings.py": {
-    "mtime": 1792805547.141942,
-    "seen": 1792943557.3664417,
-    "ast_hash": "300cd3162a96db7fd1602f328e51aab8",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9888003,
+    "ast_hash": "badef2d94c5fe667306d409fc814c70f",
     "semantic_hash": ""
   },
   "chavi_client/test_settings_netstub.py": {
@@ -2682,9 +2682,9 @@
     "semantic_hash": ""
   },
   "deidentification/utils/burnt_in_pixel_scrubbing.py": {
-    "mtime": 1792772664.704742,
-    "seen": 1792943557.3666208,
-    "ast_hash": "f73d67713003639b350caaff59c1f92d",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9924452,
+    "ast_hash": "abae8eefdb93a816bd461049113e32b6",
     "semantic_hash": ""
   },
   "deidentification/utils/date_replacement.py": {
@@ -2706,9 +2706,9 @@
     "semantic_hash": ""
   },
   "deidentification/utils/ocr_engines.py": {
-    "mtime": 1792770061.8545272,
-    "seen": 1792943557.3666246,
-    "ast_hash": "03aa8ea187d53f8505b852ab953f15ee",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9925246,
+    "ast_hash": "38cdb6639da786f3f99b401d7dedb20d",
     "semantic_hash": ""
   },
   "deidentification/utils/phi_scrubbing.py": {
@@ -2856,9 +2856,9 @@
     "semantic_hash": ""
   },
   "docs/conf.py": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3667462,
-    "ast_hash": "a94a00ae8a7fa88bd765c982990e3e84",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9953523,
+    "ast_hash": "ed9ea102ceebc9154a464235f6bf3ec9",
     "semantic_hash": ""
   },
   "docs/meddeid-english-synthetic-data-v3/metadata.json": {
@@ -3360,9 +3360,9 @@
     "semantic_hash": ""
   },
   "scripts/meddeid_pipeline_db_test.py": {
-    "mtime": 1792949171.9116013,
-    "seen": 1792950985.8467002,
-    "ast_hash": "7392e0fea3f73273a411e1a5082c9ed2",
+    "mtime": 1793021574.8933907,
+    "seen": 1793022602.999342,
+    "ast_hash": "2c0499faec0f6a45bd19967f3997dae2",
     "semantic_hash": ""
   },
   "scripts/meddeid_test.py": {
@@ -4386,9 +4386,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1790693935.5005722,
-    "seen": 1792943557.3670824,
-    "ast_hash": "2d15b7452754765c0196d68db4fd4c1c",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0046487,
+    "ast_hash": "94eaadef85dfc87b32125c86c5a84ae8",
     "semantic_hash": ""
   },
   "components/templates/ui/accordion.html": {
@@ -4638,9 +4638,9 @@
     "semantic_hash": ""
   },
   "docs/README.md": {
-    "mtime": 1790693935.5125723,
-    "seen": 1792943557.3671281,
-    "ast_hash": "803925ca2b1d2802e1692c74125c719e",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0059714,
+    "ast_hash": "30df129bb39a4086eb59376cc5b63573",
     "semantic_hash": ""
   },
   "docs/_build/_sources/help_files/about.rst.txt": {
@@ -5982,9 +5982,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/about.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673387,
-    "ast_hash": "963ebd5c1416946969da055b836e42f4",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0129354,
+    "ast_hash": "9eed2ae6d8626dc8d07facf3c6f6c783",
     "semantic_hash": ""
   },
   "docs/help_files/adverse_effects.rst": {
@@ -5994,9 +5994,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/automatic_data_extraction.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673408,
-    "ast_hash": "f08682bc77101662dbe5c526749136d6",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.012964,
+    "ast_hash": "8a80b51f0aebf5c18de438cb78067f2c",
     "semantic_hash": ""
   },
   "docs/help_files/cancer_outcomes.rst": {
@@ -6024,9 +6024,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/configuration.rst": {
-    "mtime": 1791642908.3749456,
-    "seen": 1792943557.3673465,
-    "ast_hash": "98dcf16c3eba7be5325773334e41e3f3",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0130672,
+    "ast_hash": "e78f822cc6baf11740cf4d2895ce955d",
     "semantic_hash": ""
   },
   "docs/help_files/csv_import_wizard.rst": {
@@ -6048,9 +6048,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/deidentification.rst": {
-    "mtime": 1792084738.2795815,
-    "seen": 1792943557.36735,
-    "ast_hash": "4b7a0c739318ec539a00cc914d09a6de",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.013145,
+    "ast_hash": "db20aab866faa0ab6f2d0d1ea7304cb3",
     "semantic_hash": ""
   },
   "docs/help_files/diagnosis.rst": {
@@ -6084,15 +6084,15 @@
     "semantic_hash": ""
   },
   "docs/help_files/dicom_study.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.367356,
-    "ast_hash": "b21fd151b393cf52187eab0eea9fa9bc",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0132737,
+    "ast_hash": "caa3de525b2714fe5c19f53643b6047e",
     "semantic_hash": ""
   },
   "docs/help_files/docker_installation.rst": {
-    "mtime": 1792084719.743496,
-    "seen": 1792943557.3673573,
-    "ast_hash": "044f899291d7351b32cfcb3cb1a3fb62",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0132751,
+    "ast_hash": "294a2ed6e3a6dd9ed449d9c60e205635",
     "semantic_hash": ""
   },
   "docs/help_files/epigenetic_modifications.rst": {
@@ -6108,9 +6108,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/extraction_setup.rst": {
-    "mtime": 1791933149.595168,
-    "seen": 1792943557.3673596,
-    "ast_hash": "32399dbb54f2e8e9e93b6094bbd40204",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0133293,
+    "ast_hash": "e90a8fe8f9f273b730a4d64db025d350",
     "semantic_hash": ""
   },
   "docs/help_files/gene_expression_data.rst": {
@@ -6150,9 +6150,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/installation.rst": {
-    "mtime": 1792086404.5475724,
-    "seen": 1792943557.3673656,
-    "ast_hash": "4bd3f30ed0f115dbaaa00361136304dd",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0134864,
+    "ast_hash": "42e18315373d23e503750f94731af299",
     "semantic_hash": ""
   },
   "docs/help_files/laboratory_results.rst": {
@@ -6180,15 +6180,15 @@
     "semantic_hash": ""
   },
   "docs/help_files/lookup_data.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673706,
-    "ast_hash": "1a47f9d0412ea56c36c5aa4e129788a8",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0135918,
+    "ast_hash": "f801442521ad31b92b909d32d9f96ad4",
     "semantic_hash": ""
   },
   "docs/help_files/lookup_tables.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673718,
-    "ast_hash": "80e4263ee962b03353da471257db2e77",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.013594,
+    "ast_hash": "acae13f82af7b71b175ac22e7e75a6f3",
     "semantic_hash": ""
   },
   "docs/help_files/other_treatment.rst": {
@@ -6210,9 +6210,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/patient_demographics.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673754,
-    "ast_hash": "54d425f116577d1bd11a7387420077b8",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.013672,
+    "ast_hash": "2e2d681b075cb97b1b8ca233b2da4ca5",
     "semantic_hash": ""
   },
   "docs/help_files/patient_outcomes.rst": {
@@ -6222,9 +6222,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/patient_reported_outcomes.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.367377,
-    "ast_hash": "cec72ea2ca18ba8e7f9400810f624818",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0136988,
+    "ast_hash": "4e50b703f56f96a6ed087729f2671c0f",
     "semantic_hash": ""
   },
   "docs/help_files/radiation_dose_volume.rst": {
@@ -6246,9 +6246,9 @@
     "semantic_hash": ""
   },
   "docs/help_files/roles_and_permissions.rst": {
-    "mtime": 1791933149.595168,
-    "seen": 1792943557.3673813,
-    "ast_hash": "56bf75c247e13ad38c16de842a39e64a",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.013776,
+    "ast_hash": "0181ea4f1f02651097ba64bd21e39f02",
     "semantic_hash": ""
   },
   "docs/help_files/somatic_genomic_alterations.rst": {
@@ -6294,15 +6294,15 @@
     "semantic_hash": ""
   },
   "docs/help_files/tfa.rst": {
-    "mtime": 1790693935.5285723,
-    "seen": 1792943557.3673894,
-    "ast_hash": "15d0d20468394b3d11ae3e1d5df586b8",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.013978,
+    "ast_hash": "eabe4823d4ae0438c4776401b16f96d8",
     "semantic_hash": ""
   },
   "docs/index.rst": {
-    "mtime": 1791641487.8323915,
-    "seen": 1792943557.3673902,
-    "ast_hash": "5641485970ad2dfe670d3d9fb7c4f6f9",
+    "mtime": 1793021574.8093908,
+    "seen": 1793022603.0139794,
+    "ast_hash": "b4441a11e21c660ffa3c876e133fe842",
     "semantic_hash": ""
   },
   "docs/meddeid-english-synthetic-data-v3/MEDDEID-PRIVATE-FINE-TUNING-EXCEPTION-1.0.txt": {
@@ -6450,9 +6450,9 @@
     "semantic_hash": ""
   },
   "requirements.txt": {
-    "mtime": 1792950448.828346,
-    "seen": 1792950985.8474903,
-    "ast_hash": "c71cfa4ced129e2857489a460252a463",
+    "mtime": 1793021574.8613908,
+    "seen": 1793022603.0147164,
+    "ast_hash": "a26acca82a8502a144b6d5498deccdc4",
     "semantic_hash": ""
   },
   "scripts/README.md": {
@@ -6777,6 +6777,54 @@
     "mtime": 1790693935.5605726,
     "seen": 1792943557.3676095,
     "ast_hash": "a4b938cf382b8f5b60d69ee68d214c37",
+    "semantic_hash": ""
+  },
+  "docs/meddeid-english-synthetic-data-v3/pipeline-test-300-openmed-pii-superclinical-large-434m-v1-no-llm-rules.json": {
+    "mtime": 1793021574.8773906,
+    "seen": 1793022602.9953828,
+    "ast_hash": "77029def7735946bcacef0fb221d9581",
+    "semantic_hash": ""
+  },
+  "docs/meddeid-english-synthetic-data-v3/pipeline-test-300-openmed-pii-superclinical-large-434m-v1-nvidiaqwen38-27b-nvfp4-rules.json": {
+    "mtime": 1793021574.8773906,
+    "seen": 1793022602.9953854,
+    "ast_hash": "230b8414b462a0b9e320d64ae2ef3c50",
+    "semantic_hash": ""
+  },
+  "docs/meddeid-english-synthetic-data-v3/pipeline-test-300-stanford-deidentifier-v2-no-llm-rules.json": {
+    "mtime": 1793021574.8813908,
+    "seen": 1793022602.9953868,
+    "ast_hash": "eb653683e17a551ab48a5c25d080b87c",
+    "semantic_hash": ""
+  },
+  "docs/meddeid-english-synthetic-data-v3/pipeline-test-300-stanford-deidentifier-v2-nvidiaqwen38-27b-nvfp4-rules.json": {
+    "mtime": 1793021574.8813908,
+    "seen": 1793022602.9953878,
+    "ast_hash": "a7f697bdb8ebf306424659a6db1fb55b",
+    "semantic_hash": ""
+  },
+  "extractor/migrations/0037_fileupload_file_size.py": {
+    "mtime": 1793021574.8093908,
+    "seen": 1793022602.9967225,
+    "ast_hash": "a3c600351cf14c32fa8a946452b5443c",
+    "semantic_hash": ""
+  },
+  "scripts/seed_easyocr_models.py": {
+    "mtime": 1793021574.8613908,
+    "seen": 1793022602.9996796,
+    "ast_hash": "11d8c0725ca1d575c3e8ef62b4ecc11d",
+    "semantic_hash": ""
+  },
+  "scripts/verify_easyocr_model_store.sh": {
+    "mtime": 1793021574.8613908,
+    "seen": 1793022602.9997036,
+    "ast_hash": "56e4145202362be37dcdb85bb845ab79",
+    "semantic_hash": ""
+  },
+  "untitled.md": {
+    "mtime": 1793021574.8613908,
+    "seen": 1793022603.018213,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   }
 }
