@@ -201,7 +201,7 @@ class RetrievalJob(models.Model):
         FAILED = 'FAILED', 'Failed'
 
     node = models.ForeignKey(RemoteDICOMNode, on_delete=models.PROTECT, related_name='retrieval_jobs')
-    patient = models.ForeignKey('client_app.Patient', on_delete=models.PROTECT, related_name='retrieval_jobs')
+    patient = models.ForeignKey('client_app.Patient', on_delete=models.CASCADE, related_name='retrieval_jobs')
     created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     batch = models.ForeignKey(
@@ -378,7 +378,7 @@ class RetrievalBatchPatient(models.Model):
         RetrievalBatch, on_delete=models.CASCADE, related_name='patients',
     )
     patient = models.ForeignKey(
-        'client_app.Patient', on_delete=models.PROTECT,
+        'client_app.Patient', on_delete=models.CASCADE,
         related_name='retrieval_batch_rows',
     )
     remote_patient_ids = models.JSONField(
