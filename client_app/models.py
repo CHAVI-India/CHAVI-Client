@@ -2447,6 +2447,8 @@ class TaskRun(models.Model):
         DEIDENTIFICATION = 'DEIDENTIFICATION', 'Deidentification'
         DICOM_ARCHIVE = 'DICOM_ARCHIVE', 'DICOM Archive'
         DICOM_DEARCHIVE = 'DICOM_DEARCHIVE', 'DICOM De-archive'
+        EXTRACTOR = 'EXTRACTOR', 'Extraction Pipeline'
+        LOOKUP_EMBEDDING = 'LOOKUP_EMBEDDING', 'Lookup Embeddings'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -2488,6 +2490,10 @@ class TaskRun(models.Model):
     task_args = models.JSONField(null=True, blank=True, help_text="What are the original positional arguments used to dispatch this task? For resume/retry")
     task_kwargs = models.JSONField(null=True, blank=True, help_text="What are the original keyword arguments used to dispatch this task? For resume/retry")
 
+    tracker_id = models.CharField(
+        max_length=255, null=True, blank=True, db_index=True,
+        help_text="Stable ID of the external progress tracker this run belongs to (e.g. extractor BackgroundTask.task_id, or 'extraction-<job_id>'). Chained Celery tasks sharing a tracker update the same row")
+
     result_summary = models.JSONField(null=True, blank=True, help_text="What is the task return value? Stored as JSON")
     error_log = models.TextField(null=True, blank=True)
 
@@ -2506,6 +2512,7 @@ class TaskRun(models.Model):
             models.Index(fields=['user']),
             models.Index(fields=['task_type']),
             models.Index(fields=['-created_at']),
+            models.Index(fields=['tracker_id']),
         ]
 
     def __str__(self):

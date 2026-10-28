@@ -43,6 +43,15 @@ from dicom_server.tasks import (
     task_retrieve_studies,
     task_retrieve_patient_selection,
 )
+from extractor.tasks import (
+    compute_lookup_embeddings_task,
+    embed_lookup_table_chunk,
+    finalize_lookup_embeddings_task,
+    advance_extraction_job,
+    ocr_processed_text_task,
+    deidentify_processed_text_task,
+    process_csv_row_task,
+)
 from django.db import transaction
 from django.db.models import Q
 from rapidfuzz import process as fuzz_process, fuzz
@@ -1213,6 +1222,8 @@ TASK_TYPE_PERMISSIONS = {
     TaskRun.TaskType.ASSOCIATE: 'client_app.view_patient',
     TaskRun.TaskType.UNPROCESSED: 'client_app.view_dicomstudy',
     TaskRun.TaskType.DEIDENTIFICATION: 'deidentification.view_deidpatient',
+    TaskRun.TaskType.EXTRACTOR: 'extractor.view_processedtext',
+    TaskRun.TaskType.LOOKUP_EMBEDDING: 'extractor.view_embeddingconfiguration',
 }
 
 
@@ -1323,6 +1334,13 @@ TASK_REGISTRY = {
     'dearchive_studies': dearchive_studies_task,
     'dicom_server.task_retrieve_studies': task_retrieve_studies,
     'dicom_server.task_retrieve_patient_selection': task_retrieve_patient_selection,
+    'compute_lookup_embeddings_task': compute_lookup_embeddings_task,
+    'embed_lookup_table_chunk': embed_lookup_table_chunk,
+    'finalize_lookup_embeddings_task': finalize_lookup_embeddings_task,
+    'advance_extraction_job': advance_extraction_job,
+    'ocr_processed_text_task': ocr_processed_text_task,
+    'deidentify_processed_text_task': deidentify_processed_text_task,
+    'process_csv_row_task': process_csv_row_task,
 }
 
 # One-line UI hint per resumable task: what a resume actually does, so users
@@ -1348,6 +1366,13 @@ RESUME_NOTES = {
     'dearchive_studies': 'Resumes from the last restored study',
     'dicom_server.task_retrieve_studies': 'Re-runs only the studies/series not yet retrieved',
     'dicom_server.task_retrieve_patient_selection': 'Re-runs only the studies/series not yet retrieved',
+    'compute_lookup_embeddings_task': 'Resumes the build; already-embedded rows are skipped',
+    'embed_lookup_table_chunk': 'Re-runs the chunk; already-embedded rows are skipped, then the chain continues',
+    'finalize_lookup_embeddings_task': 'Re-aggregates the recorded per-table results',
+    'advance_extraction_job': 'Re-runs the job from its current stage (failed jobs restart at prepare)',
+    'ocr_processed_text_task': 'Re-runs OCR and creates a new version',
+    'deidentify_processed_text_task': 'Re-runs deidentification and creates a new version (no-op if already deidentified)',
+    'process_csv_row_task': 'Re-runs the CSV row pipeline (existing results/jobs are reused)',
 }
 
 

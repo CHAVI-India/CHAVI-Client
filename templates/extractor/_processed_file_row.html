@@ -1,0 +1,100 @@
+{% load extractor_filters %}
+{# Renders one processed-file row (a single ProcessedText version). Expects
+   `processed` in context. Used by the file-upload detail "Processed Files"
+   card. #}
+<div class="border border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors">
+    <div class="flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <i class="fas fa-file-alt text-chavi-primary-600"></i>
+                <span class="font-medium text-gray-900 truncate">{{ processed.processed_file_path|basename }}</span>
+                {% if show_patient %}
+                    {% if processed.effective_patient %}
+                    {% component "badge" style="accent" extra_class="ml-1" %}<i class="fas fa-user mr-1"></i>{{ processed.effective_patient.patient_id }}{% endcomponent %}
+                    {% else %}
+                    {% component "badge" style="gray" extra_class="ml-1" %}Unmatched{% endcomponent %}
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="text-sm text-gray-500 mt-1">
+                <i class="fas fa-clock mr-1"></i>
+                Processed: {{ processed.created_at|date:"M d, Y H:i" }}
+                {% if processed.processed_by_user %}
+                    by {{ processed.processed_by_user.username }}
+                {% endif %}
+            </div>
+            <div class="text-xs text-gray-400 mt-1">
+                <i class="fas fa-folder mr-1"></i>
+                <span class="truncate">{{ processed.processed_file_path }}</span>
+                <span class="ml-2 text-gray-500">v{{ processed.version }}</span>
+                {% if processed.ocr_applied %}
+                    {% component "badge" style="accent" extra_class="ml-2" %}OCR{% endcomponent %}
+                {% endif %}
+                {% if deid_enabled %}
+                    {% if processed.deidentified %}
+                        {% if processed.deid_review_pending %}
+                            {% component "badge" style="warning" extra_class="ml-2" %}DEID · pending review{% endcomponent %}
+                        {% else %}
+                            {% component "badge" style="success" extra_class="ml-2" %}DEID ✓{% endcomponent %}
+                        {% endif %}
+                    {% else %}
+                        {% component "badge" style="danger" extra_class="ml-2" %}Needs deidentification{% endcomponent %}
+                    {% endif %}
+                {% endif %}
+                {% if processed.processing_warning %}
+                    {% component "badge" style="warning" icon="fas fa-exclamation-triangle" extra_class="ml-2" %}{{ processed.processing_warning|cut:"_"|title }}{% endcomponent %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            {% if perms.extractor.change_processedtext %}
+            {% if processed.processing_warning == 'no_text' or processed.processing_warning == 'low_text' or processed.processing_warning == 'ocr_empty' %}
+            <form method="post" action="{% url 'extractor:processed_text_ocr' processed.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <span title="OCR requires tesseract-ocr + poppler-utils on the server">
+                {% component "button" style="accent" type="submit" icon="fas fa-scanner-gun" %}Run OCR{% endcomponent %}
+                </span>
+            </form>
+            {% endif %}
+            {% if deid_enabled %}
+                {% if processed.deidentified %}
+                {% url 'extractor:processed_text_deid_review' processed.id as deid_review_url %}
+                {% with enc_path=request.path|urlencode %}
+                {% with rurl=deid_review_url|add:"?next="|add:enc_path %}
+                {% component "button" style="primary" href=rurl icon="fas fa-user-shield" %}Review deid{% endcomponent %}
+                {% endwith %}
+                {% endwith %}
+                {% else %}
+                <form method="post" action="{% url 'extractor:processed_text_deidentify' processed.id %}" class="inline-flex items-center gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <select name="backend"
+                            class="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white max-w-[16rem]"
+                            title="Deidentification pipeline / engine">
+                        <option value="default">Default pipeline</option>
+                        {% for p in deid_pipelines %}
+                        <option value="pipeline:{{ p.id }}">Pipeline: {{ p.name }}{% if p.is_default %} (default){% endif %}</option>
+                        {% endfor %}
+                        <option value="presidio">Legacy: Presidio + Stanford NER</option>
+                        {% if deid_openmed_enabled %}
+                        <option value="openmed">Legacy: OpenMed clinical NER</option>
+                        {% endif %}
+                        {% for cfg in deid_llm_configs %}
+                        <option value="llm:{{ cfg.id }}">Legacy: LLM NER — {{ cfg.llm_model_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <span title="Run deidentification on this version">
+                    {% component "button" style="primary" type="submit" icon="fas fa-user-shield" %}Run deid{% endcomponent %}
+                    </span>
+                </form>
+                {% endif %}
+            {% endif %}
+            {% endif %}
+            {% if perms.extractor.view_processedtext %}
+            {% url 'extractor:processed_text_view' processed.id as view_url %}
+            {% component "button" style="primary" href=view_url icon="fas fa-eye" %}View{% endcomponent %}
+            {% endif %}
+        </div>
+    </div>
+</div>

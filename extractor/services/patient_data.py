@@ -11,6 +11,7 @@ import os
 from logging import getLogger
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 
 from extractor.models import (
     DatabaseTable, DatabaseField, ExtractedRecord, ExtractionResult,
@@ -225,10 +226,14 @@ def _existing_rows_for_parent(child_table, parent_rec, columns):
 
 
 def _patient_jobs(patient):
-    """All extraction jobs whose source file belongs to this patient."""
+    """All extraction jobs whose source document belongs to this patient:
+    the row patient for CSV row documents, else the upload's patient."""
     return ExtractionJob.objects.filter(
-        processed_file__file_upload__patient_id=patient
-    ).select_related('processed_file__file_upload', 'response_model__client')
+        Q(processed_file__patient_id=patient)
+        | (Q(processed_file__patient_id__isnull=True)
+           & Q(processed_file__file_upload__patient_id=patient))
+    ).select_related('processed_file__file_upload', 'processed_file__patient_id',
+                     'response_model__client')
 
 
 def build_patient_data_tree(patient):
@@ -244,11 +249,12 @@ def build_job_data_tree(extraction_job):
     """
     Same record grid scoped to one extraction job — the canonical review
     view on the job detail page. Existing-row comparison and write-back
-    use the job file's patient (may be None).
+    use the document's effective patient (row patient, else upload's;
+    may be None).
     """
     records = _record_qs().filter(extraction_job=extraction_job)
-    upload = getattr(extraction_job.processed_file, 'file_upload', None)
-    patient = getattr(upload, 'patient_id', None)
+    pf = extraction_job.processed_file
+    patient = pf.effective_patient if pf is not None else None
     return build_records_data_tree(records, patient)
 
 
@@ -256,6 +262,7 @@ def _record_qs():
     return ExtractedRecord.objects.select_related(
         'database_table__clientapp_content_type',
         'extraction_job__processed_file__file_upload',
+        'extraction_job__processed_file__patient_id',
     ).order_by('extraction_job_id', 'record_index')
 
 

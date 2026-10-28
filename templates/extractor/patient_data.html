@@ -26,7 +26,7 @@
                        class="rounded border-gray-300 text-chavi-primary"
                        {% if deid_enabled %}
                            {% if not fr.processed_file.deidentified %}disabled title="Deidentification required before extraction"{% endif %}
-                           {% if fr.processed_file.deidentified and deid_require_review and not fr.processed_file.deid_reviewed %}disabled title="Review the deidentified text before extraction"{% endif %}
+                           {% if fr.processed_file.deid_review_pending %}disabled title="Review the deidentified text before extraction"{% endif %}
                        {% endif %}>
                 {% endif %}
                 <div class="flex-1 min-w-0">
@@ -37,10 +37,10 @@
                     {% endif %}
                     {% if deid_enabled %}
                         {% if fr.processed_file.deidentified %}
-                            {% if fr.processed_file.deid_reviewed %}
-                            {% component "badge" style="success" extra_class="ml-1" %}DEID ✓{% endcomponent %}
-                            {% else %}
+                            {% if fr.processed_file.deid_review_pending %}
                             {% component "badge" style="warning" extra_class="ml-1" %}DEID{% endcomponent %}
+                            {% else %}
+                            {% component "badge" style="success" extra_class="ml-1" %}DEID ✓{% endcomponent %}
                             {% endif %}
                         {% else %}
                             {% component "badge" style="danger" extra_class="ml-1" %}Needs deidentification{% endcomponent %}

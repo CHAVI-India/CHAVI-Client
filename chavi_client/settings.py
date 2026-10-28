@@ -888,28 +888,6 @@ EXTRACTOR_DEID_CLINICAL_ALLOWLIST = {
     'hourly',            # dosing frequency, mis-tagged as DATE
     'spo2', 'jvp',       # vitals, mis-tagged as PERSON
 }
-# CSV column header (lowercased) -> entity type; mapped columns are replaced
-# wholesale, unmapped columns get per-cell NER.
-EXTRACTOR_DEID_CSV_COLUMN_MAP = {
-    'patient_name': 'PERSON', 'name': 'PERSON', 'pt_name': 'PERSON',
-    'patient': 'PERSON', 'doctor': 'PERSON', 'referring_doctor': 'PERSON',
-    'mrn': 'PATIENT_ID', 'uhid': 'PATIENT_ID', 'reg_no': 'PATIENT_ID',
-    'hospital_no': 'PATIENT_ID', 'patient_id': 'PATIENT_ID',
-    'dob': 'DATE_TIME', 'date_of_birth': 'DATE_TIME', 'doa': 'DATE_TIME',
-    'dod': 'DATE_TIME', 'admission_date': 'DATE_TIME',
-    'discharge_date': 'DATE_TIME', 'diagnosis_date': 'DATE_TIME',
-    'visit_date': 'DATE_TIME', 'date': 'DATE_TIME',
-    'phone': 'PHONE_NUMBER', 'mobile': 'PHONE_NUMBER',
-    'contact': 'PHONE_NUMBER', 'phone_no': 'PHONE_NUMBER',
-    'address': 'LOCATION', 'addr': 'LOCATION',
-    'aadhaar': 'IN_AADHAAR', 'aadhar': 'IN_AADHAAR',
-    'abha': 'IN_ABHA', 'health_id': 'IN_ABHA',
-    'email': 'EMAIL_ADDRESS',
-    'city': 'LOCATION', 'district': 'LOCATION', 'state': 'LOCATION',
-    'village': 'LOCATION',
-    'pin': 'IN_PINCODE', 'pincode': 'IN_PINCODE',
-    'age': 'AGE',
-}
 
 
 # Celery Configuration

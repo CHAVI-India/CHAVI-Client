@@ -18,27 +18,27 @@
         {% url 'extractor:processed_text_deid_review' processed_text.id as deid_url %}
         {% with enc_path=request.path|urlencode %}
         {% with rurl=deid_url|add:"?next="|add:enc_path %}
-        {% if processed_text.deid_reviewed %}
-        {% component "info_box" style="success" icon="fas fa-user-shield" %}
-            {% fill "default" %}
-            <div class="flex items-center justify-between">
-                <p>
-                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %})
-                    — PHI shown as &lt;TAGS&gt;, dates shifted.
-                    Reviewed — eligible for extraction.
-                </p>
-                {% component "button" style="primary" size="sm" href=rurl icon="fas fa-user-shield" %}Review deidentified text{% endcomponent %}
-            </div>
-            {% endfill %}
-        {% endcomponent %}
-        {% else %}
+        {% if processed_text.deid_review_pending %}
         {% component "info_box" style="warning" icon="fas fa-user-shield" %}
             {% fill "default" %}
             <div class="flex items-center justify-between">
                 <p>
                     <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %})
                     — PHI shown as &lt;TAGS&gt;, dates shifted.
-                    Not yet reviewed.
+                    Not yet reviewed — required before extraction.
+                </p>
+                {% component "button" style="primary" size="sm" href=rurl icon="fas fa-user-shield" %}Review deidentified text{% endcomponent %}
+            </div>
+            {% endfill %}
+        {% endcomponent %}
+        {% else %}
+        {% component "info_box" style="success" icon="fas fa-user-shield" %}
+            {% fill "default" %}
+            <div class="flex items-center justify-between">
+                <p>
+                    <strong>Deidentified version</strong> (engine: {{ processed_text.deid_engine|default:"unknown" }}{% if processed_text.deid_model %} · {{ processed_text.deid_model }}{% endif %})
+                    — PHI shown as &lt;TAGS&gt;, dates shifted.
+                    {% if processed_text.deid_reviewed %}Reviewed{% else %}Review not required{% endif %} — eligible for extraction.
                 </p>
                 {% component "button" style="primary" size="sm" href=rurl icon="fas fa-user-shield" %}Review deidentified text{% endcomponent %}
             </div>
@@ -99,11 +99,11 @@
         {% endfill %}
     {% endcomponent %}
 
-    {% if processed_text.file_upload.patient_id %}
+    {% if processed_text.effective_patient %}
     {% component "info_box" style="success" icon="fas fa-user-check" %}
         {% fill "default" %}
         <p>
-            <strong>Linked to Patient:</strong> {{ processed_text.file_upload.patient_id.patient_id }}
+            <strong>Linked to Patient:</strong> {{ processed_text.effective_patient.patient_id }}
         </p>
         <p class="text-xs mt-1">
             This file is ready for extraction and will be associated with the patient's record

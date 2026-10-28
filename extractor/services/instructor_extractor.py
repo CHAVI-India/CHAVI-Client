@@ -2139,8 +2139,9 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
         roots, children = build_table_tree(response_model)
         include_assessments = InstructorExtractionService.uses_field_assessments(extraction_job)
 
-        # Deidentified sources had every DATE_TIME shifted by a random
-        # per-document offset; extracted date values must be un-shifted
+        # Deidentified sources had every absolute date shifted by a random
+        # per-document offset (re-emitted as DD/MM/YYYY before
+        # deidentification ran); extracted date values must be un-shifted
         # (subtraction) before persistence so real dates land in client_app.
         date_shift_days = None
         pf = extraction_job.processed_file
@@ -2292,9 +2293,11 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
     @staticmethod
     def _unshift_date(extracted_value, shift_days):
         """Restore the real date for a value extracted from deidentified
-        text. Deid shifts every DATE_TIME by a random per-document offset;
-        subtracting it here yields the original date. Returns the ISO
-        string, or None when the value can't be parsed."""
+        text. Deid shifts every absolute date by a random per-document
+        offset and re-emits it as DD/MM/YYYY (time-of-day preserved); the
+        LLM may also normalise to ISO. Subtracting the offset here yields
+        the original date. Returns the ISO string, or None when the value
+        can't be parsed."""
         from dateutil.parser import parse as parse_date
 
         stripped = str(extracted_value).strip()
@@ -2303,8 +2306,8 @@ Return one entry per field: {{"entries": [{{"table": ..., "field": ..., "snippet
                 # ISO is year-first; dayfirst=True would misparse it.
                 parsed = parse_date(stripped, yearfirst=True)
             else:
-                # Same convention as _shifted_date_text — deid re-emits
-                # dates in the source's surface format (DD/MM/YYYY etc.)
+                # Deid re-emits dates as DD/MM/YYYY — parse day-first, or
+                # ambiguous dates (05/06/2024) would be silently corrupted.
                 parsed = parse_date(stripped, dayfirst=True)
         except (ValueError, OverflowError, TypeError):
             return None

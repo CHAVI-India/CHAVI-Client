@@ -292,13 +292,24 @@ def compute_embeddings(request):
         task_name='Compute Lookup Embeddings', status__in=['pending', 'running']
     )
     if inflight.exists():
-        if _inflight_embedding_tasks_alive(list(inflight.values_list('task_id', flat=True))):
+        stale_ids = list(inflight.values_list('task_id', flat=True))
+        if _inflight_embedding_tasks_alive(stale_ids):
             return JsonResponse({
                 'success': False,
                 'error': 'An embedding computation is already running.'
             })
         for stale in inflight:
             stale.mark_failed('Superseded: worker restarted or task lost before completing')
+        # Keep the cross-app Task Runs dashboard consistent with the sweep.
+        from client_app.models import TaskRun
+        TaskRun.objects.filter(
+            tracker_id__in=stale_ids,
+            status__in=[TaskRun.Status.PENDING, TaskRun.Status.STARTED,
+                        TaskRun.Status.PROGRESS],
+        ).update(
+            status=TaskRun.Status.FAILURE,
+            error_log='Superseded: worker restarted or task lost before completing',
+        )
 
     try:
         # Create task tracker (progress UI polls this row)
@@ -310,7 +321,8 @@ def compute_embeddings(request):
         )
 
         # Dispatch to Celery
-        compute_lookup_embeddings_task.delay(task_id, active_config.id, refresh)
+        compute_lookup_embeddings_task.delay(
+            task_id, active_config.id, refresh, user_id=request.user.id)
 
         return JsonResponse({
             'success': True,

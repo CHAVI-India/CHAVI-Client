@@ -180,7 +180,7 @@ def _fingerprint(job):
         'lookup_field', 'lookup_content_type_id', 'lookup_table_value_field_name',
         'lookup_table_pk_field_name', 'field_validation', 'relation_content_type_id',
     ))
-    patient = getattr(job.processed_file.file_upload, 'patient_id_id', None)
+    patient = job.processed_file.effective_patient_pk
     return hashlib.sha256(_json_dumps({
         'records': records, 'results': items, 'fields': fields,
         'patient': str(patient), 'revision': job.review_revision,
@@ -384,7 +384,7 @@ def _resolve_parent(record, entry, planned, errors):
         model_field = _field_model_field(record.database_table, rel)
         attname = model_field.attname if model_field is not None else f'{name}_id'
         if model._meta.model_name == 'patient':
-            assignments[attname] = record.extraction_job.processed_file.file_upload.patient_id_id
+            assignments[attname] = record.extraction_job.processed_file.effective_patient_pk
             continue
         if entry['operation'] == 'update' and entry['instance'] is not None:
             current_pk = getattr(entry['instance'], attname)
@@ -411,12 +411,12 @@ def _resolve_parent(record, entry, planned, errors):
                 assignments[attname] = parent_plan['future_pk']
         elif kind == 'existing':
             table = parent_table_for_relation(record, rel)
-            target = _target_instance(table, record.extraction_job.processed_file.file_upload.patient_id,
+            target = _target_instance(table, record.extraction_job.processed_file.effective_patient,
                                     choice.get('pk'), errors, 'parent record')
             if target is not None:
                 assignments[attname] = target.pk
         elif kind == 'patient':
-            assignments[attname] = record.extraction_job.processed_file.file_upload.patient_id_id
+            assignments[attname] = record.extraction_job.processed_file.effective_patient_pk
         else:
             errors[name] = ['Choose a valid parent record.']
     return assignments
@@ -441,9 +441,9 @@ def _plan_records(job, payload):
     seen = set()
     errors = {}
     planned = {}
-    patient = job.processed_file.file_upload.patient_id
+    patient = job.processed_file.effective_patient
     if patient is None:
-        raise ReviewValidationError({'__all__': ['Link the source file to a patient before saving extracted data.']})
+        raise ReviewValidationError({'__all__': ['No patient is linked to this document (row patient or upload patient) — cannot save extracted data.']})
     for item in payload['records']:
         rid = int(item.get('id') or -1)
         if rid in seen:
@@ -727,7 +727,7 @@ def prepare_review(job, user, payload, request_key):
         'job_id': job.id,
         'job_revision': job.review_revision,
         'source_fingerprint': _fingerprint(job),
-        'patient_pk': str(job.processed_file.file_upload.patient_id.pk),
+        'patient_pk': str(job.processed_file.effective_patient_pk),
         'input': payload,
         'records': snapshot_records,
         'warnings': {'duplicates': duplicate_warning},
@@ -951,7 +951,7 @@ def review_options(job, user, *, record_id, kind, field_id=None, query='', page=
     if page < 1:
         raise ReviewValidationError({'page': ['Page must be at least one.']})
     record = job.extracted_records.select_related('database_table__clientapp_content_type').get(id=record_id)
-    patient = job.processed_file.file_upload.patient_id
+    patient = job.processed_file.effective_patient
     field = None
     if kind == 'lookup':
         allowed = {str(f.id): (f, mf) for f, mf in _review_editable_fields(record)}

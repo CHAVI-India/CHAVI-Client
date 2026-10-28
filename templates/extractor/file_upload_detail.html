@@ -11,10 +11,12 @@
         {% fill "actions" %}
             {% if perms.extractor.change_fileupload %}
             {% if file_upload.processing_status == 'pending' or file_upload.processing_status == 'failed' %}
+            {% if file_upload.file_type != 'csv' %}
             <form method="post" action="{% url 'extractor:file_upload_process' file_upload.id %}" class="inline">
                 {% csrf_token %}
                 {% component "button" style="primary" type="submit" icon="fas fa-cogs" %}Process File{% endcomponent %}
             </form>
+            {% endif %}
             {% endif %}
             {% endif %}
             {% if perms.extractor.delete_fileupload %}
@@ -28,7 +30,9 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {% component "stat_card" value=file_upload.file_type label="File Type" icon=ft_icon %}{% endcomponent %}
         {% component "stat_card" value=file_size label="File Size" icon="fas fa-hdd" style="success" %}{% endcomponent %}
-        {% if file_upload.processing_status == 'completed' %}
+        {% if file_upload.file_type == 'csv' and csv_rows_processed %}
+            {% component "stat_card" value=csv_row_count label="Patient rows" icon="fas fa-table" style="accent" %}{% endcomponent %}
+        {% elif file_upload.processing_status == 'completed' %}
             {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-check-circle" style="accent" %}{% endcomponent %}
         {% elif file_upload.processing_status == 'failed' %}
             {% component "stat_card" value=file_upload.get_processing_status_display label="Status" icon="fas fa-times-circle" style="accent" %}{% endcomponent %}
@@ -39,6 +43,72 @@
         {% endif %}
     </div>
     {% endwith %}
+
+    {% if file_upload.file_type == 'csv' and not csv_rows_processed %}
+    {% component "card" title="CSV Row Processing" extra_class="mb-8" %}
+        {% fill "body" %}
+            <p class="text-sm text-gray-600 mb-4">
+                Each row of this CSV is one patient and becomes a standalone
+                document that runs through the same date-shift, deidentification
+                and extraction pipeline as a PDF — one task per row.
+            </p>
+            <form method="post" action="{% url 'extractor:file_upload_process' file_upload.id %}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% csrf_token %}
+                <div>
+                    <label for="id_csv_patient_id_column" class="block text-sm font-medium text-gray-700 mb-1">Patient ID column</label>
+                    <select name="csv_patient_id_column" id="id_csv_patient_id_column" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">— none (rows stay unlinked) —</option>
+                        {% for header in csv_headers %}
+                        <option value="{{ header }}" {% if header == file_upload.csv_patient_id_column %}selected{% endif %}>{{ header }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Rows are matched to patients by an exact match on this column's value.</p>
+                </div>
+                <div>
+                    <label for="id_csv_response_model" class="block text-sm font-medium text-gray-700 mb-1">Response model (optional)</label>
+                    <select name="csv_response_model" id="id_csv_response_model" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">— deid only, extract later —</option>
+                        {% for rm in response_models %}
+                        <option value="{{ rm.id }}" {% if rm.id == file_upload.csv_response_model_id %}selected{% endif %}>{{ rm.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">When set, each row auto-extracts against this model after deid. Leave empty to extract later.</p>
+                </div>
+                <div class="md:col-span-2 flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center gap-6">
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" name="csv_deid_review_required" value="on" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if file_upload.csv_deid_review_required %}checked{% endif %}>
+                            Require manual deidentification review before extraction
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" name="csv_auto_extract" value="on" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if file_upload.csv_auto_extract %}checked{% endif %}>
+                            Auto-run extraction (skip the manual mining/extraction approval clicks)
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500">Auto-run skips only the two LLM approval clicks; the extracted-data review stays manual. It only applies when a response model is selected.</p>
+                    {% component "button" style="primary" type="submit" icon="fas fa-table" %}Process Rows{% endcomponent %}
+                </div>
+            </form>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
+
+    {% if file_upload.csv_unmatched_rows %}
+    {% component "card" title="Patient Match Warnings" extra_class="mb-8" %}
+        {% fill "body" %}
+            <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                <p class="text-sm text-amber-800 mb-2">
+                    {{ file_upload.csv_unmatched_rows|length }} row(s) had no exact patient match and are unlinked:
+                </p>
+                <ul class="list-disc list-inside text-sm text-amber-800">
+                    {% for row in file_upload.csv_unmatched_rows %}
+                    <li>Row {{ row.row }}: <code class="bg-amber-100 px-1 rounded">{{ row.value|default:'(empty)' }}</code></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfill %}
+    {% endcomponent %}
+    {% endif %}
 
     {% component "card" title="File Information" extra_class="mb-8" %}
         {% fill "body" %}
@@ -51,10 +121,21 @@
                     <p class="text-sm text-gray-600">Uploaded</p>
                     <p class="text-gray-900 font-medium">{{ file_upload.created_at|date:"M d, Y H:i" }}</p>
                 </div>
-                <div>
-                    <p class="text-sm text-gray-600">Patient</p>
+                <div class="{% if file_upload.file_type == 'csv' %}md:col-span-2{% else %}md:col-span-1{% endif %}">                    <p class="text-sm text-gray-600">Patient{% if file_upload.file_type == 'csv' %}s matched{% else %}{% endif %}</p>
                     <p class="text-gray-900 font-medium">
-                        {% if file_upload.patient_id %}
+                        {% if file_upload.file_type == 'csv' %}
+                            {% if csv_matched_patients %}
+                                <i class="fas fa-users text-chavi-primary-600 mr-1"></i>
+                                {{ csv_matched_patients|length }} of {{ csv_row_count }} rows
+                                <span class="block mt-1 text-xs font-normal text-gray-500">
+                                    {% for p in csv_matched_patients %}{{ p.patient_id }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                </span>
+                            {% elif csv_rows_processed %}
+                                <span class="text-gray-400">No exact patient matches</span>
+                            {% else %}
+                                <span class="text-gray-400">Choose the patient-id column to link rows</span>
+                            {% endif %}
+                        {% elif file_upload.patient_id %}
                             <i class="fas fa-user-check text-chavi-primary-600 mr-1"></i>
                             {{ file_upload.patient_id.patient_id }}
                         {% else %}
@@ -70,106 +151,40 @@
         {% endfill %}
     {% endcomponent %}
 
-    {% if processed_files %}
-    {% with pf_title="Processed Files ("|add:processed_files.count|add:")" %}
-    {% component "card" title=pf_title %}
+    {% if csv_rows_processed %}
+    {% component "card" title="Patient Rows ({{ csv_row_count }})" %}
         {% fill "body" %}
             <div class="space-y-3">
-                {% for processed in processed_files %}
-                <div class="border border-gray-200 rounded-lg p-4 hover:border-chavi-primary transition-colors">
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-file-alt text-chavi-primary-600"></i>
-                                <span class="font-medium text-gray-900">{{ processed.processed_file_path|basename }}</span>
-                            </div>
-                            <div class="text-sm text-gray-500 mt-1">
-                                <i class="fas fa-clock mr-1"></i>
-                                Processed: {{ processed.created_at|date:"M d, Y H:i" }}
-                                {% if processed.processed_by_user %}
-                                    by {{ processed.processed_by_user.username }}
-                                {% endif %}
-                            </div>
-                            <div class="text-xs text-gray-400 mt-1">
-                                <i class="fas fa-folder mr-1"></i>
-                                {{ processed.processed_file_path }}
-                                <span class="ml-2 text-gray-500">v{{ processed.version }}</span>
-                                {% if processed.ocr_applied %}
-                                    {% component "badge" style="accent" extra_class="ml-2" %}OCR{% endcomponent %}
-                                {% endif %}
-                                {% if deid_enabled %}
-                                    {% if processed.deidentified %}
-                                        {% if processed.deid_reviewed %}
-                                            {% component "badge" style="success" extra_class="ml-2" %}DEID ✓{% endcomponent %}
-                                        {% else %}
-                                            {% component "badge" style="warning" extra_class="ml-2" %}DEID · pending review{% endcomponent %}
-                                        {% endif %}
-                                    {% else %}
-                                        {% component "badge" style="danger" extra_class="ml-2" %}Needs deidentification{% endcomponent %}
-                                    {% endif %}
-                                {% endif %}
-                                {% if processed.processing_warning %}
-                                    {% component "badge" style="warning" icon="fas fa-exclamation-triangle" extra_class="ml-2" %}{{ processed.processing_warning|cut:"_"|title }}{% endcomponent %}
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            {% if perms.extractor.change_processedtext %}
-                            {% if processed.processing_warning == 'no_text' or processed.processing_warning == 'low_text' or processed.processing_warning == 'ocr_empty' %}
-                            <form method="post" action="{% url 'extractor:processed_text_ocr' processed.id %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.path }}">
-                                <span title="OCR requires tesseract-ocr + poppler-utils on the server">
-                                {% component "button" style="accent" type="submit" icon="fas fa-scanner-gun" %}Run OCR{% endcomponent %}
-                                </span>
-                            </form>
-                            {% endif %}
-                            {% if deid_enabled %}
-                                {% if processed.deidentified %}
-                                {% url 'extractor:processed_text_deid_review' processed.id as deid_review_url %}
-                                {% with enc_path=request.path|urlencode %}
-                                {% with rurl=deid_review_url|add:"?next="|add:enc_path %}
-                                {% component "button" style="primary" href=rurl icon="fas fa-user-shield" %}Review deid{% endcomponent %}
-                                {% endwith %}
-                                {% endwith %}
-                                {% else %}
-                                <form method="post" action="{% url 'extractor:processed_text_deidentify' processed.id %}" class="inline-flex items-center gap-2">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="next" value="{{ request.path }}">
-                                    <select name="backend"
-                                            class="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
-                                            title="Deidentification pipeline / engine">
-                                        <option value="default">Default pipeline</option>
-                                        {% for p in deid_pipelines %}
-                                        <option value="pipeline:{{ p.id }}">Pipeline: {{ p.name }}{% if p.is_default %} (default){% endif %}</option>
-                                        {% endfor %}
-                                        <option value="presidio">Legacy: Presidio + Stanford NER</option>
-                                        {% if deid_openmed_enabled %}
-                                        <option value="openmed">Legacy: OpenMed clinical NER</option>
-                                        {% endif %}
-                                        {% for cfg in deid_llm_configs %}
-                                        <option value="llm:{{ cfg.id }}">Legacy: LLM NER — {{ cfg.llm_model_name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <span title="Run deidentification on this version">
-                                    {% component "button" style="primary" type="submit" icon="fas fa-user-shield" %}Run deid{% endcomponent %}
-                                    </span>
-                                </form>
-                                {% endif %}
-                            {% endif %}
-                            {% endif %}
-                            {% if perms.extractor.view_processedtext %}
-                            {% url 'extractor:processed_text_view' processed.id as view_url %}
-                            {% component "button" style="primary" href=view_url icon="fas fa-eye" %}View{% endcomponent %}
-                            {% endif %}
-                        </div>
+                {% if csv_source_alias %}
+                <div class="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <i class="fas fa-file-csv"></i>
+                        <span>Source CSV — raw upload (not deidentified)</span>
                     </div>
+                    {% if perms.extractor.view_processedtext %}
+                    {% url 'extractor:processed_text_view' csv_source_alias.id as src_url %}
+                    {% component "button" style="secondary" size="sm" href=src_url icon="fas fa-eye" %}View raw{% endcomponent %}
+                    {% endif %}
                 </div>
+                {% endif %}
+                {% for row_num, processed in csv_rows %}
+                {% with show_patient=1 %}
+                {% include "extractor/_processed_file_row.html" %}
+                {% endwith %}
                 {% endfor %}
             </div>
         {% endfill %}
     {% endcomponent %}
-    {% endwith %}
+    {% elif processed_files %}
+    {% component "card" title="Processed Files ({{ processed_files.count }})" %}
+        {% fill "body" %}
+            <div class="space-y-3">
+                {% for processed in processed_files %}
+                {% include "extractor/_processed_file_row.html" %}
+                {% endfor %}
+            </div>
+        {% endfill %}
+    {% endcomponent %}
     {% else %}
     {% component "info_box" style="warning" %}
         {% fill "default" %}

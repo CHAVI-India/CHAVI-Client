@@ -1,5 +1,7 @@
 # CHAVI-Client
 
+Graphify is available in the venv. Use that to generate the query 
+
 ## Codebase navigation: query the graphify graph BEFORE grepping
 
 A knowledge graph of this repo lives in `graphify-out/` (built from

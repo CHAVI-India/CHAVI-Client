@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.core.paginator import Paginator
 from django.utils import timezone
 from logging import getLogger
@@ -1093,6 +1093,37 @@ def file_upload_detail(request, file_id):
         'dependent_results_count': dependent_results.count(),
         'deid_enabled': getattr(settings, 'EXTRACTOR_DEID_ENABLED', True),
     }
+    if file_upload.file_type == 'csv':
+        from client_app.models import Patient
+        from extractor.services.csv_rows import (
+            csv_header_names, is_row_document, row_number)
+        context['csv_headers'] = csv_header_names(file_upload)
+        context['response_models'] = list(ResponseModel.objects.all().order_by('name'))
+
+        # Present the CSV as one entry per patient row (its latest working
+        # version) plus the raw source alias — not a wall of per-row versions.
+        latest_by_row = {}
+        source_alias = None
+        for p in processed_files:
+            if is_row_document(p):
+                n = row_number(p.source_sheet)
+                cur = latest_by_row.get(n)
+                if cur is None or p.version > cur.version:
+                    latest_by_row[n] = p
+            elif not p.source_sheet:
+                source_alias = p
+        csv_rows = [(n, latest_by_row[n]) for n in sorted(latest_by_row)]
+        context['csv_rows'] = csv_rows
+        context['csv_source_alias'] = source_alias
+        context['csv_rows_processed'] = bool(csv_rows)
+        context['csv_row_count'] = len(csv_rows)
+        # Distinct patients matched across the row documents (exact match on
+        # the chosen patient-id column), so the page shows who was linked.
+        matched_pks = sorted({pt.effective_patient_pk for _, pt in csv_rows
+                              if pt.effective_patient_pk})
+        context['csv_matched_patients'] = (list(
+            Patient.objects.filter(pk__in=matched_pks).order_by('patient_id'))
+            if matched_pks else [])
     deid_enabled = context['deid_enabled']
     context['deid_openmed_enabled'] = bool(getattr(
         settings, 'EXTRACTOR_DEID_OPENMED_ENABLED', True))
@@ -1117,11 +1148,17 @@ def file_upload_detail(request, file_id):
 @require_http_methods(["POST"])
 def file_upload_process(request, file_id):
     """
-    Process an uploaded file (convert PDF to markdown, Excel to CSV, etc.)
+    Process an uploaded file (convert PDF to markdown, Excel to CSV, etc.).
+    CSV uploads take a dedicated row pipeline: each data row becomes a
+    per-row patient document that flows through the same deid + extraction
+    chain as a PDF, fanned out one Celery task per row.
     """
     file_upload = get_object_or_404(FileUpload, id=file_id)
-    
+
     try:
+        if file_upload.file_type == FileTypeChoices.CSV:
+            return _process_csv_rows(file_upload, request)
+
         result = FileProcessorService.process_file(file_upload, user=request.user)
 
         if result['success']:
@@ -1150,6 +1187,102 @@ def file_upload_process(request, file_id):
         messages.error(request, f"Processing failed: {str(e)}")
 
     return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
+
+def _process_csv_rows(file_upload, request):
+    """CSV row pipeline: register the source alias, expand each data row into
+    a per-row patient document, and fan out one task per row.
+
+    POST fields: csv_patient_id_column (header name), csv_response_model
+    (optional id), csv_deid_review_required (checkbox), csv_auto_extract
+    (checkbox).
+    """
+    from extractor.services.csv_rows import expand_csv_to_row_documents
+
+    patient_id_column = request.POST.get('csv_patient_id_column', '').strip()
+    review_required = request.POST.get('csv_deid_review_required') == 'on'
+    auto_extract = request.POST.get('csv_auto_extract') == 'on'
+    response_model_id = request.POST.get('csv_response_model', '').strip()
+    response_model = (ResponseModel.objects.filter(id=response_model_id).first()
+                      if response_model_id else None)
+
+    # Persist the row-pipeline configuration on the upload.
+    file_upload.csv_patient_id_column = patient_id_column
+    file_upload.csv_deid_review_required = review_required
+    file_upload.csv_auto_extract = auto_extract
+    file_upload.csv_response_model = response_model
+
+    # Register the raw CSV as a source alias (no deid on it) and read headers.
+    FileProcessorService.process_file(file_upload, user=request.user)
+
+    # Guard against reprocessing: don't create a second batch of row
+    # documents (same source_sheet keys) over an existing one.
+    from extractor.services.csv_rows import _ROW_SHEET_RE
+    if any(_ROW_SHEET_RE.match(p.source_sheet or '')
+           for p in ProcessedText.objects.filter(file_upload=file_upload)):
+        messages.warning(
+            request,
+            "This CSV has already been expanded into row documents. Delete "
+            "the upload and re-upload to reprocess it as rows.")
+        return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
+    row_pts, unmatched = expand_csv_to_row_documents(
+        file_upload, request.user, patient_id_column, review_required)
+    file_upload.csv_unmatched_rows = unmatched
+    file_upload.save()
+
+    if not row_pts:
+        messages.error(
+            request,
+            "No CSV data rows found to process. Check that the file has a "
+            "header row and at least one data row.")
+        return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
+    if unmatched:
+        sample = ', '.join(
+            f"row {u['row']} ({u['value']!r})" for u in unmatched[:5])
+        more = f" and {len(unmatched) - 5} more" if len(unmatched) > 5 else ""
+        messages.warning(
+            request,
+            f"{len(unmatched)} CSV row(s) had no exact patient match and are "
+            f"unlinked: {sample}{more}. They will still be processed.")
+
+    _dispatch_csv_row_tasks(row_pts, request)
+    messages.success(
+        request,
+        f"Processed {len(row_pts)} CSV row(s), one task per row.")
+    return redirect('extractor:file_upload_detail', file_id=file_upload.id)
+
+
+def _dispatch_csv_row_tasks(row_pts, request):
+    """One Celery task per CSV row document; deid (and optional auto-
+    extraction when a response model is set) runs inside each task."""
+    if not getattr(settings, 'EXTRACTOR_DEID_ENABLED', True):
+        # Deid disabled: nothing to run per row.
+        return
+    if not getattr(settings, 'EXTRACTOR_DEID_AUTO_RUN', True):
+        return
+    from extractor.tasks import process_csv_row_task
+    dispatched = 0
+    for pt in row_pts:
+        running = BackgroundTask.objects.filter(
+            task_name__startswith=f"CSV row {pt.id}",
+            status__in=['pending', 'running']
+        ).exists()
+        if running:
+            continue
+        task = BackgroundTask.objects.create(
+            task_id=f"csvrow-{pt.id}-{int(timezone.now().timestamp())}",
+            task_name=f"CSV row {pt.id}",
+            status='pending',
+        )
+        process_csv_row_task.delay(
+            task.task_id, pt.id, user_id=request.user.id)
+        dispatched += 1
+    if dispatched:
+        messages.info(
+            request,
+            f"{dispatched} CSV row task(s) started.")
 
 
 def _dispatch_deid_tasks(processed_files, request):
@@ -1532,35 +1665,78 @@ def processed_text_deid_review(request, processed_id):
     return render(request, 'extractor/processed_text_deid_review.html', context)
 
 
+def _patient_dashboard_stats(pks):
+    """Per-patient dashboard stats keyed by *effective* patient (the row
+    patient for CSV row documents, else the upload's patient).
+
+    Returns {patient_pk: {file_count, processed_count, jobs_completed,
+    jobs_failed, jobs_active, deid_pending_review, any_job}}.
+    """
+    from extractor.models import ProcessedText, ExtractionJob
+    stats = {pk: {'file_count': 0, 'processed_count': 0, 'jobs_completed': 0,
+                  'jobs_failed': 0, 'jobs_active': 0, 'deid_pending_review': 0,
+                  'any_job': False} for pk in pks}
+    if not pks:
+        return stats
+
+    def _doc_owner(d):
+        return d['patient_id'] or d['file_upload__patient_id']
+
+    doc_filter = (Q(patient_id__in=pks)
+                  | (Q(patient_id__isnull=True)
+                     & Q(file_upload__patient_id__in=pks)))
+    uploads = {pk: set() for pk in pks}
+    for d in ProcessedText.objects.filter(
+            doc_filter).values('patient_id', 'file_upload__patient_id',
+                               'file_upload_id', 'deidentified', 'deid_reviewed'):
+        pk = _doc_owner(d)
+        s = stats.get(pk)
+        if s is None:
+            continue
+        s['processed_count'] += 1
+        uploads.setdefault(pk, set()).add(d['file_upload_id'])
+        if d['deidentified'] and not d['deid_reviewed']:
+            s['deid_pending_review'] += 1
+    for pk, ups in uploads.items():
+        if pk in stats:
+            stats[pk]['file_count'] = len(ups)
+
+    job_filter = (Q(processed_file__patient_id__in=pks)
+                  | (Q(processed_file__patient_id__isnull=True)
+                     & Q(processed_file__file_upload__patient_id__in=pks)))
+    for j in ExtractionJob.objects.filter(job_filter).values(
+            'processed_file__patient_id', 'processed_file__file_upload__patient_id',
+            'extraction_status'):
+        pk = (j['processed_file__patient_id']
+              or j['processed_file__file_upload__patient_id'])
+        s = stats.get(pk)
+        if s is None:
+            continue
+        s['any_job'] = True
+        st = j['extraction_status']
+        if st == 'completed':
+            s['jobs_completed'] += 1
+        elif st == 'failed':
+            s['jobs_failed'] += 1
+        elif st in ('pending', 'processing'):
+            s['jobs_active'] += 1
+    return stats
+
+
 @login_required
 @permission_required('extractor.view_processedtext', raise_exception=True)
 def extraction_dashboard(request):
     """
     Patient-centric dashboard: one row per patient with processed files,
-    job-status summary, search/filters, and pagination.
+    job-status summary, search/filters, and pagination. Patients are listed
+    by *effective* patient — a patient owning CSV row documents appears even
+    when no upload is linked to them directly.
     """
     from client_app.models import Patient
-    from django.db.models import Q
 
     patients = (Patient.objects
-                .filter(fileupload__isnull=False)
-                .annotate(
-                    file_count=Count('fileupload', distinct=True),
-                    processed_count=Count('fileupload__processedtext', distinct=True),
-                    jobs_completed=Count(
-                        'fileupload__processedtext__extractionjob', distinct=True,
-                        filter=Q(fileupload__processedtext__extractionjob__extraction_status='completed')),
-                    jobs_failed=Count(
-                        'fileupload__processedtext__extractionjob', distinct=True,
-                        filter=Q(fileupload__processedtext__extractionjob__extraction_status='failed')),
-                    jobs_active=Count(
-                        'fileupload__processedtext__extractionjob', distinct=True,
-                        filter=Q(fileupload__processedtext__extractionjob__extraction_status__in=['pending', 'processing'])),
-                    deid_pending_review=Count(
-                        'fileupload__processedtext', distinct=True,
-                        filter=Q(fileupload__processedtext__deidentified=True,
-                                 fileupload__processedtext__deid_reviewed=False)),
-                )
+                .filter(Q(fileupload__isnull=False)
+                        | Q(processed_texts__patient_id__isnull=False))
                 .order_by('patient_id')
                 .distinct())
 
@@ -1573,11 +1749,6 @@ def extraction_dashboard(request):
 
     if q:
         patients = patients.filter(patient_id__icontains=q)
-    if status == 'none':
-        patients = patients.filter(fileupload__processedtext__extractionjob__isnull=True)
-    elif status:
-        patients = patients.filter(
-            fileupload__processedtext__extractionjob__extraction_status=status)
     if file_type:
         patients = patients.filter(fileupload__file_type=file_type)
     if date_from:
@@ -1585,8 +1756,28 @@ def extraction_dashboard(request):
     if date_to:
         patients = patients.filter(fileupload__created_at__date__lte=date_to)
 
+    # Job-status filter is applied against per-patient effective-patient stats.
+    pks = list(patients.values_list('pk', flat=True))
+    stats = _patient_dashboard_stats(pks)
+    if status:
+        if status == 'none':
+            pks = [pk for pk in pks if not stats[pk]['any_job']]
+        else:
+            pks = [pk for pk in pks if stats[pk].get(f'jobs_{status}', 0) > 0]
+        patients = patients.filter(pk__in=pks)
+
     paginator = Paginator(patients, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
+
+    # Attach stats as instance attributes so the template reads them directly.
+    for p in page_obj.object_list:
+        s = stats.get(p.pk, {})
+        p.file_count = s.get('file_count', 0)
+        p.processed_count = s.get('processed_count', 0)
+        p.jobs_completed = s.get('jobs_completed', 0)
+        p.jobs_failed = s.get('jobs_failed', 0)
+        p.jobs_active = s.get('jobs_active', 0)
+        p.deid_pending_review = s.get('deid_pending_review', 0)
 
     context = {
         'page_obj': page_obj,
@@ -1613,9 +1804,15 @@ def patient_data(request, patient_pk):
 
     patient = get_object_or_404(Patient, pk=patient_pk)
 
+    # Documents belonging to this patient: row documents carry their own
+    # patient; whole-file documents use the upload's patient.
+    pt_for_patient = (Q(patient_id=patient)
+                      | (Q(patient_id__isnull=True)
+                         & Q(file_upload__patient_id=patient)))
+
     processed_files = (ProcessedText.objects
-                       .select_related('file_upload')
-                       .filter(file_upload__patient_id=patient,
+                       .select_related('file_upload', 'patient_id')
+                       .filter(pt_for_patient,
                                file_upload__processing_status='completed')
                        .order_by('file_upload_id', '-version'))
 
@@ -1627,8 +1824,11 @@ def patient_data(request, patient_pk):
         file_rows.append({'processed_file': pf, 'latest_job': latest_job})
 
     jobs = (ExtractionJob.objects
-            .filter(processed_file__file_upload__patient_id=patient)
-            .select_related('response_model__client', 'processed_file__file_upload')
+            .filter(Q(processed_file__patient_id=patient)
+                    | (Q(processed_file__patient_id__isnull=True)
+                       & Q(processed_file__file_upload__patient_id=patient)))
+            .select_related('response_model__client', 'processed_file__file_upload',
+                           'processed_file__patient_id')
             .order_by('-created_at')[:50])
 
     context = {
@@ -1680,14 +1880,23 @@ def extraction_start(request):
                     "processing — retry once it completes.")
                 return redirect(back)
             if getattr(settings, 'EXTRACTOR_DEID_REQUIRE_REVIEW', True):
-                unreviewed = processed_files.filter(deid_reviewed=False)
-                if unreviewed.exists():
+                # Per-row review gate: whole-file documents require review
+                # (global setting); CSV row documents require review only
+                # when their row was flagged review-required (optional).
+                from extractor.services.csv_rows import is_row_document
+                unreviewed = []
+                for pf in processed_files:
+                    needs_review = (pf.deid_review_required
+                                    if is_row_document(pf) else True)
+                    if needs_review and not pf.deid_reviewed:
+                        unreviewed.append(pf)
+                if unreviewed:
                     names = ', '.join(
                         pf.file_upload.original_filename or str(pf.id)
                         for pf in unreviewed[:5])
                     messages.error(
                         request,
-                        f"Extraction blocked: {unreviewed.count()} file(s) "
+                        f"Extraction blocked: {len(unreviewed)} file(s) "
                         f"await deidentification review ({names}). Open each "
                         "deidentified version and mark it reviewed first.")
                     return redirect(back)
@@ -1706,6 +1915,7 @@ def extraction_start(request):
 
         # Dispatch one Celery task per file; existing live jobs are reused
         # so double-submits don't double-charge.
+        from extractor.services.csv_rows import is_row_document
         queued = 0
         reused = 0
         single_job = None
@@ -1714,8 +1924,16 @@ def extraction_start(request):
                 processed_file, response_model, request.user
             )
             single_job = job
+            # CSV row documents honour the upload's auto-extract preference
+            # (e.g. resuming after a manual deid review); whole-file docs
+            # keep the manual, click-through staged flow.
+            auto = (bool(processed_file.file_upload.csv_auto_extract)
+                    if is_row_document(processed_file) else False)
+            if job.auto_extract != auto:
+                job.auto_extract = auto
+                job.save(update_fields=['auto_extract'])
             if created:
-                advance_extraction_job.delay(job.id)
+                advance_extraction_job.delay(job.id, auto_extract=auto)
                 queued += 1
             else:
                 reused += 1
@@ -1748,6 +1966,7 @@ def extraction_results_list(request):
     extraction_jobs = ExtractionJob.objects.select_related(
         'response_model',
         'processed_file__file_upload',
+        'processed_file__patient_id',
         'extracted_by'
     ).annotate(
         result_count=Count('extractionresult')
@@ -1780,6 +1999,7 @@ def extraction_job_detail(request, job_id, review_errors=None, review_field_erro
         ExtractionJob.objects.select_related(
             'response_model',
             'processed_file__file_upload__patient_id',
+            'processed_file__patient_id',
             'processed_file__deidentified_source',
             'extracted_by'
         ),
@@ -2048,7 +2268,7 @@ def extraction_record_create(request, extracted_record_id):
             'database_table__clientapp_content_type',
             'extraction_job__processed_file__file_upload'),
         id=extracted_record_id)
-    patient = record.extraction_job.processed_file.file_upload.patient_id
+    patient = record.extraction_job.processed_file.effective_patient
     messages.info(request, "Records are created through the job-wide preview and approval workflow.")
     return redirect('extractor:extraction_job_detail', job_id=record.extraction_job_id)
 

@@ -395,6 +395,15 @@ class FileUpload(models.Model):
     file_type = models.CharField(max_length=100, choices=FileTypeChoices.choices, blank=True)
     file_size = models.BigIntegerField(null=True, blank=True, help_text="Size of the uploaded file in bytes (snapshot at upload time).")
     patient_id = models.ForeignKey('client_app.Patient', on_delete=models.CASCADE, null=True, blank=True, help_text="Please select the patient for whose data is being extracted.")
+    # CSV row pipeline: one row = one patient document. The user names the
+    # column that holds the patient id (exact-matched to client_app.Patient);
+    # optionally picks the response model to auto-extract against, and whether
+    # deidentification review is required before extraction (optional).
+    csv_patient_id_column = models.CharField(max_length=255, blank=True, help_text="CSV header name of the column holding the patient id (exact match).")
+    csv_response_model = models.ForeignKey('ResponseModel', null=True, blank=True, on_delete=models.SET_NULL, related_name='csv_uploads', help_text="Response model to auto-extract each CSV row against (empty = deid only, extract later).")
+    csv_deid_review_required = models.BooleanField(default=False, help_text="Require manual deidentification review before extracting CSV rows (optional; default off).")
+    csv_auto_extract = models.BooleanField(default=False, help_text="Automatically run the two-stage LLM extraction (mining -> extraction) for each row without the manual approval clicks; the extracted-data review remains manual.")
+    csv_unmatched_rows = models.JSONField(default=list, blank=True, help_text="CSV rows whose patient id had no exact match: [{'row': 3, 'value': 'P-999'}].")
     processing_status = models.CharField(max_length=100, choices=ProcessingStatusChoices.choices, default=ProcessingStatusChoices.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -415,12 +424,17 @@ class FileUpload(models.Model):
             self.file_type = file_type
             if not self.original_filename:
                 self.original_filename = os.path.basename(self.file.name)
-            # Snapshot the size from the uploaded content object so we never
-            # have to hit the filesystem just to render the list page.
-            # getattr keeps this safe for rows loaded from the DB where the
-            # field is a plain FieldFile (no 'size' attribute).
-            if not self.file_size and getattr(self.file, 'size', None) is not None:
-                self.file_size = self.file.size
+            # Snapshot the size so we never have to hit the filesystem just
+            # to render the list page. Degrades gracefully (stays null) when
+            # the file isn't present on disk (rows loaded from the DB, or
+            # fixtures that reference a name without a physical file).
+            if not self.file_size:
+                try:
+                    size = self.file.size
+                except (OSError, ValueError, AttributeError):
+                    size = None
+                if size is not None:
+                    self.file_size = size
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -446,7 +460,8 @@ class ProcessedText(models.Model):
     file_upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     processed_file_path = models.CharField(max_length = 512, null=True, blank=True)
     processed_by_user = models.ForeignKey('auth.User', on_delete=models.CASCADE, null=True, blank=True, help_text="The user who processed this file.")
-    source_sheet = models.CharField(max_length=255, blank=True, help_text="Worksheet name when derived from an Excel workbook.")
+    source_sheet = models.CharField(max_length=255, blank=True, help_text="Worksheet name when derived from an Excel workbook; 'row-NNNN' for CSV row documents.")
+    patient_id = models.ForeignKey('client_app.Patient', null=True, blank=True, on_delete=models.SET_NULL, related_name='processed_texts', help_text="Patient this document belongs to. Set per-row for CSV row documents (exact match on the patient-id column); falls back to the upload's patient for whole-file documents.")
     content_length = models.IntegerField(default=0, help_text="Length of the extracted text content in characters.")
     processing_warning = models.CharField(max_length=255, blank=True, help_text="Non-fatal processing caveat, e.g. 'no_text' or 'encoding_fallback'.")
     version = models.IntegerField(default=1, help_text="Processing version; increments on reprocessing.")
@@ -471,6 +486,7 @@ class ProcessedText(models.Model):
         on_delete=models.SET_NULL, related_name='deid_runs',
         help_text="The pipeline that produced this deidentified version.")
     deid_reviewed = models.BooleanField(default=False, help_text="User has reviewed the deidentified text; required before extraction when EXTRACTOR_DEID_REQUIRE_REVIEW.")
+    deid_review_required = models.BooleanField(default=False, help_text="Per-document review gate: when True, extraction is blocked until deid_reviewed. Defaults to False for CSV row documents (review is optional) and to EXTRACTOR_DEID_REQUIRE_REVIEW for whole-file documents.")
     deid_reviewed_by = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='deid_reviews')
     deid_reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -488,6 +504,43 @@ class ProcessedText(models.Model):
         if media_root != candidate and media_root not in candidate.parents:
             raise ValidationError(f"Processed file path escapes MEDIA_ROOT: {self.processed_file_path}")
         return candidate
+
+    @property
+    def effective_patient(self):
+        """The patient this document's data belongs to: the per-row patient
+        when set (CSV row documents, exact-matched at expansion), otherwise
+        the upload's patient (whole-file documents such as PDFs).
+        """
+        if self.patient_id_id is not None:
+            return self.patient_id
+        fu = self.file_upload
+        return fu.patient_id if fu is not None else None
+
+    @property
+    def effective_patient_pk(self):
+        """PK of :attr:`effective_patient` (or None). Patient's PK is its
+        patient_id, so this is the value FK assignments expect."""
+        ep = self.effective_patient
+        return ep.patient_id if ep is not None else None
+
+    @property
+    def deid_review_pending(self):
+        """Whether this deidentified document still needs manual deid review.
+
+        Whole-file documents follow the global EXTRACTOR_DEID_REQUIRE_REVIEW
+        setting; CSV row documents follow their per-row deid_review_required
+        flag (review is optional for rows). False when the document is not
+        deidentified or when review isn't required.
+        """
+        if not self.deidentified:
+            return False
+        from django.conf import settings
+        from extractor.services.csv_rows import is_row_document
+        if is_row_document(self):
+            needs = self.deid_review_required
+        else:
+            needs = getattr(settings, 'EXTRACTOR_DEID_REQUIRE_REVIEW', True)
+        return bool(needs and not self.deid_reviewed)
 
     def __str__(self):
         if self.file_upload_id and self.file_upload.original_filename:
@@ -780,6 +833,7 @@ class ExtractionJob(models.Model):
     config_snapshot = models.JSONField(null=True, blank=True, help_text="Provider/model/schema version frozen at dispatch")
     retry_count = models.PositiveIntegerField(default=0, help_text="How many instructor retries the provider call used")
     stage_trace = models.JSONField(default=list, blank=True, help_text="Ordered stage artifacts: prompt/result entries shown on the job detail page")
+    auto_extract = models.BooleanField(default=False, help_text="When set, the pipeline auto-advances through the mining and extraction stages without manual approval clicks; the extracted-data review remains manual.")
     review_revision = models.PositiveIntegerField(default=0, help_text="Incremented after each approved extraction review")
     extracted_by = models.ForeignKey(User, on_delete=models.CASCADE,help_text="User who performed the extraction")
     created_at = models.DateTimeField(auto_now_add=True)

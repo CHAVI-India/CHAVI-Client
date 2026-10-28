@@ -1211,6 +1211,86 @@ class StagedPipelineTests(TestCase):
             advance_extraction_job(self.job.id)
         m.assert_not_called()
 
+    def _stage_side_effects(self):
+        """Fake stages that mimic the real status transitions so the
+        auto-advance loop has real gates to follow through."""
+        def fake_prepare(job, content):
+            job.extraction_status = 'awaiting_mining'
+            job.save()
+            return None
+
+        def fake_mine(job, content):
+            job.extraction_status = 'awaiting_extraction'
+            job.save()
+            return None
+
+        def fake_extract(job, content):
+            job.extraction_status = 'completed'
+            job.save()
+            return {'success': True}
+        return fake_prepare, fake_mine, fake_extract
+
+    def test_auto_extract_runs_full_pipeline_in_one_call(self):
+        from extractor.tasks import advance_extraction_job
+        self.job.auto_extract = True
+        self.job.save()
+        fp, fm, fe = self._stage_side_effects()
+        with patch.object(InstructorExtractionService, 'stage_prepare',
+                          side_effect=fp) as mp, \
+             patch.object(InstructorExtractionService, 'stage_mine',
+                          side_effect=fm) as mm, \
+             patch.object(InstructorExtractionService, 'stage_extract',
+                          side_effect=fe) as me:
+            result = advance_extraction_job(self.job.id)
+
+        self.assertTrue(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'completed')
+        mp.assert_called_once()
+        mm.assert_called_once()
+        me.assert_called_once()
+
+    def test_manual_extract_stops_at_mining_gate(self):
+        from extractor.tasks import advance_extraction_job
+        self.job.auto_extract = False
+        self.job.save()
+        fp, fm, fe = self._stage_side_effects()
+        with patch.object(InstructorExtractionService, 'stage_prepare',
+                          side_effect=fp) as mp, \
+             patch.object(InstructorExtractionService, 'stage_mine') as mm:
+            result = advance_extraction_job(self.job.id)
+
+        self.assertTrue(result['success'])
+        self.job.refresh_from_db()
+        # Non-auto jobs stop at the first approval gate — no auto-advance.
+        self.assertEqual(self.job.extraction_status, 'awaiting_mining')
+        mp.assert_called_once()
+        mm.assert_not_called()
+
+    def test_auto_extract_restart_resumes_from_failure(self):
+        from extractor.tasks import advance_extraction_job
+        # The flag is persisted on the job, so a plain re-dispatch (no
+        # auto_extract argument) still auto-advances after a failure.
+        self.job.auto_extract = True
+        self.job.extraction_status = 'failed'
+        self.job.save()
+        fp, fm, fe = self._stage_side_effects()
+        with patch.object(InstructorExtractionService, 'stage_prepare',
+                          side_effect=fp) as mp, \
+             patch.object(InstructorExtractionService, 'stage_mine',
+                          side_effect=fm) as mm, \
+             patch.object(InstructorExtractionService, 'stage_extract',
+                          side_effect=fe) as me:
+            result = advance_extraction_job(self.job.id)
+
+        self.assertTrue(result['success'])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.extraction_status, 'completed')
+        # Restart re-runs from stage_prepare and drives the whole pipeline.
+        mp.assert_called_once()
+        mm.assert_called_once()
+        me.assert_called_once()
+
     def test_get_or_create_job_reuses_awaiting_job(self):
         self.job.extraction_status = 'awaiting_mining'
         self.job.save()
@@ -2187,58 +2267,80 @@ class DeidRecognizerTests(SimpleTestCase):
 class DeidReplacementTests(SimpleTestCase):
     """Pure splice/shift/tag logic."""
 
-    def test_shifted_date_preserves_format(self):
+    def test_shifted_date_emits_ddmmyyyy(self):
+        """Dates are shifted and re-emitted as DD/MM/YYYY (date format
+        preservation is not a goal — the pipeline exists to assist data
+        extraction, and the extractor un-shifts the stored offset)."""
         from extractor.services.text_deidentification import _shifted_date_text
         self.assertEqual(_shifted_date_text('12/03/2024', 10), '22/03/2024')
-        self.assertEqual(_shifted_date_text('2024-03-12', -2), '2024-03-10')
-        out = _shifted_date_text('12 Mar 2024', 30)
-        self.assertIn('Apr', out)
+        self.assertEqual(_shifted_date_text('2024-03-12', -2), '10/03/2024')
+        self.assertEqual(_shifted_date_text('12 Mar 2024', 30), '11/04/2024')
 
-    def test_shifted_date_preserves_all_surface_formats(self):
-        """Every shape the recognizers emit must shift in place. The earlier
-        version degraded anything outside 7 hardcoded patterns to <DATE>
-        (e.g. '2024/03/15', '15 March 24', '15th Mar 2024',
-        '15/08/2024 14:30')."""
-        from extractor.services.text_deidentification import _shifted_date_text
+    def test_shifted_date_all_surface_formats(self):
+        """Every surface the recognizers emit must parse, shift and re-emit
+        as DD/MM/YYYY with a trailing time-of-day kept verbatim."""
+        from extractor.services.text_deidentification import (
+            _shifted_date_text, _parse_date_span)
+        from django.utils import timezone as tz
         cases = [
-            ('2024/03/15', 10, '2024/03/25'),
-            ('2024.03.15', 10, '2024.03.25'),
-            ('15-03-2024', 10, '25-03-2024'),
-            ('15.03.2024', 10, '25.03.2024'),
-            ('15/03/24', 10, '25/03/24'),
-            ('15-03-24', 10, '25-03-24'),
-            ('15.03.24', 10, '25.03.24'),
-            ('15 March 2024', 10, '25 March 2024'),
-            ('15 Mar 2024', 10, '25 Mar 2024'),
-            ('15 MARCH 2024', 20, '04 APRIL 2024'),
-            ('15th March 2024', 10, '25th March 2024'),
-            ('21st March 2024', 10, '31st March 2024'),
-            ('15 March 24', 10, '25 March 24'),
-            ('March 15, 2024', 10, 'March 25, 2024'),
-            ('March 15 2024', 10, 'March 25 2024'),  # no comma added
-            ('Mar 15 24', 10, 'Mar 25 24'),
-            ('March 2024', 32, 'April 2024'),
-            # day width preserved: no zero-padding added
-            ('1 Mar 2024', 2, '3 Mar 2024'),
-            ('5/3/2024', 10, '15/3/2024'),
-            # long form with 'of'
-            ('16th of September 2026', 5, '21st of September 2026'),
+            # day-first numeric (clinical / en-GB convention)
+            ('27/10/26', 7, '03/11/2026'),
+            ('27.10.2026', 7, '03/11/2026'),
+            ('27-10-26', 7, '03/11/2026'),
+            ('2024/03/15', 10, '25/03/2024'),
+            ('2024.03.15', 10, '25/03/2024'),
+            ('15-03-2024', 10, '25/03/2024'),
+            ('15.03.2024', 10, '25/03/2024'),
+            ('15/03/24', 10, '25/03/2024'),
+            ('15-03-24', 10, '25/03/2024'),
+            ('15.03.24', 10, '25/03/2024'),
+            # year-first (ISO)
+            ('2024-03-15', 10, '25/03/2024'),
+            # US-style month-first (as written in some medical notes)
+            ('10.27.26', 1, '28/10/2026'),
+            # day + month name + year (incl. ordinals, 'of', case variants)
+            ('15 March 2024', 10, '25/03/2024'),
+            ('15 Mar 2024', 10, '25/03/2024'),
+            ('15 MARCH 2024', 20, '04/04/2024'),
+            ('15th March 2024', 10, '25/03/2024'),
+            ('21st March 2024', 10, '31/03/2024'),
+            ('15 March 24', 10, '25/03/2024'),
+            ('16th of September 2026', 5, '21/09/2026'),
+            # month name + day + year
+            ('March 15, 2024', 10, '25/03/2024'),
+            ('March 15 2024', 10, '25/03/2024'),
+            ('Mar 15 24', 10, '25/03/2024'),
+            ('September 16, 2026', 10, '26/09/2026'),
+            # partials — PREFER_DAY_OF_MONTH/PREFER_MONTH_OF_YEAR 'first'
+            ('March 2024', 32, '02/04/2024'),
+            ('Oct 2026', 5, '06/10/2026'),
+            ('October 2026', 5, '06/10/2026'),
+            # datetimes — date shifts, time preserved verbatim
+            ('27/10/2026 14:30', 7, '03/11/2026 14:30'),
+            ('27 Oct 26 14:30', 7, '03/11/2026 14:30'),
             ('15/08/2024 14:30', 10, '25/08/2024 14:30'),
-            # time after a separating comma must not break the date shape
-            ('16th September 2026, 14:59', 10, '26th September 2026, 14:59'),
+            ('27 Oct 26, 2:30 pm', 10, '06/11/2026, 2:30 pm'),
+            ('16th September 2026, 14:59', 10, '26/09/2026, 14:59'),
             ('16/09/2026, 14:59', 10, '26/09/2026, 14:59'),
-            ('September 16, 2026, 14:59', 10, 'September 26, 2026, 14:59'),
+            # year rollover and two-digit year pivots
             ('28/12/2024', 10, '07/01/2025'),
-            ('28/12/24', 10, '07/01/25'),
-            ('99/03/25', 10, '99/04/04'),
+            ('28/12/24', 10, '07/01/2025'),
+            ('99/03/25', 10, '04/04/1999'),
         ]
         for surface, shift, want in cases:
             with self.subTest(surface=surface):
                 self.assertEqual(_shifted_date_text(surface, shift), want)
+        # day + month without a year: year defaults to the current one —
+        # assert self-consistency with the module's own parser
+        surface, shift = '27 Oct', 5
+        parsed = _parse_date_span(surface)
+        want = (parsed + tz.timedelta(days=shift)).strftime('%d/%m/%Y')
+        self.assertEqual(_shifted_date_text(surface, shift), want)
 
     def test_shifted_date_round_trips_through_unshift(self):
-        """Shifted surfaces must re-parse under the dayfirst convention in
-        _unshift_date, or extracted dates would come back corrupted."""
+        """Shifted surfaces (DD/MM/YYYY) must re-parse under the dayfirst
+        convention in _unshift_date, or extracted dates would come back
+        corrupted."""
         from extractor.services.text_deidentification import _shifted_date_text
         from extractor.services.instructor_extractor import (
             InstructorExtractionService)
@@ -2254,26 +2356,26 @@ class DeidReplacementTests(SimpleTestCase):
         for surface, shift, want in cases:
             with self.subTest(surface=surface):
                 shifted = _shifted_date_text(surface, shift)
-                self.assertFalse(shifted.startswith('<DATE>'))
+                self.assertIsNotNone(shifted)
                 self.assertEqual(
                     InstructorExtractionService._unshift_date(shifted, shift),
                     want)
 
     def test_pre_pass_shifts_dates_before_ner(self):
         """The reported failure: 'Date of registration' style documents.
-        Absolute dates shift in place; label words stay; nothing is
-        stripped without a trace."""
+        Absolute dates shift in place (to DD/MM/YYYY) before the NER runs;
+        label words stay; nothing is stripped without a trace."""
         from extractor.services.text_deidentification import (
             _shift_dates_pre_pass)
         text = ('Date of birth\n30 Nov 1979\nDate of registration\n'
                 '1 Mar 2024\nDate of consent\n28 Feb 2024')
         out, ranges = _shift_dates_pre_pass(text, 2, [])
         self.assertNotIn('30 Nov 1979', out)
-        self.assertIn('02 Dec 1979', out)
-        self.assertNotRegex(out, r'(?<!\d)1 Mar 2024')
-        self.assertIn('3 Mar 2024', out)          # day width preserved
+        self.assertIn('02/12/1979', out)
+        self.assertNotIn('1 Mar 2024', out)
+        self.assertIn('03/03/2024', out)
         self.assertNotIn('28 Feb 2024', out)
-        self.assertIn('01 Mar 2024', out)
+        self.assertIn('01/03/2024', out)
         self.assertIn('Date of birth', out)
         self.assertIn('Date of registration', out)
         self.assertIn('Date of consent', out)
@@ -2291,13 +2393,13 @@ class DeidReplacementTests(SimpleTestCase):
         self.assertIn('2 weeks ago', out)
         self.assertEqual(len(ranges), 1)
 
-    def test_shifted_date_long_tail_iso(self):
-        """Surfaces the shapes don't cover but dateparser validates as full
-        absolute dates re-emit as ISO (e.g. a comma the shapes reject)."""
+    def test_shifted_date_long_tail(self):
+        """Surfaces the shapes don't cover (e.g. a comma the shapes
+        reject) are parsed by dateparser's long-tail pass and re-emitted
+        as DD/MM/YYYY."""
         from extractor.services.text_deidentification import _shifted_date_text
         out = _shifted_date_text('16th September, 2026', 5)
-        self.assertFalse(out.startswith('<DATE>'))
-        self.assertEqual(out, '2026-09-21')
+        self.assertEqual(out, '21/09/2026')
 
     def test_date_label_words_dropped(self):
         """A bare 'Date' labelled DATE_TIME by NER is dropped, not redacted
@@ -2309,12 +2411,12 @@ class DeidReplacementTests(SimpleTestCase):
         kept = S._filter_results(text, results)
         self.assertEqual(kept, [])
 
-    def test_ner_hits_inside_shifted_ranges_dropped(self):
-        """A mislabelled span over an already-shifted date is dropped,
-        not allowed to swallow the date as <PERSON_n>. DATE_TIME hits
-        that merely overlap a shifted range are dropped too —
-        recognizer surfaces routinely stretch over the shifted date
-        plus surrounding words (e.g. '25/03/2024\nDate')."""
+    def test_date_and_covered_spans_dropped(self):
+        """Post date-shift policy: a mislabelled span over an
+        already-shifted date is dropped, not allowed to swallow the date
+        as <PERSON_n>. DATE_TIME hits are dropped in every case — the
+        pipeline never redacts dates (the pre-pass already shifted them;
+        durations/relative phrases/label words are kept verbatim)."""
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S, _shift_dates_pre_pass)
 
@@ -2326,23 +2428,31 @@ class DeidReplacementTests(SimpleTestCase):
         new_text, ranges = _shift_dates_pre_pass(
             'Admitted 15/03/2024 in ward', 10, [])
         i = new_text.index('25/03/2024')
-        # fully inside (any type) -> dropped
+        # fully inside a shifted range (any type) -> dropped
         self.assertEqual(
-            S._drop_covered_by_date_shifts([R(i, i + 10, 'PERSON')], ranges),
+            S._drop_date_time_and_covered([R(i, i + 10, 'PERSON')], ranges),
             [])
-        # DATE_TIME partially overlapping the shifted range -> dropped
+        # DATE_TIME overlapping the shifted range -> dropped
         self.assertEqual(
-            S._drop_covered_by_date_shifts([R(i - 3, i + 13)], ranges), [])
+            S._drop_date_time_and_covered([R(i - 3, i + 13)], ranges), [])
         # non-DATE_TIME partially overlapping -> kept (may hold other PHI)
         self.assertEqual(len(
-            S._drop_covered_by_date_shifts([R(0, 12, 'PERSON')], ranges)), 1)
-        # unshifted DATE_TIME clear of the range -> kept (still shifts)
-        self.assertEqual(len(
-            S._drop_covered_by_date_shifts([R(0, 8)], ranges)), 1)
+            S._drop_date_time_and_covered([R(0, 12, 'PERSON')], ranges)), 1)
+        # DATE_TIME clear of any shifted range -> still dropped (dates are
+        # never redacted)
+        self.assertEqual(
+            S._drop_date_time_and_covered([R(0, 8)], ranges), [])
 
-    def test_unparseable_date_becomes_tag(self):
+    def test_unparseable_date_left_untouched(self):
+        """Relative phrases, durations and single-component surfaces are
+        never shifted or redacted — _shifted_date_text returns None and
+        callers leave the content as-is."""
         from extractor.services.text_deidentification import _shifted_date_text
-        self.assertEqual(_shifted_date_text('next Tuesday', 10), '<DATE>')
+        self.assertIsNone(_shifted_date_text('next Tuesday', 10))
+        self.assertIsNone(_shifted_date_text('3 days', 10))
+        self.assertIsNone(_shifted_date_text('1985', 10))   # bare year
+        self.assertIsNone(_shifted_date_text('27', 10))     # bare day
+        self.assertIsNone(_shifted_date_text('Oct', 10))    # bare month
 
     def test_tag_numbering_consistent_per_value(self):
         from extractor.services.text_deidentification import (
@@ -2373,11 +2483,12 @@ class DeidReplacementTests(SimpleTestCase):
             RecognizerResult(entity_type='PERSON', start=34, end=40, score=0.9),
         ]
         out = TextDeidentificationService._apply_replacements(
-            text, results, 10, {})
+            text, results, {})
         # First occurrence in document order gets _1
         self.assertTrue(out.startswith('<PERSON_1>'))
         self.assertIn('<PERSON_2>', out)
-        self.assertIn('22/03/2024', out)
+        # DATE_TIME is never redacted or re-written here
+        self.assertIn('12/03/2024', out)
         self.assertNotIn('Ramesh', out)
 
     def test_resolve_overlaps_containing_span_wins_regardless_of_score(self):
@@ -2481,6 +2592,10 @@ class TextDeidPipelineTests(TestCase):
             chavi_center_id='C1', center_name='Test Center')
         self.patient = Patient.objects.create(patient_id='P-T1')
         self.user = User.objects.create(username='deidtester')
+        # FileUpload.save() snapshots file.size, so the upload must exist on
+        # disk under the (temp) MEDIA_ROOT.
+        with open(os.path.join(self._tmp.name, 'note.pdf'), 'wb') as f:
+            f.write(b'%PDF-1.4 fake')
         self.upload = FileUpload.objects.create(
             patient_id=self.patient, file='note.pdf')
 
@@ -2528,7 +2643,10 @@ class TextDeidPipelineTests(TestCase):
             again = TextDeidentificationService.deidentify(out)
         self.assertIsNone(again)
 
-    def test_csv_path_mapped_columns_and_cell_ner(self):
+    def test_csv_deidentified_as_plain_text(self):
+        """The old column-map CSV path is gone: a .csv is deid'd as plain
+        text (dates shifted, names redacted) with no column flagging."""
+        import re
         from unittest.mock import patch
         from extractor.services.text_deidentification import (
             TextDeidentificationService)
@@ -2540,20 +2658,13 @@ class TextDeidPipelineTests(TestCase):
                           side_effect=self._fake_engine):
             out = TextDeidentificationService.deidentify(src)
 
-        self.assertIn('patient_name', out.deid_csv_columns_flagged)
-        self.assertIn('dob', out.deid_csv_columns_flagged)
-
-        import csv as _csv, io as _io
+        self.assertEqual(out.deid_csv_columns_flagged, [])
         from extractor.services.file_processor import FileProcessorService
-        rows = list(_csv.reader(
-            _io.StringIO(FileProcessorService.get_processed_content(out))))
-        self.assertEqual(rows[0], ['patient_name', 'dob', 'notes'])
-        name_cell, dob_cell, notes_cell = rows[1]
-        self.assertEqual(name_cell, '<PERSON_1>')
-        self.assertNotEqual(dob_cell, '12/03/1970')
-        self.assertNotIn('Ramesh Kumar', notes_cell)
-        # Same value in the free-text cell reuses the column's tag
-        self.assertIn('<PERSON_1>', notes_cell)
+        content = FileProcessorService.get_processed_content(out)
+        self.assertNotIn('Ramesh Kumar', content)
+        # date shifted (never redacted) and re-emitted as dd/mm/yyyy
+        self.assertNotIn('12/03/1970', content)
+        self.assertTrue(re.search(r'\d{2}/\d{2}/\d{4}', content))
 
     def test_manual_edit_and_review_flags(self):
         from unittest.mock import patch
@@ -2606,10 +2717,18 @@ class DeidUnshiftOnSaveTests(TestCase):
     """save_extraction_results restores real dates for deid sources."""
 
     def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._override = self.settings(MEDIA_ROOT=self._tmp.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
         from client_app.models import Patient, SiteConfiguration
         SiteConfiguration.objects.create(
             chavi_center_id='C1', center_name='Test Center')
         self.patient = Patient.objects.create(patient_id='P-U1')
+        with open(os.path.join(self._tmp.name, 'note.pdf'), 'wb') as f:
+            f.write(b'%PDF-1.4 fake')
         self.diagnosis = make_table('diagnosis', [PATIENT_STEP])
         self.rm = make_response_model()
         self.rmt_diag = ResponseModelTable.objects.create(
@@ -4697,22 +4816,17 @@ class LlmDeidEndToEndTests(TestCase):
         out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
         self.assertNotIn('123412341234', out)  # rules still work
 
-    def test_llm_csv_cell_caching(self):
-        """Identical unmapped cell values cost ONE LLM call per run.
-
-        Layout trick: 'dob' IS in EXTRACTOR_DEID_CSV_COLUMN_MAP so the CSV
-        goes through the header-aware path (fully unmapped CSVs fall back
-        to whole-text deid), while 'subject' cells go through per-cell NER
-        where the recognizer's run-cache must absorb the repeats.
-        """
+    def test_llm_run_cache_absorbs_repeats(self):
+        """Identical entity values cost ONE LLM call per run (recognizer
+        run-cache). A row document repeating the same name still issues a
+        single LLM call for that value."""
         from extractor.services.text_deidentification import (
             TextDeidentificationService as S)
-        csv_content = (
-            'dob,subject\n'
-            '01/02/2024,Rajesh Kumar\n'
-            '02/02/2024,Rajesh Kumar\n'
-            '03/02/2024,Rajesh Kumar\n')
-        pt2 = self._write_processed('uploads/test_note.csv', csv_content)
+        md = ('# Patient record\n\n'
+              '- **subject**: Rajesh Kumar\n'
+              '- **notes**: Rajesh Kumar seen on 01/02/2024. '
+              'Rajesh Kumar seen again on 02/02/2024.\n')
+        pt2 = self._write_processed('uploads/row.md', md)
         with mock.patch(
                 'extractor.services.llm_ner.LlmNerClient._llm_call',
                 wraps=lambda chunk: self._llm_side_effect(chunk)) as m:
@@ -4722,6 +4836,384 @@ class LlmDeidEndToEndTests(TestCase):
         out = (self.media / new.processed_file_path).read_text(encoding='utf-8')
         self.assertNotIn('Rajesh Kumar', out)
         self.assertEqual(calls_for_name, 1)
+
+
+class CsvRowViewTests(TestCase):
+    """Views: CSV detail config card + process fan-out."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._override = self.settings(MEDIA_ROOT=self._tmp.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
+        from client_app.models import Patient, SiteConfiguration
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        Patient.objects.create(patient_id='P-1')
+        self.user = User.objects.create_user('csvview')
+        self.user.user_permissions.set(Permission.objects.filter(
+            codename__in=['view_fileupload', 'view_processedtext',
+                          'change_fileupload', 'change_processedtext']))
+        self.client.force_login(self.user)
+
+    def _csv_upload(self, csv_text, name='rows.csv'):
+        return FileUpload.objects.create(
+            original_filename=name,
+            file=ContentFile(csv_text.encode('utf-8'), name))
+
+    def test_detail_shows_csv_config_card(self):
+        up = self._csv_upload('mrn,notes\nP-1,hi\n')
+        resp = self.client.get(
+            reverse('extractor:file_upload_detail', args=[up.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'CSV Row Processing')
+        self.assertContains(resp, 'mrn')
+
+    def test_process_csv_fans_out_rows(self):
+        from extractor.views import _dispatch_csv_row_tasks
+        from client_app.models import Patient
+        Patient.objects.create(patient_id='P-2')
+        up = self._csv_upload('mrn,notes\nP-1,hi\nP-2,ho\n')
+        with mock.patch('extractor.views._dispatch_csv_row_tasks') as m:
+            resp = self.client.post(
+                reverse('extractor:file_upload_process', args=[up.id]),
+                {'csv_patient_id_column': 'mrn'})
+        up.refresh_from_db()
+        self.assertEqual(up.csv_patient_id_column, 'mrn')
+        self.assertFalse(up.csv_deid_review_required)
+        self.assertEqual(len(up.csv_unmatched_rows), 0)
+        self.assertTrue(m.called)
+        dispatched_pts = m.call_args[0][0]
+        self.assertEqual(len(dispatched_pts), 2)
+        self.assertTrue(all(p.source_sheet.startswith('row-')
+                           for p in dispatched_pts))
+        self.assertRedirects(
+            resp, reverse('extractor:file_upload_detail', args=[up.id]))
+
+    def test_process_csv_records_unmatched(self):
+        from extractor.views import _dispatch_csv_row_tasks
+        up = self._csv_upload('mrn,notes\nP-1,hi\nP-999,ho\n')
+        with mock.patch('extractor.views._dispatch_csv_row_tasks'):
+            self.client.post(
+                reverse('extractor:file_upload_process', args=[up.id]),
+                {'csv_patient_id_column': 'mrn', 'csv_deid_review_required': 'on'})
+        up.refresh_from_db()
+        self.assertTrue(up.csv_deid_review_required)
+        self.assertEqual(up.csv_unmatched_rows, [{'row': 2, 'value': 'P-999'}])
+
+
+class CsvRowExpansionTests(TestCase):
+    """expand_csv_to_row_documents: one row = one patient document."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._override = self.settings(MEDIA_ROOT=self._tmp.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
+        from client_app.models import Patient, SiteConfiguration
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        self.user = User.objects.create(username='csvrowtester')
+        for pid in ('P-1', 'P-2'):
+            Patient.objects.create(patient_id=pid)
+
+    def _csv_upload(self, csv_text, name='rows.csv'):
+        return FileUpload.objects.create(
+            original_filename=name,
+            file=ContentFile(csv_text.encode('utf-8'), name),
+            file_type='csv')
+
+    def _read(self, pt):
+        from pathlib import Path
+        from django.conf import settings
+        return (Path(settings.MEDIA_ROOT) / pt.processed_file_path).read_text(encoding='utf-8')
+
+    def test_rows_expand_with_patient_links_and_unmatched(self):
+        from extractor.services.csv_rows import (
+            expand_csv_to_row_documents, is_row_document, row_number)
+        up = self._csv_upload(
+            'name,mrn,notes\n'
+            'Alice,P-1,saw 27 Oct 26 14:30\n'
+            'Bob,P-2,fever\n'
+            'Carol,P-999,unmatched\n')
+        pts, unmatched = expand_csv_to_row_documents(
+            up, self.user, 'mrn', review_required=False)
+        self.assertEqual(len(pts), 3)
+        self.assertTrue(all(is_row_document(p) for p in pts))
+        self.assertEqual(pts[0].patient_id.patient_id, 'P-1')
+        self.assertEqual(pts[1].patient_id.patient_id, 'P-2')
+        self.assertIsNone(pts[2].patient_id)
+        self.assertEqual(unmatched, [{'row': 3, 'value': 'P-999'}])
+        content = self._read(pts[0])
+        self.assertIn('**mrn**: P-1', content)
+        self.assertIn('27 Oct 26 14:30', content)
+        self.assertEqual(row_number(pts[0].source_sheet), 1)
+
+    def test_empty_and_null_cells_emitted(self):
+        from extractor.services.csv_rows import expand_csv_to_row_documents
+        up = self._csv_upload('name,dob,city\nJane,,NA\n')
+        pts, _ = expand_csv_to_row_documents(up, self.user, 'name')
+        content = self._read(pts[0])
+        self.assertIn('**dob**: (not recorded)', content)
+        self.assertIn('**city**: NA', content)
+
+    def test_deid_review_required_flag_set(self):
+        from extractor.services.csv_rows import expand_csv_to_row_documents
+        up = self._csv_upload('mrn,notes\nP-1,x\n')
+        pts, _ = expand_csv_to_row_documents(
+            up, self.user, 'mrn', review_required=True)
+        self.assertTrue(pts[0].deid_review_required)
+
+    def test_no_patient_column_links_none(self):
+        from extractor.services.csv_rows import expand_csv_to_row_documents
+        up = self._csv_upload('mrn,notes\nP-1,x\n')
+        pts, unmatched = expand_csv_to_row_documents(up, self.user, '')
+        self.assertIsNone(pts[0].patient_id)
+        self.assertEqual(unmatched, [])
+
+
+class CsvRowPipelineTests(TestCase):
+    """Per-row task chain: deid (+ optional auto-extract) and per-row patient."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._override = self.settings(MEDIA_ROOT=self._tmp.name)
+        self._override.enable()
+        self.addCleanup(self._override.disable)
+        from client_app.models import Patient, SiteConfiguration
+        SiteConfiguration.objects.create(
+            chavi_center_id='C1', center_name='Test Center')
+        self.patient = Patient.objects.create(patient_id='P-ROW')
+        self.user = User.objects.create(username='csvrowpipe')
+
+    def _row_doc(self, content, patient=None, review_required=False):
+        from pathlib import Path
+        from django.conf import settings
+        up = FileUpload.objects.create(original_filename='rows.csv')
+        rel = f'uploads/row_{up.id}.md'
+        full = Path(settings.MEDIA_ROOT) / rel
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(content, encoding='utf-8')
+        return ProcessedText.objects.create(
+            file_upload=up, processed_file_path=rel,
+            source_sheet='row-0000', patient_id=patient,
+            deid_review_required=review_required, content_length=len(content))
+
+    def test_row_deid_uses_row_patient_not_upload(self):
+        """The row's own patient (not the upload's) drives ad-hoc deid."""
+        from pathlib import Path
+        from unittest.mock import patch
+        from client_app.models import Patient
+        from extractor.services.text_deidentification import (
+            TextDeidentificationService as S)
+        other = Patient.objects.create(patient_id='P-OTHER')
+        up = FileUpload.objects.create(patient_id=other)
+        pt = ProcessedText.objects.create(
+            file_upload=up, processed_file_path='uploads/r.md',
+            source_sheet='row-0000', patient_id=self.patient)
+        p = Path(self._tmp.name) / 'uploads/r.md'
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text('Pt present.', encoding='utf-8')
+        seen = {}
+
+        def fake_recognizers(patient):
+            seen['patient'] = patient
+            return []
+
+        with patch(
+                'extractor.services.text_deidentification.build_patient_recognizers',
+                side_effect=fake_recognizers):
+            S.deidentify(pt, user=self.user)
+        self.assertEqual(seen.get('patient'), self.patient)
+        self.assertNotEqual(seen.get('patient'), other)
+
+    def test_process_csv_row_task_deids_and_stops_without_model(self):
+        from extractor.tasks import process_csv_row_task
+        from extractor.models import BackgroundTask
+        pt = self._row_doc('# Patient record\n\n- **name**: Ramesh Kumar\n')
+        task = BackgroundTask.objects.create(
+            task_id=f'csvrow-{pt.id}-1', task_name=f'CSV row {pt.id}',
+            status='pending')
+        with mock.patch(
+                'extractor.services.text_deidentification.'
+                'TextDeidentificationService.deidentify') as deid:
+            fake_out = ProcessedText.objects.create(
+                file_upload=pt.file_upload, processed_file_path='out.md',
+                deidentified=True, source_sheet='row-0000',
+                deid_review_required=False)
+            deid.return_value = fake_out
+            process_csv_row_task(task.task_id, pt.id, user_id=self.user.id)
+        task.refresh_from_db()
+        self.assertEqual(task.status, 'complete')
+        self.assertEqual(task.result_data.get('stage'), 'deid_only')
+
+    def test_process_csv_row_task_review_blocks_extraction(self):
+        from extractor.tasks import process_csv_row_task
+        from extractor.models import (
+            BackgroundTask, ResponseModel, ClientConfiguration)
+        cfg = ClientConfiguration.objects.create(
+            llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+            model_api_key='ollama', model_base_url='http://localhost:11434',
+            model_type='system2', deid_local_certified=True)
+        rm = ResponseModel.objects.create(name='RM', client=cfg)
+        up = FileUpload.objects.create(csv_response_model=rm)
+        pt = ProcessedText.objects.create(
+            file_upload=up, processed_file_path='uploads/r2.md',
+            source_sheet='row-0001', deid_review_required=True,
+            deid_reviewed=False, content_length=10)
+        task = BackgroundTask.objects.create(
+            task_id=f'csvrow-{pt.id}-1', task_name=f'CSV row {pt.id}',
+            status='pending')
+        with mock.patch(
+                'extractor.services.text_deidentification.'
+                'TextDeidentificationService.deidentify') as deid:
+            deid.return_value = pt
+            process_csv_row_task(task.task_id, pt.id, user_id=self.user.id)
+        task.refresh_from_db()
+        self.assertEqual(task.result_data.get('stage'), 'awaiting_review')
+
+    def test_row_task_dispatches_with_auto_extract_flag(self):
+        """The row task persists the upload's auto-extract preference on the
+        job and dispatches the extractor with it, so the LLM stages run
+        without manual clicks while the extracted-data review stays manual."""
+        from extractor.tasks import process_csv_row_task
+        from extractor.models import BackgroundTask, ExtractionJob
+
+        for auto in (True, False):
+            rm = self._rm()
+            up = FileUpload.objects.create(
+                csv_response_model=rm, csv_auto_extract=auto)
+            pt = ProcessedText.objects.create(
+                file_upload=up, processed_file_path=f'uploads/a{auto}.md',
+                source_sheet=f'row-{up.id:04d}', deidentified=True,
+                deid_review_required=False, content_length=10)
+            job = ExtractionJob.objects.create(
+                response_model=rm, processed_file=pt,
+                extracted_by=self.user)
+            task = BackgroundTask.objects.create(
+                task_id=f'csvrow-{pt.id}-1', task_name=f'CSV row {pt.id}',
+                status='pending')
+            with mock.patch(
+                    'extractor.services.text_deidentification.'
+                    'TextDeidentificationService.deidentify',
+                    return_value=pt), \
+                 mock.patch(
+                    'extractor.services.instructor_extractor.'
+                    'InstructorExtractionService.get_or_create_job',
+                    return_value=(job, True)), \
+                 mock.patch('extractor.tasks.advance_extraction_job') as adv:
+                process_csv_row_task(task.task_id, pt.id,
+                                     user_id=self.user.id)
+            job.refresh_from_db()
+            self.assertEqual(job.auto_extract, auto)
+            adv.delay.assert_called_once_with(job.id, auto_extract=auto)
+            task.refresh_from_db()
+            self.assertEqual(task.result_data.get('auto_extract'), auto)
+            self.assertEqual(task.result_data.get('job_id'), job.id)
+
+    def _rm(self):
+        from extractor.models import ResponseModel, ClientConfiguration
+        if not hasattr(self, '_cfg'):
+            self._cfg = ClientConfiguration.objects.create(
+                llm_model_name='gemma4:4b', model_provider='Local (Ollama)',
+                model_api_key='ollama', model_base_url='http://localhost:11434',
+                model_type='system2', deid_local_certified=True)
+        return ResponseModel.objects.create(
+            name=f'RM{ResponseModel.objects.count()}', client=self._cfg)
+
+    def test_effective_patient_row_wins(self):
+        from client_app.models import Patient
+        other = Patient.objects.create(patient_id='P-UPLOAD')
+        up = FileUpload.objects.create(patient_id=other)
+        pt = ProcessedText.objects.create(file_upload=up, patient_id=self.patient)
+        self.assertEqual(pt.effective_patient, self.patient)
+        self.assertEqual(pt.effective_patient_pk, 'P-ROW')
+
+    def test_effective_patient_falls_back_to_upload(self):
+        from client_app.models import Patient
+        other = Patient.objects.create(patient_id='P-UPLOAD')
+        up = FileUpload.objects.create(patient_id=other)
+        pt = ProcessedText.objects.create(file_upload=up)
+        self.assertEqual(pt.effective_patient, other)
+
+    def test_dashboard_stats_group_by_effective_patient(self):
+        from client_app.models import Patient
+        from extractor.views import _patient_dashboard_stats
+        # Row document for P-ROW under a multi-patient CSV (upload unlinked).
+        csv_up = FileUpload.objects.create(original_filename='rows.csv')
+        row = ProcessedText.objects.create(
+            file_upload=csv_up, source_sheet='row-0000', patient_id=self.patient)
+        # Whole-file document for another patient via the upload link.
+        other = Patient.objects.create(patient_id='P-UPLOAD')
+        up2 = FileUpload.objects.create(patient_id=other)
+        whole = ProcessedText.objects.create(file_upload=up2)
+
+        rm = self._rm()
+        ExtractionJob.objects.create(response_model=rm, processed_file=row,
+                                     extracted_by=self.user,
+                                     extraction_status='completed')
+        ExtractionJob.objects.create(response_model=rm, processed_file=whole,
+                                     extracted_by=self.user,
+                                     extraction_status='failed')
+
+        stats = _patient_dashboard_stats(['P-ROW', 'P-UPLOAD'])
+        self.assertEqual(stats['P-ROW']['jobs_completed'], 1)
+        self.assertEqual(stats['P-ROW']['processed_count'], 1)
+        self.assertEqual(stats['P-UPLOAD']['jobs_failed'], 1)
+        self.assertEqual(stats['P-UPLOAD']['processed_count'], 1)
+        # The unlinked CSV upload must not count as a file for P-UPLOAD.
+        self.assertEqual(stats['P-UPLOAD']['file_count'], 1)
+
+    def test_advance_job_gate_respects_row_review_flag(self):
+        """The extraction task's review gate honors the per-row flag: a row
+        that doesn't require review proceeds while unreviewed; a row flagged
+        review-required is still blocked."""
+        from pathlib import Path
+        from django.conf import settings as dj_settings
+        from extractor.tasks import advance_extraction_job
+        row_free = self._gate_row('row-0010', review_required=False)
+        job_free = ExtractionJob.objects.create(
+            response_model=self._rm(), processed_file=row_free,
+            extracted_by=self.user)
+        with mock.patch(
+                'extractor.services.instructor_extractor.'
+                'InstructorExtractionService.stage_prepare') as sp:
+            sp.return_value = {'status': 'awaiting_mining'}
+            advance_extraction_job(job_free.id)
+        sp.assert_called_once()  # not blocked
+        job_free.refresh_from_db()
+        self.assertNotEqual(job_free.extraction_status, 'failed')
+
+        row_review = self._gate_row('row-0011', review_required=True)
+        job_review = ExtractionJob.objects.create(
+            response_model=self._rm(), processed_file=row_review,
+            extracted_by=self.user)
+        with mock.patch(
+                'extractor.services.instructor_extractor.'
+                'InstructorExtractionService.stage_prepare') as sp:
+            advance_extraction_job(job_review.id)
+        sp.assert_not_called()  # blocked
+        job_review.refresh_from_db()
+        self.assertEqual(job_review.extraction_status, 'failed')
+
+    def _gate_row(self, sheet, review_required):
+        from pathlib import Path
+        from django.conf import settings as dj_settings
+        csv_up = FileUpload.objects.create()
+        rel = f'uploads/gate_{sheet}.md'
+        full = Path(dj_settings.MEDIA_ROOT) / rel
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text('# Patient record\n', encoding='utf-8')
+        return ProcessedText.objects.create(
+            file_upload=csv_up, processed_file_path=rel, source_sheet=sheet,
+            deidentified=True, deid_review_required=review_required,
+            deid_reviewed=False, patient_id=self.patient)
 
 
 class LlmNerParseTests(SimpleTestCase):

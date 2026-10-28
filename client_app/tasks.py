@@ -63,11 +63,15 @@ _last_progress_write = {}
 
 
 def _create_task_run(task_name, task_type, user_id, celery_task_id=None, related_session_id=None,
-                      manifest_path=None, task_args=None, task_kwargs=None):
+                      manifest_path=None, task_args=None, task_kwargs=None, tracker_id=None):
     """Create or update a TaskRun row tracking a dispatched Celery task.
 
     task_args/task_kwargs should be the original call arguments (e.g. self.request.args /
     self.request.kwargs) so that resume/retry can redispatch the same task generically.
+
+    tracker_id (optional) links the row to an external progress tracker (e.g. an
+    extractor BackgroundTask.task_id) so chained Celery tasks can consolidate on
+    the same row.
     """
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -84,6 +88,8 @@ def _create_task_run(task_name, task_type, user_id, celery_task_id=None, related
         defaults['task_args'] = list(task_args)
     if task_kwargs is not None:
         defaults['task_kwargs'] = dict(task_kwargs)
+    if tracker_id:
+        defaults['tracker_id'] = tracker_id
     task_run, created = TaskRun.objects.update_or_create(
         task_id=celery_task_id or '',
         defaults=defaults,

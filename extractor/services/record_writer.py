@@ -111,7 +111,7 @@ def find_duplicate_candidates(db_table, extracted_record):
     Empty list = no candidate found (or no usable key-set).
     """
     model_class = db_table.clientapp_content_type.model_class()
-    patient = extracted_record.extraction_job.processed_file.file_upload.patient_id
+    patient = extracted_record.extraction_job.processed_file.effective_patient
     if model_class is None or patient is None:
         return []
 
@@ -257,7 +257,7 @@ def _resolve_parent_fks(extracted_record):
       explains what to create first.
     """
     job = extracted_record.extraction_job
-    patient = job.processed_file.file_upload.patient_id
+    patient = job.processed_file.effective_patient
     fks = {}
 
     rel_fields = DatabaseField.objects.filter(
