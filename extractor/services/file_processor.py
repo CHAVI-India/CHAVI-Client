@@ -29,7 +29,12 @@ def _get_easyocr_reader():
     if _EASYOCR_READER is None:
         import easyocr
         model_store = getattr(settings, 'DEID_EASYOCR_MODEL_STORE')
-        kwargs = {"gpu": False, "verbose": False}
+        # gpu=True so PDF OCR uses CUDA when the worker container sees the
+        # GPU; EasyOCR's Reader auto-falls back to CPU when torch.cuda is
+        # unavailable. DEID_EASYOCR_GPU=False forces CPU (same knob as the
+        # deid pixel-scrub EasyOCR).
+        kwargs = {"gpu": getattr(settings, 'DEID_EASYOCR_GPU', True),
+                  "verbose": False}
         if model_store:
             kwargs["model_storage_directory"] = model_store
         try:

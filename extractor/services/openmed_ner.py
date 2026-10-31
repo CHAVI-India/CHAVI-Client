@@ -7,7 +7,11 @@ terminology ("Nottingham", "Grade III", "mammogram", "HER2 3+") while
 still catching names, places, dates and record numbers — including
 small places (village names) that the Stanford deid model misses.
 
-The model runs locally (HF weights, CPU). Like the LLM recognizer it is
+The model runs locally (HF weights, pytorch format). Device selection is
+handled by OpenMed itself: with no config it auto-detects CUDA/MPS and
+falls back to CPU, so a GPU worker container uses the GPU with no
+configuration. Force a device with the OPENMED_TORCH_DEVICE env var or
+OpenMedConfig(device=...). Like the LLM recognizer it is
 plugged in as an ad-hoc recognizer on the rules-only analyzer, so all
 downstream pipeline logic (filters, overlap resolution, date shifting,
 tags, review map) is unchanged.

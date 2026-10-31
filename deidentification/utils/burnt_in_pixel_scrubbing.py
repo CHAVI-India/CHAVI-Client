@@ -53,8 +53,15 @@ def _get_ocr():
             # baked into the Docker image). Any EasyOCR failure — e.g. store
             # missing on an offline box — falls back to Tesseract, so deid
             # jobs keep running instead of failing the series.
+            # GPU: pass gpu=True so EasyOCR uses CUDA when the worker
+            # container sees the GPU (nvidia-container-toolkit + the
+            # deploy.resources block in docker-compose). EasyOCR's Reader
+            # auto-falls back to CPU when torch.cuda is unavailable, so
+            # gpu=True is safe on GPU-less hosts; set DEID_EASYOCR_GPU=False
+            # to force CPU (e.g. shared GPU kept for other workloads).
             return EasyOCROCR(
-                model_store=getattr(settings, 'DEID_EASYOCR_MODEL_STORE')
+                model_store=getattr(settings, 'DEID_EASYOCR_MODEL_STORE'),
+                gpu=getattr(settings, 'DEID_EASYOCR_GPU', True),
             )
         except Exception as e:
             logger.warning(f"EasyOCR unavailable ({e}); falling back to Tesseract OCR")
