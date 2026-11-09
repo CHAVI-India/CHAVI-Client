@@ -1,48 +1,48 @@
 # Graph Report - CHAVI-Client  (2026-11-09)
 
 ## Corpus Check
-- 653 files · ~1,482,596 words
+- 653 files · ~1,482,675 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 271 file(s) not represented in the graph (top: .doctree 152, .css 51, (none) 23)
 
 ## Summary
-- 12945 nodes · 29827 edges · 567 communities (238 shown, 329 thin omitted)
-- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 3920 edges (avg confidence: 0.91)
+- 12934 nodes · 29869 edges · 631 communities (294 shown, 337 thin omitted)
+- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 3966 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `db6aa37c`
+- Built from commit: `d660e3df`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- logging
+- extractor/tasks.py
 - Extractor Forms & Deid Config
 - pathlib
 - InstructorExtractionService
 - Bulk Retrieval Scheduling
 - RetrievalJob
-- deidentification/views.py
+- LlmNerRecognizer
 - RbacPermissionRequiredMixin
-- ClientConfigurationDeidValidationTests
+- TestCase
 - dicom_server/views.py
 - ProcessedText
 - list_views.py
-- client_app/forms.py
+- DICOMStudy
 - Extraction Review & Record Ops
 - TaskRun
 - Clinical List Views
 - resources.py
 - form_views.py
 - data_import/models.py
-- TestCase
+- make_field
 - Data Import Model Writers
 - qe
 - django_db
 - Bulk Patient Study Query
-- dicom_archive/views.py
+- styleguide/views.py
 - Data Import Field Introspection
-- LookupEmbeddingAdmin
+- extractor/admin.py
 - Django Admin Registrations
 - JSONGeneratorService
 - django_db_models_deletion
@@ -51,32 +51,32 @@
 - LLM Extraction UI Pages
 - bulk_selection.py
 - e
-- ingest_dataset
-- build_table_question_prompt
+- SiteConfiguration
+- instructor_extractor.py
 - Navbar Visibility Tests
 - django_core_validators
-- qa
+- P
 - BulkScheduleForm
 - DICOM Instance Selection
 - Qu
 - Patient
 - patient_data.py
-- h
-- DICOM services audit — chavi_client vs draw-client-2.0
+- qe
+- lookup/views.py
 - url_policy.py
-- dicom_archive/views.py
-- ArchiveConfiguration
+- ArchiveLocation
+- lookup/serializers.py
 - SchemaDiscoveryService
 - 0035_recover_archived_studies.py
 - Allauth Auth UI
 - viewsets.py
 - ArchiveLocationForm
 - RetrievalBatchPatient
-- zt
+- django_db_models_deletion
 - EmbeddingIndexTests
 - MigrationBase
 - LlmNerClient
-- DICOMStudy
+- DICOMStudyAdmin
 - OpenMedNerRecognizer
 - A
 - json_generator.py
@@ -92,20 +92,20 @@
 - pa
 - TestNodeCRUD
 - StagedPipelineTests
-- DurationFilterTests
-- BulkScheduleForm
+- DeidRecognizerTests
+- LookupEmbedding
 - InstructorExtractionService
-- ArchiveViewTestCase
+- TestPageRendering
 - find_patient
 - make_rt_dataset
 - DICOM Server
 - 0029_rbac_roles.py
 - FolderPathMigrationTests
-- export_patient_data_to_file
-- model_capabilities.py
+- e
+- Select2WidgetMixin
 - django
 - DeidRecognizerTests
-- LiveDicomServerTest
+- json
 - DICOMStudy
 - da
 - main.js
@@ -115,18 +115,18 @@
 - time
 - TextDeidentificationService
 - RtInstanceSelectionE2ETests
-- dicom_server/tasks.py
+- RemoteDICOMNode
 - ArchiveLocation
 - text_deidentification.py
 - BulkDICOMMatchingView
 - Independent Validation — MedDeID English Synthetic Benchmark
 - deidentify_processed_text_task
-- model_capabilities.py
-- run
+- re
+- Li
 - LlmDeidEndToEndTests
 - re
 - import_serializers.py
-- PatientAutoRetrievalSignalTests
+- LookupAbstract
 - en
 - Iu
 - TestLocationCrud
@@ -143,7 +143,7 @@
 - LlmDeidEndToEndTests
 - tests_task_resume.py
 - BulkDICOMConfirmationView
-- dicom_server/admin.py
+- EmbeddingConfiguration
 - ExtractionPlanTests
 - CsvRowPipelineTests
 - DICOMDataExportView
@@ -151,21 +151,21 @@
 - AccountAdapter
 - import_serializers.py
 - PatientDataExportView
-- t
+- EmbeddingIndexTests
 - _upsert_study
-- deidentification/views.py
+- OcrTaskRunTests
 - DICOM Data Export
 - EpigeneticData
 - DicomFrontendTestCase
 - extractor_filters.py
 - n
 - Bulk DICOM Import
-- BaseSerializer
-- da
+- fa
+- BulkPatientListTests
 - ui.py
 - TestTaskStatusView
 - deid_prefetch_model.py
-- hash_pk
+- csv_rows.py
 - De-identification
 - AdverseEffectsResource
 - ComorbidityResource
@@ -192,11 +192,11 @@
 - StageInformationResource
 - SurgeryResource
 - SymptomResource
-- task_export_patient_data
+- vi
 - SystemicTherapyScheduleResource
 - TaskResultAdmin
 - LesionImportSerializer
-- SiteConfiguration
+- DICOMServerConfiguration
 - ._execute_table_call
 - Cytogenetics
 - re
@@ -207,14 +207,14 @@
 - Ii
 - TestLocationTestButtons
 - ._selected
-- meddeid_test.py
+- advance_extraction_job
 - 0034_seed_default_pipeline.py
-- _serialize_patient_clinical_data
+- z
 - Diagnosis
-- export_patient_data
+- encrypted_model_fields_fields
 - SomaticGenomicAlterations
 - CHAVI-Client
-- FileImportSession
+- ImportSessionListView
 - StageInformation
 - O
 - pa
@@ -226,13 +226,13 @@
 - CytogeneticsImportSerializer
 - EpigeneticDataImportSerializer
 - GeneExpressionDataImportSerializer
-- Test Design (the spec)
-- CytogeneticsListView
+- ArchiveHookTests
+- DICOMStudyListView
 - LaboratoryResultsImportSerializer
 - LesionResponseImportSerializer
 - OtherTreatmentImportSerializer
 - PatientAssessmentImportSerializer
-- DeidPipelineResolutionTests
+- burnt_in_pixel_scrubbing.py
 - PatientReportedOutcomeImportSerializer
 - RadiotherapyImportSerializer
 - SurgeryImportSerializer
@@ -246,8 +246,8 @@
 - 0006_alter_symptom_duration_of_symptom.py
 - 0009_patientdicomfile_processed_and_more.py
 - matcherFromTokens
-- 0034_fix_dicomstudy_folder_paths.py
-- DeidDispatchViewTests
+- InferenceContractTests
+- LlmNerClient
 - .get_export_resource_class
 - $e
 - KwargComponent
@@ -257,11 +257,11 @@
 - .get_export_resource_class
 - GapFillTests
 - 0030_alter_taskrun_task_type.py
-- Global Constraints
-- CsvRowViewTests
-- Je
+- embeddings.py
+- TaskRunResumeRetryViewTests
+- zt
 - 0007_databasetable_date_validation_pairs.py
-- .sync_with_api
+- llm_ner.py
 - l
 - 0024_processedtext_deid_map.py
 - 0025_alter_clientconfiguration_context_size_and_more.py
@@ -292,13 +292,15 @@
 - invertBmp
 - RelatedObjectLookups.js
 - XRegExp
-- AppScaffoldTests
+- resolve_spans
 - webauthn-json.js
 - Body
 - te
 - D
 - hi
 - hi
+- bn
+- LookupLaterality
 - 0034_seed_default_pipeline.py
 - .get_template_data
 - ForeignKeyInitMixin
@@ -306,39 +308,41 @@
 - _classCallCheck
 - Headers
 - chaviclient-dicom
-- extractor/models.py
+- PydanticModelBuilder
 - .readthedocs.yaml
 - actions.js
 - domManip
 - BaseSelection
 - 0037_fileupload_file_size.py
-- Ii
-- gunicorn.conf.py
+- H
+- nu
 - settings.py
 - Containers
 - Help Text Expansion Plan (client_app models)
 - Search
+- SemanticSearchService
 - LintUITest
+- Un
 - Information about icons in this directory
-- ComorbidityListView
+- client_app/forms.py
 - Animation
 - InputData
 - Tags
 - webauthn.js
 - bi
 - bi
-- Ft
+- DICOM Archive — Implementation Plans (Overview & Shared Contract)
 - chaviclient-database
-- ComorbiditySerializer
+- g
 - Lookup App API Integration
-- ConcomitantMedicationsSerializer
-- deidentification/admin.py
+- chunk_text
+- Pu
 - BaseAdapter
 - UrlTemplate
 - js/wNumb.min.js
 - wnumb/wNumb.min.js
-- CytogeneticsSerializer
-- chavi_client/urls.py
+- StuckBatchRecoveryTests
+- nt
 - chaviclient-celery-beat
 - chaviclient-celery-deid-worker
 - chaviclient-celery-worker
@@ -346,67 +350,148 @@
 - chaviclient-django
 - chaviclient-proxy
 - chaviclient-rabbitmq
-- EpigeneticDataSerializer
-- GeneExpressionDataSerializer
-- LesionResponseSerializer
-- RadiotherapyDoseVolumeDataSerializer
-- StageInformationSerializer
-- SurgerySerializer
-- SymptomSerializer
-- SystemicTherapyScheduleSerializer
-- Step6DateFormatForm
-- Step8LookupMappingForm
+- Comorbidity
+- Symptom
+- ClinicalAllowlistTests
+- setMatcher
+- fs
+- ChunkedEmbeddingTaskTests
+- LookupAJCCMStageDescriptor
+- LookupAJCCNStageDescriptor
+- LookupAJCCTStageDescriptor
+- LookupClinicalSignificance
+- LookupComorbidity
+- LookupDoseUnits
+- LookupExpressionUnits
+- LookupGene
+- LookupGrade
+- LookupIHCAntibody
+- LookupLaboratoryTest
+- LookupLesionType
+- LookupNodalAssessmentType
+- LookupOutcomeType
+- LookupPathologyDescriptors
+- LookupPerformanceStatus
+- data_import/models.py
+- LookupRadiotherapyTechnique
 - nodeName
-- Step9MissingRelationsForm
+- LookupRadiotherapyType
 - ._initBody
 - primitiveToNode
-- Step4FieldMappingForm
+- LookupRadiotherapyVolumeType
+- LookupResponseType
 - services
 - healthcheck
-- Step5ColumnValueMappingForm
+- LookupSeverity
 - Client-App Model Docstrings Implementation Plan
 - diagnose-migrations.sh
 - repair-migrations.sh
+- LookupSizeUnits
 - api.js
+- LookupStageDescriptor
+- LookupStagingSystem
+- LookupStagingType
 - ajax-form.js
 - html/_static/language_data.js
 - _build/_static/language_data.js
+- LookupSymptoms
+- LookupSystemicAgent
 - export_selectable_fields.js
 - js/alpine.persist.js
+- LookupTreatmentSequence
 - html/_static/doctools.js
 - _highlight
 - _build/_static/doctools.js
 - _highlight
-- deid_prefetch_model.py
+- django_core_management_base
 - buildAstral
 - getContextualTokenSeparator
+- LookupVolumeUnits
+- qe
 - Command
 - django_apps
-- client_app/serializers.py
+- GeneExpressionData
+- Immunohistochemistry
+- _serialize_patient_clinical_data
+- LaboratoryResults
 - Progress
+- Lesion
+- LesionResponse
+- Outcome
+- Pathology
+- PatientAssessment
+- PatientOutcome
 - Accordion
 - CodeBlock
 - FeatureTile
 - LogFeed
 - Tabs
-- be
+- PatientReportedOutcome
+- RadiotherapyDoseVolumeData
+- SomaticGenomicAlterations
+- StageInformation
+- he
+- SystemicTherapyResource
+- associate_dicom_files_to_project
+- 0002_lookup_laterality.py
+- 0004_lookup_icd_code.py
+- 0008_lookup_lesion_type.py
+- 0009_lookup_response_type.py
+- 0010_lookup_uniprot.py
+- 0012_lookup_treatment_intent.py
+- 0013_lookup_treatment_sequence.py
+- 0014_lookup_systemic_agent.py
+- 0015_lookup_units.py
+- 0017_lookup_ctcae_grade.py
+- 0019_lookup_staging_system.py
+- 0020_lookup_ajcc_suffix.py
 - verify_easyocr_model_store.sh
+- 0021_lookup_ajcc_prefix.py
+- 0023_lookup_ajcc_nstage.py
+- 0024_lookup_ajcc_mstage.py
 - theme.js
 - AjaxAdapter
 - CeleryWebSocketProgressBar
+- 0027_lookup_radiotherapy_volume_type.py
+- 0028_lookup_stage_descriptor.py
+- 0030_lookup_grade.py
 - Stepper
 - MedDeID English synthetic data v3
+- 0031_lookup_pathology_descriptors.py
+- 0032_lookup_major_cancer_category.py
 - initSidebarQuickFilter
 - urlify.js
 - resolve
 - initHeavy
+- 0033_lookup_radiotherapy_modality.py
 - BulkActionToolbar
 - Card
+- 0034_lookup_radiotherapy_type.py
+- 0035_lookup_radiotherapy_technique.py
+- 0036_lookup_clinical_significance.py
+- 0039_lookup_margin_status.py
+- 0041_lookup_staging_type.py
+- 0042_lookup_systemic_regimen.py
+- 0044_lookup_length_units.py
 - html/_static/documentation_options.js
 - _build/_static/documentation_options.js
 - SOFTWARE-AND-MODEL-LICENSING.md
 - INSTALL_PGVECTOR.sh
 - inspect
+- 0045_lookup_dose_units.py
+- 0046_lookup_lab_value_units.py
+- 0048_lookup_laboratory_test.py
+- 0051_lookup_ihc_antibody.py
+- 0052_lookup_comorbidity.py
+- 0053_lookup_performance_status.py
+- 0055_lookup_cytogentic_abnormality_units.py
+- 0056_lookup_epigenetic_abnormality_type.py
+- 0057_lookup_surgical_procedure.py
+- 0058_lookup_nodal_assessment_type.py
+- DiagnosisListView
+- EpigeneticDataListView
+- PatientAssessmentListView
+- on
 
 ## God Nodes (most connected - your core abstractions)
 1. `Patient` - 150 edges
@@ -416,166 +501,170 @@
 5. `gi` - 87 edges
 6. `gi` - 87 edges
 7. `RemoteDICOMNode` - 83 edges
-8. `InstructorExtractionService` - 79 edges
+8. `InstructorExtractionService` - 82 edges
 9. `Base (page)` - 79 edges
-10. `I()` - 78 edges
+10. `kn` - 78 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Environment` --references--> `LookupEmbedding`  [INFERRED]
-  README.md → extractor/models.py
-- `OCR (scanned PDFs)` --references--> `ProcessedText`  [INFERRED]
-  README.md → extractor/models.py
-- `Query/Retrieve networking` --references--> `InboundDICOMInstance`  [INFERRED]
-  docker_install/README.md → dicom_server/models.py
-- `Recommendation` --references--> `ClientConfiguration`  [INFERRED]
-  docs/superpowers/plans/2026-10-17-deid-pipeline-test.md → extractor/models.py
 - ``data-*` attributes` --references--> `KwargComponent`  [INFERRED]
   docs/ui-styleguide.md → components/ui.py
+- `Rules` --references--> `KwargComponent`  [INFERRED]
+  docs/ui-styleguide.md → components/ui.py
+- `Deployment (Docker)` --references--> `prepare_location()`  [INFERRED]
+  docs/superpowers/plans/2026-10-10-dicom-archive-00-overview.md → dicom_archive/services/locations.py
+- `Query/Retrieve networking` --references--> `InboundDICOMInstance`  [INFERRED]
+  docker_install/README.md → dicom_server/models.py
+- `Summary of the `ingest_dataset` patient resolution (after all tasks)` --references--> `ingest_dataset()`  [INFERRED]
+  docs/superpowers/plans/2026-10-16-retrieval-job-normalization.md → dicom_server/services/ingest.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (567 total, 329 thin omitted)
+## Communities (631 total, 337 thin omitted)
 
-### Community 1 - "logging"
-Cohesion: 0.02
-Nodes (70): Chunked Lookup Embeddings Implementation Plan, Global Constraints, Task 1: Add chunk primitives to the embedding service, Task 2: Refactor `compute_lookup_table_embeddings` onto the chunk primitives, Task 3: Add the self-perpetuating chunk task + table-advance helper, Task 4: Point the dispatcher at the first chunk task, Task 5: Full-suite regression gate + docs, `extractor/tasks.py` (tracked on `BackgroundTask`, **not** `TaskRun` — separate UI) (+62 more)
+### Community 1 - "extractor/tasks.py"
+Cohesion: 0.08
+Nodes (20): Task 3: Add the self-perpetuating chunk task + table-advance helper, Task 4: Point the dispatcher at the first chunk task, `extractor/tasks.py` (tracked on `BackgroundTask`, **not** `TaskRun` — separate UI), BackgroundTask, Meta, EmbeddingUnavailableError, _advance_to_next_table_or_finalize(), _celery_task_id() (+12 more)
 
 ### Community 2 - "Extractor Forms & Deid Config"
 Cohesion: 0.02
-Nodes (104): Task 1: `extraction_fields_per_call` client configuration, 3-way A/B on the synthetic Indian docs (scripts/ab_deid_test.py), Engine architecture note (evaluated), File Structure, Follow-up (2026-10-15): OpenMed engine + age/duration/allowlist fixes, Global Constraints, LLM NER Alternative for Text Deidentification — Implementation Plan, Part 1 — Data model, validation, config UI (+96 more)
+Nodes (103): Task 1: `extraction_fields_per_call` client configuration, Part 1 — Data model, validation, config UI, Task 1: ClientConfiguration deid fields + validation + migration, Task 2: Client configuration create/edit/detail/list UI, Task 6: Celery task, dispatch view, management command, De-Identification Pipeline Configuration Implementation Plan, File Structure, Global Constraints (+95 more)
 
 ### Community 3 - "pathlib"
 Cohesion: 0.04
-Nodes (40): BulkDICOMStudyMatch, MatchStatus, Meta, BulkDICOMUpload, Meta, BulkDICOMUploadSession, Meta, StatusChoices (+32 more)
+Nodes (32): Migration, BulkDICOMStudyMatch, MatchStatus, Meta, Patient, Gender, Meta, UnprocessedDICOMStudies (+24 more)
 
 ### Community 4 - "InstructorExtractionService"
 Cohesion: 0.02
-Nodes (88): Qe(), Ht(), Aa(), add(), addControllers(), addPlugins(), addScales(), Ai() (+80 more)
+Nodes (90): Ht(), Aa(), add(), addControllers(), addPlugins(), addScales(), Ai(), apply() (+82 more)
 
 ### Community 5 - "Bulk Retrieval Scheduling"
-Cohesion: 0.04
-Nodes (51): BulkRetrievalSchedule, Meta, Mode, RetrievalBatch, Meta, Status, RetrievalBatchPatient, Meta (+43 more)
+Cohesion: 0.03
+Nodes (62): BulkRetrievalSchedule, Meta, Mode, RetrievalBatch, Meta, Status, RetrievalBatchPatient, Meta (+54 more)
 
 ### Community 6 - "RetrievalJob"
 Cohesion: 0.06
-Nodes (34): RetrievalJob, Meta, Status, RetrievalJobSeries, Meta, RetrievalJobStudy, Meta, _job_work_items() (+26 more)
+Nodes (32): RetrievalSkipDoneTests, RetrievalJob, Meta, Status, RetrievalJobSeries, Meta, RetrievalJobStudy, Meta (+24 more)
 
-### Community 7 - "deidentification/views.py"
-Cohesion: 0.14
-Nodes (7): DICOMStudyProject, Meta, AdverseEffectsSerializer, Meta, RadiotherapySerializer, Meta, _build_unmatched_hierarchy()
+### Community 7 - "LlmNerRecognizer"
+Cohesion: 0.08
+Nodes (18): 3-way A/B on the synthetic Indian docs (scripts/ab_deid_test.py), Engine architecture note (evaluated), File Structure, Follow-up (2026-10-15): OpenMed engine + age/duration/allowlist fixes, Global Constraints, LLM NER Alternative for Text Deidentification — Implementation Plan, Part 3 — Pipeline integration, dispatch, views, frontend, Self-Review (+10 more)
 
 ### Community 8 - "RbacPermissionRequiredMixin"
-Cohesion: 0.04
-Nodes (18): BulkDICOMCompleteView, BulkDICOMConfirmationView, BulkDICOMMatchingView, BulkDICOMUploadView, DICOMDataExportView, DICOMExportDownloadView, DICOMExportProgressView, _get_fuzzy_patient_suggestions() (+10 more)
+Cohesion: 0.03
+Nodes (25): BulkDICOMCompleteView, BulkDICOMConfirmationView, BulkDICOMMatchingView, BulkDICOMSessionListView, BulkDICOMUploadView, custom_403_view(), DICOMDataExportView, DICOMExportDownloadView (+17 more)
+
+### Community 9 - "TestCase"
+Cohesion: 0.06
+Nodes (7): ClientConfigurationDeidValidationTests, ClientConfigurationDeidViewTests, ClientConfigurationSystem1CapabilityTests, CsvRowViewTests, DeidDispatchViewTests, DeidPipelineResolutionTests, FileUploadDetailDeidRenderTests
 
 ### Community 10 - "dicom_server/views.py"
-Cohesion: 0.04
-Nodes (25): BatchDetailView, BatchListView, BatchQueryView, BatchSelectView, BatchStatusView, BulkPatientListView, ConfigUpdateView, DicomPermissionRequiredMixin (+17 more)
+Cohesion: 0.03
+Nodes (42): BulkScheduleForm, Meta, DICOMServerConfigForm, Meta, RemoteDICOMNodeForm, Meta, RetrieveStudiesForm, parse_transform_lines() (+34 more)
 
 ### Community 11 - "ProcessedText"
-Cohesion: 0.05
-Nodes (19): FileUpload, Meta, ProcessingStatusChoices, build_row_markdown(), csv_header_names(), expand_csv_to_row_documents(), _find_column(), _match_patients() (+11 more)
+Cohesion: 0.08
+Nodes (12): FileUpload, Meta, ProcessingStatusChoices, FileProcessorService, _get_easyocr_reader(), clean(), compare(), get_or_create_config() (+4 more)
 
 ### Community 12 - "list_views.py"
-Cohesion: 0.04
+Cohesion: 0.05
 Nodes (27): BaseUpdateView, AdverseEffectsUpdateView, ComorbidityUpdateView, ConcomitantMedicationsUpdateView, CytogeneticsUpdateView, EpigeneticDataUpdateView, GeneExpressionDataUpdateView, GermlineGenomicAlterationsUpdateView (+19 more)
 
-### Community 13 - "client_app/forms.py"
+### Community 13 - "DICOMStudy"
 Cohesion: 0.02
-Nodes (111): AdverseEffectsForm, Meta, ComorbidityForm, Meta, ConcomitantMedicationsForm, Meta, CrispyFormMixin, CytogeneticsForm (+103 more)
+Nodes (63): Migration, AdverseEffects, Meta, BulkDICOMUpload, Meta, BulkDICOMUploadSession, Meta, StatusChoices (+55 more)
 
 ### Community 14 - "Extraction Review & Record Ops"
-Cohesion: 0.08
-Nodes (52): RecordOperationChoices, ResultSourceChoices, ReviewChangeChoices, ReviewStatusChoices, _apply_snapshot(), approve_review(), _assert_supported_table(), _assessment_payload() (+44 more)
+Cohesion: 0.07
+Nodes (56): ExtractionResult, Meta, RecordOperationChoices, ResultSourceChoices, ReviewChangeChoices, ReviewStatusChoices, _apply_snapshot(), approve_review() (+48 more)
 
 ### Community 15 - "TaskRun"
 Cohesion: 0.03
-Nodes (42): Notification, Meta, NotificationType, TaskRun, Meta, Status, TaskType, AutoContinueTaskTests (+34 more)
+Nodes (98): Notification, Meta, NotificationType, TaskRun, Meta, Status, TaskType, UUIDEncoder (+90 more)
 
 ### Community 16 - "Clinical List Views"
 Cohesion: 0.03
-Nodes (26): BaseListView, AdverseEffectsListView, ConcomitantMedicationsListView, DiagnosisListView, DICOMStudyListView, EpigeneticDataListView, GeneExpressionDataListView, GermlineGenomicAlterationsListView (+18 more)
+Nodes (25): BaseListView, AdverseEffectsListView, ComorbidityListView, ConcomitantMedicationsListView, CytogeneticsListView, GeneExpressionDataListView, GermlineGenomicAlterationsListView, ImmunohistochemistryListView (+17 more)
 
 ### Community 17 - "resources.py"
-Cohesion: 0.04
-Nodes (18): Comorbidity, Meta, ModalityChoices, QualitativeLaboratoryResult, RadiationCourseTypeChoices, SpecimenTypeChoices, Symptom, Meta (+10 more)
+Cohesion: 0.07
+Nodes (17): ModalityChoices, QualitativeLaboratoryResult, RadiationCourseTypeChoices, SpecimenTypeChoices, TumorFocalityChoices, LookupDrugRoute, LookupEpigeneticAbnormalityType, LookupSystemicTherapyRegimen (+9 more)
 
 ### Community 18 - "form_views.py"
-Cohesion: 0.05
+Cohesion: 0.04
 Nodes (30): AdverseEffectsCreateView, BaseFormView, ComorbidityCreateView, ConcomitantMedicationsCreateView, CytogeneticsCreateView, DiagnosisCreateView, EpigeneticDataCreateView, GeneExpressionDataCreateView (+22 more)
 
 ### Community 19 - "data_import/models.py"
-Cohesion: 0.07
-Nodes (24): Step7DurationDateForm, DateFormat, DurationUnits, FileImportSessionStep, FileImportUUIDValues, Meta, FileMappedField, Meta (+16 more)
+Cohesion: 0.06
+Nodes (18): FileImportSessionStep, FileMappedField, Meta, FileMappedModel, Meta, CSVProcessorService, FieldIntrospectionService, ModelHierarchyService (+10 more)
 
-### Community 20 - "TestCase"
-Cohesion: 0.04
-Nodes (14): classify_review(), ChunkModelTests, ClientConfigurationDeidViewTests, ClientConfigurationSystem1CapabilityTests, DeidUnshiftOnSaveTests, ExtractionPlanTests, FileUploadDetailDeidRenderTests, HierarchyTests (+6 more)
+### Community 20 - "make_field"
+Cohesion: 0.09
+Nodes (10): DatabaseTable, Meta, ancestor_tables(), identity_field_names(), _patient_path_steps(), get_match_fields(), HierarchyTests, make_field() (+2 more)
 
 ### Community 23 - "django_db"
-Cohesion: 0.01
-Nodes (104): Migration, Migration, Migration, Migration, Migration, Migration, Migration, Migration (+96 more)
+Cohesion: 0.02
+Nodes (53): Migration, Migration, Migration, Migration, Migration, Migration, Migration, Migration (+45 more)
 
 ### Community 24 - "Bulk Patient Study Query"
-Cohesion: 0.08
-Nodes (6): BatchModelTests, BulkPatientListTests, BulkRetrievalTestCase, BulkViewTests, CandidateIDTests, RetrieveTaskTests
+Cohesion: 0.06
+Nodes (13): BulkRetrieveForm, apply_transforms(), task_query_patient_studies(), _finish(), BatchModelTests, BulkRetrievalTestCase, BulkViewTests, CandidateIDTests (+5 more)
 
 ### Community 26 - "Data Import Field Introspection"
 Cohesion: 0.04
-Nodes (6): Step10ReviewForm, Step2PatientIDMappingForm, Step3ModelSelectionForm, ModelHierarchyService, Step10MissingRelationsView, Step11ReviewView
+Nodes (3): Step2PatientIDMappingForm, Step3ModelSelectionForm, Step10MissingRelationsView
+
+### Community 27 - "extractor/admin.py"
+Cohesion: 0.07
+Nodes (23): ClientConfigurationAdmin, DatabaseFieldAdmin, DatabaseFieldInline, DatabaseTableAdmin, EmbeddingConfigurationAdmin, ExtractionJobAdmin, ExtractionResultAdmin, ExtractionResultInline (+15 more)
 
 ### Community 28 - "Django Admin Registrations"
-Cohesion: 0.07
+Cohesion: 0.09
 Nodes (39): AdverseEffectsAdmin, BulkDICOMUploadAdmin, ComorbidityAdmin, ConcomitantMedicationsAdmin, CytogeneticsAdmin, DiagnosisAdmin, DICOMStudyProjectAdmin, EpigeneticDataAdmin (+31 more)
 
 ### Community 30 - "django_db_models_deletion"
 Cohesion: 0.02
-Nodes (115): Aa(), add(), addControllers(), addElements(), addPlugins(), addScales(), Ai(), apply() (+107 more)
+Nodes (118): D(), si(), Aa(), add(), addControllers(), addPlugins(), addScales(), Ai() (+110 more)
 
 ### Community 31 - "Admin Export Resources & Settings"
 Cohesion: 0.05
-Nodes (31): AdverseEffectsExportResource, Meta, CytogeneticsInline, DiagnosisExportResource, Meta, DICOMStudyProjectInline, EpigeneticDataInline, GeneExpressionDataInline (+23 more)
+Nodes (30): AdverseEffectsExportResource, Meta, CytogeneticsInline, DiagnosisExportResource, Meta, DICOMStudyProjectInline, EpigeneticDataInline, GeneExpressionDataInline (+22 more)
 
 ### Community 32 - "dicom_server/signals.py"
-Cohesion: 0.07
-Nodes (17): _cache_old_consent(), _trigger_auto_retrieval(), Command, RemoteDICOMNode, Meta, _dispatch_one_off(), _ensure_periodic(), revoke_one_off() (+9 more)
+Cohesion: 0.06
+Nodes (22): AutoRetrievalStateAdmin, DICOMServerConfigurationAdmin, InboundDICOMInstanceAdmin, PatientIDAliasInline, RemoteDICOMNodeAdmin, RetrievalBatchAdmin, RetrievalBatchPatientAdmin, RetrievalJobAdmin (+14 more)
 
 ### Community 33 - "LLM Extraction UI Pages"
 Cohesion: 0.09
 Nodes (42): Extraction Wizard Flow, LLM-Powered Data Extraction, Base (page), Form Template (page), Homepage (page), Model List (page), Client Configuration Create (page), Client Configuration Detail (page) (+34 more)
 
 ### Community 34 - "bulk_selection.py"
-Cohesion: 0.11
-Nodes (16): ancestors_of(), _approval_visible(), _dcm_date_to_iso(), descendants_of(), _plan_approval_state(), _rt_labels(), _series_by_uid(), _series_modality() (+8 more)
+Cohesion: 0.13
+Nodes (19): ancestors_of(), _approval_visible(), build_selections_for_patient(), _dcm_date_to_iso(), descendants_of(), _plan_approval_state(), _rt_labels(), select_study() (+11 more)
 
-### Community 35 - "e"
-Cohesion: 0.09
-Nodes (15): ae, apply(), be(), color(), constructor(), describe(), ee(), ie() (+7 more)
+### Community 36 - "SiteConfiguration"
+Cohesion: 0.03
+Nodes (30): SiteConfiguration, Meta, PatientAutoRetrievalSignalTests, AppScaffoldTests, InboundDICOMInstance, Meta, Status, PatientIDAlias (+22 more)
 
-### Community 36 - "ingest_dataset"
-Cohesion: 0.05
-Nodes (17): ingest_dataset(), reject(), IngestResult, sanitize(), _selection_reject_reason(), _upsert_series_instance(), _upsert_study(), _StubRemotePACS (+9 more)
-
-### Community 37 - "build_table_question_prompt"
-Cohesion: 0.07
-Nodes (24): Execution Handoff, File Map, Global Constraints, Per-Table Question-Style Prompt Redesign Implementation Plan, Self-Review, Task 1: `table_docstring()` + `build_table_question_prompt`, Task 2: Gap-fill re-ask helper, Task 3: One call per table + 3-attempt loop; delete chunking machinery (+16 more)
+### Community 37 - "instructor_extractor.py"
+Cohesion: 0.04
+Nodes (39): Global Constraints, Execution Handoff, File Map, Global Constraints, Per-Table Question-Style Prompt Redesign Implementation Plan, Self-Review, Task 1: `table_docstring()` + `build_table_question_prompt`, Task 2: Gap-fill re-ask helper (+31 more)
 
 ### Community 38 - "Navbar Visibility Tests"
-Cohesion: 0.07
+Cohesion: 0.08
 Nodes (4): NavbarVisibilityTests, PatientSummaryPermissionTests, PermissionGatingTests, RoleGroupTests
 
 ### Community 39 - "django_core_validators"
 Cohesion: 0.03
-Nodes (73): backspace(), beforeinput(), compositionend(), compositionstart(), compositionupdate(), copy(), cut(), d() (+65 more)
+Nodes (78): backspace(), n(), r(), beforeinput(), compositionend(), compositionstart(), compositionupdate(), copy() (+70 more)
 
-### Community 40 - "qa"
+### Community 40 - "P"
 Cohesion: 0.10
-Nodes (6): bt(), label(), P(), qa, stop(), vs()
+Nodes (11): _calculateBarIndexPixels(), _getRuler(), _getStackCount(), _getStackIndex(), _getStacks(), label(), ma, P() (+3 more)
 
 ### Community 41 - "BulkScheduleForm"
 Cohesion: 0.03
-Nodes (78): backspace(), n(), r(), beforeinput(), compositionend(), compositionstart(), compositionupdate(), copy() (+70 more)
+Nodes (75): backspace(), n(), r(), beforeinput(), compositionend(), compositionstart(), compositionupdate(), copy() (+67 more)
 
 ### Community 42 - "DICOM Instance Selection"
 Cohesion: 0.10
@@ -583,38 +672,34 @@ Nodes (10): instance_ancestors(), normalize_selection(), SelectionError, _series
 
 ### Community 43 - "Qu"
 Cohesion: 0.12
-Nodes (30): co(), ds(), fs(), Gr(), Ho(), ie(), io(), ku() (+22 more)
+Nodes (35): a(), co(), ds(), Fl(), fs(), Gr(), Ho(), ie() (+27 more)
 
 ### Community 44 - "Patient"
 Cohesion: 0.03
-Nodes (102): A(), Ae(), nr(), ar(), at(), Bn(), Bt(), Ce() (+94 more)
+Nodes (121): A(), Ae(), nr(), tn(), Xn(), Z(), ar(), at() (+113 more)
 
 ### Community 45 - "patient_data.py"
 Cohesion: 0.05
-Nodes (38): ExtractedRecord, Meta, ExtractionResult, Meta, build_job_data_tree(), build_patient_data_tree(), build_records_data_tree(), make_grid_record() (+30 more)
+Nodes (37): ExtractedRecord, Meta, RecordCreation, Meta, build_job_data_tree(), build_patient_data_tree(), build_records_data_tree(), make_grid_record() (+29 more)
 
-### Community 46 - "h"
-Cohesion: 0.13
-Nodes (21): ce(), hr(), tn(), Vr(), Xn(), Z(), Ci(), h() (+13 more)
-
-### Community 47 - "DICOM services audit — chavi_client vs draw-client-2.0"
-Cohesion: 0.14
-Nodes (10): _subop_stats(), _fill(), 2. Connect-path comparison — the code is identical, 3. Production log analysis, 4. Discriminating checks (production host, read-only), 5. Findings — chavi_client `dicom_server`, 6. draw-client observations (context only — not to be changed unless asked), DICOM services audit — chavi_client vs draw-client-2.0 (+2 more)
+### Community 47 - "lookup/views.py"
+Cohesion: 0.07
+Nodes (58): LookupRTLocationSerializer, Meta, LookupAJCCMStageDescriptorListView, LookupAJCCNStageDescriptorListView, LookupAJCCStagePrefixListView, LookupAJCCStageSuffixListView, LookupAJCCTStageDescriptorListView, LookupClinicalSignificanceListView (+50 more)
 
 ### Community 48 - "url_policy.py"
 Cohesion: 0.03
-Nodes (118): A(), Ae(), ai(), Zt(), at(), Bn(), br(), bt() (+110 more)
+Nodes (93): A(), Ae(), ai(), Zt(), at(), Bn(), br(), bt() (+85 more)
 
-### Community 49 - "dicom_archive/views.py"
+### Community 49 - "ArchiveLocation"
+Cohesion: 0.02
+Nodes (52): ArchiveConfigurationForm, Meta, ArchiveLocationForm, Meta, ArchiveLocation, Meta, prepare_location(), resolve_location_path() (+44 more)
+
+### Community 50 - "lookup/serializers.py"
 Cohesion: 0.05
-Nodes (32): BulkDeidentifyView, ArchiveConfigurationForm, Meta, ArchiveLocationForm, Meta, TestArchiveConfigurationForm, TestArchiveLocationForm, ArchiveConfigUpdateView (+24 more)
-
-### Community 50 - "ArchiveConfiguration"
-Cohesion: 0.09
-Nodes (4): ArchiveConfigurationTests, TaskTypeAdditionsTests, ArchiveConfigurationSignalTests, TestLocationCrud
+Nodes (28): LookupAJCCStageSuffix, LookupCTCAEGrade, LookupLabResultsUnits, LookupMarginStatus, LookupOutcome, LookupProtein, LookupTreatmentEffect, LookupAJCCStageSuffixSerializer (+20 more)
 
 ### Community 52 - "0035_recover_archived_studies.py"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (13): _check_patient_ids(), _delete_study_rows(), _dicom_date(), _expected_folder_path(), Migration, _parse_dt(), _parse_manifest(), recover_archived_studies() (+5 more)
 
 ### Community 53 - "Allauth Auth UI"
@@ -622,8 +707,8 @@ Cohesion: 0.08
 Nodes (26): Allauth Auth UI, Alert (page), Badge (page), Button (page), Button Group (page), Details (page), Field (page), Fields (page) (+18 more)
 
 ### Community 54 - "viewsets.py"
-Cohesion: 0.01
-Nodes (270): Usage in CSV Import, LookupAbstract, Meta, LookupAJCCMStageDescriptor, LookupAJCCNStageDescriptor, LookupAJCCStagePrefix, LookupAJCCStageSuffix, LookupAJCCTStageDescriptor (+262 more)
+Cohesion: 0.04
+Nodes (38): LookupAJCCStagePrefix, LookupCytogeneticAbnormality, LookupIHCResult, LookupIHCStainingIntensity, LookupMassUnits, LookupRadiotherapyModality, LookupSurgicalProcedures, LookupSystemicTherapyType (+30 more)
 
 ### Community 55 - "ArchiveLocationForm"
 Cohesion: 0.08
@@ -633,93 +718,89 @@ Nodes (100): A(), ae(), an(), at(), B(), be(), bn(), bt() (+92 more)
 Cohesion: 0.06
 Nodes (3): kn, perform(), "Tab+Shift"()
 
+### Community 57 - "django_db_models_deletion"
+Cohesion: 0.04
+Nodes (24): Migration, Migration, Migration, Migration, Migration, Migration, Migration, Migration (+16 more)
+
 ### Community 58 - "EmbeddingIndexTests"
-Cohesion: 0.09
-Nodes (93): n(), A(), ae(), an(), at(), B(), bn(), c() (+85 more)
+Cohesion: 0.08
+Nodes (100): n(), A(), ae(), an(), at(), B(), be(), bn() (+92 more)
 
 ### Community 59 - "MigrationBase"
 Cohesion: 0.16
 Nodes (4): ArchiveRecoveryTests, make_dcm(), MigrationBase, VerifyLocalStudiesTests
 
 ### Community 60 - "LlmNerClient"
-Cohesion: 0.04
-Nodes (6): kn, Li, perform(), Si, "Tab+Shift"(), yi
-
-### Community 61 - "DICOMStudy"
-Cohesion: 0.10
-Nodes (15): DICOMStudyAdmin, StudyTypeChoices, StudyTypeRule, Meta, Operator, ReferenceEvent, StudyTypeSource, Command (+7 more)
+Cohesion: 0.06
+Nodes (3): kn, perform(), "Tab+Shift"()
 
 ### Community 62 - "OpenMedNerRecognizer"
-Cohesion: 0.15
-Nodes (3): OpenMedNerError, OpenMedNerRecognizer, OpenMedNerRecognizerTests
+Cohesion: 0.10
+Nodes (12): Axes, Stages (sequential; each varies one axis, holds the rest constant), Task 3: Build the staged harness `scripts/pipeline_test.py`, Task 4: Stage 1 — traditional NER (`R1` vs `R2` vs `R3`, held `P1 + T0`), Task 5: Stage 2 — add LLM to W (`W`, `W+gemma`, `W+OpenMed`, held `P1 + T0`), Task 6: Stage 3 — precision (`P1` vs `P2`) on R\*, held `T0`, Task 7: Stage 5 — assemble and document the final recommendation, Test Design (the spec) (+4 more)
 
 ### Community 63 - "A"
-Cohesion: 0.07
-Nodes (33): si(), a(), b(), c(), u(), A(), afterDatasetsUpdate(), draw() (+25 more)
+Cohesion: 0.09
+Nodes (28): a(), b(), c(), u(), A(), afterDatasetsUpdate(), draw(), fi() (+20 more)
 
 ### Community 64 - "json_generator.py"
-Cohesion: 0.05
-Nodes (16): FieldLookupValues, Meta, FileColumnFieldValueMapping, Meta, FileDateFieldMapping, Meta, FileDefaultValues, Meta (+8 more)
+Cohesion: 0.07
+Nodes (12): Step10ReviewForm, FieldLookupValues, Meta, FileDateFieldMapping, Meta, FileDefaultValues, Meta, FileMissingRelations (+4 more)
 
 ### Community 65 - "rs"
-Cohesion: 0.15
-Nodes (26): as(), bs(), cs(), cu(), dn(), ec(), es(), gn() (+18 more)
+Cohesion: 0.13
+Nodes (31): as(), bs(), cs(), cu(), dn(), ec(), es(), gn() (+23 more)
 
 ### Community 66 - "Data Import Wizard"
 Cohesion: 0.17
 Nodes (17): Step 10 Missing FK Relationships, CSV Data Import Workflow, Data Import Wizard, Base Import (page), Session List (page), Step10 Missing Relations (page), Step11 Review (page), Step12 Complete (page) (+9 more)
 
 ### Community 68 - "Li"
-Cohesion: 0.11
-Nodes (4): keypress(), Li, Si, yi
-
-### Community 69 - "Step1UploadCSVForm"
-Cohesion: 0.04
-Nodes (3): di, gi, qe
+Cohesion: 0.10
+Nodes (3): Li, Si, yi
 
 ### Community 70 - ".deidentify"
-Cohesion: 0.06
-Nodes (25): An(), Ci(), Di(), Fe(), Fn(), Ge(), He(), hn() (+17 more)
+Cohesion: 0.05
+Nodes (22): An(), bt(), Ci(), Di(), Fe(), Fn(), Ge(), hn() (+14 more)
 
 ### Community 71 - "django_urls"
 Cohesion: 0.06
-Nodes (10): _calculateBarValuePixels(), initialize(), Ms(), os(), Ps(), _s(), Ss(), updateElements() (+2 more)
+Nodes (12): addElements(), _calculateBarValuePixels(), Ms(), os(), Ps(), _s(), Ss(), Ui() (+4 more)
+
+### Community 72 - "DurationFilterTests"
+Cohesion: 0.10
+Nodes (5): Task 1: Decompose `_filter_results` into `_filter_mechanical` + `_filter_dates` + `_filter_clinical`, AgeDurationRegressionTests, DurationFilterTests, FilterDecompositionTests, InferenceReviewContractTests
 
 ### Community 73 - "TemplateView"
-Cohesion: 0.08
-Nodes (57): LookupAJCCMStageDescriptorAdmin, LookupAJCCNStageDescriptorAdmin, LookupAJCCStagePrefixAdmin, LookupAJCCStageSuffixAdmin, LookupAJCCTStageDescriptorAdmin, LookupClinicalSignificanceAdmin, LookupComorbidityAdmin, LookupCTCAEGradeAdmin (+49 more)
+Cohesion: 0.06
+Nodes (60): LookupAJCCMStageDescriptorAdmin, LookupAJCCNStageDescriptorAdmin, LookupAJCCStagePrefixAdmin, LookupAJCCStageSuffixAdmin, LookupAJCCTStageDescriptorAdmin, LookupClinicalSignificanceAdmin, LookupComorbidityAdmin, LookupCTCAEGradeAdmin (+52 more)
+
+### Community 74 - "pa"
+Cohesion: 0.10
+Nodes (8): ca(), da(), getMaxOverflow(), pa, parseArrayData(), parseObjectData(), parsePrimitiveData(), resolveDataElementOptions()
 
 ### Community 75 - "TestNodeCRUD"
-Cohesion: 0.11
-Nodes (4): DicomFrontendTestCase, TestNodeCRUD, TestPermissionGating, TestRetrieveView
+Cohesion: 0.09
+Nodes (6): DicomFrontendTestCase, TestConfigView, TestJobPages, TestNodeCRUD, TestPermissionGating, TestRetrieveView
 
 ### Community 76 - "StagedPipelineTests"
-Cohesion: 0.07
-Nodes (9): buildTicks(), d(), Es(), ia(), L(), Le(), Rs(), Si() (+1 more)
+Cohesion: 0.06
+Nodes (10): buildTicks(), d(), Es(), He(), ia(), Is(), L(), O() (+2 more)
 
-### Community 77 - "DurationFilterTests"
+### Community 78 - "LookupEmbedding"
 Cohesion: 0.09
-Nodes (6): Task 1: Decompose `_filter_results` into `_filter_mechanical` + `_filter_dates` + `_filter_clinical`, AgeDurationRegressionTests, ClinicalAllowlistTests, DeidRecognizerTests, FilterDecompositionTests, InferenceReviewContractTests
-
-### Community 78 - "BulkScheduleForm"
-Cohesion: 0.07
-Nodes (12): BulkScheduleForm, Meta, RemoteDICOMNodeForm, Meta, apply_transforms(), parse_transform_lines(), transforms_to_lines(), validate_transforms() (+4 more)
+Nodes (18): Task 1: Add chunk primitives to the embedding service, Task 2: Refactor `compute_lookup_table_embeddings` onto the chunk primitives, LookupEmbedding, Meta, collect_pending_rows(), compute_lookup_embeddings(), compute_lookup_table_embeddings(), embed_one_chunk() (+10 more)
 
 ### Community 79 - "InstructorExtractionService"
-Cohesion: 0.02
-Nodes (37): Execution Handoff, File Map, Global Constraints, Known Limitations (accepted, documented on the job page only via logs), Split Stage-2 Extraction into Smaller LLM Calls — Implementation Plan, Task 2: Call planning (`plan_extraction_calls`), Task 3: Per-call prompt builder (`build_chunk_prompt`), Task 6: Plan the calls in `stage_prepare` / `stage_mine` (+29 more)
-
-### Community 80 - "ArchiveViewTestCase"
-Cohesion: 0.04
-Nodes (8): TestNavIntegration, TestComponentExtraClassIsolation, TestLocationTestButtons, TestPageRendering, ArchiveViewTestCase, TestManualTriggers, TestPermissionGating, TestTaskStatusView
+Cohesion: 0.03
+Nodes (31): Execution Handoff, File Map, Global Constraints, Known Limitations (accepted, documented on the job page only via logs), Split Stage-2 Extraction into Smaller LLM Calls — Implementation Plan, Task 3: Per-call prompt builder (`build_chunk_prompt`), Task 6: Plan the calls in `stage_prepare` / `stage_mine`, Task 7: Sequential chunked execution in `stage_extract` (+23 more)
 
 ### Community 81 - "find_patient"
-Cohesion: 0.06
-Nodes (10): buildTicks(), d(), Es(), ia(), Is(), L(), Le(), Rs() (+2 more)
+Cohesion: 0.07
+Nodes (9): buildTicks(), d(), Es(), ia(), Is(), L(), Rs(), Si() (+1 more)
 
 ### Community 82 - "make_rt_dataset"
 Cohesion: 0.06
-Nodes (12): addElements(), _calculateBarValuePixels(), Ms(), os(), Ps(), _s(), Ss(), Ui() (+4 more)
+Nodes (13): addElements(), _calculateBarValuePixels(), initialize(), Ms(), os(), Ps(), _s(), Ss() (+5 more)
 
 ### Community 83 - "DICOM Server"
 Cohesion: 0.12
@@ -729,65 +810,69 @@ Nodes (16): DICOM Server, Batch Detail (page), Batch List (page), Batch Select (
 Cohesion: 0.16
 Nodes (5): Migration, add_archive_perms_to_dicom_admin(), _archive_perm_codenames(), Migration, remove_archive_perms_from_dicom_admin()
 
-### Community 86 - "export_patient_data_to_file"
-Cohesion: 0.22
-Nodes (4): export_dicom_data_parallel(), process_study_files(), sanitize_filename(), export_patient_data_to_file()
+### Community 86 - "e"
+Cohesion: 0.06
+Nodes (24): at(), be(), configure(), de(), dt(), _e(), r(), fa() (+16 more)
 
-### Community 87 - "model_capabilities.py"
-Cohesion: 0.20
-Nodes (5): fetch_lookup_data(), get_auth_headers(), get_proxies(), map_api_data_to_model(), sync_model_from_api()
+### Community 87 - "Select2WidgetMixin"
+Cohesion: 0.10
+Nodes (28): AdverseEffectsForm, Meta, ConcomitantMedicationsForm, Meta, CrispyFormMixin, CytogeneticsForm, Meta, DiagnosisForm (+20 more)
 
 ### Community 88 - "django"
-Cohesion: 0.07
-Nodes (11): Project, Meta, associate_dicom_files_to_project(), ProjectSelectionForm, Media, get_item(), get_nested_item(), index() (+3 more)
+Cohesion: 0.10
+Nodes (6): get_item(), get_nested_item(), index(), sort_link(), basename(), get_item()
 
 ### Community 89 - "DeidRecognizerTests"
 Cohesion: 0.07
-Nodes (6): Ce(), ea(), I(), k(), ra(), ta()
+Nodes (9): Ce(), ea(), generateLabels(), I(), k(), oa(), Qs(), ra() (+1 more)
+
+### Community 90 - "json"
+Cohesion: 0.10
+Nodes (18): build_context(), endpoint(), judge_span(), _so_post(), _aggregate(), _append_doc(), _load_done(), load_notes() (+10 more)
 
 ### Community 91 - "DICOMStudy"
 Cohesion: 0.03
-Nodes (100): DICOMInstance, Meta, DICOMSeries, Meta, DICOMStudy, Meta, build_homepage_metrics(), UUIDEncoder (+92 more)
+Nodes (87): DICOMInstance, Meta, DICOMSeries, Meta, DeidentificationJobAdmin, DeidInstanceAdmin, DeidPatientAdmin, DeidSeriesAdmin (+79 more)
 
 ### Community 92 - "da"
-Cohesion: 0.11
-Nodes (6): da(), ma, parseArrayData(), parseObjectData(), parsePrimitiveData(), resolveDataElementOptions()
+Cohesion: 0.08
+Nodes (14): ca(), _calculateBarIndexPixels(), da(), getMaxOverflow(), _getRuler(), _getStackCount(), _getStackIndex(), _getStacks() (+6 more)
 
 ### Community 93 - "main.js"
-Cohesion: 0.03
-Nodes (117): Aa(), ae(), ai(), An(), ar(), at(), n(), au() (+109 more)
+Cohesion: 0.05
+Nodes (55): ar(), at(), n(), bi(), Br(), Ce(), cr(), Do() (+47 more)
 
 ### Community 94 - "clinical_data_deidentification.py"
-Cohesion: 0.35
-Nodes (8): deidentify_clinical_data(), find_date_fields(), find_patient_id_keys(), find_study_uid_keys(), get_nested_value(), is_date_format(), set_nested_value(), shift_date()
+Cohesion: 0.21
+Nodes (10): deidentify_clinical_data(), find_date_fields(), find_patient_id_keys(), find_study_uid_keys(), get_nested_value(), is_date_format(), set_nested_value(), shift_date() (+2 more)
 
 ### Community 95 - "DICOM Archive"
 Cohesion: 0.18
 Nodes (11): Archive Operator Role, Archive Viewer Role, DICOM Administrator Role, DICOM Archive Permissions, DICOM Archive, Archived List (page), Browse (page), Config Edit (page) (+3 more)
 
 ### Community 96 - "RemoteDICOMNode"
-Cohesion: 0.03
-Nodes (34): _collect_subop_stats(), _connect(), echo(), find_series(), _find_series_on_assoc(), find_studies(), find_studies_for_patient(), _find_studies_on_assoc() (+26 more)
+Cohesion: 0.02
+Nodes (58): _backfill_rt_references(), _backfill_study_fields(), _collect_subop_stats(), _connect(), echo(), _enrich_series_instances(), _find_instances_on_assoc(), find_series() (+50 more)
 
 ### Community 97 - "time"
-Cohesion: 0.03
-Nodes (51): Execution Status (2026-10-15), Part 2 — LLM NER service (`extractor/services/llm_ner.py`), Part 4 — End-to-end LLM deid test + rollout, Task 3: Chunking + verbatim span resolution (pure, testable), Task 4: LlmNerClient + LlmNerRecognizer (LLM call + Presidio adapter), Task 8: End-to-end LLM deidentification (text + CSV, mocked LLM), Task 9: Real-environment evaluation checklist (manual, no code), Command (+43 more)
+Cohesion: 0.10
+Nodes (15): Command, llm_chat(), _nearest_occurrence(), _norm_span(), parse_tagged(), run_match(), run_tag(), score_entities_pairs() (+7 more)
 
 ### Community 98 - "TextDeidentificationService"
-Cohesion: 0.02
-Nodes (32): backfill(), Migration, build_indian_id_recognizers(), Status: COMPLETE (2026-10-17), Task 4: Rule defaults in a leaf module + parameterize the filter stages by `rules`, Task 5: Build the analyzer + run deid from a pipeline, build_patient_recognizers(), build_text_recognizers() (+24 more)
+Cohesion: 0.03
+Nodes (25): build_indian_id_recognizers(), Status: COMPLETE (2026-10-17), Task 4: Rule defaults in a leaf module + parameterize the filter stages by `rules`, Task 5: Build the analyzer + run deid from a pipeline, Command, build_patient_recognizers(), build_text_recognizers(), _load_gazetteer() (+17 more)
 
 ### Community 99 - "RtInstanceSelectionE2ETests"
-Cohesion: 0.06
-Nodes (10): Ce(), ea(), fs(), I(), k(), ra(), sa(), ta() (+2 more)
+Cohesion: 0.07
+Nodes (6): Ce(), ea(), I(), k(), ra(), ta()
 
-### Community 100 - "dicom_server/tasks.py"
-Cohesion: 0.04
-Nodes (41): AutoRetrievalState, Meta, _auto_retrieve_patient_node(), _fail_stuck_batch(), _finish_task_run_quiet(), _fire_query_finalizer(), _fire_retrieval_finalizer(), _mark_item_done() (+33 more)
+### Community 100 - "RemoteDICOMNode"
+Cohesion: 0.06
+Nodes (13): _cache_old_consent(), _trigger_auto_retrieval(), AutoRetrievalState, Meta, RemoteDICOMNode, Meta, _auto_retrieve_patient_node(), task_auto_retrieve_node() (+5 more)
 
 ### Community 101 - "ArchiveLocation"
-Cohesion: 0.02
-Nodes (81): _deid_dispatch_next(), deidentify_dicom_studies_bulk_task(), ArchiveHookTests, ArchiveConfiguration, Meta, ArchivedStudy, Meta, Reason (+73 more)
+Cohesion: 0.03
+Nodes (58): ArchiveConfiguration, Meta, ArchivedStudy, Meta, Reason, Status, StorageType, archive_studies() (+50 more)
 
 ### Community 102 - "text_deidentification.py"
 Cohesion: 0.08
@@ -802,20 +887,20 @@ Cohesion: 0.14
 Nodes (13): De-Identification Pipeline Test Implementation Plan, Effect on the recommendation, Findings, Global Constraints, Independent Validation — MedDeID English Synthetic Benchmark, Per-category recall (R2+gemma, P1), Recommendation, Results (+5 more)
 
 ### Community 105 - "deidentify_processed_text_task"
-Cohesion: 0.06
-Nodes (34): A(), afterDatasetsUpdate(), An(), ca(), Ci(), Di(), draw(), _e() (+26 more)
+Cohesion: 0.09
+Nodes (20): A(), afterDatasetsUpdate(), draw(), Fn(), H(), hn(), c(), initialize() (+12 more)
 
-### Community 106 - "model_capabilities.py"
-Cohesion: 0.27
-Nodes (6): _discover_anthropic(), discover_capabilities(), _discover_ollama(), _discover_openai_compatible(), _is_reasoning_model(), _is_vision_model()
+### Community 106 - "re"
+Cohesion: 0.12
+Nodes (12): backfill(), Migration, _expected_folder_path(), fix_dicomstudy_folder_paths(), Migration, _sanitize(), _discover_anthropic(), discover_capabilities() (+4 more)
 
-### Community 107 - "run"
-Cohesion: 0.24
-Nodes (9): File Structure, Task 2: Extract the ground-truth catalog into `scripts/deid_ground_truth.py`, load_catalog(), run(), deid_from_spans(), identify(), systemone_deid(), build_safenet_spans() (+1 more)
+### Community 107 - "Li"
+Cohesion: 0.11
+Nodes (4): keypress(), Li, Si, yi
 
 ### Community 108 - "LlmDeidEndToEndTests"
-Cohesion: 0.06
-Nodes (55): ar(), dn(), get(), nn(), d(), g(), m(), p() (+47 more)
+Cohesion: 0.07
+Nodes (46): dn(), get(), nn(), an(), o(), b(), ce(), cn() (+38 more)
 
 ### Community 109 - "re"
 Cohesion: 0.32
@@ -825,9 +910,13 @@ Nodes (13): c(), ee(), F(), I(), ne(), o(), Q(), re() (+5 more)
 Cohesion: 0.03
 Nodes (49): AdverseEffectImportSerializer, Meta, ComorbidityImportSerializer, Meta, CytogeneticsImportSerializer, Meta, DiagnosisImportSerializer, Meta (+41 more)
 
+### Community 111 - "LookupAbstract"
+Cohesion: 0.08
+Nodes (16): BulkRetrieveView, LookupAbstract, Meta, LookupDiagnosticModality, LookupMajorCancerCategory, LookupPresentation, LookupRTLocation, LookupDiagnosticModalitySerializer (+8 more)
+
 ### Community 112 - "en"
-Cohesion: 0.04
-Nodes (29): at(), configure(), de(), determineDataLimits(), dt(), en, r(), fa() (+21 more)
+Cohesion: 0.06
+Nodes (18): determineDataLimits(), en, _generate(), getPixelForTick(), getPixelForValue(), _getTimestampsForTable(), getValueForPixel(), Ha() (+10 more)
 
 ### Community 113 - "Iu"
 Cohesion: 0.23
@@ -835,19 +924,19 @@ Nodes (13): ca(), da(), fa(), fu(), ia(), Iu(), ju(), oa() (+5 more)
 
 ### Community 114 - "TestLocationCrud"
 Cohesion: 0.13
-Nodes (48): A(), At(), b(), Bt(), C(), ct(), Dt(), E() (+40 more)
+Nodes (49): A(), At(), b(), Bt(), C(), ct(), Dt(), E() (+41 more)
 
 ### Community 118 - "ModelPermissionMixin"
 Cohesion: 0.11
 Nodes (3): DiagnosisUpdateView, ModelPermissionMixin, PatientUpdateView
 
 ### Community 119 - "chunk_text"
-Cohesion: 0.04
-Nodes (30): at(), configure(), de(), determineDataLimits(), dt(), en, r(), fa() (+22 more)
+Cohesion: 0.05
+Nodes (18): determineDataLimits(), en, _generate(), getPixelForTick(), getPixelForValue(), _getTimestampsForTable(), getValueForPixel(), Ha() (+10 more)
 
 ### Community 120 - "system1_judge.py"
-Cohesion: 0.09
-Nodes (39): an(), o(), b(), ce(), cn(), ct(), De(), dt() (+31 more)
+Cohesion: 0.08
+Nodes (44): get(), set(), an(), o(), b(), ce(), cn(), ct() (+36 more)
 
 ### Community 121 - "components"
 Cohesion: 0.25
@@ -857,25 +946,21 @@ Nodes (7): components, button, card, custom_form, legacy_card, pagination, table
 Cohesion: 0.14
 Nodes (48): A(), At(), b(), Bt(), C(), ct(), Dt(), E() (+40 more)
 
-### Community 123 - "ClinicalAllowlistTests"
-Cohesion: 0.05
-Nodes (4): left(), mi, right(), xi
-
 ### Community 126 - "tests_task_resume.py"
-Cohesion: 0.05
-Nodes (17): read_manifest(), read_manifest_entries(), write_manifest_entry(), ArchiveIdempotencyTests, _encrypt_value(), _ensure_site(), LegacyImportServiceTests, LegacyImportTaskTests (+9 more)
+Cohesion: 0.09
+Nodes (7): ArchiveIdempotencyTests, _encrypt_value(), LegacyImportServiceTests, LegacyImportTaskTests, _make_legacy_db(), TaskProgressResumeBarTests, TaskRegistryCoverageTests
 
 ### Community 127 - "BulkDICOMConfirmationView"
 Cohesion: 0.07
 Nodes (5): ce, de, ee, ie, le
 
-### Community 128 - "dicom_server/admin.py"
-Cohesion: 0.07
-Nodes (13): AutoRetrievalStateAdmin, DICOMServerConfigurationAdmin, InboundDICOMInstanceAdmin, PatientIDAliasInline, RemoteDICOMNodeAdmin, RetrievalBatchAdmin, RetrievalBatchPatientAdmin, RetrievalJobAdmin (+5 more)
+### Community 128 - "EmbeddingConfiguration"
+Cohesion: 0.12
+Nodes (11): ExtractorConfig, _warm_embedding_provider(), EmbeddingConfiguration, Meta, compute_embeddings(), embedding_config_activate(), embedding_config_create(), embedding_config_delete() (+3 more)
 
 ### Community 129 - "ExtractionPlanTests"
 Cohesion: 0.07
-Nodes (5): ce, de, ee, ie, le
+Nodes (6): ce, d(), de, ee, ie, le
 
 ### Community 132 - "Django Admin UI"
 Cohesion: 0.33
@@ -886,20 +971,20 @@ Cohesion: 0.11
 Nodes (13): AccountAdapter, Boundaries, Components (`{% component %}`), `data-*` attributes, Layout scheme (Cool Canvas + V6), Lint, Modal JS contract, Palette (+5 more)
 
 ### Community 135 - "PatientDataExportView"
-Cohesion: 0.06
-Nodes (12): BurnedInAnnotationGateTests, DeidQueueRoutingTests, IndianIdRecognizerTests, OcrWholeTextScrubTests, _burnt_in_annotation_is_no(), _get_engine(), _get_ocr(), _get_skip_modalities() (+4 more)
+Cohesion: 0.11
+Nodes (4): BurnedInAnnotationGateTests, DeidQueueRoutingTests, IndianIdRecognizerTests, OcrWholeTextScrubTests
 
-### Community 136 - "t"
-Cohesion: 0.20
-Nodes (10): Fr(), get(), set(), we(), Te(), vi(), t(), bt() (+2 more)
+### Community 136 - "EmbeddingIndexTests"
+Cohesion: 0.10
+Nodes (6): Chunked Lookup Embeddings Implementation Plan, Global Constraints, Task 5: Full-suite regression gate + docs, EmbeddingIndexTests, embed(), _inflight_embedding_tasks_alive()
 
 ### Community 137 - "_upsert_study"
-Cohesion: 0.05
-Nodes (39): Accessing the Application, Administrative Features, Adverse Effects, Assign Roles, Background workers, Best Practices, Clinical Data Management, Clinical Monitoring (+31 more)
+Cohesion: 0.04
+Nodes (44): Accessing the Application, Administrative Features, Adverse Effects, Assign Roles, Background workers, Best Practices, Clinical Data Management, Clinical Monitoring (+36 more)
 
-### Community 138 - "deidentification/views.py"
-Cohesion: 0.05
-Nodes (17): _annotate_patient_list(), apply_patient_list_filters(), _bulk_patient_ids_from_request(), CreateMissingInstanceView, CreateMissingPatientView, CreateMissingSeriesView, CreateMissingStudyView, DeidClinicalDownloadView (+9 more)
+### Community 138 - "OcrTaskRunTests"
+Cohesion: 0.10
+Nodes (5): CsvRowTaskRunTests, DeidTaskRunTests, ExtractorTaskRunVisibilityTests, _make_user(), OcrTaskRunTests
 
 ### Community 139 - "DICOM Data Export"
 Cohesion: 0.33
@@ -914,59 +999,55 @@ Cohesion: 0.05
 Nodes (43): condition, container_name, env_file, healthcheck, image, ports, restart, volumes (+35 more)
 
 ### Community 143 - "n"
-Cohesion: 0.11
-Nodes (55): a(), ao(), b(), C(), du(), F(), Fl(), G() (+47 more)
+Cohesion: 0.13
+Nodes (41): ao(), C(), du(), F(), gu(), hu(), i(), jo() (+33 more)
 
 ### Community 144 - "Bulk DICOM Import"
 Cohesion: 0.33
 Nodes (6): Bulk DICOM Import, Bulk Dicom Complete (page), Bulk Dicom Confirmation (page), Bulk Dicom Matching (page), Bulk Dicom Session List (page), Bulk Dicom Upload (page)
 
-### Community 145 - "BaseSerializer"
-Cohesion: 0.18
-Nodes (8): BaseSerializer, Meta, LaboratoryResultsSerializer, Meta, PatientReportedOutcomeSerializer, Meta, PatientSerializer, Meta
-
-### Community 147 - "da"
+### Community 145 - "fa"
 Cohesion: 0.10
-Nodes (8): ca(), da(), getMaxOverflow(), ma, parseArrayData(), parseObjectData(), parsePrimitiveData(), resolveDataElementOptions()
+Nodes (12): at(), configure(), de(), dt(), r(), fa(), ga(), ln() (+4 more)
+
+### Community 147 - "BulkPatientListTests"
+Cohesion: 0.10
+Nodes (9): BulkPatientListTests, LookupFMACode, LookupICDCode, LookupFMACodeSerializer, Meta, LookupICDCodeSerializer, Meta, LookupFMACodeViewSet (+1 more)
 
 ### Community 148 - "ui.py"
 Cohesion: 0.07
 Nodes (19): ActionTile, Alert, BackLink, Badge, Button, CheckCard, DataList, FilterBar (+11 more)
 
 ### Community 149 - "TestTaskStatusView"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (4): ge, Ni, Qt, Xt
 
-### Community 150 - "deid_prefetch_model.py"
-Cohesion: 0.07
-Nodes (3): be(), r(), test()
-
-### Community 151 - "hash_pk"
-Cohesion: 0.18
-Nodes (7): hash_pk(), LesionSerializer, Meta, OutcomeSerializer, Meta, SomaticGenomicAlterationsSerializer, Meta
+### Community 151 - "csv_rows.py"
+Cohesion: 0.13
+Nodes (7): build_row_markdown(), csv_header_names(), expand_csv_to_row_documents(), _find_column(), _match_patients(), _read_csv(), CsvRowExpansionTests
 
 ### Community 152 - "De-identification"
 Cohesion: 0.40
 Nodes (5): De-identification, Legacy Import (page), Legacy Import Results (page), Patient Detail (page), Patient List (page)
 
-### Community 178 - "task_export_patient_data"
-Cohesion: 0.18
-Nodes (7): PathologySerializer, Meta, PatientAssessmentSerializer, Meta, SystemicTherapySerializer, Meta, task_export_patient_data()
+### Community 178 - "vi"
+Cohesion: 0.11
+Nodes (24): ae(), ai(), b(), be(), de(), di(), ei(), G() (+16 more)
 
 ### Community 181 - "LesionImportSerializer"
-Cohesion: 0.11
-Nodes (17): apipe_nimble_deid(), _build_context(), _is_date_surface(), judge_tag(), _minimal_filter(), _norm(), _overlap(), _parse_review_output() (+9 more)
+Cohesion: 0.09
+Nodes (27): Apples-to-apples principle, File Structure, Task 2: Extract the ground-truth catalog into `scripts/deid_ground_truth.py`, load_catalog(), apipe_nimble_deid(), _build_context(), _is_date_surface(), judge_tag() (+19 more)
 
-### Community 182 - "SiteConfiguration"
-Cohesion: 0.03
-Nodes (31): SiteConfiguration, Meta, DICOMServerConfiguration, Meta, InboundDICOMInstance, Meta, Status, _db_cleanup() (+23 more)
+### Community 182 - "DICOMServerConfiguration"
+Cohesion: 0.07
+Nodes (9): DICOMServerConfiguration, Meta, _db_cleanup(), handle_echo(), handle_find(), handle_store(), build_ae(), run_server() (+1 more)
 
 ### Community 183 - "._execute_table_call"
-Cohesion: 0.05
-Nodes (14): ajaxConvert(), ajaxHandleResponses(), completed(), computeStyleTests(), createCache(), cache(), dataAttr(), finalPropName() (+6 more)
+Cohesion: 0.06
+Nodes (12): ajaxConvert(), ajaxHandleResponses(), computeStyleTests(), createCache(), cache(), dataAttr(), finalPropName(), getData() (+4 more)
 
 ### Community 184 - "Cytogenetics"
-Cohesion: 0.07
+Cohesion: 0.06
 Nodes (4): ge, Ni, Qt, Xt
 
 ### Community 185 - "re"
@@ -974,40 +1055,36 @@ Cohesion: 0.32
 Nodes (7): is_shiftable_surface(), is_single_component(), main(), month_number(), parse_date_span(), shift_document(), shifted_date_text()
 
 ### Community 187 - "GermlineGenomicAlterations"
-Cohesion: 0.07
-Nodes (15): ae, ee(), Et(), ie(), It(), jt(), ke(), rt() (+7 more)
+Cohesion: 0.06
+Nodes (19): ae, _e(), ee(), Et(), ie(), It(), jt(), ke() (+11 more)
 
 ### Community 192 - "._selected"
 Cohesion: 0.13
 Nodes (28): b(), c(), n(), r(), t(), d(), f(), g() (+20 more)
 
-### Community 193 - "meddeid_test.py"
-Cohesion: 0.33
-Nodes (6): load_notes(), main(), match_ratio(), run(), score_note(), apply_precision()
+### Community 193 - "advance_extraction_job"
+Cohesion: 0.10
+Nodes (4): advance_extraction_job(), _advance_extraction_job_inner(), _deid_gate(), ExtractionJobTaskRunTests
 
 ### Community 194 - "0034_seed_default_pipeline.py"
 Cohesion: 0.09
 Nodes (19): addInlineTemplateHandler(), applyLastClass(), checkFormsetEmpty(), crispyFormset(), crispyFormsetAdd(), crispyFormsetDelete(), crispyFormsetReindex(), crispyFormsetToggleAdd() (+11 more)
 
-### Community 195 - "_serialize_patient_clinical_data"
-Cohesion: 0.20
-Nodes (7): DICOMStudyProjectSerializer, Meta, GermlineGenomicAlterationsSerializer, Meta, OtherTreatmentSerializer, Meta, _serialize_patient_clinical_data()
+### Community 195 - "z"
+Cohesion: 0.19
+Nodes (7): An(), Ci(), Di(), On, _refresh(), start(), z()
 
-### Community 197 - "export_patient_data"
-Cohesion: 0.20
-Nodes (7): DICOMStudySerializer, Meta, ImmunohistochemistrySerializer, Meta, PatientOutcomeSerializer, Meta, export_patient_data()
+### Community 197 - "encrypted_model_fields_fields"
+Cohesion: 0.10
+Nodes (10): Migration, Migration, Migration, Migration, Migration, Migration, Migration, Migration (+2 more)
 
 ### Community 198 - "SomaticGenomicAlterations"
-Cohesion: 0.18
-Nodes (16): score(), judge(), _build_context(), _cache_path(), _Cand, _ensure_gemma_cfg(), gen_candidates(), get_llm_rec() (+8 more)
-
-### Community 200 - "FileImportSession"
-Cohesion: 0.08
-Nodes (5): Step1UploadCSVForm, Meta, FileImportSession, Meta, ImportSessionListView
+Cohesion: 0.12
+Nodes (22): score(), load_notes(), main(), match_ratio(), run(), score_note(), apply_precision(), judge() (+14 more)
 
 ### Community 202 - "O"
-Cohesion: 0.19
-Nodes (4): bs, ki(), Xi(), xs
+Cohesion: 0.15
+Nodes (5): bs, ki(), qi(), Xi(), xs
 
 ### Community 204 - "Base Layout & Auth"
 Cohesion: 0.50
@@ -1025,14 +1102,6 @@ Nodes (4): Task Management, Task Progress (page), Taskrun Detail (page), Taskrun
 Cohesion: 0.10
 Nodes (18): Ae(), B(), Be(), $e(), fe(), Ge(), ht(), Ie() (+10 more)
 
-### Community 212 - "Test Design (the spec)"
-Cohesion: 0.20
-Nodes (10): Apples-to-apples principle, Axes, Stages (sequential; each varies one axis, holds the rest constant), Task 3: Build the staged harness `scripts/pipeline_test.py`, Task 4: Stage 1 — traditional NER (`R1` vs `R2` vs `R3`, held `P1 + T0`), Task 5: Stage 2 — add LLM to W (`W`, `W+gemma`, `W+OpenMed`, held `P1 + T0`), Task 6: Stage 3 — precision (`P1` vs `P2`) on R\*, held `T0`, Task 7: Stage 5 — assemble and document the final recommendation (+2 more)
-
-### Community 213 - "CytogeneticsListView"
-Cohesion: 0.17
-Nodes (3): CytogeneticsListView, RadiotherapyVolumeListView, SystemicTherapyScheduleListView
-
 ### Community 214 - "LaboratoryResultsImportSerializer"
 Cohesion: 0.07
 Nodes (29): 400 Bad Request, 404 Not Found, Authentication, Available Endpoints, Base URL, Clinical Assessment, Core Lookup Tables, Error Responses (+21 more)
@@ -1041,21 +1110,21 @@ Nodes (29): 400 Bad Request, 404 Not Found, Authentication, Available Endpoints,
 Cohesion: 0.07
 Nodes (3): getCookie(), SessionAuthentication(), trim()
 
-### Community 216 - "OtherTreatmentImportSerializer"
-Cohesion: 0.15
-Nodes (3): n(), formatter(), xe()
-
 ### Community 217 - "PatientAssessmentImportSerializer"
 Cohesion: 0.14
 Nodes (25): Ae(), $e(), Ee(), ge(), f(), r(), H(), d() (+17 more)
+
+### Community 218 - "burnt_in_pixel_scrubbing.py"
+Cohesion: 0.13
+Nodes (8): _burnt_in_annotation_is_no(), _get_engine(), _get_ocr(), _get_skip_modalities(), _ocr_burnt_in_text_bboxes(), scrub_burnt_in_pixels(), _UnusedAnalyzer, EasyOCROCR
 
 ### Community 219 - "PatientReportedOutcomeImportSerializer"
 Cohesion: 0.07
 Nodes (29): 1. `test_import_basic.csv` - Basic Import with Missing Relationships, 2. `test_import_duration.csv` - Duration Field Testing, 3. `test_import_wide_format.csv` - Column-Value Mapping (Wide Format), 4. `test_import_long_format.csv` - Repeating Rows (Long Format), 5. `test_import_hierarchy.csv` - Deep Hierarchy Testing, 6. `test_import_missing_values.csv` - Missing Values & Default Values, Expected Results, Notes (+21 more)
 
 ### Community 220 - "RadiotherapyImportSerializer"
-Cohesion: 0.09
-Nodes (10): _calculateBarIndexPixels(), _getRuler(), _getStackCount(), _getStackIndex(), _getStacks(), label(), P(), qa (+2 more)
+Cohesion: 0.14
+Nodes (4): He(), label(), P(), qa
 
 ### Community 221 - "SurgeryImportSerializer"
 Cohesion: 0.10
@@ -1066,7 +1135,7 @@ Cohesion: 0.08
 Nodes (9): ctr(), Defaults(), Dropdown(), EventRelay(), getMethods(), MaximumInputLength(), MinimumInputLength(), Options() (+1 more)
 
 ### Community 225 - "dicom_archive/admin.py"
-Cohesion: 0.32
+Cohesion: 0.33
 Nodes (3): ArchiveConfigurationAdmin, ArchivedStudyAdmin, ArchiveLocationAdmin
 
 ### Community 226 - "BaseCommand"
@@ -1090,12 +1159,12 @@ Cohesion: 0.14
 Nodes (20): a(), J(), kt(), Tt(), Ut(), B(), C(), D() (+12 more)
 
 ### Community 232 - "matcherFromTokens"
-Cohesion: 0.20
-Nodes (16): assert(), compile(), condense(), createPositionalPseudo(), elementMatcher(), find(), markFunction(), matcherFromGroupMatchers() (+8 more)
+Cohesion: 0.36
+Nodes (9): addCombinator(), compile(), elementMatcher(), find(), matcherFromTokens(), select(), testContext(), tokenize() (+1 more)
 
-### Community 233 - "0034_fix_dicomstudy_folder_paths.py"
-Cohesion: 0.38
-Nodes (4): _expected_folder_path(), fix_dicomstudy_folder_paths(), Migration, _sanitize()
+### Community 234 - "LlmNerClient"
+Cohesion: 0.18
+Nodes (6): Execution Status (2026-10-15), Part 4 — End-to-end LLM deid test + rollout, Task 8: End-to-end LLM deidentification (text + CSV, mocked LLM), Task 9: Real-environment evaluation checklist (manual, no code), LlmNerClient, LlmNerClientTests
 
 ### Community 235 - ".get_export_resource_class"
 Cohesion: 0.09
@@ -1117,13 +1186,21 @@ Nodes (6): DICOM Archive — Docker deployment, Scenario 1 — another folder in
 Cohesion: 0.09
 Nodes (6): bs, Ji, ki(), qi(), Xi(), xs
 
-### Community 244 - "Global Constraints"
-Cohesion: 0.29
-Nodes (6): Deid Dedicated Celery Queue Implementation Plan, Deployment Notes (for the reviewer, not a task), Global Constraints, Task 1: Route the deid chain tasks to the `deid` queue, Task 2: Dedicated deid worker in the example compose file (+ README), Task 3: Update the Sphinx docs (`docs/help_files/`)
+### Community 244 - "embeddings.py"
+Cohesion: 0.14
+Nodes (5): BaseEmbeddingProvider, build_provider(), _CudaSmokeTestFailed, OpenAICompatibleProvider, SentenceTransformerProvider
+
+### Community 245 - "TaskRunResumeRetryViewTests"
+Cohesion: 0.14
+Nodes (3): FlashMessageRenderingTests, ModelDocstringTests, TaskRunResumeRetryViewTests
 
 ### Community 247 - "0007_databasetable_date_validation_pairs.py"
-Cohesion: 0.08
-Nodes (12): Ge(), as(), cs(), ds(), gs, hs(), Ji, ns() (+4 more)
+Cohesion: 0.09
+Nodes (11): Ge(), as(), cs(), ds(), gs, hs(), Ji, ns() (+3 more)
+
+### Community 248 - "llm_ner.py"
+Cohesion: 0.18
+Nodes (4): LlmNerError, LlmNerParseError, _parse_entity_output(), LlmNerParseTests
 
 ### Community 249 - "l"
 Cohesion: 0.29
@@ -1150,12 +1227,12 @@ Cohesion: 0.20
 Nodes (14): A(), c(), e(), i(), l(), n(), S(), t() (+6 more)
 
 ### Community 256 - "pandas"
-Cohesion: 0.01
-Nodes (112): import_csv_data(), Migration, import_csv_data(), Migration, import_csv_data(), Migration, import_csv_data(), Migration (+104 more)
+Cohesion: 0.03
+Nodes (36): import_csv_data(), Migration, import_csv_data(), Migration, import_csv_data(), Migration, import_csv_data(), Migration (+28 more)
 
 ### Community 260 - "ks"
-Cohesion: 0.09
-Nodes (8): _e(), getCenterPoint(), ks(), rt(), tooltipPosition(), Ue(), ws(), za()
+Cohesion: 0.12
+Nodes (3): ks(), Ue(), ws()
 
 ### Community 261 - "html/_static/english-stemmer.js"
 Cohesion: 0.22
@@ -1193,6 +1270,10 @@ Nodes (10): addPopupIndex(), dismissAddRelatedObjectPopup(), dismissChangeRelate
 Cohesion: 0.16
 Nodes (14): _arrayLikeToArray(), augment(), clipDuplicates(), copyRegex(), _createForOfIteratorHelper(), getNativeFlags(), hasNamedCapture(), isType() (+6 more)
 
+### Community 297 - "resolve_spans"
+Cohesion: 0.18
+Nodes (3): resolve_spans(), _SourceIndex, ResolveSpansTests
+
 ### Community 298 - "webauthn-json.js"
 Cohesion: 0.31
 Nodes (9): base64urlToBuffer(), bufferToBase64url(), convert(), create(), createRequestFromJSON(), createResponseToJSON(), get(), getRequestFromJSON() (+1 more)
@@ -1208,6 +1289,14 @@ Nodes (13): c(), ee(), F(), I(), ne(), Pt(), Q(), te() (+5 more)
 ### Community 301 - "D"
 Cohesion: 0.40
 Nodes (5): kt(), Tt(), Ut(), b(), D()
+
+### Community 304 - "bn"
+Cohesion: 0.17
+Nodes (16): An(), bl(), bn(), n(), cl(), In(), jn(), ke() (+8 more)
+
+### Community 305 - "LookupLaterality"
+Cohesion: 0.15
+Nodes (9): Usage in CSV Import, LookupLaterality, LookupPathology, LookupLateralitySerializer, Meta, LookupPathologySerializer, Meta, LookupLateralityViewSet (+1 more)
 
 ### Community 307 - ".get_template_data"
 Cohesion: 0.20
@@ -1225,9 +1314,9 @@ Nodes (4): Headers(), iteratorFor(), normalizeName(), normalizeValue()
 Cohesion: 0.15
 Nodes (13): command, container_name, cpus, depends_on, env_file, image, mem_limit, ports (+5 more)
 
-### Community 314 - "extractor/models.py"
-Cohesion: 0.02
-Nodes (70): Global Constraints, Task 4: Per-chunk pydantic models (`build_chunk_response_model`), ClientConfigurationAdmin, DatabaseFieldAdmin, DatabaseFieldInline, DatabaseTableAdmin, EmbeddingConfigurationAdmin, ExtractionJobAdmin (+62 more)
+### Community 314 - "PydanticModelBuilder"
+Cohesion: 0.04
+Nodes (16): Task 4: Per-chunk pydantic models (`build_chunk_response_model`), ResponseModelTable, Meta, describe(), clean_records(), child_key(), PydanticModelBuilder, check() (+8 more)
 
 ### Community 315 - ".readthedocs.yaml"
 Cohesion: 0.18
@@ -1241,6 +1330,14 @@ Nodes (8): checker(), clearAcross(), hide(), reset(), show(), showClear(), showQ
 Cohesion: 0.22
 Nodes (11): buildFragment(), buildParams(), disableScript(), DOMEval(), domManip(), getAll(), isArrayLike(), remove() (+3 more)
 
+### Community 320 - "H"
+Cohesion: 0.08
+Nodes (6): Ft, H, Ii, Je, Oi, Yt
+
+### Community 321 - "nu"
+Cohesion: 0.17
+Nodes (15): au(), Bo(), ea(), Eo(), Go(), Jl(), No(), nu() (+7 more)
+
 ### Community 323 - "Containers"
 Cohesion: 0.20
 Nodes (9): Celery Configuration, Containers, DICOM Server, GPU Acceleration (Optional), Logs, Query/Retrieve networking, RabbitMQ Management UI, Shared Media Volume (+1 more)
@@ -1249,9 +1346,17 @@ Nodes (9): Celery Configuration, Containers, DICOM Server, GPU Acceleration (Opt
 Cohesion: 0.04
 Nodes (46): 1.1 SiteConfiguration, 1.2 Project, 1.3 Patient, 1.4 PatientDicomFile, 2.1 DICOMStudy, 2.2 StudyTypeRule (admin config — human-only, no LLM exposure), 2.3 DICOMSeries / 2.4 DICOMInstance, 3.1 Diagnosis (+38 more)
 
+### Community 328 - "Un"
+Cohesion: 0.22
+Nodes (14): dt(), F(), Hn(), it(), lr(), N(), P(), _r() (+6 more)
+
 ### Community 329 - "Information about icons in this directory"
 Cohesion: 0.22
 Nodes (8): Adding a new icon, Contributing SVG Icons, Example SVG Structure, ⚠️ Important: Changing Font Awesome Version, Information about icons in this directory, License, Modifications, Usage
+
+### Community 330 - "client_app/forms.py"
+Cohesion: 0.17
+Nodes (4): EpigeneticDataForm, Meta, EpigeneticData, Meta
 
 ### Community 331 - "Animation"
 Cohesion: 0.22
@@ -1261,17 +1366,29 @@ Nodes (9): Animation(), camelCase(), createFxNow(), createTween(), defaultPrefil
 Cohesion: 0.44
 Nodes (8): addForm(), addOrSignupForm(), authenticateForm(), createCredentials(), dispatchError(), getData(), loginForm(), signupForm()
 
+### Community 337 - "DICOM Archive — Implementation Plans (Overview & Shared Contract)"
+Cohesion: 0.15
+Nodes (12): Beat scheduling (plan 01, `dicom_archive/services/schedule_sync.py`), Celery tasks (plan 01, `dicom_archive/tasks.py`), `chavi_client/settings.py` additions (owned by plan 01), `client_app.models.TaskRun.TaskType` additions (owned by plan 01), Deployment (Docker), DICOM Archive — Implementation Plans (Overview & Shared Contract), File map & plan ownership, Global Constraints (apply to every plan) (+4 more)
+
 ### Community 338 - "chaviclient-database"
 Cohesion: 0.36
 Nodes (8): depends_on, depends_on, depends_on, condition, depends_on, condition, chaviclient-database, chaviclient-rabbitmq
+
+### Community 339 - "g"
+Cohesion: 0.26
+Nodes (10): ar(), d(), g(), m(), p(), a(), b(), c() (+2 more)
 
 ### Community 340 - "Lookup App API Integration"
 Cohesion: 0.25
 Nodes (7): API URL Format, Authentication, Configuration, Customizing API Endpoints, Error Handling, Lookup App API Integration, Using the API Sync
 
-### Community 342 - "deidentification/admin.py"
-Cohesion: 0.27
-Nodes (8): DeidentificationJobAdmin, DeidInstanceAdmin, DeidPatientAdmin, DeidSeriesAdmin, DeidStudyAdmin, PixelRedactionLogAdmin, PixelRedactionLog, Meta
+### Community 341 - "chunk_text"
+Cohesion: 0.25
+Nodes (5): Part 2 — LLM NER service (`extractor/services/llm_ner.py`), Task 3: Chunking + verbatim span resolution (pure, testable), Task 4: LlmNerClient + LlmNerRecognizer (LLM call + Presidio adapter), chunk_text(), ChunkTextTests
+
+### Community 342 - "Pu"
+Cohesion: 0.24
+Nodes (11): Aa(), Ba(), Bu(), Dl(), Ha(), Pu(), Ra(), Rl() (+3 more)
 
 ### Community 345 - "js/wNumb.min.js"
 Cohesion: 0.43
@@ -1280,10 +1397,6 @@ Nodes (6): f(), h(), n(), r(), w(), x()
 ### Community 346 - "wnumb/wNumb.min.js"
 Cohesion: 0.43
 Nodes (6): f(), h(), n(), r(), w(), x()
-
-### Community 349 - "chavi_client/urls.py"
-Cohesion: 0.29
-Nodes (3): get_custom_admin_urls(), custom_403_view(), documentation_view()
 
 ### Community 350 - "chaviclient-celery-beat"
 Cohesion: 0.22
@@ -1313,9 +1426,101 @@ Nodes (9): container_name, cpus, depends_on, image, mem_limit, ports, restart, v
 Cohesion: 0.22
 Nodes (9): container_name, cpus, env_file, image, mem_limit, ports, restart, volumes (+1 more)
 
-### Community 381 - "nodeName"
+### Community 357 - "Comorbidity"
+Cohesion: 0.29
+Nodes (4): ComorbidityForm, Meta, Comorbidity, Meta
+
+### Community 358 - "Symptom"
+Cohesion: 0.29
+Nodes (4): SymptomForm, Meta, Symptom, Meta
+
+### Community 360 - "setMatcher"
+Cohesion: 0.29
+Nodes (8): assert(), condense(), createPositionalPseudo(), markFunction(), matcherFromGroupMatchers(), multipleContexts(), setDocument(), setMatcher()
+
+### Community 361 - "fs"
 Cohesion: 0.25
-Nodes (8): addCombinator(), boxModelAdjustment(), createButtonPseudo(), createInputPseudo(), curCSS(), getWidthOrHeight(), manipulationTarget(), nodeName()
+Nodes (3): fs(), sa(), xe()
+
+### Community 363 - "LookupAJCCMStageDescriptor"
+Cohesion: 0.33
+Nodes (4): LookupAJCCMStageDescriptor, LookupAJCCMStageDescriptorSerializer, Meta, LookupAJCCMStageDescriptorViewSet
+
+### Community 364 - "LookupAJCCNStageDescriptor"
+Cohesion: 0.33
+Nodes (4): LookupAJCCNStageDescriptor, LookupAJCCNStageDescriptorSerializer, Meta, LookupAJCCNStageDescriptorViewSet
+
+### Community 365 - "LookupAJCCTStageDescriptor"
+Cohesion: 0.33
+Nodes (4): LookupAJCCTStageDescriptor, LookupAJCCTStageDescriptorSerializer, Meta, LookupAJCCTStageDescriptorViewSet
+
+### Community 366 - "LookupClinicalSignificance"
+Cohesion: 0.33
+Nodes (4): LookupClinicalSignificance, LookupClinicalSignificanceSerializer, Meta, LookupClinicalSignificanceViewSet
+
+### Community 367 - "LookupComorbidity"
+Cohesion: 0.33
+Nodes (4): LookupComorbidity, LookupComorbiditySerializer, Meta, LookupComorbidityViewSet
+
+### Community 368 - "LookupDoseUnits"
+Cohesion: 0.33
+Nodes (4): LookupDoseUnits, LookupDoseUnitsSerializer, Meta, LookupDoseUnitsViewSet
+
+### Community 369 - "LookupExpressionUnits"
+Cohesion: 0.33
+Nodes (4): LookupExpressionUnits, LookupExpressionUnitsSerializer, Meta, LookupExpressionUnitsViewSet
+
+### Community 370 - "LookupGene"
+Cohesion: 0.33
+Nodes (4): LookupGene, LookupGeneSerializer, Meta, LookupGeneViewSet
+
+### Community 371 - "LookupGrade"
+Cohesion: 0.33
+Nodes (4): LookupGrade, LookupGradeSerializer, Meta, LookupGradeViewSet
+
+### Community 372 - "LookupIHCAntibody"
+Cohesion: 0.33
+Nodes (4): LookupIHCAntibody, LookupIHCAntibodySerializer, Meta, LookupIHCAntibodyViewSet
+
+### Community 373 - "LookupLaboratoryTest"
+Cohesion: 0.33
+Nodes (4): LookupLaboratoryTest, LookupLaboratoryTestSerializer, Meta, LookupLaboratoryTestViewSet
+
+### Community 374 - "LookupLesionType"
+Cohesion: 0.33
+Nodes (4): LookupLesionType, LookupLesionTypeSerializer, Meta, LookupLesionTypeViewSet
+
+### Community 375 - "LookupNodalAssessmentType"
+Cohesion: 0.33
+Nodes (4): LookupNodalAssessmentType, LookupNodalAssessmentTypeSerializer, Meta, LookupNodalAssessmentTypeViewSet
+
+### Community 376 - "LookupOutcomeType"
+Cohesion: 0.33
+Nodes (4): LookupOutcomeType, LookupOutcomeTypeSerializer, Meta, LookupOutcomeTypeViewSet
+
+### Community 377 - "LookupPathologyDescriptors"
+Cohesion: 0.33
+Nodes (4): LookupPathologyDescriptors, LookupPathologyDescriptorsSerializer, Meta, LookupPathologyDescriptorsViewSet
+
+### Community 378 - "LookupPerformanceStatus"
+Cohesion: 0.33
+Nodes (4): LookupPerformanceStatus, LookupPerformanceStatusSerializer, Meta, LookupPerformanceStatusViewSet
+
+### Community 379 - "data_import/models.py"
+Cohesion: 0.06
+Nodes (22): Step1UploadCSVForm, Meta, Step4FieldMappingForm, Step5ColumnValueMappingForm, Step6DateFormatForm, Step7DurationDateForm, Step8LookupMappingForm, Step9MissingRelationsForm (+14 more)
+
+### Community 380 - "LookupRadiotherapyTechnique"
+Cohesion: 0.33
+Nodes (4): LookupRadiotherapyTechnique, LookupRadiotherapyTechniqueSerializer, Meta, LookupRadiotherapyTechniqueViewSet
+
+### Community 381 - "nodeName"
+Cohesion: 0.29
+Nodes (7): boxModelAdjustment(), createButtonPseudo(), createInputPseudo(), curCSS(), getWidthOrHeight(), manipulationTarget(), nodeName()
+
+### Community 382 - "LookupRadiotherapyType"
+Cohesion: 0.33
+Nodes (4): LookupRadiotherapyType, LookupRadiotherapyTypeSerializer, Meta, LookupRadiotherapyTypeViewSet
 
 ### Community 383 - "._initBody"
 Cohesion: 0.29
@@ -1325,6 +1530,14 @@ Nodes (4): bufferClone(), normalizeMethod(), Request(), Response()
 Cohesion: 0.29
 Nodes (7): getArray(), getBoolean(), getContent(), getObject(), getString(), primitiveToNode(), unescapeKey()
 
+### Community 385 - "LookupRadiotherapyVolumeType"
+Cohesion: 0.33
+Nodes (4): LookupRadiotherapyVolumeType, LookupRadiotherapyVolumeTypeSerializer, Meta, LookupRadiotherapyVolumeTypeViewSet
+
+### Community 386 - "LookupResponseType"
+Cohesion: 0.33
+Nodes (4): LookupResponseType, LookupResponseTypeSerializer, Meta, LookupResponseTypeViewSet
+
 ### Community 387 - "services"
 Cohesion: 0.33
 Nodes (5): services, volumes, chaviclient_app_data, chaviclient_postgres_data, chaviclient_rabbitmq_data
@@ -1332,6 +1545,10 @@ Nodes (5): services, volumes, chaviclient_app_data, chaviclient_postgres_data, c
 ### Community 388 - "healthcheck"
 Cohesion: 0.53
 Nodes (6): healthcheck, healthcheck, interval, retries, test, timeout
+
+### Community 389 - "LookupSeverity"
+Cohesion: 0.33
+Nodes (4): LookupSeverity, LookupSeveritySerializer, Meta, LookupSeverityViewSet
 
 ### Community 390 - "Client-App Model Docstrings Implementation Plan"
 Cohesion: 0.33
@@ -1345,9 +1562,33 @@ Nodes (4): count_data_import_tables(), migration_applied(), migration_not_applie
 Cohesion: 0.53
 Nodes (4): count_data_import_tables(), migration_applied(), migration_not_applied(), repair-migrations.sh script
 
+### Community 393 - "LookupSizeUnits"
+Cohesion: 0.33
+Nodes (4): LookupSizeUnits, LookupSizeUnitsSerializer, Meta, LookupSizeUnitsViewSet
+
+### Community 395 - "LookupStageDescriptor"
+Cohesion: 0.33
+Nodes (4): LookupStageDescriptor, LookupStageDescriptorSerializer, Meta, LookupStageDescriptorViewSet
+
+### Community 396 - "LookupStagingSystem"
+Cohesion: 0.33
+Nodes (4): LookupStagingSystem, LookupStagingSystemSerializer, Meta, LookupStagingSystemViewSet
+
+### Community 397 - "LookupStagingType"
+Cohesion: 0.33
+Nodes (4): LookupStagingType, LookupStagingTypeSerializer, Meta, LookupStagingTypeViewSet
+
 ### Community 398 - "ajax-form.js"
 Cohesion: 0.50
 Nodes (3): RFC-2046, doAjaxSubmit(), replaceDocument()
+
+### Community 401 - "LookupSymptoms"
+Cohesion: 0.33
+Nodes (4): LookupSymptoms, LookupSymptomsSerializer, Meta, LookupSymptomsViewSet
+
+### Community 403 - "LookupSystemicAgent"
+Cohesion: 0.33
+Nodes (4): LookupSystemicAgent, LookupSystemicAgentSerializer, Meta, LookupSystemicAgentViewSet
 
 ### Community 404 - "export_selectable_fields.js"
 Cohesion: 0.60
@@ -1357,6 +1598,10 @@ Nodes (3): hideUnselectedResourceFields(), onResourceSelected(), showSelectedRes
 Cohesion: 0.70
 Nodes (4): d(), g(), m(), p()
 
+### Community 408 - "LookupTreatmentSequence"
+Cohesion: 0.33
+Nodes (4): LookupTreatmentSequence, LookupTreatmentSequenceSerializer, Meta, LookupTreatmentSequenceViewSet
+
 ### Community 410 - "_highlight"
 Cohesion: 0.67
 Nodes (3): _highlight(), _highlightText(), SphinxHighlight
@@ -1364,6 +1609,18 @@ Nodes (3): _highlight(), _highlightText(), SphinxHighlight
 ### Community 412 - "_highlight"
 Cohesion: 0.67
 Nodes (3): _highlight(), _highlightText(), SphinxHighlight
+
+### Community 413 - "django_core_management_base"
+Cohesion: 0.11
+Nodes (3): Command, Command, Command
+
+### Community 416 - "LookupVolumeUnits"
+Cohesion: 0.33
+Nodes (4): LookupVolumeUnits, LookupVolumeUnitsSerializer, Meta, LookupVolumeUnitsViewSet
+
+### Community 417 - "qe"
+Cohesion: 0.33
+Nodes (7): In(), Je(), Ke(), kn(), qe(), We(), Xe()
 
 ### Community 418 - "Command"
 Cohesion: 0.40
@@ -1373,13 +1630,65 @@ Nodes (3): Command, line_of(), ok()
 Cohesion: 0.07
 Nodes (7): ClientAppConfig, DataImportConfig, DeidentificationConfig, DicomArchiveConfig, DicomServerConfig, LookupConfig, StyleguideConfig
 
-### Community 422 - "client_app/serializers.py"
-Cohesion: 0.13
-Nodes (5): DiagnosisSerializer, Meta, HashedForeignKeyField, RadiotherapyVolumeSerializer, Meta
+### Community 420 - "GeneExpressionData"
+Cohesion: 0.33
+Nodes (4): GeneExpressionDataForm, Meta, GeneExpressionData, Meta
 
-### Community 444 - "be"
-Cohesion: 0.83
-Nodes (4): be(), k(), xe(), ye()
+### Community 421 - "Immunohistochemistry"
+Cohesion: 0.33
+Nodes (4): ImmunohistochemistryForm, Meta, Immunohistochemistry, Meta
+
+### Community 422 - "_serialize_patient_clinical_data"
+Cohesion: 0.04
+Nodes (67): AdverseEffectsSerializer, Meta, BaseSerializer, Meta, ComorbiditySerializer, Meta, ConcomitantMedicationsSerializer, Meta (+59 more)
+
+### Community 423 - "LaboratoryResults"
+Cohesion: 0.33
+Nodes (4): LaboratoryResultsForm, Meta, LaboratoryResults, Meta
+
+### Community 425 - "Lesion"
+Cohesion: 0.33
+Nodes (4): LesionForm, Meta, Lesion, Meta
+
+### Community 426 - "LesionResponse"
+Cohesion: 0.33
+Nodes (4): LesionResponseForm, Meta, LesionResponse, Meta
+
+### Community 427 - "Outcome"
+Cohesion: 0.33
+Nodes (4): OutcomeForm, Meta, Outcome, Meta
+
+### Community 428 - "Pathology"
+Cohesion: 0.33
+Nodes (4): PathologyForm, Meta, Pathology, Meta
+
+### Community 430 - "PatientAssessment"
+Cohesion: 0.33
+Nodes (4): PatientAssessmentForm, Meta, PatientAssessment, Meta
+
+### Community 432 - "PatientOutcome"
+Cohesion: 0.33
+Nodes (4): PatientOutcomeForm, Meta, PatientOutcome, Meta
+
+### Community 441 - "PatientReportedOutcome"
+Cohesion: 0.33
+Nodes (4): PatientReportedOutcomeForm, Meta, PatientReportedOutcome, Meta
+
+### Community 442 - "RadiotherapyDoseVolumeData"
+Cohesion: 0.33
+Nodes (4): RadiotherapyDoseVolumeDataForm, Meta, RadiotherapyDoseVolumeData, Meta
+
+### Community 443 - "SomaticGenomicAlterations"
+Cohesion: 0.33
+Nodes (4): SomaticGenomicAlterationsForm, Meta, SomaticGenomicAlterations, Meta
+
+### Community 444 - "StageInformation"
+Cohesion: 0.33
+Nodes (4): StageInformationForm, Meta, StageInformation, Meta
+
+### Community 445 - "he"
+Cohesion: 0.33
+Nodes (6): En(), gn(), he(), Qt(), Sn(), zt()
 
 ### Community 465 - "theme.js"
 Cohesion: 0.83
@@ -1391,23 +1700,23 @@ Nodes (3): Identity(), resolve(), Thrower()
 
 ## Knowledge Gaps
 - **39 isolated node(s):** `RFC-2046`, `Card (page)`, `403 (page)`, `FK Relationship Tracking`, `Schema Discovery Service` (+34 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 4439 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **329 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 4428 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **337 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Patient` connect `pathlib` to `dicom_server/admin.py`, `logging`, `CsvRowPipelineTests`, `Extractor Forms & Deid Config`, `Bulk Retrieval Scheduling`, `RetrievalJob`, `deidentification/views.py`, `deidentification/views.py`, `dicom_server/views.py`, `ProcessedText`, `client_app/forms.py`, `Extraction Review & Record Ops`, `TaskRun`, `resources.py`, `data_import/models.py`, `TestCase`, `Data Import Model Writers`, `django_db`, `Bulk Patient Study Query`, `dicom_server/signals.py`, `bulk_selection.py`, `ingest_dataset`, `Navbar Visibility Tests`, `patient_data.py`, `dicom_archive/views.py`, `task_export_patient_data`, `SiteConfiguration`, `MigrationBase`, `DICOMStudy`, `TestNodeCRUD`, `BulkScheduleForm`, `ArchiveViewTestCase`, `FolderPathMigrationTests`, `export_patient_data_to_file`, `LiveDicomServerTest`, `DICOMStudy`, `RemoteDICOMNode`, `TextDeidentificationService`, `dicom_server/tasks.py`, `ArchiveLocation`, `PatientAutoRetrievalSignalTests`, `CsvRowViewTests`, `tests_task_resume.py`, `DeidentificationChainTests`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `Patient` connect `pathlib` to `CsvRowPipelineTests`, `Extractor Forms & Deid Config`, `Bulk Retrieval Scheduling`, `RetrievalJob`, `TestCase`, `dicom_server/views.py`, `_upsert_study`, `DICOMStudy`, `Extraction Review & Record Ops`, `TaskRun`, `resources.py`, `data_import/models.py`, `Data Import Model Writers`, `csv_rows.py`, `Bulk Patient Study Query`, `SiteConfiguration`, `Navbar Visibility Tests`, `patient_data.py`, `ArchiveLocation`, `DICOMServerConfiguration`, `MigrationBase`, `client_app/forms.py`, `TestNodeCRUD`, `InstructorExtractionService`, `DICOM Archive — Implementation Plans (Overview & Shared Contract)`, `ArchiveHookTests`, `FolderPathMigrationTests`, `Select2WidgetMixin`, `DICOMStudy`, `StuckBatchRecoveryTests`, `RemoteDICOMNode`, `TextDeidentificationService`, `RemoteDICOMNode`, `ArchiveLocation`, `LookupAbstract`, `tests_task_resume.py`, `DeidentificationChainTests`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Are the 96 inferred relationships involving `Patient` (e.g. with `PatientForm` and `UnifiedClinicalDataResource`) actually correct?**
   _`Patient` has 96 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `RFC-2046`, `Card (page)`, `403 (page)` to the rest of the system?**
   _39 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `xregexp.js` be split into smaller, more focused modules?**
   _Cohesion score 0.012048192771084338 - nodes in this community are weakly interconnected._
-- **Why does `UnifiedClinicalDataResource` connect `Data Import Model Writers` to `pathlib`, `client_app/forms.py`, `resources.py`, `viewsets.py`, `django_db`, `Django Admin Registrations`, `Admin Export Resources & Settings`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+- **Why does `TaskRun` connect `TaskRun` to `EmbeddingConfiguration`, `extractor/tasks.py`, `advance_extraction_job`, `pathlib`, `SiteConfiguration`, `ArchiveLocation`, `Bulk Retrieval Scheduling`, `RbacPermissionRequiredMixin`, `OcrTaskRunTests`, `DICOMStudy`, `ArchiveLocation`, `DICOM Archive — Implementation Plans (Overview & Shared Contract)`, `ArchiveHookTests`, `TaskRunResumeRetryViewTests`, `DICOMStudy`, `tests_task_resume.py`, `DeidentificationChainTests`?**
+  _High betweenness centrality (0.022) - this node is a cross-community bridge._
 - **Are the 82 inferred relationships involving `DICOMStudy` (e.g. with `DiagnosisUpdateView` and `ForeignKeyInitMixin`) actually correct?**
   _`DICOMStudy` has 82 INFERRED edges - model-reasoned connections that need verification._
-- **Should `logging` be split into smaller, more focused modules?**
-  _Cohesion score 0.018370960602036298 - nodes in this community are weakly interconnected._
+- **Should `extractor/tasks.py` be split into smaller, more focused modules?**
+  _Cohesion score 0.08376623376623377 - nodes in this community are weakly interconnected._
