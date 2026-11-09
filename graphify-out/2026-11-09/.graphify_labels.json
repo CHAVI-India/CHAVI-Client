@@ -1,0 +1,17 @@
+{
+  "2": "Extractor Forms & Deid Config",
+  "5": "Bulk Retrieval Scheduling",
+  "7": "DRF Serializers",
+  "14": "Extraction Review & Record Ops",
+  "16": "Clinical List Views",
+  "21": "Data Import Model Writers",
+  "24": "Bulk Patient Study Query",
+  "26": "Data Import Field Introspection",
+  "27": "Extractor Admin",
+  "28": "Django Admin Registrations",
+  "31": "Admin Export Resources & Settings",
+  "33": "LLM Extraction UI Pages",
+  "34": "Bulk DICOM Selection Logic",
+  "38": "Navbar Visibility Tests",
+  "42": "DICOM Instance Selection"
+}
