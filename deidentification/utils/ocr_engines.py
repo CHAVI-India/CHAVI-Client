@@ -12,29 +12,53 @@ Currently shipped:
 
 from __future__ import annotations
 
+import logging
+
 __all__ = ["EasyOCROCR"]
+
+logger = logging.getLogger(__name__)
 
 
 class EasyOCROCR:
     """EasyOCR adapter (on-prem, no PHI leaves the box).
+
+    Device auto-detection: runs on CUDA whenever the container can see a
+    GPU (nvidia-container-toolkit + the GPU reservation in the compose
+    file); otherwise falls back to CPU with a capped thread count so a
+    deid batch can't pin every core on the host.
 
     EasyOCR returns **line-level** boxes with the full line text, which is
     exactly what whole-text scrubbing wants: every detected line is
     redacted in its entirety.
     """
 
-    def __init__(self, lang: str = "en", gpu: bool = False, model_store: str = None):
+    def __init__(self, lang: str = "en", model_store: str = None):
         import easyocr
+        import torch
+
+        # Auto-detect the best available device; on the CPU path cap torch
+        # threads (torch defaults to all cores, which would saturate a
+        # shared host during a deid run).
+        self.gpu = torch.cuda.is_available()
+        if not self.gpu:
+            from django.conf import settings as _s
+            threads = getattr(_s, 'DEID_OCR_CPU_THREADS', 4)
+            if threads and threads > 0:
+                torch.set_num_threads(threads)
 
         # model_store keeps the weight download on-prem: point it at a
         # pre-seeded local dir (DEID_EASYOCR_MODEL_STORE) instead of letting
         # EasyOCR hit the internet at runtime. If the dir is unset/empty, use
         # EasyOCR's own default. Note: with a model_store EasyOCR looks for
         # "<store>/det/detect_cRAFT.pth" and "<store>/rec/en.pth".
-        kwargs = {"gpu": gpu, "verbose": False}
+        kwargs = {"gpu": self.gpu, "verbose": False}
         if model_store:
             kwargs["model_storage_directory"] = model_store
         self._reader = easyocr.Reader([lang], **kwargs)
+        logger.info(
+            "EasyOCR ready (device=%s)",
+            "cuda" if self.gpu else "cpu",
+        )
 
     # ---- interface bits the presidio analyzer engine expects ----
     @staticmethod

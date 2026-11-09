@@ -821,6 +821,11 @@ DEID_PIXEL_OCR_ENGINE = "easyocr"
 DEID_EASYOCR_MODEL_STORE = os.environ.get(
     'DEID_EASYOCR_MODEL_STORE', '/opt/easyocr-model'
 )
+# Torch CPU-thread cap while EasyOCR runs without a GPU (the worker
+# auto-detects CUDA and uses the GPU when the container can see one —
+# see EasyOCROCR in deidentification/utils/ocr_engines.py). Prevents a
+# CPU-bound deid batch from pinning every core on the host box.
+DEID_OCR_CPU_THREADS = 4
 
 # StanfordAIMI deidentifier: RoBERTa fine-tuned on radiology reports +
 # clinical notes + i2b2 (Chambon et al., JAMIA 2022). Better recall on

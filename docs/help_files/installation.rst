@@ -31,21 +31,26 @@ Environment Setup
 
 1. Create the .env file with your settings:
 
-   * ``SECRET_KEY`` - Django secret key for security (change this for production!)
-   * ``DEBUG`` - Set to True for development, False for production
+   * ``DJANGO_SECRET_KEY`` - Django secret key for security (change this for production!)
+   * ``DJANGO_DEBUG`` - Set to True for development, False for production
    * ``DJANGO_ALLOWED_HOSTS`` - Comma-separated list of allowed hostnames/IPs
+   * ``DJANGO_CSRF_TRUSTED_ORIGINS`` - Comma-separated origins allowed for CSRF
    * ``DJANGO_DB_ENGINE`` - Database engine (default: django.db.backends.postgresql)
    * ``DJANGO_DB_NAME`` - Name of your database
    * ``DJANGO_DB_USER`` - Database username
    * ``DJANGO_DB_PASSWORD`` - Database password
    * ``DJANGO_DB_HOST`` - Database host address
    * ``DJANGO_DB_PORT`` - Database port number
+   * ``DJANGO_FIELD_ENCRYPTION_KEY`` - Fernet key for encrypted model fields
+   * ``EXTRACTOR_MAX_UPLOAD_MB`` - Maximum extractor upload size in MB (default: 50)
+   * ``LOOKUP_API_URL`` / ``LOOKUP_API_KEY`` / ``LOOKUP_API_TIMEOUT`` - lookup data API settings
+   * ``HTTP_PROXY`` / ``HTTPS_PROXY`` / ``NO_PROXY`` - proxy settings, if used
    * ``CELERY_BROKER_URL`` - the RabbitMQ address (see Prerequisites)
 
    Example .env file::
 
-    SECRET_KEY=a-long-random-string
-    DEBUG=True
+    DJANGO_SECRET_KEY=a-long-random-string
+    DJANGO_DEBUG=True
     DJANGO_ALLOWED_HOSTS='127.0.0.1,localhost'
 
     DJANGO_DB_ENGINE=django.db.backends.postgresql
@@ -57,7 +62,7 @@ Environment Setup
 
     CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
 
-   Note: Make sure to change the SECRET_KEY and set a secure database password before deployment.
+   Note: Make sure to change the DJANGO_SECRET_KEY and set a secure database password before deployment.
 
 3. Database Setup:
    

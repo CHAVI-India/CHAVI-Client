@@ -1,8 +1,33 @@
+# =============================================================================
+# Resource limits (shared-host safety)
+# =============================================================================
+# Every service below carries a `cpus:` / `mem_limit:` pair. These are
+# *ceilings*, not reservations: a container may use up to that much, and the
+# host keeps the remainder free for the OS and other applications. Sizing
+# assumes a typical 8-core / 32 GB DICOM workstation with an NVIDIA GPU;
+# the per-service comments say why each number is what it is. Adjust in
+# proportion for bigger (or smaller) hosts — do not remove them: without
+# ceilings a single busy container can saturate the whole box (e.g. a
+# deidentification batch on a CPU-only machine).
+#
+#   * The web tier (gunicorn, 4 preloaded workers) needs little CPU; its
+#     memory footprint dominates, hence mem_limit 4g.
+#   * The Celery default worker runs retrieval/ZIP jobs: modest caps.
+#   * The deid worker gets the biggest CPU cap: per-study deidentification
+#     runs OCR on every non-skipped image. With the GPU reservation below
+#     (nvidia-container-toolkit) the OCR inference runs on the GPU and the
+#     CPU cap mostly covers DICOM decompression; without a GPU it runs on
+#     CPU with a capped thread count, and the cap keeps the box responsive.
+#   * Postgres may need the most RAM as the archive/study index grows.
+# =============================================================================
+
 services:
   chaviclient-database:
     image: postgres:17
     restart: always
     container_name: chaviclient-database
+    cpus: 2
+    mem_limit: 16g  # largest consumer as the study/archive index grows
     ports:
       - "5433:5432"
     volumes:
@@ -19,6 +44,8 @@ services:
     image: rabbitmq:4-management
     restart: always
     container_name: chaviclient-rabbitmq
+    cpus: 1
+    mem_limit: 2g
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -36,6 +63,11 @@ services:
     image: chaviapp/chaviclient:main
     container_name: chaviclient-django
     restart: always
+    # Web tier: 4 gthread workers (see gunicorn.conf.py; raise via the
+    # WEB_CONCURRENCY env var on dedicated/larger hosts). Little CPU, but
+    # each preloaded worker holds a full Django app in RAM.
+    cpus: 2
+    mem_limit: 4g
     depends_on:
       chaviclient-database:
         condition: service_healthy
@@ -82,6 +114,9 @@ services:
       # chaviclient_archive definitions in the top-level volumes: section):
       # - chaviclient_archive:/archive/dicom
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "-Q", "default", "--concurrency=2"]
+    # Retrieval/ZIP jobs: CPU-moderate, memory-hungry for large studies.
+    cpus: 2
+    mem_limit: 8g
     # Pin remote DICOM node hostnames to IPs here if container DNS fails:
     #extra_hosts:
     #  - "www.dicomserver.co.uk=198.244.176.149"
@@ -123,12 +158,24 @@ services:
       # chaviclient_archive definitions in the top-level volumes: section):
       # - chaviclient_archive:/archive/dicom
     command: ["celery", "-A", "chavi_client", "worker", "-l", "info", "-Q", "deid", "--concurrency=1"]
+    # Biggest caps in the stack: one study at a time, but each study OCRs
+    # every non-skipped image and decompresses JPEG-2000 to raw pixels.
+    # With the GPU reservation below the OCR runs on the GPU; without it
+    # it falls back to CPU (thread count capped in-app) and this ceiling
+    # keeps the rest of the host responsive during long deid batches.
+    cpus: 8
+    mem_limit: 12g
     # Pin remote DICOM node hostnames to IPs here if container DNS fails:
     #extra_hosts:
     #  - "www.dicomserver.co.uk=198.244.176.149"
     # GPU (optional): uncomment on hosts with an NVIDIA GPU and the
-    # nvidia-container-toolkit installed. Lookup-table embedding computation
-    # then auto-detects and runs on CUDA; without this block it stays on CPU.
+    # nvidia-container-toolkit installed. The burnt-in-text OCR used by
+    # deidentification (EasyOCR) then auto-detects CUDA and runs the
+    # per-image inference on the GPU — on a GPU-less host it falls back
+    # to CPU with a capped thread count, which is slower but keeps the
+    # host responsive. Verify with:
+    #   docker logs chaviclient-celery-deid-worker | grep "EasyOCR ready"
+    # (expect "device=cuda") and `nvidia-smi` during a deid run.
     # deploy:
     #   resources:
     #     reservations:
@@ -153,6 +200,9 @@ services:
       - ./media:/app/media
       - ./logs:/app/logs
     command: ["celery", "-A", "chavi_client", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+    # Beat only dispatches scheduled jobs — minimal resources.
+    cpus: 0.5
+    mem_limit: 1g
 
   # Inbound DICOM SCP (C-ECHO/C-STORE/C-FIND). The published port must
   # equal the listen port configured at /dicom-server/config/ — remote
@@ -175,6 +225,9 @@ services:
     ports:
       - "11112:11112"
     command: ["python", "-m", "dicom_server"]
+    # Inbound DICOM SCP is connection-oriented and light on both CPU and RAM.
+    cpus: 1
+    mem_limit: 1g
 
   chaviclient-proxy:
     image: nginx:latest
@@ -187,6 +240,8 @@ services:
       - ./static:/static:ro
     depends_on:
       - chaviclient-django
+    cpus: 0.5
+    mem_limit: 128m
 
 volumes:
   chaviclient_postgres_data:

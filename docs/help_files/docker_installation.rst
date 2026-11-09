@@ -60,6 +60,60 @@ Host port    Service   What it is
 
 The nginx proxy forwards with ``client_max_body_size 10G`` by default — raise it in ``nginx.conf`` if you expect larger DICOM ZIP uploads. The web app itself listens on ``8000`` only inside the proxy network; use ``8001`` from outside.
 
+Environment variables (``.env``)
+---------------------------------
+
+The ``.env`` file is the single source of configuration for the whole
+stack: the app containers read the ``DJANGO_*``, ``LOOKUP_*``, proxy and
+Celery variables, the Postgres and RabbitMQ containers read their own
+initialisation variables, and the archive volume options reference the
+``NETWORK_*`` / ``NAS_*`` variables from the compose file. The table below
+lists every variable used by the stack and where it applies.
+
+=========================================  ======================  =============================================================================================================
+Variable                                   Used by                 Purpose / default
+=========================================  ======================  =============================================================================================================
+``DJANGO_SECRET_KEY``                      app (all containers)    Django signing key. No safe default - must be set.
+``DJANGO_DEBUG``                           app                     True by default; set to ``False`` for production.
+``DJANGO_ALLOWED_HOSTS``                   app                     Comma-separated hostnames/IPs the web app accepts.
+``DJANGO_CSRF_TRUSTED_ORIGINS``            app                     Comma-separated origins allowed for CSRF.
+``DJANGO_DB_ENGINE``                       app                     Database engine, e.g. ``django.db.backends.postgresql``.
+``DJANGO_DB_NAME``                         app                     Database name (``chaviclient`` in the example).
+``DJANGO_DB_USER``                         app                     Database username.
+``DJANGO_DB_PASSWORD``                     app                     Database password.
+``DJANGO_DB_HOST``                         app                     ``chaviclient-database`` inside the stack.
+``DJANGO_DB_PORT``                         app                     ``5432`` inside the stack (host port is ``5433``).
+``POSTGRES_USER``                          database container      Initialisation user; used by the container healthcheck.
+``POSTGRES_PASSWORD``                      database container      Initialisation password.
+``POSTGRES_DB``                            database container      Database created on first start; healthcheck target.
+``DJANGO_SUPERUSER_USERNAME``              entrypoint              Initial admin account, created on container start.
+``DJANGO_SUPERUSER_PASSWORD``              entrypoint              Initial admin password.
+``DJANGO_SUPERUSER_EMAIL``                 entrypoint              Initial admin e-mail address.
+``LOOKUP_API_URL``                         app                     Lookup-data backend endpoint.
+``LOOKUP_API_KEY``                         app                     Lookup-data API key from the CHAVI server.
+``LOOKUP_API_TIMEOUT``                     app                     Lookup request timeout in seconds (default ``30``).
+``HTTP_PROXY`` / ``HTTPS_PROXY``           app                     Outbound proxy, if the host reaches the internet via one.
+``NO_PROXY``                               app                     Comma-separated hosts that bypass the proxy.
+``CELERY_BROKER_URL``                      workers + beat          ``amqp://user:pass@chaviclient-rabbitmq:5672/vhost``.
+``RABBITMQ_DEFAULT_USER``                  rabbitmq container      Broker admin user (used by the management UI).
+``RABBITMQ_DEFAULT_PASS``                  rabbitmq container      Broker admin password.
+``RABBITMQ_DEFAULT_VHOST``                 rabbitmq container      Virtual host (``chavi_vhost`` in the example).
+``DJANGO_FIELD_ENCRYPTION_KEY``            app                     Fernet key for encrypted model fields; generate with the Fernet helper shown in the example ``.env`` files.
+``EXTRACTOR_MAX_UPLOAD_MB``                app                     Maximum extractor upload size in MB (default ``50``).
+``DEID_EASYOCR_MODEL_STORE``               deid worker             Optional local EasyOCR model directory; the image already ships the models at ``/opt/easyocr-model``.
+``WEB_CONCURRENCY``                        django                  Optional gunicorn worker count (default ``4``); raise on dedicated hosts.
+``NETWORK_USER`` / ``NETWORK_DOMAIN`` /    compose (CIFS)          SMB credentials + share path for the DICOM archive volume option (
+``NETWORK_PASSWORD`` / ``NETWORK_PATH``                            see the archive section).
+``NAS_IP`` / ``NAS_PATH``                  compose (NFS)           NFS server and export for the DICOM archive volume option.
+=========================================  ======================  =============================================================================================================
+
+
+Two notes on the passwords: ``DJANGO_DB_PASSWORD`` must equal
+``POSTGRES_PASSWORD`` (the app connects to the same database the container
+initialises), and ``CELERY_BROKER_URL`` must use the same credentials and
+vhost as the ``RABBITMQ_DEFAULT_*`` variables. Keep the file's permissions
+at ``600`` and never commit it to version control.
+
 After the .env file has been edited, you can start the Docker containers by running the following command:
 
 .. code-block:: bash
@@ -112,14 +166,91 @@ Two Celery workers process background jobs:
 * ``chaviclient-celery-deid-worker`` — deidentification only. Runs with a
   single slot (``--concurrency=1``) on the dedicated ``deid`` queue, so
   deidentification batches are processed strictly one after another, even
-  when several patients are de-identified at the same time. This keeps
-  memory and CPU use in check: only one copy of the text-detection models
+  when several patients are de-identified at the same time. Only one study
+  is ever being de-identified at once, so only one copy of the OCR models
   is loaded at a time.
 
 A de-identification job started while another is already running waits in
 the queue; its task run shows no progress until the running batch
 finishes. Upgrading the software replaces both workers at once, and any
 interrupted de-identification run resumes from where it left off.
+
+Sharing CPU, RAM and GPU Resources
+-----------------------------------
+
+Every container in this stack runs on the same physical machine — a
+container never gets its own dedicated CPU or GPU. Without limits, any one
+service could use as much of the shared pool as it wants, and a single busy
+task can make the whole host unresponsive (this is what historically
+happened when a de-identification batch ran per-image OCR on the CPU with
+no thread cap, pinning every core for the entire study). The example
+compose file therefore carries a ``cpus:`` / ``mem_limit:`` pair on every
+service — see the header comment block in ``example_docker-compose.yml``.
+These are *ceilings*, not reservations: a container may use up to that
+much, and the host keeps the remainder for the operating system and other
+applications.
+
+The ceilings are sized for a typical 8-core / 32 GB workstation with an
+NVIDIA GPU; scale them proportionally on bigger or smaller hosts.
+
+==================  ==============  ==========  ==============================================
+Service             CPU ceiling     Memory      Notes
+==================  ==============  ==========  ==============================================
+``database``        2               16 GB        Largest consumer; grows with the archive index
+``deid worker``     8               12 GB        One study at a time; per-image OCR
+``celery worker``   2               8 GB         Retrieval, ZIP and clinical-download jobs
+``django``          2               4 GB         Web tier; memory-dominated, little CPU
+``rabbitmq``        1               2 GB         Message broker
+``dicom``           1               1 GB         Inbound DICOM SCP (light, connection-oriented)
+``beat``            0.5             1 GB         Dispatches scheduled jobs only
+``proxy``           0.5             128 MB       nginx reverse proxy
+==================  ==============  ==========  ==============================================
+
+There are three different "concurrency" knobs, and each controls a different
+layer:
+
+* ``--concurrency=N`` on a Celery worker decides how many *tasks* run side
+  by side (each task in its own worker process). It does **not** limit how
+  many cores one task uses inside itself — the threading libraries inside a
+  task (PyTorch for OCR, for example) spread their work across every core
+  they can see unless capped. The app caps its CPU-only OCR thread count
+  internally as a safety net.
+* ``workers`` / ``threads`` in ``gunicorn.conf.py`` decide how many web
+  *processes* run and how many requests each handles at once. Every
+  preloaded gunicorn worker holds a full copy of the Django app in memory,
+  so the default is deliberately small: 4 workers × 2 threads, with short
+  timeouts so a stuck request can't occupy a worker for long. On a larger
+  or dedicated host raise it via the ``WEB_CONCURRENCY`` environment
+  variable.
+* The ``cpus:`` / ``mem_limit:`` ceilings in the compose file are the final
+  safety net that guarantees no single container can take the whole box.
+
+The de-identification worker is the only service that uses the GPU. Its
+burnt-in-text OCR (EasyOCR) **auto-detects CUDA at startup**: if the
+container can see an NVIDIA GPU, the per-image inference runs on the GPU;
+otherwise it falls back to CPU with a capped thread count (slower, but the
+host stays responsive). No configuration flag is needed. To enable GPU use
+on the host:
+
+#. Install the `nvidia-container-toolkit
+   <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_
+   and restart the Docker daemon.
+#. Uncomment the ``deploy.resources.reservations.devices`` block on the
+   ``chaviclient-celery-deid-worker`` service in the compose file.
+#. Start the stack and, after the first de-identification job has begun,
+   verify::
+
+      docker logs chaviclient-celery-deid-worker | grep "EasyOCR ready"
+      # expect: "EasyOCR ready (device=cuda)"
+
+   ``nvidia-smi`` should show the GPU busy during a de-identification run
+   while overall host CPU use stays low.
+
+.. note::
+   On hosts without a GPU the same stack works unchanged — de-identification
+   simply runs slower. The per-service ceilings plus the in-app CPU thread
+   cap are what keep other applications on the host usable during long
+   batches.
 
 DICOM Query/Retrieve Networking
 --------------------------------
